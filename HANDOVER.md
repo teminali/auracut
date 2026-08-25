@@ -1,9 +1,29 @@
 # AuraCut — handover
 
 You are picking up an Electron video editor whose Copilot **runs Claude Code
-as its agent**. The goal for this next phase: take it from roughly 70% of
-real-world editing capability to ~95%, while getting faster and cheaper per
-edit, not slower.
+as its agent**.
+
+## ⚠ PRIORITY ZERO: export produces no file
+
+`src/engine/exportPipeline.ts` renders every frame correctly and then
+**encodes nothing**. There is no `VideoEncoder`, no `MediaRecorder`, no muxer
+and no ffmpeg call anywhere in the codebase. It runs the frame loop, prints
+"Muxing AAC audio streams and finalizing MP4 container…", sleeps 400ms, and
+returns a path like `~/Movies/Project_Master.mp4` that was never created —
+then reports "Hardware Export Complete". The function's own comment claims it
+"encodes via WebCodecs / FFmpeg". Neither is present.
+
+**Fix this before anything else.** Every other capability is preparation for a
+step that does not happen, and no capability estimate means anything until a
+file comes out. The plumbing already exists: `electron/transcribe.ts` shows
+the pattern for finding and driving ffmpeg from main, and `renderTimelineFrame`
+already produces correct frames. Pipe frames to ffmpeg stdin (rawvideo in,
+h264/hevc/prores out) and mux the audio graph alongside.
+
+Audio is not in the render either — the new playback engine is preview-only.
+
+Once export is real, the capability estimate below (~70% today → ~95%
+reachable) holds. Until then the honest description is "a very good previewer".
 
 Read this whole file before touching anything. Several of the traps below
 cost hours to find and are invisible from the code.
@@ -115,7 +135,13 @@ Still outstanding:
 
 | Item | Shape |
 |---|---|
+| **`exportPipeline.ts`** | **Encodes nothing.** Renders frames, sleeps, returns a path to a file that does not exist, reports success. See Priority Zero at the top. |
 | `shaders.ts` | 90 lines of WebGL2 GLSL that **nothing imports**, headed "GPU Shaders Engine". The compositor is pure 2D canvas — zero WebGL calls. This is the ceiling on VFX (Phase 4). |
+
+**Lesson from how this was missed:** the audit swept tools and engines and
+never asked the most basic question — *does a file come out?* Trace each
+user-visible outcome end to end to the artifact it claims to produce, not just
+to the function that claims to produce it.
 
 Verified genuinely real, do not re-audit: `beatDetect.ts` (WebAudio decode,
 spectral-flux onsets, autocorrelation tempo), `compositor.ts` rendering,
@@ -158,6 +184,8 @@ actually hitting the limit, which beats guessing.
 ---
 
 ## 5. Roadmap (proposed — revisit against the gap log)
+
+**Phase 0 — Export.** See the top of this file. Nothing ships until this works.
 
 **Phase 1 — Trust.** The 48-tool audit above. Nothing else matters if tools lie.
 
