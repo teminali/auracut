@@ -70,6 +70,11 @@ export interface AuraCutElectronAPI {
     cancel: (sessionId: string) => Promise<boolean>;
   };
 
+  media: {
+    /** Writes bytes to a temp file and returns its absolute path. */
+    writeTemp: (name: string, bytes: Uint8Array) => Promise<string>;
+  };
+
   claude: {
     status: () => Promise<ClaudeStatus>;
     send: (prompt: string, resume: boolean) => Promise<boolean>;

@@ -34,6 +34,7 @@ import { getNaturalSize } from '../engine/compositor';
 import { runHardwareExport, unsupportedAudioSettings } from '../engine/exportPipeline';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
 import { loadFonts, isFontAvailable } from '../engine/systemFonts';
+import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
 import { followToolCall } from '../engine/agentPresence';
 
 /* ── Tool definition ────────────────────────────────────────────── */
@@ -1962,6 +1963,90 @@ defineTool({
       system: shown.filter((f) => f.source === 'system').map((f) => f.family),
     };
   },
+});
+
+defineTool({
+  name: 'generate_sound_effect',
+  category: 'audio',
+  description:
+    'Synthesise a sound effect and add it to the media pool as a real WAV file — whoosh, ' +
+    'impact, boom, riser, sub drop, click, pop, beep, glitch and more. They are GENERATED, ' +
+    'not recordings, so they are always available, need no download, and carry no licensing ' +
+    'question. Duration is a parameter, so the same kind at 0.3s and 1.5s are different sounds. ' +
+    'Pass insert to drop it straight onto the timeline.',
+  schema: z.object({
+    kind: z.string().describe(`One of: ${SFX_CATALOGUE.map((s) => s.kind).join(', ')}`),
+    seconds: z.number().min(0.05).max(15).optional().describe('Overrides the default length'),
+    insert: z.boolean().optional().describe('Also place it on an audio track'),
+    atMs: z.number().optional().describe('Where to place it; defaults to the playhead'),
+    volume: z.number().min(0).max(2).optional(),
+  }),
+  handler: async ({ kind, seconds, insert, atMs, volume }) => {
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (!api?.media) {
+      throw new Error('Generating audio needs the desktop app — the file has to reach the disk.');
+    }
+
+    const wanted = oneOf(kind, SFX_CATALOGUE.map((s) => s.kind), 'sound effect');
+    const rendered = await renderSfx(wanted, seconds);
+
+    /*
+      Written to a real file rather than kept as a blob URL: ffmpeg cannot
+      read `blob:`, so an in-memory sound would play in the preview and be
+      missing from the export with nothing to indicate why.
+    */
+    const filePath = await api.media.writeTemp(`${wanted}_${rendered.durationMs}ms.wav`, rendered.wav);
+
+    const state = timeline();
+    const asset: MediaAsset = {
+      id: `asset_sfx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      name: `${rendered.label} ${(rendered.durationMs / 1000).toFixed(2)}s`,
+      type: 'audio',
+      url: `file://${encodeURI(filePath)}`,
+      thumbnailUrl: '',
+      durationMs: rendered.durationMs,
+      fileSizeFormatted: `${Math.round(rendered.wav.byteLength / 1024)} KB`,
+      codec: 'WAV 48kHz 16-bit · synthesised',
+    };
+    state.addMediaAsset(asset);
+
+    let clipId: string | undefined;
+    if (insert) {
+      const trackId = resolveTrackId('audio');
+      clipId = state.insertClip(trackId, asset, atMs ?? state.playheadMs);
+      if (clipId && volume !== undefined) state.patchClip(clipId, { 'audio.volume': volume });
+    }
+
+    return {
+      assetId: asset.id,
+      name: asset.name,
+      kind: wanted,
+      durationMs: rendered.durationMs,
+      path: filePath,
+      synthesised: true,
+      ...(clipId ? { clipId } : {}),
+    };
+  },
+});
+
+defineTool({
+  name: 'list_sound_effects',
+  category: 'discovery',
+  description:
+    'The sound effects AuraCut can synthesise, with what each is for. AuraCut ships no ' +
+    'recorded audio library — these are generated on demand. For recorded music or SFX, ' +
+    'find a file on disk and use import_media_from_path.',
+  schema: z.object({}),
+  handler: () => ({
+    count: SFX_CATALOGUE.length,
+    note: 'Generated, not recordings. Duration is adjustable per call.',
+    effects: SFX_CATALOGUE.map((s) => ({
+      kind: s.kind,
+      label: s.label,
+      usedFor: s.hint,
+      defaultSeconds: s.seconds,
+    })),
+  }),
 });
 
 defineTool({

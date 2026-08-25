@@ -1,6 +1,8 @@
 import React from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
+import { PanelSearch, matchesQuery } from './PanelSearch';
+import { SFX_CATALOGUE, SfxSpec } from '../../engine/sfxEngine';
 import { executeTool } from '../../mcp/toolRegistry';
 import { formatDuration } from '../../utils/time';
 import { Section } from '../ui/Controls';
@@ -16,7 +18,31 @@ export const AudioPanel: React.FC = () => {
 
   const [busy, setBusy] = React.useState<string | null>(null);
 
-  const audioAssets = mediaPool.filter((a) => a.type === 'audio');
+  const [query, setQuery] = React.useState('');
+
+  const audioAssets = React.useMemo(
+    () => mediaPool.filter((a) => a.type === 'audio' && matchesQuery(query, a.name)),
+    [mediaPool, query]
+  );
+  const shownSfx = React.useMemo(
+    () => SFX_CATALOGUE.filter((s) => matchesQuery(query, s.label, s.hint, s.kind)),
+    [query]
+  );
+
+  /** Render one effect to a real file and add it to the pool. */
+  const makeSfx = async (spec: SfxSpec) => {
+    setBusy(spec.kind);
+    try {
+      const result = await executeTool('generate_sound_effect', { kind: spec.kind }, 'AuraCut');
+      pushToast(
+        result.success
+          ? { kind: 'success', title: `${spec.label} added`, detail: 'Find it under Music & SFX.' }
+          : { kind: 'error', title: 'Could not generate', detail: result.error }
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
   const audioTrack = tracks.find((t) => t.type === 'audio');
   const beatCount = markers.filter((m) => m.kind === 'beat').length;
 
@@ -39,7 +65,45 @@ export const AudioPanel: React.FC = () => {
         {beatCount > 0 && <span className="chip !text-spectrum-pink !border-spectrum-pink/30">{beatCount} beats</span>}
       </div>
 
+      <div className="p-2 pb-0 flex-shrink-0">
+        <PanelSearch
+          value={query}
+          onChange={setQuery}
+          noun="sounds"
+          countLabel={`${audioAssets.length + shownSfx.length}`}
+        />
+      </div>
+
       <div className="flex-1 overflow-y-auto">
+        {/*
+          Generated, not recorded. AuraCut ships no audio library, and a
+          catalogue of hotlinked files is how the old B-roll "library"
+          and the sample music both ended up broken — so these are
+          synthesised on demand into real WAV files on disk.
+        */}
+        <Section title="Sound effects · generated" icon={Waves}>
+          {shownSfx.length === 0 ? (
+            <p className="text-[10px] text-spectrum-textFaint">Nothing matches “{query}”.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-1.5">
+              {shownSfx.map((spec) => (
+                <button
+                  key={spec.kind}
+                  disabled={busy === spec.kind}
+                  onClick={() => makeSfx(spec)}
+                  className="card-interactive p-2 flex flex-col items-start gap-0.5 text-left group disabled:opacity-50"
+                  title={`${spec.hint} · ${spec.seconds}s`}
+                >
+                  <span className="text-[11px] font-medium text-spectrum-text group-hover:text-spectrum-accent transition-colors truncate w-full">
+                    {busy === spec.kind ? 'Rendering…' : spec.label}
+                  </span>
+                  <span className="text-[9px] text-spectrum-textFaint truncate w-full">{spec.hint}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </Section>
+
         <Section title="Music & SFX" icon={Music}>
           {audioAssets.length === 0 ? (
             <p className="text-[10px] text-spectrum-textFaint">

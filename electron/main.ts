@@ -147,6 +147,26 @@ function registerAgentIpc() {
       })
   );
 
+  /*
+    Generated media has to reach the DISK, not just memory. ffmpeg
+    cannot read a `blob:` URL, so a synthesised sound that only existed
+    as an object URL would play in the preview and vanish from the
+    export — silently, which is the failure mode this project keeps
+    having to hunt down.
+  */
+  ipcMain.handle('media:writeTemp', async (_e, p: { name: string; bytes: Uint8Array }) => {
+    const fs = await import('fs');
+    const os = await import('os');
+    const dir = path.join(os.tmpdir(), 'auracut-generated');
+    fs.mkdirSync(dir, { recursive: true });
+
+    // Never let a caller-supplied name escape the directory.
+    const safe = path.basename(p.name).replace(/[^\w.\-]+/g, '_') || 'audio.wav';
+    const filePath = path.join(dir, `${Date.now().toString(36)}_${safe}`);
+    fs.writeFileSync(filePath, Buffer.from(p.bytes));
+    return filePath;
+  });
+
   ipcMain.handle('audio:analyze', async (_e, p: { mediaUrl: string; silenceThresholdDb?: number; minSilenceMs?: number }) =>
     analyzeAudio(p.mediaUrl, p.silenceThresholdDb, p.minSilenceMs));
   ipcMain.handle('stt:setup', async (_e, p: { model?: string }) => setupTranscription(p?.model));

@@ -49,6 +49,8 @@ const TOOL_PANEL: Record<string, SidebarTab> = {
   apply_transition: 'transitions',
 
   add_text_layer: 'text',
+  add_shape_layer: 'text',
+  list_fonts: 'text',
 
   import_captions: 'captions',
   export_captions: 'captions',
@@ -59,6 +61,8 @@ const TOOL_PANEL: Record<string, SidebarTab> = {
   detect_beats: 'audio',
   remove_silence: 'audio',
   analyze_audio: 'audio',
+  generate_sound_effect: 'audio',
+  list_sound_effects: 'audio',
 
   import_media_from_path: 'media',
   list_media_pool: 'media',
