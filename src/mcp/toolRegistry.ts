@@ -28,6 +28,8 @@ import {
   runPreflight, resolveTarget, resolveAnnotationTargets,
 } from '../engine/contextProtocol';
 import { detectBeats } from '../engine/beatDetect';
+import { getClipBaseSize } from '../engine/geometry';
+import { getNaturalSize } from '../engine/compositor';
 import { runHardwareExport } from '../engine/exportPipeline';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
 import { transcribeAudioOnDevice } from '../engine/whisperLocal';
@@ -1524,4 +1526,132 @@ defineTool({
       resolved: g.resolved,
     })),
   }),
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   COMPOSITE LAYOUTS
+
+   Tools at the altitude people actually ask at.
+
+   An agent CAN build a grid out of tracks, transforms and masks — we
+   watched one do it in about twenty-two calls, and it only got the
+   framing right because it rendered a frame, looked at it, and caught
+   its own overflow bug. That is impressive and completely wasteful: it
+   costs tokens and wall-clock every single time, and it can fail
+   differently on any run.
+
+   This is the same result in one deterministic call, with the geometry
+   that agent had to discover baked in — including the crop that stops
+   mismatched source aspect ratios spilling out of their cell.
+   ═══════════════════════════════════════════════════════════════════ */
+
+defineTool({
+  name: 'create_grid_layout',
+  category: 'graphics',
+  description:
+    'Arrange several clips into a grid (collage / split-screen / picture-in-picture wall) ' +
+    'showing them on screen at once. Handles the tracks, scaling, positioning and per-cell ' +
+    'cropping. Prefer this over building a grid by hand from add_track + patch_clip.',
+  schema: z.object({
+    assetIds: z.array(z.string()).describe('Media asset ids or names, in reading order (left to right, top to bottom)'),
+    rows: z.number().int().min(1).max(6),
+    columns: z.number().int().min(1).max(6),
+    startTimeMs: z.number().optional().describe('Defaults to the playhead'),
+    durationMs: z.number().optional().describe('Defaults to 5000'),
+    gapPx: z.number().optional().describe('Gutter between cells in project pixels; default 0'),
+    /** Which cell keeps its sound. Stacked audio beds are almost never wanted. */
+    audioFromCell: z.number().int().optional().describe('1-based cell index that keeps audio; omit to mute all'),
+  }),
+  handler: ({ assetIds, rows, columns, startTimeMs, durationMs, gapPx, audioFromCell }) => {
+    const state = timeline();
+    const proj = project().project;
+
+    const cells = rows * columns;
+    if (assetIds.length === 0) throw new Error('Give at least one asset for the grid.');
+    if (assetIds.length > cells) {
+      throw new Error(
+        `${assetIds.length} assets will not fit a ${rows}×${columns} grid (${cells} cells). ` +
+        `Increase rows/columns or pass fewer assets.`
+      );
+    }
+
+    const start = startTimeMs ?? state.playheadMs;
+    const dur = durationMs ?? 5000;
+    const gap = gapPx ?? 0;
+
+    /*
+      Scale UNIFORMLY by the larger of the two ratios so each clip covers
+      its cell, then crop the overflow with a mask. Scaling x and y
+      independently would fit the cell exactly and squash every face in
+      the shot — correct arithmetic, wrong picture.
+    */
+    const scale = Math.max(1 / columns, 1 / rows);
+    const cellW = proj.width / columns;
+    const cellH = proj.height / rows;
+
+    const placed: { cell: number; clipId: string; assetName: string }[] = [];
+
+    assetIds.forEach((ref, index) => {
+      const asset =
+        state.mediaPool.find((a) => a.id === ref) ??
+        state.mediaPool.find((a) => a.name.toLowerCase().includes(ref.toLowerCase()));
+      if (!asset) {
+        throw new Error(`No media asset "${ref}". Available: ${state.mediaPool.map((a) => a.name).join(', ')}`);
+      }
+
+      const row = Math.floor(index / columns);
+      const col = index % columns;
+
+      const trackId = state.addTrack('video', `Grid ${row + 1}·${col + 1}`);
+      const clipId = state.insertClip(trackId, asset, start);
+
+      /*
+        The crop has to come from THIS clip's real box, not from the canvas.
+        `cover` fills the frame without distorting, so a portrait source in a
+        landscape project ends up far taller than the frame — assume the box
+        is canvas-sized and the mask does nothing, and that cell spills over
+        its neighbours. (Observed: a 4K portrait clip rendered 1609px tall in
+        a 540px cell.)
+      */
+      const placedClip = findClipById(timeline().tracks, clipId);
+      const base = placedClip
+        ? getClipBaseSize(placedClip, proj, getNaturalSize(placedClip))
+        : { width: proj.width, height: proj.height };
+
+      const boxW = base.width * scale;
+      const boxH = base.height * scale;
+      const maskX = Math.min(100, ((cellW - gap) / boxW) * 100);
+      const maskY = Math.min(100, ((cellH - gap) / boxH) * 100);
+
+      state.patchClip(clipId, {
+        name: `Grid ${row + 1}·${col + 1} · ${asset.name}`,
+        durationMs: dur,
+        fitMode: 'cover',
+        'transform.scaleX': scale,
+        'transform.scaleY': scale,
+        // Cell centre, expressed as an offset from the canvas centre.
+        'transform.x': Math.round((col + 0.5) * cellW - proj.width / 2),
+        'transform.y': Math.round((row + 0.5) * cellH - proj.height / 2),
+        'mask.enabled': true,
+        'mask.type': 'rectangle',
+        'mask.sizeX': maskX,
+        'mask.sizeY': maskY,
+        'mask.offsetX': 0,
+        'mask.offsetY': 0,
+        'audio.volume': audioFromCell === index + 1 ? 1 : 0,
+      });
+
+      placed.push({ cell: index + 1, clipId, assetName: asset.name });
+    });
+
+    return {
+      layout: `${rows}×${columns}`,
+      cellsFilled: placed.length,
+      cellsEmpty: cells - placed.length,
+      startTimeMs: start,
+      durationMs: dur,
+      clips: placed,
+      audio: audioFromCell ? `cell ${audioFromCell}` : 'all muted',
+    };
+  },
 });
