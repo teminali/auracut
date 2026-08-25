@@ -404,12 +404,26 @@ export async function finishExport(
     };
   }
 
-  // Mux: stream-copy both, so nothing is re-encoded and nothing degrades.
+  /*
+    Mux: stream-copy both, so nothing is re-encoded and nothing degrades.
+
+    `-t` rather than `-shortest`. The PICTURE is the master — an edit is
+    as long as its visuals — and `-shortest` made the audio decide: a
+    music bed that stopped before the last shot truncated the export to
+    the length of the sound. Observed as a 16-second sequence exported at
+    5.5s because the only surviving audio ended there.
+
+    Capping at the video's own duration also covers the other direction,
+    where a long music tail would otherwise leave audio playing over
+    nothing.
+  */
+  const videoSeconds = session.framesWritten / session.options.fps;
   const muxed = await new Promise<boolean>((resolve) => {
     execFile(
       ff,
       ['-y', '-i', session.videoPath, '-i', mix.path,
-       '-c', 'copy', '-map', '0:v:0', '-map', '1:a:0', '-shortest', session.outputPath],
+       '-c', 'copy', '-map', '0:v:0', '-map', '1:a:0',
+       '-t', videoSeconds.toFixed(6), session.outputPath],
       { timeout: 600_000 },
       (err) => resolve(!err && fs.existsSync(session.outputPath))
     );
