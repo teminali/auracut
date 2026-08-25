@@ -6,16 +6,18 @@
    sent the agent already has everything it needs.
    ═══════════════════════════════════════════════════════════════════ */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { PreflightReport, CapturedFrame, Annotation } from '../../types/context';
 import {
-  Check, AlertTriangle, CircleAlert, Camera, Pencil, ShieldCheck, X,
+  Check, AlertTriangle, CircleAlert, Camera, Pencil, ShieldCheck, X, ChevronRight,
 } from 'lucide-react';
 
 interface ContextPreflightProps {
   report: PreflightReport;
   frame: CapturedFrame | null;
   frameAttached: boolean;
+  /** Force the detail open — used when Send could not clear a blocker. */
+  forceOpen?: boolean;
   annotations: Annotation[];
   onToggleFrame: () => void;
   onAnnotate: () => void;
@@ -24,9 +26,25 @@ interface ContextPreflightProps {
 
 export const ContextPreflight: React.FC<ContextPreflightProps> = ({
   report, frame, frameAttached, annotations, onToggleFrame, onAnnotate, onClearAnnotations,
+  forceOpen = false,
 }) => {
   const blockers = report.issues.filter((i) => i.severity === 'blocker');
   const advisories = report.issues.filter((i) => i.severity === 'advisory');
+
+  /*
+    Collapsed by default. This panel sits directly above the composer, and
+    at full height it pushed the input off screen and buried the thread —
+    so the common case (everything fine, or one auto-fixable thing) is one
+    line, and the detail is one click away.
+  */
+  const [open, setOpen] = useState(false);
+  const expanded = open || forceOpen;
+
+  /* When the frame is the only blocker, the strip at the bottom already
+     offers the same button — do not print the same action twice. */
+  const frameIsTheOnlyBlocker =
+    blockers.length === 1 && blockers[0].id === 'no-frame';
+  const listedBlockers = frameIsTheOnlyBlocker ? [] : blockers;
 
   return (
     <div
@@ -36,30 +54,36 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
           : 'border-spectrum-green/30 bg-spectrum-green/[0.05]'
       }`}
     >
-      {/* Summary line */}
-      <div className="px-2.5 py-1.5 flex items-center gap-1.5">
+      {/* Summary line — the whole panel when nothing needs attention */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full px-2.5 h-[28px] flex items-center gap-1.5 text-left hover:bg-white/[0.03] transition-colors"
+      >
         {blockers.length > 0 ? (
           <CircleAlert className="w-3.5 h-3.5 text-spectrum-amber flex-shrink-0" />
         ) : (
           <ShieldCheck className="w-3.5 h-3.5 text-spectrum-green flex-shrink-0" />
         )}
-        <span className="text-[11px] font-medium text-spectrum-text flex-1 min-w-0 truncate">
+        <span className="text-ui-sm font-medium text-spectrum-text flex-1 min-w-0 truncate">
           {blockers.length > 0
-            ? `${blockers.length} thing${blockers.length === 1 ? '' : 's'} to sort before I run this`
+            ? `Send will sort ${blockers.length} thing${blockers.length === 1 ? '' : 's'} first`
             : 'Context ready'}
         </span>
-        <span className="chip !text-[9px] flex-shrink-0">{report.requirement.label}</span>
-      </div>
+        <span className="text-[10px] text-spectrum-textDim flex-shrink-0">{report.requirement.label}</span>
+        <ChevronRight
+          className={`w-3 h-3 text-spectrum-textFaint flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
+        />
+      </button>
 
       {/* Why this contract exists */}
-      {blockers.length > 0 && (
+      {expanded && blockers.length > 0 && (
         <p className="px-2.5 pb-1.5 text-[10px] text-spectrum-textDim leading-snug">
           {report.requirement.rationale}
         </p>
       )}
 
       {/* Blockers first — each with its remedy */}
-      {blockers.map((issue) => (
+      {expanded && listedBlockers.map((issue) => (
         <div key={issue.id} className="px-2.5 py-1.5 border-t border-line/60 flex items-start gap-2">
           <AlertTriangle className="w-3 h-3 text-spectrum-amber flex-shrink-0 mt-[3px]" />
           <div className="flex-1 min-w-0">
@@ -78,7 +102,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
       ))}
 
       {/* Advisories — worth saying, not worth blocking on */}
-      {advisories.map((issue) => (
+      {expanded && advisories.map((issue) => (
         <div key={issue.id} className="px-2.5 py-1.5 border-t border-line/60 flex items-start gap-2">
           <span className="w-3 h-3 flex-shrink-0 mt-[3px] flex items-center justify-center">
             <span className="w-1.5 h-1.5 rounded-full bg-spectrum-textDim" />
@@ -96,7 +120,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
       ))}
 
       {/* Green ticks */}
-      {report.satisfied.length > 0 && (
+      {expanded && report.satisfied.length > 0 && (
         <div className="px-2.5 py-1.5 border-t border-line/60 flex flex-wrap gap-x-3 gap-y-0.5">
           {report.satisfied.map((s) => (
             <span key={s} className="flex items-center gap-1 text-[10px] text-spectrum-textDim">

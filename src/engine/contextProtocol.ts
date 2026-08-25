@@ -158,9 +158,16 @@ const CONTRACTS: Record<CommandKind, ContextRequirement> = {
   },
   unknown: {
     kind: 'unknown', label: 'General edit',
-    requiresPaused: true, requiresTarget: false, requiresPlayheadOnTarget: false,
-    requiresFrame: true, requiresAudio: false,
-    rationale: 'I could not tell exactly what this touches, so I will take the safest context: a paused frame.',
+    /*
+      An unclassified prompt must never be BLOCKED. "hello", "what can you
+      do?", or any phrasing the classifiers miss would otherwise demand an
+      attached frame before the send button would light up — a dead end
+      with no way out. Not recognising a request is our uncertainty, not
+      the user's problem: send it, and attach whatever context is free.
+    */
+    requiresPaused: false, requiresTarget: false, requiresPlayheadOnTarget: false,
+    requiresFrame: false, requiresAudio: false,
+    rationale: 'I could not tell exactly what this touches, so I will send it with whatever context is already to hand.',
   },
 };
 

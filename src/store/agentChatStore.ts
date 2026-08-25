@@ -35,7 +35,9 @@ const WELCOME: ChatMessage = {
   text: [
     "I read your timeline directly — the exact frame you're parked on, every layer on it, and where each one sits in the frame.",
     '',
-    'Park the playhead on the shot you want changed, attach the frame, and draw on it to point at things. Then just say what you want: “make this pop”, “move that to the corner”, “add snow”, “cut the silence”.',
+    'Ask me anything about the edit, or tell me what to change: “make this pop”, “move that to the corner”, “add snow”, “cut the silence”.',
+    '',
+    'For visual changes, park the playhead on the shot, attach the frame, and draw on it to point at things.',
   ].join('\n'),
   timestamp: Date.now(),
 };
@@ -84,7 +86,17 @@ export const useAgentChatStore = create<AgentChatState>((set, get) => ({
     });
 
     try {
-      await agentBridge.dispatchPrompt(trimmed, model, context);
+      /* Prior turns, so a follow-up like "why?" has something to follow.
+         The welcome card is scaffolding, not a turn — it is filtered out. */
+      const chatHistory = get().messages
+        .filter((m) => m.id !== 'msg_welcome' && m.text.trim().length > 0)
+        .slice(-6)
+        .map((m) => ({
+          role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+          content: m.text,
+        }));
+
+      await agentBridge.dispatchPrompt(trimmed, model, context, chatHistory);
     } finally {
       unsubscribe();
       set({ currentRun: null });

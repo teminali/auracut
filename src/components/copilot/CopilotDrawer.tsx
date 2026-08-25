@@ -57,6 +57,7 @@ export const CopilotDrawer: React.FC = () => {
   const [frameAttached, setFrameAttached] = useState(false);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [isAnnotating, setAnnotating] = useState(false);
+  const [preflightOpen, setPreflightOpen] = useState(false);
 
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -116,14 +117,56 @@ export const CopilotDrawer: React.FC = () => {
   const hasPrompt = input.trim().length > 0;
   const blocked = hasPrompt && !report.ready;
 
+  /*
+    Send never dead-ends.
+
+    A disabled button with no explanation is the worst possible answer to
+    "your context is not ready" — the user types, presses Enter, and
+    nothing happens at all. Every blocker the pre-flight raises already
+    carries a one-click remedy, so pressing Send applies them and goes.
+    Only if something still cannot be resolved automatically do we stop,
+    and then we open the pre-flight so the reason is on screen.
+  */
   const submit = async () => {
     const text = input.trim();
-    if (!text || currentRun || !report.ready) return;
+    if (!text || currentRun) return;
+
+    let liveFrame = frame;
+    let liveAttached = frameAttached;
+
+    if (!report.ready) {
+      for (const issue of report.issues) {
+        if (issue.severity !== 'blocker') continue;
+        if (issue.id === 'no-frame') {
+          // Resolve locally too: setState is async and we need it this tick.
+          liveFrame = captureCurrentFrame();
+          liveAttached = true;
+          setFrame(liveFrame);
+          setFrameAttached(true);
+        } else {
+          issue.fix?.();
+        }
+      }
+
+      // Re-check against the now-updated stores plus the frame we just took.
+      const recheck = runPreflight({
+        prompt: text,
+        annotations: liveAttached ? annotations : [],
+        frame: liveFrame,
+        frameAttached: liveAttached,
+        onAttachFrame: attachFrame,
+      });
+
+      if (!recheck.ready) {
+        setPreflightOpen(true);
+        return;
+      }
+    }
 
     const envelope = buildEnvelope({
-      annotations: frameAttached ? annotations : [],
-      frame,
-      includeFrame: frameAttached,
+      annotations: liveAttached ? annotations : [],
+      frame: liveFrame,
+      includeFrame: liveAttached,
     });
 
     setInput('');
@@ -175,18 +218,19 @@ export const CopilotDrawer: React.FC = () => {
 
       {/* Header */}
       <div className="panel-header">
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
           <Sparkles className="w-3.5 h-3.5 text-spectrum-accent flex-shrink-0" />
-          <span className="text-[12px] font-semibold text-spectrum-text">AI Copilot</span>
-          <span className={`chip !text-[9px] flex-shrink-0 ${hasModelEndpoint() ? '!text-spectrum-green !border-spectrum-green/30' : ''}`}>
-            {hasModelEndpoint() ? 'model linked' : 'local planner'}
-          </span>
+          <span className="text-ui font-semibold text-spectrum-text flex-shrink-0">Copilot</span>
+          <span
+            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${hasModelEndpoint() ? 'bg-spectrum-green' : 'bg-spectrum-amber'}`}
+            title={hasModelEndpoint() ? 'Model endpoint linked' : 'No model linked — using the local planner'}
+          />
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button onClick={clearChat} className="pro-btn w-6 h-6" title="Clear the conversation">
+          <button onClick={clearChat} className="pro-btn w-[22px] h-[22px]" title="Clear the conversation">
             <Trash2 className="w-3 h-3" />
           </button>
-          <button onClick={() => setCopilotOpen(false)} className="pro-btn w-6 h-6" title="Close">
+          <button onClick={() => setCopilotOpen(false)} className="pro-btn w-[22px] h-[22px]" title="Close">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -199,12 +243,12 @@ export const CopilotDrawer: React.FC = () => {
       />
 
       {/* Model */}
-      <div className="px-2.5 py-2 border-b border-line flex items-center gap-2 flex-shrink-0">
+      <div className="px-2 py-1.5 border-b border-line flex items-center gap-1.5 flex-shrink-0">
         <Cpu className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
         <select
           value={selectedModel}
           onChange={(e) => setSelectedModel(e.target.value as any)}
-          className="pro-input flex-1 h-7 px-2 text-[11px] cursor-pointer min-w-0"
+          className="pro-input select-native flex-1 h-[26px] px-2 text-ui-sm cursor-pointer min-w-0"
         >
           {MODELS.map((m) => (
             <option key={m.value} value={m.value}>{m.label} · {m.hint}</option>
@@ -212,20 +256,27 @@ export const CopilotDrawer: React.FC = () => {
         </select>
       </div>
 
-      {/* Quick actions */}
-      <div className="px-2 py-2 border-b border-line flex items-center gap-1 overflow-x-auto scrollbar-none flex-shrink-0">
-        {QUICK_ACTIONS.map((action) => (
-          <button
-            key={action.label}
-            onClick={() => setInput(action.prompt)}
-            disabled={!!currentRun}
-            className="pro-btn-filled h-6 px-2 gap-1 text-[10px] whitespace-nowrap flex-shrink-0"
-            title={`${action.prompt} — loads into the box so you can check the context first`}
-          >
-            <span>{action.icon}</span>
-            {action.label}
-          </button>
-        ))}
+      {/*
+        Quick actions scroll horizontally. The fade on the right edge is not
+        decoration — without it a cut-off chip reads as a broken layout
+        rather than as "there is more this way".
+      */}
+      <div className="relative flex-shrink-0 border-b border-line">
+        <div className="px-2 py-2 flex items-center gap-1 overflow-x-auto scrollbar-none">
+          {QUICK_ACTIONS.map((action) => (
+            <button
+              key={action.label}
+              onClick={() => { setInput(action.prompt); inputRef.current?.focus(); }}
+              disabled={!!currentRun}
+              className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs whitespace-nowrap flex-shrink-0"
+              title={`${action.prompt} — loads into the box so you can check the context first`}
+            >
+              <span>{action.icon}</span>
+              {action.label}
+            </button>
+          ))}
+        </div>
+        <div className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-l from-spectrum-panel to-transparent" />
       </div>
 
       {/* Live run */}
@@ -254,7 +305,7 @@ export const CopilotDrawer: React.FC = () => {
       {/* Thread */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[96px]">
         {messages.map((msg) => (
-          <div key={msg.id} className={`flex flex-col gap-1 ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
+          <div key={msg.id} className={`flex flex-col gap-1 min-w-0 ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
             <div className="flex items-center gap-1.5 px-0.5 text-[9px] text-spectrum-textFaint font-mono">
               {msg.sender === 'user' ? (
                 <span>You</span>
@@ -284,7 +335,7 @@ export const CopilotDrawer: React.FC = () => {
             )}
 
             <div
-              className={`rounded-squircle-sm text-[12px] leading-relaxed max-w-[94%] ${
+              className={`rounded-squircle-sm text-ui leading-relaxed max-w-full min-w-0 ${
                 msg.sender === 'user'
                   ? 'bg-spectrum-accent text-white px-2.5 py-2 font-medium'
                   : 'bg-spectrum-card border border-line text-spectrum-text px-2.5 py-2'
@@ -294,7 +345,7 @@ export const CopilotDrawer: React.FC = () => {
                 <ThoughtChain thoughts={msg.thoughts} expanded={showThoughts} onToggle={toggleThoughts} />
               )}
               {msg.text ? (
-                <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+                <RichText text={msg.text} />
               ) : (
                 <span className="text-spectrum-textDim italic">Thinking…</span>
               )}
@@ -317,6 +368,7 @@ export const CopilotDrawer: React.FC = () => {
         {hasPrompt && (
           <ContextPreflight
             report={report}
+            forceOpen={preflightOpen}
             frame={frame}
             frameAttached={frameAttached}
             annotations={annotations}
@@ -333,7 +385,7 @@ export const CopilotDrawer: React.FC = () => {
           <textarea
             ref={inputRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); if (preflightOpen) setPreflightOpen(false); }}
             onKeyDown={handleKeyDown}
             rows={1}
             placeholder="Tell me what to change…"
@@ -347,17 +399,17 @@ export const CopilotDrawer: React.FC = () => {
           />
           <button
             onClick={submit}
-            disabled={!!currentRun || !hasPrompt || blocked}
-            className="btn-primary w-6 h-6 rounded-full flex-shrink-0"
-            title={blocked ? 'Resolve the context checks first' : 'Send (Enter)'}
+            disabled={!!currentRun || !hasPrompt}
+            className="btn-primary w-7 h-7 rounded-full flex-shrink-0"
+            title={blocked ? 'Fix the context checks and send (Enter)' : 'Send (Enter)'}
           >
-            <ArrowUp className="w-3.5 h-3.5" />
+            <ArrowUp className="w-4 h-4" />
           </button>
         </div>
 
-        <p className="text-[9px] text-spectrum-textFaint px-1">
+        <p className="text-[10px] text-spectrum-textFaint px-1 leading-snug">
           {blocked
-            ? 'Sort the checks above and I will run this with no guesswork.'
+            ? 'Send will sort the checks above first, then run this.'
             : 'Enter to send · ⇧Enter for a new line · ↑ for the last prompt'}
         </p>
       </div>
@@ -377,6 +429,48 @@ export const CopilotDrawer: React.FC = () => {
     </aside>
   );
 };
+
+/* ═══════════════════════════════════════════════════════════════════
+   Minimal markdown
+
+   Agents write markdown whether or not you ask them to, and a reply full
+   of literal ** and ` characters reads as broken output. This handles the
+   three things that actually show up in practice — bold, inline code and
+   bullet lines — and deliberately nothing else: no links, no HTML, no
+   dangerouslySetInnerHTML, so model output can never inject markup.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const RichText: React.FC<{ text: string }> = ({ text }) => (
+  <div className="whitespace-pre-wrap break-words">
+    {text.split('\n').map((line, i) => {
+      const bullet = /^\s*[•*-]\s+/.test(line);
+      const body = bullet ? line.replace(/^\s*[•*-]\s+/, '') : line;
+      return (
+        <div key={i} className={bullet ? 'flex gap-1.5 pl-0.5' : undefined}>
+          {bullet && <span className="text-spectrum-textDim flex-shrink-0">•</span>}
+          <span className="min-w-0">{renderInline(body)}</span>
+        </div>
+      );
+    })}
+  </div>
+);
+
+/** Split on **bold** and `code`, keeping the delimiters out of the output. */
+function renderInline(line: string): React.ReactNode[] {
+  return line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean).map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={i} className="font-mono text-[11px] px-1 py-px rounded-[3px] bg-black/30 text-spectrum-accent">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return <React.Fragment key={i}>{part}</React.Fragment>;
+  });
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    Live context strip
@@ -449,7 +543,7 @@ const ThoughtChain: React.FC<{
         className="w-full px-2 py-1 flex items-center justify-between text-[9px] font-mono text-spectrum-textDim hover:text-spectrum-text transition-colors"
       >
         <span className="flex items-center gap-1 text-spectrum-accent font-medium">
-          {toolCalls.length > 0 ? `${toolCalls.length} tool call${toolCalls.length === 1 ? '' : 's'}` : `${thoughts.length} steps`}
+          {toolCalls.length > 0 ? `${toolCalls.length} tool call${toolCalls.length === 1 ? '' : 's'}` : `${thoughts.length} step${thoughts.length === 1 ? '' : 's'}`}
         </span>
         {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
       </button>

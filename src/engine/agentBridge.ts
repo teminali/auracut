@@ -20,6 +20,7 @@ import { useProjectStore } from '../store/projectStore';
 import { EFFECT_REGISTRY } from './effectsRegistry';
 import { ContextEnvelope, CommandKind } from '../types/context';
 import { serializeEnvelope, classifyCommand, summariseEnvelope } from './contextProtocol';
+import { formatTimecode } from '../utils/time';
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -219,7 +220,7 @@ const INTENT_RULES: IntentRule[] = [
 
   {
     id: 'beats',
-    match: /\b(beat|bpm|tempo|rhythm|sync to (the )?music|on beat)\b/i,
+    match: /\b(beats?|bpm|tempo|rhythm|sync to (the )?music|on beat)\b/i,
     plan: (p) => [
       {
         tool: 'detect_beats',
@@ -231,7 +232,7 @@ const INTENT_RULES: IntentRule[] = [
 
   {
     id: 'broll',
-    match: /\bb-?roll|cutaway|overlay footage\b/i,
+    match: /\b(b-?roll|cutaways?|overlay footage)\b/i,
     plan: (p) => [
       { tool: 'suggest_broll', args: { insert: !/suggest|propose|show me/i.test(p) }, why: 'Find contextual B-roll for the dialogue' },
     ],
@@ -247,6 +248,70 @@ const INTENT_RULES: IntentRule[] = [
     id: 'square',
     match: /\b(square|1:1|instagram feed)\b/i,
     plan: () => [{ tool: 'set_canvas', args: { aspectRatio: '1:1' }, why: 'Reformat the canvas to square' }],
+  },
+
+  {
+    /*
+      Plain colour adjustments.
+
+      This was the biggest hole in the planner: "make this warmer", "boost
+      the saturation" and "cool the temperature" are all printed in the
+      Copilot's own help text, and none of them matched a rule — only the
+      whole-hog "cinematic" grade did. These are the adjustments people
+      reach for constantly, so they get direct, additive control.
+
+      Deltas are relative and signed, so "warmer" nudges rather than
+      slamming to an absolute value, and saying it twice warms it twice.
+    */
+    id: 'colour-adjust',
+    match: /\b(warm(er|th)?|cool(er)?|temperature|saturat\w*|vibran\w*|contrast|bright(er|ness)?|dark(er)?|expos\w*|shadows?|highlights?|sharpen|sharper|tint|washed|flat|punch\w*)\b/i,
+    plan: (p) => {
+      const properties: Record<string, number> = {};
+
+      // "less", "reduce", "down" flip the direction of everything asked for.
+      const down = /\b(less|reduce|lower|drop|down|de-?saturat\w*|remove)\b/i.test(p);
+      const strong = /\b(a lot|much|way|very|really|heavily|max)\b/i.test(p);
+      const slight = /\b(slightly|a (little|touch|bit)|subtle|gently)\b/i.test(p);
+      const step = strong ? 30 : slight ? 8 : 18;
+      const dir = (positive: boolean) => (positive !== down ? step : -step);
+
+      if (/\bwarm(er|th)?\b/i.test(p)) properties['filters.temperature'] = dir(true);
+      if (/\bcool(er)?\b/i.test(p)) properties['filters.temperature'] = dir(false);
+      if (/\btemperature\b/i.test(p) && properties['filters.temperature'] === undefined) {
+        properties['filters.temperature'] = dir(true);
+      }
+      if (/\b(saturat\w*|vibran\w*)\b/i.test(p)) properties['filters.saturation'] = dir(true);
+      if (/\bcontrast\b/i.test(p)) properties['filters.contrast'] = dir(true);
+      if (/\bbright(er|ness)?\b/i.test(p)) properties['filters.brightness'] = dir(true);
+      if (/\bdark(er)?\b/i.test(p)) properties['filters.brightness'] = dir(false);
+      if (/\bexpos\w*\b/i.test(p)) properties['filters.exposure'] = dir(true);
+      if (/\bshadows?\b/i.test(p)) properties['filters.shadows'] = dir(true);
+      if (/\bhighlights?\b/i.test(p)) properties['filters.highlights'] = dir(true);
+      if (/\b(sharpen|sharper)\b/i.test(p)) properties['filters.sharpen'] = dir(true);
+      if (/\btint\b/i.test(p)) properties['filters.tint'] = dir(true);
+
+      /* "washed out", "flat" and "punchier" describe a RESULT, not a knob.
+         Translate them into the combination a colourist would actually reach
+         for rather than guessing at a single slider. */
+      if (/\b(washed|flat)\b/i.test(p) || /\bpunch\w*\b/i.test(p)) {
+        properties['filters.contrast'] = (properties['filters.contrast'] ?? 0) + 20;
+        properties['filters.saturation'] = (properties['filters.saturation'] ?? 0) + 16;
+      }
+
+      if (Object.keys(properties).length === 0) return [];
+
+      const named = Object.keys(properties)
+        .map((k) => k.replace('filters.', ''))
+        .join(', ');
+
+      return [
+        {
+          tool: 'patch_clips',
+          args: { clipType: 'video', properties, relative: true },
+          why: `Adjust ${named}`,
+        },
+      ];
+    },
   },
 
   {
@@ -269,6 +334,34 @@ const INTENT_RULES: IntentRule[] = [
       },
       { tool: 'add_effect', args: { effectType: 'letterbox', params: { ratio: 2.39 } }, why: 'Add cinemascope mattes' },
       { tool: 'add_effect', args: { effectType: 'film_grain', params: { amount: 22 } }, why: 'Add subtle film grain' },
+    ],
+  },
+
+  {
+    /* `film_grain` existed only inside the cinematic grade, so the "Film
+       grain" quick action — and the help text that advertises it — mapped
+       to nothing at all. It needs a rule of its own. */
+    id: 'grain',
+    match: /\b(grain|grainy|film ?stock|16 ?mm|35 ?mm|super ?8|noise)\b/i,
+    plan: (p) => [
+      {
+        tool: 'add_effect',
+        args: {
+          effectType: 'film_grain',
+          /*
+            Intensity comes from adjectives only, never from digits in the
+            prompt: "35mm" and "16mm" name a film stock, not an amount, and
+            reading them as one would make "add 35mm grain" 3× heavier than
+            "add 16mm grain" for no reason a user could guess.
+          */
+          params: {
+            amount: /\b(heavy|strong|lots|coarse|thick)\b/i.test(p) ? 45
+              : /\b(subtle|light|touch|slight|fine)\b/i.test(p) ? 12
+              : 24,
+          },
+        },
+        why: 'Add film grain',
+      },
     ],
   },
 
@@ -317,7 +410,7 @@ const INTENT_RULES: IntentRule[] = [
 
   {
     id: 'light-leak',
-    match: /\b(light ?leak|flare|sun ?ray|god ?ray|lens ?flare)\b/i,
+    match: /\b(light ?leaks?|flares?|sun ?rays?|god ?rays?|lens ?flares?)\b/i,
     plan: (p) => [{
       tool: 'add_effect',
       args: /god ?ray|sun ?ray/i.test(p)
@@ -400,7 +493,7 @@ const INTENT_RULES: IntentRule[] = [
 
   {
     id: 'transition',
-    match: /\b(transition|whip ?pan|cross ?fade|dissolve|wipe|zoom transition)\b/i,
+    match: /\b(transitions?|whip ?pans?|cross ?fades?|dissolves?|wipes?|zoom transition)\b/i,
     plan: (p) => {
       const type =
         /whip/i.test(p) ? 'whip_pan' :
@@ -588,6 +681,98 @@ function planWithIntents(prompt: string): PlannedStep[] {
    Model-backed planner
    ═══════════════════════════════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════════════════════════════
+   Conversation
+
+   Not every prompt is an edit. "hello", "what can you do?", "why does
+   this look washed out?" are all reasonable things to say to an agent
+   sitting inside an editor, and answering "Nothing to do" to them makes
+   the Copilot feel broken rather than careful.
+
+   This is a plain chat turn: same endpoint, same timeline context, but
+   the model is asked for prose instead of a tool plan, and no tool is
+   ever executed as a result.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const CHAT_SYSTEM_PROMPT = [
+  'You are the assistant inside AuraCut, a desktop non-linear video editor.',
+  'You are talking to the person editing the project described below.',
+  '',
+  'You can both discuss the edit AND change it. This particular turn is a',
+  'conversation, not an edit: answer in prose, do not emit JSON or tool calls.',
+  'If the user is asking you to change something, say briefly what you would',
+  'do and invite them to confirm — the edit runs on the next turn.',
+  '',
+  'Be concise and concrete. You can see their timeline, so refer to their',
+  'actual clips, tracks and timecodes by name rather than speaking in general',
+  'terms. Never invent clips, effects or durations that are not in the state',
+  'you were given.',
+].join('\n');
+
+async function chatWithModel(
+  prompt: string,
+  signal: AbortSignal,
+  context?: ContextEnvelope,
+  history: { role: 'user' | 'assistant'; content: string }[] = []
+): Promise<string> {
+  if (!modelEndpoint) throw new Error('No model endpoint configured');
+
+  const stateText = context
+    ? serializeEnvelope(context, classifyCommand(prompt))
+    : snapshotContext();
+
+  const frame = context?.frame;
+  const hasImage = Boolean(frame?.dataUrl && !frame.unavailableReason);
+
+  const userContent = hasImage
+    ? [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: frame!.dataUrl.startsWith('data:image/jpeg') ? 'image/jpeg' : 'image/png',
+            data: frame!.dataUrl.replace(/^data:image\/[a-z]+;base64,/, ''),
+          },
+        },
+        { type: 'text', text: `${stateText}\n\n${prompt}` },
+      ]
+    : `${stateText}\n\n${prompt}`;
+
+  const response = await fetch(modelEndpoint.url, {
+    method: 'POST',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(modelEndpoint.apiKey ? { Authorization: `Bearer ${modelEndpoint.apiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      model: modelEndpoint.model,
+      max_tokens: 1024,
+      messages: [
+        { role: 'system', content: CHAT_SYSTEM_PROMPT },
+        // Recent turns only — the timeline state is re-sent every time, so
+        // older turns add tokens without adding accuracy.
+        ...history.slice(-6),
+        { role: 'user', content: userContent },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Model returned ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const text =
+    typeof data?.content?.[0]?.text === 'string' ? data.content[0].text
+    : typeof data?.choices?.[0]?.message?.content === 'string' ? data.choices[0].message.content
+    : typeof data?.message?.content === 'string' ? data.message.content
+    : '';
+
+  if (!text.trim()) throw new Error('Model returned an empty reply');
+  return text.trim();
+}
+
 async function planWithModel(
   prompt: string,
   signal: AbortSignal,
@@ -661,6 +846,72 @@ async function planWithModel(
    The bridge
    ═══════════════════════════════════════════════════════════════════ */
 
+/**
+ * Conversation without a model.
+ *
+ * With no endpoint configured the Copilot still has something no chatbot
+ * has: the actual project. So rather than apologising, it answers from
+ * the timeline — what is loaded, how long it runs, what is selected —
+ * which is what most opening questions are really asking anyway.
+ */
+function localConversationReply(prompt: string): string {
+  const state = useTimelineStore.getState();
+  const project = useProjectStore.getState().project;
+  const p = prompt.trim().toLowerCase();
+
+  const clipCount = state.tracks.reduce((n, t) => n + t.clips.length, 0);
+  const selected = findClipById(state.tracks, state.selectedClipIds[0]);
+
+  const projectLine =
+    `You have **${project.name}** open — ${state.tracks.length} track${state.tracks.length === 1 ? '' : 's'}, ` +
+    `${clipCount} clip${clipCount === 1 ? '' : 's'}, ${formatTimecode(project.durationMs, project.fps)} at ` +
+    `${project.width}×${project.height} ${project.fps}fps.`;
+
+  if (/^(hi|hey|hello|yo|hola|habari|mambo|sup|good (morning|afternoon|evening))\b/.test(p)) {
+    return [
+      `Hey. ${projectLine}`,
+      '',
+      selected ? `You have "${selected.name}" selected.` : 'Nothing is selected right now.',
+      '',
+      'Ask me about the edit, or tell me what to change — "make this shot warmer", "cut the silence", "add captions". Try one of the chips above if you want a starting point.',
+    ].join('\n');
+  }
+
+  if (/(what can you do|help|capabilities|how do (i|you)|what are you)/.test(p)) {
+    return [
+      'I can read your timeline and change it. Concretely:',
+      '',
+      '• **Grade and colour** — "warmer", "more contrast", "cinematic teal-orange"',
+      '• **Effects** — glow, grain, blur, vignette, shake, light leaks',
+      '• **Cutting** — split at the playhead, trim, close gaps, remove silence',
+      '• **Motion** — keyframed moves, Ken Burns, fades',
+      '• **Audio** — levels, ducking, beat detection',
+      '• **Captions** — transcribe and style',
+      '• **Text and shapes** — titles, lower thirds, highlights',
+      '',
+      projectLine,
+      '',
+      'For anything visual, attach the frame you are looking at — then I act on what you actually see rather than guessing.',
+    ].join('\n');
+  }
+
+  if (/(what.*(timeline|project|have i|is on|loaded)|status|summar)/.test(p)) {
+    const lines = state.tracks
+      .filter((t) => t.clips.length > 0)
+      .map((t) => `• **${t.name}** (${t.type}) — ${t.clips.length} clip${t.clips.length === 1 ? '' : 's'}`);
+    return [projectLine, '', ...(lines.length ? lines : ['No clips on any track yet.'])].join('\n');
+  }
+
+  // Anything else: be honest that this is the offline planner, and useful anyway.
+  return [
+    'No model endpoint is linked, so I am answering from the built-in planner — I can still run edits, but I cannot hold an open-ended conversation.',
+    '',
+    projectLine,
+    '',
+    'Tell me what to change and I will do it. "what can you do" lists the families I understand.',
+  ].join('\n');
+}
+
 class AgentBridgeService {
   private activeRun: AgentExecutionRun | null = null;
   private listeners = new Set<AgentBridgeListener>();
@@ -697,7 +948,9 @@ class AgentBridgeService {
   async dispatchPrompt(
     prompt: string,
     agentModel: AgentModel = 'antigravity',
-    context?: ContextEnvelope
+    context?: ContextEnvelope,
+    /** Prior turns, so a conversation can actually follow on. */
+    chatHistory: { role: 'user' | 'assistant'; content: string }[] = []
   ): Promise<AgentExecutionRun> {
     // A second dispatch always supersedes an in-flight one.
     if (this.isRunning) this.cancelActiveRun();
@@ -766,11 +1019,49 @@ class AgentBridgeService {
 
       if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
-      if (steps.length === 0) {
+      /*
+        No plan came back. What that means depends entirely on what was asked.
+
+          • "hello", "what can you do?", "how long is this?" — the user was
+            talking to us. Converse.
+          • "make this warmer" — a real grading instruction we failed to
+            plan. Say so, specifically. Answering that with small talk
+            would be worse than the old "Nothing to do", not better.
+
+        So the conversation path is scoped to prompts that were never edit
+        instructions in the first place.
+      */
+      const isConversational = commandKind === 'query' || commandKind === 'unknown';
+
+      if (steps.length === 0 && !isConversational) {
         this.activeRun.status = 'completed';
         this.activeRun.progressPct = 100;
         this.activeRun.currentActivity = 'Nothing to do';
         this.activeRun.finalResponse = this.buildNoMatchResponse(prompt, context);
+        this.notify();
+        return this.activeRun;
+      }
+
+      if (steps.length === 0) {
+        this.update(60, 'Answering…');
+
+        let reply: string;
+        if (modelEndpoint) {
+          try {
+            reply = await chatWithModel(prompt, signal, context, chatHistory);
+          } catch (err) {
+            if (signal.aborted) throw err;
+            this.addThought('error', `Chat unavailable (${(err as Error).message}) — answering locally.`);
+            reply = localConversationReply(prompt);
+          }
+        } else {
+          reply = localConversationReply(prompt);
+        }
+
+        this.activeRun.status = 'completed';
+        this.activeRun.progressPct = 100;
+        this.activeRun.currentActivity = 'Replied';
+        this.activeRun.finalResponse = reply;
         this.notify();
         return this.activeRun;
       }

@@ -15,7 +15,7 @@ import { useTimelineStore, findClipById, getContentEndMs } from '../store/timeli
 import { useProjectStore } from '../store/projectStore';
 import { useMcpStore } from '../store/mcpStore';
 import { AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset } from '../types/edl';
-import { describeClipProperties, PROPERTY_SCHEMA } from '../engine/propertyPath';
+import { describeClipProperties, getClipProperty, PROPERTY_SCHEMA } from '../engine/propertyPath';
 import { EFFECT_REGISTRY, getEffectDefinition } from '../engine/effectsRegistry';
 import { MOTION_PRESET_LABELS, MotionPresetId } from '../store/timelineStore';
 import { parseCaptions, serializeCaptions, reflowCues } from '../engine/captions';
@@ -415,8 +415,12 @@ defineTool({
     trackId: z.string().optional().describe('Target every clip on this track instead'),
     clipType: z.string().optional().describe('Only clips of this type (video, text, audio, image, shape)'),
     properties: z.record(z.any()),
+    relative: z
+      .boolean()
+      .optional()
+      .describe('Treat numeric values as deltas added to the current value, not absolutes'),
   }),
-  handler: ({ clipIds, trackId, clipType, properties }) => {
+  handler: ({ clipIds, trackId, clipType, properties, relative }) => {
     const state = timeline();
 
     let targets: string[];
@@ -438,7 +442,26 @@ defineTool({
     const applied: string[] = [];
     const errors: string[] = [];
     for (const id of targets) {
-      const r = state.patchClip(id, properties);
+      /*
+        Relative mode resolves against each clip individually, which is the
+        whole point: "make it warmer" applied to five clips that start at
+        five different temperatures should warm each of them by the same
+        amount, not flatten them all to one value.
+      */
+      let patch = properties;
+      if (relative) {
+        const clip = findClipById(state.tracks, id);
+        if (!clip) continue;
+        patch = Object.fromEntries(
+          Object.entries(properties).map(([path, value]) => {
+            if (typeof value !== 'number') return [path, value];
+            const current = getClipProperty(clip, path);
+            return [path, (typeof current === 'number' ? current : 0) + value];
+          })
+        );
+      }
+
+      const r = state.patchClip(id, patch);
       if (r.applied.length > 0) applied.push(id);
       errors.push(...r.errors);
     }
