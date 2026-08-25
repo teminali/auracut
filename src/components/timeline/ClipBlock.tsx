@@ -3,11 +3,12 @@
    fade / transition affordances that sit on its edges.
    ═══════════════════════════════════════════════════════════════════ */
 
-import React, { useCallback, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useRef, useState, useMemo, useEffect } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import { Clip, Track } from '../../types/edl';
 import { AudioWaveform } from './AudioWaveform';
+import { extractPeaks } from '../../engine/audioPeakExtractor';
 import { formatCompactDuration } from '../../utils/time';
 import {
   Type, Film, Music, Image as ImageIcon, Lock, Diamond, Gauge, Layers,
@@ -59,6 +60,22 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
 
   const isCompact = widthPx < 72;
   const isTiny = widthPx < 28;
+
+  /*
+    Real peaks, decoded from the actual file.
+
+    The waveform used to be generated from a hash of the clip id — it
+    looked like audio and correlated with nothing. You cannot spot a beat,
+    a breath or a silence in a picture of noise, which is most of what a
+    waveform is for.
+  */
+  const [peaks, setPeaks] = useState<number[] | undefined>();
+  useEffect(() => {
+    if (clip.type !== 'audio' || !clip.mediaUrl) return;
+    let alive = true;
+    void extractPeaks(clip.mediaUrl).then((p) => { if (alive) setPeaks(p); }).catch(() => {});
+    return () => { alive = false; };
+  }, [clip.mediaUrl, clip.type]);
 
   /* ── Drag to move (multi-clip, cross-track) ── */
 
@@ -386,6 +403,7 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
             height={Math.max(4, trackHeightPx - 25)}
             color="#7ce8bb"
             seed={clip.id}
+            peaks={peaks}
           />
         </div>
       )}

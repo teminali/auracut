@@ -43,6 +43,8 @@ export interface AuraCutElectronAPI {
           words: { word: string; startMs: number; endMs: number; confidence: number }[]; model: string; elapsedMs: number }
       | { ok: false; reason: string; message: string }
     >;
+    analyze: (opts: { mediaUrl: string; silenceThresholdDb?: number; minSilenceMs?: number }) => Promise<any>;
+    setup: (opts?: { model?: string }) => Promise<{ ok: boolean; step: string; message: string; log?: string }>;
     onProgress: (cb: (p: { percent: number; note: string }) => void) => () => void;
   };
 

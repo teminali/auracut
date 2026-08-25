@@ -34,6 +34,8 @@ export interface ElectronAPI {
   stt: {
     status: () => Promise<{ ffmpeg: string | null; whisper: string | null; models: string[]; ready: boolean }>;
     transcribe: (opts: { mediaUrl: string; language?: string; model?: string }) => Promise<any>;
+    analyze: (opts: { mediaUrl: string; silenceThresholdDb?: number; minSilenceMs?: number }) => Promise<any>;
+    setup: (opts?: { model?: string }) => Promise<any>;
     onProgress: (cb: (p: { percent: number; note: string }) => void) => () => void;
   };
 
@@ -83,6 +85,8 @@ const api: ElectronAPI = {
   stt: {
     status: () => ipcRenderer.invoke('stt:status'),
     transcribe: (opts) => ipcRenderer.invoke('stt:transcribe', opts),
+    analyze: (opts) => ipcRenderer.invoke('audio:analyze', opts),
+    setup: (opts) => ipcRenderer.invoke('stt:setup', opts ?? {}),
     onProgress: (cb) => {
       const handler = (_e: unknown, p: { percent: number; note: string }) => cb(p);
       ipcRenderer.on('stt:progress', handler);

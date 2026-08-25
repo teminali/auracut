@@ -1783,3 +1783,85 @@ defineTool({
     };
   },
 });
+
+/* ═══════════════════════════════════════════════════════════════════
+   AUDIO UNDERSTANDING
+   ═══════════════════════════════════════════════════════════════════ */
+
+defineTool({
+  name: 'analyze_audio',
+  category: 'audio',
+  description:
+    'Measure a clip\'s audio: loudness (LUFS), true peak, noise floor, dynamic range, ' +
+    'clipping, and every silent region with timestamps. Fast (a second or two), needs no ' +
+    'model. Call this BEFORE promising anything about audio — it answers "is it too quiet", ' +
+    '"is it clipping", "where are the dead patches", which transcription cannot.',
+  schema: z.object({
+    clipId: z.string().optional().describe('Defaults to the first clip with audio'),
+    silenceThresholdDb: z.number().optional().describe('Below this counts as silence; default -35'),
+    minSilenceMs: z.number().optional().describe('Ignore gaps shorter than this; default 400'),
+  }),
+  handler: async ({ clipId, silenceThresholdDb, minSilenceMs }) => {
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (!api?.stt) throw new Error('Audio analysis needs the desktop app (it shells out to ffmpeg).');
+
+    const state = timeline();
+    const clip = clipId
+      ? findClipById(state.tracks, resolveClipId(clipId))
+      : state.tracks.filter((t) => t.type === 'audio').flatMap((t) => t.clips).find((c) => c.mediaUrl) ??
+        state.tracks.filter((t) => t.type === 'video').flatMap((t) => t.clips).find((c) => c.mediaUrl);
+
+    if (!clip?.mediaUrl) throw new Error('No clip with audio found on the timeline.');
+
+    const result = await api.stt.analyze({ mediaUrl: clip.mediaUrl, silenceThresholdDb, minSilenceMs });
+    if (!result.ok) throw new Error(result.message);
+
+    return {
+      clip: clip.name,
+      clipId: clip.id,
+      loudness: {
+        integratedLufs: result.integratedLufs,
+        loudnessRangeLu: result.loudnessRangeLu,
+        truePeakDbfs: result.truePeakDbfs,
+        rmsDbfs: result.rmsDbfs,
+      },
+      noiseFloorDbfs: result.noiseFloorDbfs,
+      dynamicRangeDb: result.dynamicRangeDb,
+      clippedSamples: result.clippedSamples,
+      // Timeline-absolute, so these can be fed straight to cut tools.
+      silences: result.silences.map((s: { startMs: number; endMs: number; durationMs: number }) => ({
+        startMs: s.startMs + clip.startTimeMs,
+        endMs: s.endMs + clip.startTimeMs,
+        durationMs: s.durationMs,
+      })),
+      silentPercent: Math.round(result.silentFraction * 100),
+      notes: result.notes,
+    };
+  },
+});
+
+defineTool({
+  name: 'setup_transcription',
+  category: 'ai',
+  description:
+    'Install what transcription needs (ffmpeg via Homebrew, openai-whisper via pip, and one ' +
+    'Whisper model). Only call this after check_transcription_ready says something is missing, ' +
+    'and tell the user first — it installs software and can take several minutes.',
+  schema: z.object({
+    model: z.string().optional().describe('Whisper model to fetch; default "small" (~500MB)'),
+  }),
+  handler: async ({ model }) => {
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (!api?.stt) throw new Error('Setup needs the desktop app.');
+
+    const result = await api.stt.setup({ model });
+    if (!result.ok) {
+      useGapStore.getState().record({
+        request: 'Set up transcription automatically',
+        reason: `${result.step}: ${result.message}`,
+        suggestion: 'Ship whisper.cpp with a small bundled model so captions need no setup at all',
+      });
+    }
+    return result;
+  },
+});

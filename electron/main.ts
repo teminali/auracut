@@ -3,7 +3,7 @@ import path from 'path';
 import http from 'http';
 import { initAutoUpdater } from './updater';
 import { initToolBridge, setBridgeWindow } from './toolBridge';
-import { transcribeMedia, transcriberStatus } from './transcribe';
+import { transcribeMedia, transcriberStatus, analyzeAudio, setupTranscription } from './transcribe';
 import { startRpcServer } from './rpcServer';
 import {
   startSession, stopSession, resetSession, isRunning, findClaudeCli, getCliVersion,
@@ -123,6 +123,10 @@ function registerAgentIpc() {
         },
       })
   );
+
+  ipcMain.handle('audio:analyze', async (_e, p: { mediaUrl: string; silenceThresholdDb?: number; minSilenceMs?: number }) =>
+    analyzeAudio(p.mediaUrl, p.silenceThresholdDb, p.minSilenceMs));
+  ipcMain.handle('stt:setup', async (_e, p: { model?: string }) => setupTranscription(p?.model));
 
   ipcMain.handle('claude:stop', () => { stopSession(); return true; });
   ipcMain.handle('claude:reset', () => { resetSession(); return true; });

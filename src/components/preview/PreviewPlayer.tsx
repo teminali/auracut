@@ -22,6 +22,7 @@ import { AlignmentBar } from '../canvas/AlignmentBar';
 import { PlaybackControls } from './PlaybackControls';
 import { useMeasure } from '../../hooks/useMeasure';
 import { useRafLoop } from '../../hooks/useRafLoop';
+import { audioEngine } from '../../engine/audioEngine';
 import {
   Grid3x3, Ratio, Film, Magnet, ZoomIn, ZoomOut, Maximize2, Minimize2, Gauge,
 } from 'lucide-react';
@@ -100,26 +101,23 @@ export const PreviewPlayer: React.FC = () => {
         state.setPlayheadMs(next);
       }
 
-      // Level meters follow the audio clips actually under the playhead.
-      const audible = state.tracks.some(
-        (t) =>
-          t.type === 'audio' &&
-          !t.muted &&
-          t.clips.some(
-            (c) => state.playheadMs >= c.startTimeMs && state.playheadMs < c.startTimeMs + c.durationMs
-          )
-      );
-      if (audible) {
-        const base = 0.42 + Math.sin(state.playheadMs / 90) * 0.16;
-        const l = Math.min(1, Math.max(0.05, base + Math.random() * 0.24));
-        const r = Math.min(1, Math.max(0.05, base + Math.random() * 0.28));
-        setMeters((prev) => ({ l, r, peak: Math.max(prev.peak * 0.97, l, r) }));
-      } else {
-        setMeters((prev) => ({ l: prev.l * 0.8, r: prev.r * 0.8, peak: prev.peak * 0.95 }));
-      }
-    } else if (meters.l > 0.05) {
-      setMeters((prev) => ({ l: prev.l * 0.85, r: prev.r * 0.85, peak: prev.peak * 0.9 }));
     }
+
+    /*
+      Drive audio from the same frame loop as the picture, so sound
+      follows the playhead through scrubbing, looping and rate changes
+      with no separate clock to drift against.
+    */
+    audioEngine.sync(state.tracks, state.playheadMs, isPlaying, playbackRate);
+
+    // Meters read the actual output graph. They used to be Math.random(),
+    // which bounced convincingly while nothing was playing at all.
+    const levels = audioEngine.getLevels();
+    setMeters((prev) =>
+      Math.abs(levels.l - prev.l) < 0.004 && Math.abs(levels.r - prev.r) < 0.004
+        ? prev
+        : levels
+    );
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -253,7 +251,7 @@ export const PreviewPlayer: React.FC = () => {
       {/* ── Stage ── */}
       <div
         ref={stageRef}
-        onPointerDown={handleStagePointerDown}
+        onPointerDown={(e) => { audioEngine.resume(); handleStagePointerDown(e); }}
         className="flex-1 relative min-h-0 overflow-hidden stage-bed"
       >
         {/* Canvas + overlays, positioned exactly on the computed viewport */}
