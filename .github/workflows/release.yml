@@ -50,9 +50,12 @@ jobs:
       - name: Type-check and build
         run: yarn build
 
-      # Signing is opt-in. When the Apple secrets are absent the macOS
-      # build still succeeds — it is simply unsigned, and the app reports
-      # `manual-only` at runtime instead of pretending it can self-update.
+      # Signing is opt-in. The two macOS steps below are mutually exclusive
+      # and must stay that way: a secret that does not exist is exposed as
+      # an EMPTY STRING, not as an unset variable, and electron-builder
+      # reads CSC_LINK="" as a certificate *path* — resolving it against the
+      # project directory and failing with "<workspace> not a file". So the
+      # unsigned build must never see the CSC_* variables at all.
       - name: Detect macOS signing credentials
         if: matrix.platform == 'mac'
         id: signing
@@ -62,20 +65,32 @@ jobs:
             echo "signed=1" >> "$GITHUB_OUTPUT"
           else
             echo "signed=0" >> "$GITHUB_OUTPUT"
-            echo "::warning::No CSC_LINK secret — building macOS unsigned. Auto-update will be disabled in this build."
+            echo "::warning::No CSC_LINK secret — building macOS unsigned. This build will tell users it cannot self-update."
           fi
 
-      - name: Build and publish (macOS)
-        if: matrix.platform == 'mac'
+      - name: Build and publish (macOS, signed)
+        if: matrix.platform == 'mac' && steps.signing.outputs.signed == '1'
         run: yarn electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AURACUT_SIGNED: ${{ steps.signing.outputs.signed }}
+          # Baked into the bundle by esbuild — this is what lets the shipped
+          # app know it is allowed to update itself.
+          AURACUT_SIGNED: '1'
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Build and publish (macOS, unsigned)
+        if: matrix.platform == 'mac' && steps.signing.outputs.signed != '1'
+        run: yarn electron-builder --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AURACUT_SIGNED: '0'
+          # Stop electron-builder rummaging through the runner keychain for
+          # an identity it will not find.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Build and publish (Windows)
         if: matrix.platform == 'win'
