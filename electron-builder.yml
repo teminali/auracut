@@ -26,6 +26,11 @@ files:
   - package.json
   - '!**/*.map'
 
+# The MCP shim is launched as its own process by Claude Code, so it has to
+# exist as a real file. Paths inside app.asar are not spawnable.
+asarUnpack:
+  - dist-electron/mcpStdio.cjs
+
 publish:
   provider: github
   owner: teminali

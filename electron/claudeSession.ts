@@ -96,9 +96,15 @@ export function writeMcpConfig(): string {
   const dir = app.getPath('userData');
   const file = path.join(dir, 'mcp-auracut.json');
 
-  // In development the shim is built to dist-electron next to main.cjs;
-  // in a packaged app it sits alongside it inside the asar.
-  const shim = path.join(__dirname, 'mcpStdio.cjs');
+  /*
+    The shim runs as its own process, so it must be a real file. Inside a
+    packaged app __dirname points into app.asar, which nothing can spawn
+    from — electron-builder is told to unpack this one file, and the path
+    is rewritten to match.
+  */
+  const shim = path
+    .join(__dirname, 'mcpStdio.cjs')
+    .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 
   const config = {
     mcpServers: {
