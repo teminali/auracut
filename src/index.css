@@ -1,0 +1,725 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════
+   TOKENS
+   Anything a component needs to reference at runtime lives here as
+   a custom property so JS-set inline styles stay in the same system.
+   ═══════════════════════════════════════════════════════════════ */
+@layer base {
+  :root {
+    --line: rgba(255, 255, 255, 0.072);
+    --line-soft: rgba(255, 255, 255, 0.042);
+    --line-strong: rgba(255, 255, 255, 0.125);
+
+    --accent: #4a90ff;
+    --accent-soft: rgba(74, 144, 255, 0.15);
+    --accent-line: rgba(74, 144, 255, 0.4);
+
+    --stage: #060709;
+    --sunken: #0a0b0e;
+    --chrome: #111318;
+    --surface: #16191f;
+    --surface-2: #1e222a;
+    --surface-3: #252a33;
+
+    --text: #e6e9ef;
+    --text-muted: #a2aab8;
+    --text-dim: #6f7887;
+    --text-faint: #4e5663;
+
+    /* One easing curve for the whole app. */
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --t-fast: 110ms;
+    --t-base: 170ms;
+
+    /* Height rhythm — every control snaps to one of these. */
+    --h-xs: 20px;
+    --h-sm: 24px;
+    --h-md: 28px;
+    --h-lg: 32px;
+    --h-bar: 36px;
+    --h-title: 40px;
+
+    /* macOS traffic-light gutter; overridden to 0 on other platforms. */
+    --titlebar-inset: 78px;
+  }
+
+  /* Only macOS puts window controls inside the client area. */
+  html.platform-win,
+  html.platform-linux {
+    --titlebar-inset: 10px;
+  }
+
+  * {
+    border-color: var(--line);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--stage);
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01', 'tnum';
+    font-size: 12px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  /* Numeric readouts never jitter as digits change. */
+  .tabular,
+  input[type='number'],
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Keyboard focus only — pointer interaction never draws a ring. */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(74, 144, 255, 0.45);
+    border-radius: 5px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   NATIVE WINDOW CHROME
+   The header doubles as the OS titlebar: it drags the window, and it
+   reserves a gutter so the macOS traffic lights never collide with UI.
+   ═══════════════════════════════════════════════════════════════ */
+@layer components {
+  .titlebar-drag {
+    -webkit-app-region: drag;
+  }
+
+  /* Anything interactive inside the drag region must opt back out. */
+  .titlebar-drag button,
+  .titlebar-drag input,
+  .titlebar-drag select,
+  .titlebar-drag a,
+  .titlebar-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .titlebar-gutter {
+    width: var(--titlebar-inset);
+    flex-shrink: 0;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SURFACES
+   ═══════════════════════════════════════════════════════════════ */
+@layer components {
+  .panel {
+    @apply bg-spectrum-panel border-line;
+  }
+
+  /* Every panel/toolbar header in the app is this height. No exceptions. */
+  .panel-header {
+    @apply flex items-center justify-between gap-2 px-3 bg-spectrum-panelHeader border-b border-line flex-shrink-0;
+    height: var(--h-bar);
+  }
+
+  .panel-title {
+    @apply text-micro font-semibold text-spectrum-textDim uppercase truncate;
+    letter-spacing: 0.075em;
+  }
+
+  .section-label {
+    @apply text-micro font-semibold text-spectrum-textMuted uppercase;
+    letter-spacing: 0.07em;
+  }
+
+  .hairline {
+    @apply h-px bg-line w-full;
+  }
+
+  .card,
+  .squircle-card {
+    @apply bg-spectrum-card border border-line rounded-squircle-sm;
+    transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease;
+  }
+
+  .card-interactive {
+    @apply card cursor-pointer;
+  }
+
+  .card-interactive:hover {
+    @apply bg-spectrum-cardHover border-line-strong;
+  }
+
+  .well {
+    @apply bg-spectrum-sunken border border-line rounded-squircle-sm;
+  }
+
+  /* Frosted floating surface — palettes, popovers, stage overlays. */
+  .glass {
+    background: rgba(22, 25, 31, 0.82);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border: 1px solid var(--line-strong);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     BUTTONS
+     Three tiers: ghost (pro-btn), filled (pro-btn-filled), primary.
+     Each gets hover, pressed, disabled and an active/on state.
+     ───────────────────────────────────────────────────────────── */
+  .pro-btn {
+    @apply rounded-squircle-xs text-spectrum-textMuted inline-flex items-center justify-center flex-shrink-0;
+    background-color: transparent;
+    border: 1px solid transparent;
+    transition: background-color var(--t-fast) ease, color var(--t-fast) ease,
+      border-color var(--t-fast) ease;
+  }
+
+  .pro-btn:hover:not(:disabled) {
+    @apply bg-spectrum-hover text-spectrum-text;
+  }
+
+  .pro-btn:active:not(:disabled) {
+    @apply bg-spectrum-active;
+  }
+
+  .pro-btn:disabled {
+    @apply opacity-25 cursor-not-allowed;
+  }
+
+  .pro-btn-active {
+    @apply bg-spectrum-accentSoft text-spectrum-accent;
+    border-color: var(--accent-line);
+  }
+
+  .pro-btn-filled,
+  .squircle-btn {
+    @apply rounded-squircle-xs bg-spectrum-card text-spectrum-textMuted border border-line inline-flex items-center justify-center flex-shrink-0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    transition: background-color var(--t-fast) ease, color var(--t-fast) ease,
+      border-color var(--t-fast) ease;
+  }
+
+  .pro-btn-filled:hover:not(:disabled),
+  .squircle-btn:hover:not(:disabled) {
+    @apply bg-spectrum-cardHover text-spectrum-text border-line-strong;
+  }
+
+  .pro-btn-filled:active:not(:disabled),
+  .squircle-btn:active:not(:disabled) {
+    @apply bg-spectrum-active;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  }
+
+  .pro-btn-filled:disabled,
+  .squircle-btn:disabled {
+    @apply opacity-25 cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply rounded-squircle-xs inline-flex items-center justify-center font-semibold text-white flex-shrink-0;
+    background: linear-gradient(180deg, #5f9dff 0%, #3a7ef0 100%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.45),
+      0 0 0 0.5px rgba(58, 126, 240, 0.5);
+    transition: filter var(--t-fast) ease, box-shadow var(--t-fast) ease;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .btn-primary:active:not(:disabled) {
+    filter: brightness(0.94);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .btn-primary:disabled {
+    @apply opacity-35 cursor-not-allowed;
+  }
+
+  .btn-ghost-danger {
+    @apply rounded-squircle-xs inline-flex items-center justify-center text-spectrum-textDim flex-shrink-0;
+    border: 1px solid transparent;
+    transition: all var(--t-fast) ease;
+  }
+
+  .btn-ghost-danger:hover {
+    @apply text-spectrum-red;
+    background-color: rgba(238, 90, 99, 0.11);
+    border-color: rgba(238, 90, 99, 0.26);
+  }
+
+  /* Segmented control — one recessed trough, the active cell lifts out. */
+  .seg-group {
+    @apply inline-flex items-center gap-px rounded-squircle-sm bg-spectrum-sunken border border-line;
+    padding: 2px;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+
+  .seg-item {
+    @apply rounded-[5px] text-ui-xs font-medium text-spectrum-textDim inline-flex items-center justify-center gap-1 whitespace-nowrap;
+    padding: 0 7px;
+    height: var(--h-sm);
+    border: 1px solid transparent;
+    transition: background-color var(--t-fast) ease, color var(--t-fast) ease,
+      border-color var(--t-fast) ease;
+  }
+
+  .seg-item:hover:not(.seg-item-active) {
+    @apply text-spectrum-text;
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .seg-item-active {
+    @apply bg-spectrum-card text-spectrum-text;
+    border-color: var(--line-strong);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4);
+  }
+
+  /* On-state that also carries meaning (snapping on, safe areas on, …). */
+  .seg-item-on {
+    @apply text-spectrum-accent;
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 px-1.5 rounded-[5px] text-micro font-medium border border-line bg-spectrum-card text-spectrum-textDim;
+    height: var(--h-xs);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     INPUTS
+     ───────────────────────────────────────────────────────────── */
+  .pro-input,
+  .squircle-input {
+    @apply rounded-squircle-xs bg-spectrum-sunken text-spectrum-text border border-line text-ui-sm;
+    outline: none;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+    transition: border-color var(--t-fast) ease, box-shadow var(--t-fast) ease;
+  }
+
+  .pro-input:hover,
+  .squircle-input:hover {
+    @apply border-line-strong;
+  }
+
+  .pro-input:focus,
+  .pro-input:focus-within,
+  .squircle-input:focus,
+  .squircle-input:focus-within {
+    border-color: var(--accent);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(74, 144, 255, 0.22);
+  }
+
+  .pro-input::placeholder {
+    color: var(--text-faint);
+  }
+
+  /* Native select keeps its own chevron so it matches everywhere. */
+  select.pro-input,
+  select.squircle-input,
+  .pro-input select,
+  select.select-native {
+    color: var(--text);
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%236f7887' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 7px center;
+    padding-right: 22px;
+  }
+
+  select option {
+    background-color: #1e222a;
+    color: var(--text);
+  }
+
+  .num-field {
+    @apply pro-input flex items-center gap-1 px-1.5;
+    height: var(--h-md);
+  }
+
+  .num-field input {
+    @apply w-full bg-transparent text-right text-ui-sm text-spectrum-text outline-none font-mono min-w-0;
+  }
+
+  /* A label you can drag to change its value — core NLE muscle memory. */
+  .scrub-label {
+    cursor: ew-resize;
+    user-select: none;
+    transition: color var(--t-fast) ease;
+  }
+
+  .scrub-label:hover {
+    color: var(--accent);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     INSPECTOR ROW GRID
+     A fixed label column is what stops a properties panel from
+     looking like a stack of unrelated widgets.
+     ───────────────────────────────────────────────────────────── */
+  .prop-row {
+    @apply grid items-center gap-2;
+    grid-template-columns: 76px minmax(0, 1fr);
+    min-height: var(--h-md);
+  }
+
+  .prop-label {
+    @apply text-ui-sm text-spectrum-textMuted truncate;
+  }
+
+  .prop-value {
+    @apply text-ui-sm font-mono tabular text-spectrum-textDim;
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     SPLITTERS
+     A 1px line with an 8px invisible grab zone straddling it.
+     ───────────────────────────────────────────────────────────── */
+  .splitter-col,
+  .splitter-row {
+    background-color: var(--line);
+    position: relative;
+    z-index: 25;
+    flex-shrink: 0;
+    transition: background-color var(--t-base) ease;
+  }
+
+  .splitter-col {
+    width: 1px;
+    cursor: col-resize;
+  }
+
+  .splitter-row {
+    height: 1px;
+    cursor: row-resize;
+  }
+
+  .splitter-col::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -4px;
+    right: -4px;
+    cursor: col-resize;
+  }
+
+  .splitter-row::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -4px;
+    bottom: -4px;
+    cursor: row-resize;
+  }
+
+  .splitter-col:hover,
+  .splitter-col:active,
+  .splitter-row:hover,
+  .splitter-row:active {
+    background-color: var(--accent);
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     OVERLAYS
+     ───────────────────────────────────────────────────────────── */
+  .scrim {
+    @apply fixed inset-0 z-50 flex items-center justify-center animate-fade-in;
+    background: rgba(3, 4, 6, 0.62);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  .modal-shell {
+    @apply bg-spectrum-panel rounded-squircle-lg overflow-hidden animate-scale-in shadow-modal;
+  }
+
+  .kbd {
+    @apply inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[4px] bg-spectrum-card border border-line text-micro font-mono text-spectrum-textDim;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RANGE SLIDERS
+   4px trough, rounded, with a bright thumb that grows on hover.
+   ═══════════════════════════════════════════════════════════════ */
+input[type='range'] {
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 16px;
+  width: 100%;
+}
+
+input[type='range']:focus {
+  outline: none;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 4px;
+  background: #262b33;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
+  transition: background var(--t-fast) ease;
+}
+
+input[type='range']:hover::-webkit-slider-runnable-track {
+  background: #2f353f;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  height: 12px;
+  width: 12px;
+  border-radius: 999px;
+  background: #f2f4f8;
+  margin-top: -4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.3);
+  border: none;
+  transition: transform var(--t-fast) var(--ease), background-color var(--t-fast) ease,
+    box-shadow var(--t-fast) ease;
+}
+
+input[type='range']:hover::-webkit-slider-thumb {
+  transform: scale(1.12);
+  background: #ffffff;
+}
+
+input[type='range']:active::-webkit-slider-thumb {
+  transform: scale(1.05);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 0 4px rgba(74, 144, 255, 0.25);
+}
+
+input[type='range'].range-accent::-webkit-slider-thumb {
+  background: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHECKBOX
+   ═══════════════════════════════════════════════════════════════ */
+input[type='checkbox'] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  background: #14171d;
+  border: 1px solid var(--line-strong);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease;
+}
+
+input[type='checkbox']:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 3.5px;
+  height: 7.5px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SCROLLBARS
+   Overlay style — invisible until the region is hovered.
+   ═══════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  transition: background-color var(--t-base) ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STAGE / CANVAS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* The program monitor bed. A vignette pulls the eye to the picture. */
+.stage-bed {
+  background:
+    radial-gradient(ellipse 78% 68% at 50% 46%, rgba(255, 255, 255, 0.028), transparent 72%),
+    var(--stage);
+}
+
+/* Checkerboard behind transparent canvas areas. */
+.checkerboard {
+  background-color: #15181d;
+  background-image:
+    linear-gradient(45deg, #1c1f26 25%, transparent 25%),
+    linear-gradient(-45deg, #1c1f26 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1c1f26 75%),
+    linear-gradient(-45deg, transparent 75%, #1c1f26 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+.smart-guide {
+  position: absolute;
+  background: #ff2d78;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.smart-guide-h {
+  height: 1px;
+  left: 0;
+  right: 0;
+}
+
+.smart-guide-v {
+  width: 1px;
+  top: 0;
+  bottom: 0;
+}
+
+.gizmo-handle {
+  position: absolute;
+  background: #ffffff;
+  border: 1.5px solid var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  transition: transform var(--t-fast) var(--ease), background-color var(--t-fast) ease;
+}
+
+.gizmo-handle:hover {
+  transform: scale(1.3);
+  background: var(--accent);
+}
+
+.gizmo-edge {
+  position: absolute;
+  pointer-events: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   TIMELINE
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Lane bed: a faint vertical rhythm so long empty tracks aren't voids. */
+.lane-stripe {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.014) 0px,
+    rgba(255, 255, 255, 0.014) 1px,
+    transparent 1px,
+    transparent 48px
+  );
+}
+
+/*
+  Clip body. The dark base is what makes a timeline readable: identity
+  comes from the top rail and a low-alpha wash, never from a saturated
+  fill — so thumbnails and waveforms stay legible on top of it.
+*/
+.clip-body {
+  background-color: #1a1d24;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.clip-rail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  pointer-events: none;
+}
+
+/* Loading shimmer */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Cursor lock while a global drag is in flight. */
+.dragging-h,
+.dragging-h * {
+  cursor: ew-resize !important;
+}
+
+.dragging-move,
+.dragging-move * {
+  cursor: grabbing !important;
+}

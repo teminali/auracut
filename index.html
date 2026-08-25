@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a90ff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><polygon points='5 3 19 12 5 21 5 3'></polygon></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AuraCut</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      /* Tag the platform before first paint so the titlebar reserves the
+         right gutter — macOS needs room for the traffic lights, Windows
+         and Linux do not. */
+      (function () {
+        var p = navigator.userAgent.indexOf('Mac') !== -1 ? 'mac'
+              : navigator.userAgent.indexOf('Win') !== -1 ? 'win'
+              : 'linux';
+        document.documentElement.classList.add('platform-' + p);
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

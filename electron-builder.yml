@@ -1,0 +1,102 @@
+# ═══════════════════════════════════════════════════════════════════
+# Packaging.
+#
+# The `publish` block is what makes auto-update work: electron-builder
+# uploads the installers AND the update manifests (latest.yml,
+# latest-mac.yml) to the GitHub release, and electron-updater reads
+# those same manifests at runtime. Both halves must point at the same
+# repo or the app will never see a new version.
+# ═══════════════════════════════════════════════════════════════════
+
+appId: com.auracut.editor
+productName: AuraCut
+copyright: Copyright © 2026 AuraCut
+
+directories:
+  output: release
+  buildResources: build
+
+# Ad-hoc signs macOS builds that have no Developer ID, so they can run at all.
+afterPack: build/afterPack.cjs
+
+# Ship only what the app actually runs.
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+  - '!**/*.map'
+
+publish:
+  provider: github
+  owner: teminali
+  repo: auracut
+  # Must stay `release`. This value is copied into app-update.yml, where
+  # electron-updater uses it to decide which releases to consider — and
+  # `draft` would make the shipped app look for drafts, which needs an
+  # auth token it cannot have. The gate on shipping is the tag push, not
+  # this field.
+  releaseType: release
+
+# ── macOS ──────────────────────────────────────────────────────────
+mac:
+  category: public.app-category.video
+  # Both targets are needed: `dmg` is what people download, `zip` is what
+  # Squirrel.Mac downloads to perform an in-place update. Dropping the zip
+  # is the most common reason macOS auto-update silently never fires.
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip
+      arch: [arm64, x64]
+  darkModeSupport: true
+  hardenedRuntime: true
+  # Applied only when a real identity signs; ad-hoc builds get the
+  # entitlements too, which is what keeps V8's JIT working locally.
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  #
+  # `identity` is deliberately NOT set to null.
+  #
+  # Skipping the signing step leaves the bundle carrying Electron's own
+  # stale linker signature, which no longer matches the modified contents.
+  # Apple Silicon refuses to execute that: the app dies on launch with no
+  # output and exit code 0. Leaving `identity` unset lets electron-builder
+  # pick up CSC_LINK when CI provides it, and fall back to an ad-hoc
+  # signature when it does not — which is enough to run locally.
+
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  contents:
+    - x: 140
+      y: 190
+      type: file
+    - x: 400
+      y: 190
+      type: link
+      path: /Applications
+
+# ── Windows ────────────────────────────────────────────────────────
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  # A per-user install needs no elevation, which is also what lets the
+  # updater replace the app without a UAC prompt on every release.
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AuraCut
+
+# ── Linux (AppImage rides along for free) ──────────────────────────
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  category: AudioVideo
+  artifactName: ${productName}-${version}-${arch}.${ext}

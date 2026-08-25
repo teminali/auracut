@@ -1,0 +1,103 @@
+import React from 'react';
+import { useTimelineStore } from '../../store/timelineStore';
+import { Clip, VoiceEffect } from '../../types/edl';
+import { Section, SliderRow, ToggleRow, SegmentedControl, NumberField } from '../ui/Controls';
+import { Volume2, Waves, Mic, Sparkles } from 'lucide-react';
+
+const VOICE_EFFECTS: { value: VoiceEffect; label: string }[] = [
+  { value: 'none', label: 'Natural' },
+  { value: 'deep', label: 'Deep' },
+  { value: 'high', label: 'High' },
+  { value: 'robot', label: 'Robot' },
+  { value: 'echo', label: 'Echo' },
+  { value: 'telephone', label: 'Phone' },
+  { value: 'stadium', label: 'Stadium' },
+];
+
+/** dB is what editors think in; the model stores linear gain. */
+const toDb = (gain: number): number => (gain <= 0.0001 ? -60 : 20 * Math.log10(gain));
+
+export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
+  const updateClipAudio = useTimelineStore((s) => s.updateClipAudio);
+  const commit = useTimelineStore((s) => s.commit);
+
+  const a = clip.audio;
+  const set = (patch: Partial<typeof a>) => updateClipAudio(clip.id, patch);
+  const maxFade = Math.floor(clip.durationMs / 2);
+
+  return (
+    <div>
+      <Section title="Level" icon={Volume2}>
+        <SliderRow
+          label="Volume"
+          min={0}
+          max={2}
+          step={0.01}
+          displayScale={100}
+          unit="%"
+          defaultValue={1}
+          value={a.volume}
+          onChange={(v) => set({ volume: v })}
+          onCommit={() => commit('Set volume')}
+        />
+        <div className="flex items-center justify-between text-[10px] font-mono text-spectrum-textFaint">
+          <span>{toDb(a.volume) <= -60 ? '−∞' : `${toDb(a.volume) >= 0 ? '+' : ''}${toDb(a.volume).toFixed(1)}`} dB</span>
+          {a.volume > 1 && <span className="text-spectrum-amber">Gain above unity — watch for clipping</span>}
+        </div>
+
+        <div className="grid grid-cols-4 gap-1 pt-0.5">
+          {[0, 0.5, 1, 1.5].map((v) => (
+            <button
+              key={v}
+              onClick={() => { set({ volume: v }); commit('Set volume'); }}
+              className="h-6 rounded-squircle-xs border border-line bg-spectrum-card text-[10px] font-mono text-spectrum-textDim hover:text-spectrum-text transition-colors"
+            >
+              {v === 0 ? 'Mute' : `${Math.round(v * 100)}%`}
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="Fades" icon={Waves}>
+        <div className="grid grid-cols-2 gap-2">
+          <NumberField label="In" unit="ms" min={0} max={maxFade} step={50} sensitivity={8}
+            value={a.fadeInMs} onChange={(v) => set({ fadeInMs: v })} onCommit={() => commit('Set fade in')} />
+          <NumberField label="Out" unit="ms" min={0} max={maxFade} step={50} sensitivity={8}
+            value={a.fadeOutMs} onChange={(v) => set({ fadeOutMs: v })} onCommit={() => commit('Set fade out')} />
+        </div>
+        <p className="text-[10px] text-spectrum-textFaint">
+          You can also drag the white handles on the clip itself.
+        </p>
+      </Section>
+
+      <Section title="Voice & pitch" icon={Mic}>
+        <SliderRow label="Pitch" min={-24} max={24} unit=" st" bipolar defaultValue={0}
+          value={a.pitch} onChange={(v) => set({ pitch: v })} onCommit={() => commit('Set pitch')} />
+        <div className="space-y-1">
+          <span className="text-[11px] text-spectrum-textMuted">Voice effect</span>
+          <SegmentedControl
+            value={a.voiceEffect}
+            columns={4}
+            onChange={(v) => { set({ voiceEffect: v }); commit('Set voice effect'); }}
+            options={VOICE_EFFECTS.map((v) => ({ value: v.value, label: v.label }))}
+          />
+        </div>
+      </Section>
+
+      <Section title="Processing" icon={Sparkles}>
+        <ToggleRow
+          label="Noise reduction"
+          hint="Suppress hiss and room tone"
+          checked={a.noiseReduction}
+          onChange={(v) => { set({ noiseReduction: v }); commit('Toggle noise reduction'); }}
+        />
+        <ToggleRow
+          label="Auto ducking"
+          hint="Dip the music when dialogue plays"
+          checked={a.ducking}
+          onChange={(v) => { set({ ducking: v }); commit('Toggle ducking'); }}
+        />
+      </Section>
+    </div>
+  );
+};

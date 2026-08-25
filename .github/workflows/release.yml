@@ -1,0 +1,90 @@
+# ═══════════════════════════════════════════════════════════════════
+# Release pipeline.
+#
+# Push a `v*` tag and this builds AuraCut on each target OS and uploads
+# the installers — plus the `latest*.yml` manifests electron-updater
+# reads — to a single GitHub release. Cross-compiling is not an option:
+# macOS artifacts must be produced on macOS, Windows on Windows.
+#
+# Pushing the tag IS the decision to ship: the moment all three jobs
+# finish, the release is live and installed clients will see it on their
+# next check. Tag only what you have actually run.
+# ═══════════════════════════════════════════════════════════════════
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+          - os: ubuntu-latest
+            platform: linux
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Type-check and build
+        run: yarn build
+
+      # Signing is opt-in. When the Apple secrets are absent the macOS
+      # build still succeeds — it is simply unsigned, and the app reports
+      # `manual-only` at runtime instead of pretending it can self-update.
+      - name: Detect macOS signing credentials
+        if: matrix.platform == 'mac'
+        id: signing
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.CSC_LINK }}" ]; then
+            echo "signed=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=0" >> "$GITHUB_OUTPUT"
+            echo "::warning::No CSC_LINK secret — building macOS unsigned. Auto-update will be disabled in this build."
+          fi
+
+      - name: Build and publish (macOS)
+        if: matrix.platform == 'mac'
+        run: yarn electron-builder --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AURACUT_SIGNED: ${{ steps.signing.outputs.signed }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Build and publish (Windows)
+        if: matrix.platform == 'win'
+        run: yarn electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish (Linux)
+        if: matrix.platform == 'linux'
+        run: yarn electron-builder --linux --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
