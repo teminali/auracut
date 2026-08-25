@@ -101,14 +101,31 @@ So the honest roadmap is: **audit → altitude → ffmpeg bridge → GPU stage.*
 the single highest-value work available, because the agent believes every
 tool it calls, and a lying tool makes it confidently wrong.
 
-Already fixed:
+Found and fixed:
 
 | Bug | Shape |
 |---|---|
-| `apply_transition` | Took `z.string()`, blind-cast to `TransitionType`. `page_curl` returned **`success: true`** and wrote garbage into the clip. |
-| `generate_auto_captions` | Entirely fake. Slept 1200ms, returned one hardcoded Kiswahili sentence, ignored its `audioUrl`. Every project got identical captions. |
-| Copilot model dropdown | `configureModelEndpoint` was never called anywhere. Purely decorative. |
-| `shaders.ts` | 90 lines of GLSL nothing imports, headed "GPU Shaders Engine". **Still dead — not yet addressed.** |
+| `apply_transition` | Took `z.string()`, blind-cast to `TransitionType`. `page_curl` returned **`success: true`** and wrote garbage into the clip. Five sites now validate via `oneOf()`. |
+| `generate_auto_captions` | Entirely fake. Slept 1200ms, returned one hardcoded Kiswahili sentence, ignored its `audioUrl`. Every project got identical captions. Now real (ffmpeg + Whisper). |
+| **No audio playback at all** | `audioEngine.ts` was a class whose only method played a 440Hz beep, imported by nothing. Play moved the picture in silence while `Math.random()` level meters bounced convincingly. Now a real Web Audio engine. |
+| **Waveforms were fiction** | `audioPeakExtractor.ts` (real code) imported by nothing, so every waveform came from a hash of the clip id. Looked like audio, correlated with nothing. Now wired. |
+| Copilot model dropdown | `configureModelEndpoint` was never called anywhere. Purely decorative. Replaced by the Claude Code session. |
+
+Still outstanding:
+
+| Item | Shape |
+|---|---|
+| `shaders.ts` | 90 lines of WebGL2 GLSL that **nothing imports**, headed "GPU Shaders Engine". The compositor is pure 2D canvas — zero WebGL calls. This is the ceiling on VFX (Phase 4). |
+
+Verified genuinely real, do not re-audit: `beatDetect.ts` (WebAudio decode,
+spectral-flux onsets, autocorrelation tempo), `compositor.ts` rendering,
+`exportPipeline.ts`, the effects registry.
+
+**Audit method that worked:** grep for dead modules (exported, imported by
+nobody), `setTimeout(resolve` simulating work, `as SomeUnion` blind casts,
+`z.string()` where an enum exists, and handlers that never touch a store.
+That sweep is what surfaced the audio findings — the tools were fine; the
+engine underneath was not.
 
 **Your first task: audit all 48 tools in `src/mcp/toolRegistry.ts` for the
 same pattern.** For each, ask:
@@ -150,6 +167,13 @@ actually hitting the limit, which beats guessing.
 `batch_apply`, `create_lower_third`, `assemble_from_folder`.
 Rule of thumb: if the agent needed >6 calls and a verification step, it should
 have been one tool.
+
+**Phase 2.5 — audio depth.** Playback, real waveforms, `analyze_audio` and
+on-demand Whisper setup all landed. What remains: per-clip audio effects
+actually applied on the output graph (EQ, compression, ducking — the
+`ClipAudioSettings` fields `pitch`, `voiceEffect`, `noiseReduction`,
+`ducking` are stored but **not applied** by the playback engine), and audio
+in the exported render.
 
 **Phase 3 — ffmpeg bridge.** A first-class `ffmpeg_process` tool
 (stabilize / speed-interpolate / denoise / custom filtergraph) that renders to
