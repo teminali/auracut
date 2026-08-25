@@ -23,10 +23,22 @@ file comes out.
 
 ---
 
-## ⚠ PRIORITY ZERO: keep finishing the trust audit
+## ⚠ Where the audit stands
 
-Three passes are done and each one found working-looking code that did
-nothing. The remaining tools have NOT all been checked. See §3.
+Five passes done. Every one found working-looking code that did nothing,
+including two files a previous handover had marked "verified genuinely
+real, do not re-audit".
+
+**Audited against the RUNNING APP and confirmed real:** all 14
+transitions, 23 effects, 10 colour looks, caption import/export (SRT
+round-trips exactly), keyframe interpolation (measured on rendered
+frames), masks, `create_grid_layout`, `analyze_audio`, video decode,
+export.
+
+**Not yet re-verified:** the context-protocol tools
+(`check_command_readiness`, `resolve_target`, `describe_layer_at_point`),
+`copy_effects`, `set_motion_path`, `set_motion_blur`, `import_media_from_path`
+edge cases, `undo` depth, `snapCutsToBeats`.
 
 Read this whole file before touching anything. Several of the traps below
 cost hours to find and are invisible from the code.
@@ -139,6 +151,8 @@ Still outstanding:
 | Item | Shape |
 |---|---|
 | `shaders.ts` | 90 lines of WebGL2 GLSL that **nothing imports**, headed "GPU Shaders Engine". The compositor is pure 2D canvas — zero WebGL calls. This is the ceiling on VFX (Phase 4). |
+| Per-clip audio processing | `pitch`, `voiceEffect`, `noiseReduction`, `ducking` are stored and applied by neither playback nor export. `render_export` now REPORTS them as not applied, so the gap is visible rather than silent — but it is still a gap. |
+| No recorded audio | The SFX library is **synthesised** (`sfxEngine.ts`), deliberately — see its header for why a hotlinked catalogue was rejected. There is still no music library, and that is a licensing decision rather than an engineering one. |
 | The rest of the 48 | Passes 1–3 covered effects, timeline structure, silence, B-roll, captions and export. Captions import/export, beat detection, keyframes, masks, `create_grid_layout` and the context-protocol tools have **not** been re-verified against the running app. |
 
 Found and fixed in the later passes — all verified against the live app:
@@ -173,7 +187,7 @@ nobody), `setTimeout(resolve` simulating work, `as SomeUnion` blind casts,
 That sweep is what surfaced the audio findings — the tools were fine; the
 engine underneath was not.
 
-**Three more patterns, from the passes after that one:**
+**Five more patterns, from the passes after that one:**
 
 1. **Trace to the artifact, not to the function.** Export "worked" through
    every layer that claimed to work. The question that found it was *does a
@@ -187,7 +201,23 @@ engine underneath was not.
 3. **Demo data that flatters the code hides the bug.** The seed project's
    JPEGs-named-`.mov` meant the only real video path was never exercised.
    A seed project that misdescribes itself is a test that always passes.
-   If you add fixtures, make them honest.
+   If you add fixtures, make them honest. Fixing that lie immediately
+   exposed a second one: `create_grid_layout` had always measured its
+   crop against the wrong fit mode, and only worked because the samples
+   claimed to be video.
+
+4. **Test against ground truth you constructed.** Beat detection looked
+   fine until it was run on a click track built at exactly 120 BPM: it
+   said 123, and the markers were a synthesised grid rather than the
+   detected onsets. `remove_silence` looked fine until it ran on a file
+   with two known 1.5s gaps. Build the input whose answer you already
+   know.
+
+5. **The obvious API is sometimes the wrong one.** `document.fonts.check()`
+   reads exactly like a font-availability test and returns true for every
+   name, because it reports whether the fallback can render the text. The
+   check passed for "Definitely Not A Font". A check that always passes is
+   worse than no check.
 
 **Verify from outside the app:** `debug/capture` on the RPC server returns a
 PNG of the real window — `screencapture` needs a screen-recording grant a
