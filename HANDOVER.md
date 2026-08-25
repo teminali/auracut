@@ -3,27 +3,30 @@
 You are picking up an Electron video editor whose Copilot **runs Claude Code
 as its agent**.
 
-## ⚠ PRIORITY ZERO: export produces no file
+## What changed last session
 
-`src/engine/exportPipeline.ts` renders every frame correctly and then
-**encodes nothing**. There is no `VideoEncoder`, no `MediaRecorder`, no muxer
-and no ffmpeg call anywhere in the codebase. It runs the frame loop, prints
-"Muxing AAC audio streams and finalizing MP4 container…", sleeps 400ms, and
-returns a path like `~/Movies/Project_Master.mp4` that was never created —
-then reports "Hardware Export Complete". The function's own comment claims it
-"encodes via WebCodecs / FFmpeg". Neither is present.
+**The editor could not display video.** Every clip was drawn through
+`getCachedImage()` → `new Image()`. An `<img>` cannot decode an MP4, so real
+footage rendered as the compositor's grey placeholder gradient. Forever. It
+was invisible because the seed project's "footage" was Unsplash **JPEGs**
+typed `video`, named `A001_C001_NeonCity_4K.mov` and labelled
+`ProRes 422 HQ` at `18.4 MB`. Stills draw fine through an `<img>`.
+`src/engine/videoEngine.ts` now decodes video; the seed data no longer lies
+about itself.
 
-**Fix this before anything else.** Every other capability is preparation for a
-step that does not happen, and no capability estimate means anything until a
-file comes out. The plumbing already exists: `electron/transcribe.ts` shows
-the pattern for finding and driving ffmpeg from main, and `renderTimelineFrame`
-already produces correct frames. Pipe frames to ffmpeg stdin (rawvideo in,
-h264/hevc/prores out) and mux the audio graph alongside.
+**Export encoded nothing** (the previous Priority Zero). Fixed: the renderer
+composites each frame and streams it to main, which drives ffmpeg to a real
+file. Verified from the artifact — h264 + 48kHz stereo AAC, real signal.
 
-Audio is not in the render either — the new playback engine is preview-only.
+Both are done. The current state is honest: picture and sound go in, a real
+file comes out.
 
-Once export is real, the capability estimate below (~70% today → ~95%
-reachable) holds. Until then the honest description is "a very good previewer".
+---
+
+## ⚠ PRIORITY ZERO: keep finishing the trust audit
+
+Three passes are done and each one found working-looking code that did
+nothing. The remaining tools have NOT all been checked. See §3.
 
 Read this whole file before touching anything. Several of the traps below
 cost hours to find and are invisible from the code.
@@ -135,8 +138,25 @@ Still outstanding:
 
 | Item | Shape |
 |---|---|
-| **`exportPipeline.ts`** | **Encodes nothing.** Renders frames, sleeps, returns a path to a file that does not exist, reports success. See Priority Zero at the top. |
 | `shaders.ts` | 90 lines of WebGL2 GLSL that **nothing imports**, headed "GPU Shaders Engine". The compositor is pure 2D canvas — zero WebGL calls. This is the ceiling on VFX (Phase 4). |
+| The rest of the 48 | Passes 1–3 covered effects, timeline structure, silence, B-roll, captions and export. Captions import/export, beat detection, keyframes, masks, `create_grid_layout` and the context-protocol tools have **not** been re-verified against the running app. |
+
+Found and fixed in the later passes — all verified against the live app:
+
+| Bug | Shape |
+|---|---|
+| **No video decode** | See above. The single largest one. |
+| **Export encoded nothing** | See above. |
+| `getClipBox` ignored canvas size | It positions from `project.width/height`, so any export resolution other than the project's own put the whole composition in a corner. 4K was broken outright. |
+| Export never seeked video | `renderTimelineFrame` is synchronous — it draws whatever frame each element holds. Without an awaited seek an export writes one stale frame repeatedly: a real file, right duration, wrong picture. |
+| One bad audio source silenced the whole render | The mix threw, the failure was swallowed as "audio is not worth failing a render over", and the export returned `ok: true, hasAudio: false`. The seed project reproduced it every time — its music URL 403s to ffmpeg. |
+| **10 tools reported success on no-ops** | `split_clip`, `freeze_frame`, `delete_clip`, `trim_clip`, `move_clip`, `remove_effect`, `set_effect_param`, `animate_effect_param`, `add_effect`, `apply_motion_preset`. The store bails silently on a locked clip / unknown effect / out-of-range time and returns void, so the tool has nothing to check. |
+| `remove_silence` | Detected no silence. Trimmed 200ms off each end of every clip and reported the total as dead air found. Now measures with ffmpeg `silencedetect`, and has a `dryRun`. |
+| `suggest_broll` | Four Unsplash JPEGs named `.mp4`, six hardcoded Kiswahili keywords, `confidence: 0.94 + (index % 5) * 0.01`. Now searches the project's own media pool. |
+| `generateAutoCaptions` (store) | Still held the four hardcoded Kiswahili phrases, imported by nothing. Deleted. |
+| Blind casts | `easing as any` ×2, `fps as 24 | 30 | 60`. `EASINGS`, `FPS_VALUES` and `CLIP_TYPES` now exist as runtime lists kept in step by `satisfies`. |
+| Silent empty results | `list_effects` with a bad category and `patch_clips` with a misspelled `clipType` both reported success having done nothing. |
+| Copilot model dropdown | Still decorative on the fallback path — `configureModelEndpoint` is defined and called from nowhere. Removed. |
 
 **Lesson from how this was missed:** the audit swept tools and engines and
 never asked the most basic question — *does a file come out?* Trace each
@@ -152,6 +172,28 @@ nobody), `setTimeout(resolve` simulating work, `as SomeUnion` blind casts,
 `z.string()` where an enum exists, and handlers that never touch a store.
 That sweep is what surfaced the audio findings — the tools were fine; the
 engine underneath was not.
+
+**Three more patterns, from the passes after that one:**
+
+1. **Trace to the artifact, not to the function.** Export "worked" through
+   every layer that claimed to work. The question that found it was *does a
+   file come out?* The same question found the video bug: *are these pixels
+   the footage?* Render the frame and LOOK.
+
+2. **A store that returns `void` cannot be checked.** Ten tools reported
+   success because the store bailed silently and gave them nothing to test.
+   If a store method can decline, it must say so in its return type.
+
+3. **Demo data that flatters the code hides the bug.** The seed project's
+   JPEGs-named-`.mov` meant the only real video path was never exercised.
+   A seed project that misdescribes itself is a test that always passes.
+   If you add fixtures, make them honest.
+
+**Verify from outside the app:** `debug/capture` on the RPC server returns a
+PNG of the real window — `screencapture` needs a screen-recording grant a
+terminal usually lacks, and the compositor's frame render shows the picture
+with none of the UI. Renderer console output is forwarded to the terminal in
+development; without it a crashed React tree just looks like a black window.
 
 **Your first task: audit all 48 tools in `src/mcp/toolRegistry.ts` for the
 same pattern.** For each, ask:
@@ -185,9 +227,11 @@ actually hitting the limit, which beats guessing.
 
 ## 5. Roadmap (proposed — revisit against the gap log)
 
-**Phase 0 — Export.** See the top of this file. Nothing ships until this works.
+**Phase 0 — Export.** DONE. Also video decode, which had to come first:
+encoding frames is pointless while the frames are placeholder gradients.
 
-**Phase 1 — Trust.** The 48-tool audit above. Nothing else matters if tools lie.
+**Phase 1 — Trust.** Three passes done (see §3), the rest of the 48 not yet.
+Nothing else matters if tools lie.
 
 **Phase 2 — Altitude.** Replace agent improvisation with deterministic tools.
 `create_grid_layout` is the worked example (22 calls → 3). Candidates:
@@ -196,12 +240,12 @@ actually hitting the limit, which beats guessing.
 Rule of thumb: if the agent needed >6 calls and a verification step, it should
 have been one tool.
 
-**Phase 2.5 — audio depth.** Playback, real waveforms, `analyze_audio` and
-on-demand Whisper setup all landed. What remains: per-clip audio effects
-actually applied on the output graph (EQ, compression, ducking — the
-`ClipAudioSettings` fields `pitch`, `voiceEffect`, `noiseReduction`,
-`ducking` are stored but **not applied** by the playback engine), and audio
-in the exported render.
+**Phase 2.5 — audio depth.** Playback, real waveforms, `analyze_audio`,
+on-demand Whisper setup and audio IN THE RENDER have landed. What remains:
+`ClipAudioSettings.pitch`, `voiceEffect`, `noiseReduction` and `ducking` are
+stored and applied by neither the playback engine nor the export
+filtergraph. `render_export` now REPORTS them as not applied rather than
+dropping them silently, so the gap is visible — but it is still a gap.
 
 **Phase 3 — ffmpeg bridge.** A first-class `ffmpeg_process` tool
 (stabilize / speed-interpolate / denoise / custom filtergraph) that renders to
