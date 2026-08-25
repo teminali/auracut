@@ -2087,7 +2087,11 @@ defineTool({
     const cellW = proj.width / columns;
     const cellH = proj.height / rows;
 
-    const placed: { cell: number; clipId: string; assetName: string }[] = [];
+    const placed: {
+      cell: number; clipId: string; assetName: string;
+      cropPct: { x: number; y: number };
+    }[] = [];
+    const cellWarnings: string[] = [];
 
     assetIds.forEach((ref, index) => {
       const asset =
@@ -2112,8 +2116,21 @@ defineTool({
         a 540px cell.)
       */
       const placedClip = findClipById(timeline().tracks, clipId);
+
+      /*
+        Measure the box the clip will have AFTER this patch, not the one
+        it has now. `insertClip` gives image assets `fitMode: 'contain'`
+        (55% of the frame) and the patch below switches them to 'cover'
+        (which fills it). Measuring first meant the crop was computed
+        against a box roughly half the final size, so it came out over
+        100%, clamped to 100 — no crop at all — and then the clip grew
+        and spilled across its neighbours.
+
+        It was invisible for as long as the sample assets were mislabelled
+        as video, because video already took the 'cover' path.
+      */
       const base = placedClip
-        ? getClipBaseSize(placedClip, proj, getNaturalSize(placedClip))
+        ? getClipBaseSize({ ...placedClip, fitMode: 'cover' }, proj, getNaturalSize(placedClip))
         : { width: proj.width, height: proj.height };
 
       const boxW = base.width * scale;
@@ -2121,7 +2138,7 @@ defineTool({
       const maskX = Math.min(100, ((cellW - gap) / boxW) * 100);
       const maskY = Math.min(100, ((cellH - gap) / boxH) * 100);
 
-      state.patchClip(clipId, {
+      const patched = state.patchClip(clipId, {
         name: `Grid ${row + 1}·${col + 1} · ${asset.name}`,
         durationMs: dur,
         fitMode: 'cover',
@@ -2139,7 +2156,19 @@ defineTool({
         'audio.volume': audioFromCell === index + 1 ? 1 : 0,
       });
 
-      placed.push({ cell: index + 1, clipId, assetName: asset.name });
+      /* This used to discard patchClip's errors entirely, so a cell that
+         failed to crop reported the same success as one that worked. */
+      if (patched.errors.length > 0) {
+        cellWarnings.push(`Cell ${index + 1} (${asset.name}): ${patched.errors.join('; ')}`);
+      }
+
+      placed.push({
+        cell: index + 1,
+        clipId,
+        assetName: asset.name,
+        // Reporting the crop makes the framing checkable without a render.
+        cropPct: { x: Number(maskX.toFixed(1)), y: Number(maskY.toFixed(1)) },
+      });
     });
 
     return {
@@ -2150,6 +2179,7 @@ defineTool({
       durationMs: dur,
       clips: placed,
       audio: audioFromCell ? `cell ${audioFromCell}` : 'all muted',
+      ...(cellWarnings.length ? { warnings: cellWarnings } : {}),
     };
   },
 });
