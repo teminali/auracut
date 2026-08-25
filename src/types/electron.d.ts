@@ -36,6 +36,16 @@ export interface AuraCutElectronAPI {
     respond: (payload: { id: string; ok: boolean; data?: unknown; error?: string }) => void;
   };
 
+  stt: {
+    status: () => Promise<{ ffmpeg: string | null; whisper: string | null; models: string[]; ready: boolean }>;
+    transcribe: (opts: { mediaUrl: string; language?: string; model?: string }) => Promise<
+      | { ok: true; language: string; text: string; segments: { startMs: number; endMs: number; text: string }[];
+          words: { word: string; startMs: number; endMs: number; confidence: number }[]; model: string; elapsedMs: number }
+      | { ok: false; reason: string; message: string }
+    >;
+    onProgress: (cb: (p: { percent: number; note: string }) => void) => () => void;
+  };
+
   claude: {
     status: () => Promise<ClaudeStatus>;
     send: (prompt: string, resume: boolean) => Promise<boolean>;

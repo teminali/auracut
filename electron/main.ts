@@ -3,6 +3,7 @@ import path from 'path';
 import http from 'http';
 import { initAutoUpdater } from './updater';
 import { initToolBridge, setBridgeWindow } from './toolBridge';
+import { transcribeMedia, transcriberStatus } from './transcribe';
 import { startRpcServer } from './rpcServer';
 import {
   startSession, stopSession, resetSession, isRunning, findClaudeCli, getCliVersion,
@@ -106,6 +107,22 @@ function registerAgentIpc() {
   /* The same config the in-app session uses, so the user can point their
      own terminal at the running editor with `claude --mcp-config <path>`. */
   ipcMain.handle('claude:mcpConfigPath', () => writeMcpConfig());
+
+  /* Speech-to-text lives in main: it shells out to ffmpeg and Whisper,
+     neither of which a renderer can reach. */
+  ipcMain.handle('stt:status', () => transcriberStatus());
+  ipcMain.handle(
+    'stt:transcribe',
+    async (_e, payload: { mediaUrl: string; language?: string; model?: string }) =>
+      transcribeMedia({
+        ...payload,
+        onProgress: (percent, note) => {
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('stt:progress', { percent, note });
+          }
+        },
+      })
+  );
 
   ipcMain.handle('claude:stop', () => { stopSession(); return true; });
   ipcMain.handle('claude:reset', () => { resetSession(); return true; });

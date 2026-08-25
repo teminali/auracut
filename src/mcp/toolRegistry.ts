@@ -22,7 +22,7 @@ import {
 import { describeClipProperties, getClipProperty, PROPERTY_SCHEMA } from '../engine/propertyPath';
 import { EFFECT_REGISTRY, getEffectDefinition } from '../engine/effectsRegistry';
 import { MOTION_PRESET_LABELS, MotionPresetId } from '../store/timelineStore';
-import { parseCaptions, serializeCaptions, reflowCues } from '../engine/captions';
+import { parseCaptions, serializeCaptions, reflowCues, CaptionCue } from '../engine/captions';
 import {
   buildEnvelope, captureCurrentFrame, serializeEnvelope, classifyCommand,
   runPreflight, resolveTarget, resolveAnnotationTargets,
@@ -32,7 +32,6 @@ import { getClipBaseSize } from '../engine/geometry';
 import { getNaturalSize } from '../engine/compositor';
 import { runHardwareExport } from '../engine/exportPipeline';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
-import { transcribeAudioOnDevice } from '../engine/whisperLocal';
 
 /* ── Tool definition ────────────────────────────────────────────── */
 
@@ -1027,27 +1026,156 @@ defineTool({
 defineTool({
   name: 'generate_auto_captions',
   category: 'ai',
-  description: 'Run on-device speech-to-text and build a synced caption track.',
+  description:
+    'Transcribe the timeline audio with on-device Whisper and lay the result out as a ' +
+    'synced caption track. Requires ffmpeg and openai-whisper installed locally — call ' +
+    'check_transcription_ready first if you want to know before trying. Never returns ' +
+    'invented text: if transcription is unavailable it fails and says why.',
   schema: z.object({
-    language: z.string().optional(),
+    clipId: z.string().optional().describe('Audio or video clip to transcribe; defaults to the first clip with audio'),
+    language: z.string().optional().describe("ISO code such as en, sw, fr. Omit to auto-detect"),
+    model: z.string().optional().describe('Whisper model name; defaults to the best one already downloaded'),
+    maxCharsPerCue: z.number().optional().describe('Split long sentences to this width; default 42'),
     style: z.record(z.any()).optional(),
   }),
-  handler: async ({ language, style }) => {
-    const result = await transcribeAudioOnDevice('audio-track', language ?? 'sw');
-    const state = timeline();
-    state.generateAutoCaptions(undefined, language ?? 'sw');
-
-    if (style) {
-      // Apply the requested styling to every caption clip that was just made.
-      const textTrack = state.tracks.find((t) => t.type === 'text');
-      const patch: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(style as Record<string, unknown>)) {
-        patch[k.startsWith('textStyle.') ? k : `textStyle.${k}`] = v;
-      }
-      for (const clip of textTrack?.clips ?? []) state.patchClip(clip.id, patch);
+  handler: async ({ clipId, language, model, maxCharsPerCue, style }) => {
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (!api?.stt) {
+      throw new Error(
+        'Transcription needs the desktop app — it shells out to ffmpeg and Whisper, which a browser cannot reach.'
+      );
     }
 
-    return { language: language ?? 'sw', words: result.words.length };
+    const state = timeline();
+
+    /* Pick a source: an explicit clip, else the first audio clip, else any
+       video clip (its own audio track is what gets transcribed). */
+    const source = clipId
+      ? findClipById(state.tracks, resolveClipId(clipId))
+      : state.tracks
+          .filter((t) => t.type === 'audio')
+          .flatMap((t) => t.clips)
+          .find((c) => c.mediaUrl) ??
+        state.tracks
+          .filter((t) => t.type === 'video')
+          .flatMap((t) => t.clips)
+          .find((c) => c.mediaUrl);
+
+    if (!source?.mediaUrl) {
+      throw new Error('No clip with audio found on the timeline to transcribe.');
+    }
+
+    const result = await api.stt.transcribe({ mediaUrl: source.mediaUrl, language, model });
+
+    if (!result.ok) {
+      /*
+        Record the miss rather than only reporting it. A missing local
+        dependency is exactly the kind of thing that should show up in the
+        backlog as "captions did not work for this user", not evaporate.
+      */
+      useGapStore.getState().record({
+        request: 'Automatic captions from speech',
+        reason: result.message,
+        suggestion:
+          result.reason === 'no-whisper' || result.reason === 'no-model'
+            ? 'Bundle a Whisper model with AuraCut, or ship whisper.cpp, so captions work with no setup'
+            : result.reason === 'no-ffmpeg'
+              ? 'Bundle an ffmpeg binary with AuraCut'
+              : undefined,
+      });
+      throw new Error(result.message);
+    }
+
+    if (result.segments.length === 0) {
+      throw new Error(
+        `No speech was found in "${source.name}". The audio may be music or silence.`
+      );
+    }
+
+    /* Whisper segments are sentence-ish; split the long ones so a caption
+       never overflows the frame. */
+    const limit = maxCharsPerCue ?? 42;
+    const cues: CaptionCue[] = [];
+
+    for (const seg of result.segments) {
+      const text = seg.text.trim();
+      if (!text) continue;
+
+      if (text.length <= limit) {
+        cues.push({ index: cues.length + 1, startMs: seg.startMs, endMs: seg.endMs, text });
+        continue;
+      }
+
+      // Split on words, apportioning time by character share.
+      const words = text.split(/\s+/);
+      const lines: string[] = [];
+      let line = '';
+      for (const w of words) {
+        if ((line + ' ' + w).trim().length > limit && line) {
+          lines.push(line.trim());
+          line = w;
+        } else {
+          line = (line + ' ' + w).trim();
+        }
+      }
+      if (line) lines.push(line.trim());
+
+      const span = seg.endMs - seg.startMs;
+      const totalChars = lines.reduce((n, l) => n + l.length, 0) || 1;
+      let cursor = seg.startMs;
+      for (const l of lines) {
+        const share = Math.round((l.length / totalChars) * span);
+        cues.push({ index: cues.length + 1, startMs: cursor, endMs: cursor + share, text: l });
+        cursor += share;
+      }
+    }
+
+    // Cues are absolute to the media, so offset by where the clip sits.
+    const count = state.importCaptions(cues, {
+      offsetMs: source.startTimeMs,
+      replaceExisting: true,
+      style: style as Record<string, unknown> | undefined,
+    });
+
+    return {
+      cues: count,
+      language: result.language,
+      model: result.model,
+      words: result.words.length,
+      elapsedMs: result.elapsedMs,
+      source: source.name,
+      transcript: result.text.slice(0, 400),
+    };
+  },
+});
+
+defineTool({
+  name: 'check_transcription_ready',
+  category: 'discovery',
+  description:
+    'Report whether on-device transcription can run: whether ffmpeg and Whisper are ' +
+    'installed and which models are downloaded. Cheap; call before promising captions.',
+  schema: z.object({}),
+  handler: async () => {
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (!api?.stt) return { ready: false, reason: 'Not running in the desktop app.' };
+
+    const status = await api.stt.status();
+    return {
+      ready: status.ready,
+      ffmpeg: status.ffmpeg ?? 'not found',
+      whisper: status.whisper ?? 'not found',
+      modelsDownloaded: status.models,
+      ...(status.ready
+        ? {}
+        : {
+            fix: !status.ffmpeg
+              ? 'brew install ffmpeg'
+              : !status.whisper
+                ? 'pip install -U openai-whisper'
+                : 'Run `whisper --model small <audio file>` once while online to download a model.',
+          }),
+    };
   },
 });
 

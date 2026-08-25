@@ -32,8 +32,25 @@ const pending = new Map<string, Pending>();
 let seq = 0;
 let targetWindow: BrowserWindow | null = null;
 
-/** How long one tool may take before the caller gets an answer anyway. */
-const TOOL_TIMEOUT_MS = 60_000;
+/*
+  How long one tool may take before the caller gets an answer anyway.
+
+  A single global guess cannot fit both: most calls should fail fast if
+  the window has wedged, but transcription loads a multi-hundred-MB model
+  before it decodes a single frame, and an export renders every frame in
+  the sequence. 60s across the board reported "timed out" while Whisper
+  was still warming up, and the work then completed into a caller that
+  had already given up.
+*/
+const DEFAULT_TIMEOUT_MS = 60_000;
+
+const SLOW_TOOLS: Record<string, number> = {
+  generate_auto_captions: 15 * 60_000,
+  render_export: 30 * 60_000,
+  detect_beats: 5 * 60_000,
+  remove_silence: 5 * 60_000,
+  suggest_broll: 5 * 60_000,
+};
 
 export function setBridgeWindow(window: BrowserWindow | null): void {
   targetWindow = window;
@@ -55,7 +72,7 @@ export function initToolBridge(): void {
 }
 
 /** Ask the renderer to do something, and wait for its reply. */
-function ask<T>(channel: string, payload: unknown): Promise<T> {
+function ask<T>(channel: string, payload: unknown, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     if (!targetWindow || targetWindow.isDestroyed()) {
       reject(new Error('AuraCut is not running — open the app and try again.'));
@@ -65,8 +82,8 @@ function ask<T>(channel: string, payload: unknown): Promise<T> {
     const id = `req_${++seq}_${process.pid}`;
     const timer = setTimeout(() => {
       pending.delete(id);
-      reject(new Error(`Timed out after ${TOOL_TIMEOUT_MS / 1000}s waiting for the editor.`));
-    }, TOOL_TIMEOUT_MS);
+      reject(new Error(`Timed out after ${Math.round(timeoutMs / 1000)}s waiting for the editor.`));
+    }, timeoutMs);
 
     pending.set(id, { resolve: resolve as (v: unknown) => void, reject, timer });
     targetWindow.webContents.send(channel, { id, payload });
@@ -77,6 +94,6 @@ export const bridge = {
   /** The tool manifest, read from the live registry rather than a copy. */
   listTools: () => ask<unknown[]>('bridge:list-tools', {}),
   callTool: (name: string, args: Record<string, unknown>) =>
-    ask<ToolCallResult>('bridge:call-tool', { name, args }),
+    ask<ToolCallResult>('bridge:call-tool', { name, args }, SLOW_TOOLS[name] ?? DEFAULT_TIMEOUT_MS),
   isReady: () => Boolean(targetWindow && !targetWindow.isDestroyed()),
 };

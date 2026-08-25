@@ -30,6 +30,13 @@ export interface ElectronAPI {
     respond: (payload: { id: string; ok: boolean; data?: unknown; error?: string }) => void;
   };
 
+  /** On-device speech-to-text (ffmpeg + Whisper, run in main). */
+  stt: {
+    status: () => Promise<{ ffmpeg: string | null; whisper: string | null; models: string[]; ready: boolean }>;
+    transcribe: (opts: { mediaUrl: string; language?: string; model?: string }) => Promise<any>;
+    onProgress: (cb: (p: { percent: number; note: string }) => void) => () => void;
+  };
+
   /** The Claude Code session that powers the Copilot. */
   claude: {
     status: () => Promise<ClaudeStatus>;
@@ -71,6 +78,16 @@ const api: ElectronAPI = {
       );
     },
     respond: (payload) => ipcRenderer.send('bridge:response', payload),
+  },
+
+  stt: {
+    status: () => ipcRenderer.invoke('stt:status'),
+    transcribe: (opts) => ipcRenderer.invoke('stt:transcribe', opts),
+    onProgress: (cb) => {
+      const handler = (_e: unknown, p: { percent: number; note: string }) => cb(p);
+      ipcRenderer.on('stt:progress', handler);
+      return () => ipcRenderer.removeListener('stt:progress', handler);
+    },
   },
 
   claude: {
