@@ -45,7 +45,7 @@ const WELCOME: ChatMessage = {
 export const useAgentChatStore = create<AgentChatState>((set, get) => ({
   messages: [WELCOME],
   currentRun: null,
-  selectedModel: 'antigravity',
+  selectedModel: 'builtin',
   showThoughts: true,
   history: [],
 

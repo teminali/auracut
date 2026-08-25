@@ -24,7 +24,14 @@ import { formatTimecode } from '../utils/time';
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
-export type AgentModel = 'antigravity' | 'claude_code' | 'codex_sonnet' | 'local_llm';
+/*
+  There is one planner. This used to name four — antigravity,
+  claude_code, codex_sonnet, local_llm — which were the options in a
+  dropdown that selected nothing; the value only ever became a label.
+  With the dropdown gone, the label was still announcing "ANTIGRAVITY"
+  over answers written by a regex matcher.
+*/
+export type AgentModel = 'builtin';
 
 export interface AgentThoughtStep {
   id: string;
@@ -947,7 +954,7 @@ class AgentBridgeService {
 
   async dispatchPrompt(
     prompt: string,
-    agentModel: AgentModel = 'antigravity',
+    agentModel: AgentModel = 'builtin',
     context?: ContextEnvelope,
     /** Prior turns, so a conversation can actually follow on. */
     chatHistory: { role: 'user' | 'assistant'; content: string }[] = []

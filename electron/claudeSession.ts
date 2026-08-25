@@ -81,10 +81,31 @@ export function findClaudeCli(): string | null {
   return null;
 }
 
+let cachedVersion: string | null | undefined;
+
+/**
+ * The CLI's version string.
+ *
+ * Cached and time-boxed, because the status call that uses it gates the
+ * whole Copilot: `claude --version` spawns the binary and takes ~0.6s
+ * cold, and while it ran the drawer showed "built-in" and routed
+ * prompts to the fallback planner. The version is cosmetic; whether the
+ * binary EXISTS is the load-bearing fact, and that is a file check.
+ */
 export function getCliVersion(cliPath: string): Promise<string | null> {
+  if (cachedVersion !== undefined) return Promise.resolve(cachedVersion);
+
   return new Promise((resolve) => {
+    const settle = (value: string | null) => {
+      cachedVersion = value;
+      resolve(value);
+    };
+    // Never let a wedged CLI hold the status open.
+    const timer = setTimeout(() => settle(null), 2500);
+
     execFile(cliPath, ['--version'], { timeout: 8000 }, (err, stdout) => {
-      resolve(err ? null : stdout.trim());
+      clearTimeout(timer);
+      settle(err ? null : stdout.trim());
     });
   });
 }

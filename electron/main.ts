@@ -112,10 +112,20 @@ ipcMain.handle('dialog:saveExport', async (_, defaultName: string) => {
 function registerAgentIpc() {
   ipcMain.handle('claude:status', async () => {
     const cli = findClaudeCli();
+    /*
+      `installed` must not wait on the version. It used to: this handler
+      awaited `claude --version`, which spawns the binary and takes about
+      0.6s cold — and for that whole window the drawer showed "built-in",
+      told the user there was no model, and routed anything they typed to
+      the fallback planner. Whether the binary exists is a file check;
+      the version is decoration and is now cached and time-boxed.
+    */
+    if (!cli) return { installed: false, path: null, version: null, running: isRunning() };
+
     return {
-      installed: Boolean(cli),
+      installed: true,
       path: cli,
-      version: cli ? await getCliVersion(cli) : null,
+      version: await getCliVersion(cli),
       running: isRunning(),
     };
   });

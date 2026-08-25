@@ -86,6 +86,13 @@ export const CopilotDrawer: React.FC = () => {
     Without it we fall back to the built-in planner.
   */
   const agent = useClaudeAgentStore();
+  /*
+    Three states, not two. `status === null` means the check has not come
+    back yet — and treating that as "not installed" made the drawer claim
+    the CLI was missing during startup AND route the first prompt to the
+    fallback planner. Unknown is not the same as absent.
+  */
+  const agentChecked = agent.status !== null;
   const agentReady = Boolean(agent.status?.installed);
 
   useEffect(() => {
@@ -214,7 +221,19 @@ export const CopilotDrawer: React.FC = () => {
       return;
     }
 
-    if (agentReady) {
+    /*
+      Never fall back on an unknown. If the CLI check has not returned
+      yet, wait for it — sending to the built-in planner because the
+      answer had not arrived is how a user with Claude Code installed
+      got the regex planner for typing quickly after launch.
+    */
+    let ready = agentReady;
+    if (!agentChecked) {
+      await agent.refreshStatus();
+      ready = Boolean(useClaudeAgentStore.getState().status?.installed);
+    }
+
+    if (ready) {
       setInput('');
       setHistoryIndex(-1);
       await agent.send(text);
@@ -314,14 +333,22 @@ export const CopilotDrawer: React.FC = () => {
           <span
             className="flex items-center gap-1 flex-shrink-0 min-w-0"
             title={
-              agentReady
-                ? `Claude Code ${agent.status?.version ?? ''} — full agent, with file, shell and web access`
-                : 'Claude Code CLI not found — using the built-in planner'
+              !agentChecked
+                ? 'Looking for the Claude Code CLI…'
+                : agentReady
+                  ? `Claude Code ${agent.status?.version ?? ''} — full agent, with file, shell and web access`
+                  : 'Claude Code CLI not found — using the built-in planner'
             }
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${agentReady ? 'bg-spectrum-green' : 'bg-spectrum-amber'}`} />
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                !agentChecked ? 'bg-spectrum-textFaint animate-pulse'
+                  : agentReady ? 'bg-spectrum-green'
+                  : 'bg-spectrum-amber'
+              }`}
+            />
             <span className="text-[9px] font-mono text-spectrum-textFaint truncate">
-              {agentReady ? 'Claude Code' : 'built-in'}
+              {!agentChecked ? 'checking…' : agentReady ? 'Claude Code' : 'built-in'}
             </span>
           </span>
         </div>
@@ -381,7 +408,7 @@ export const CopilotDrawer: React.FC = () => {
         A control that does nothing is worse than no control: it makes a
         user believe they configured something.
       */}
-      {!agentReady && (
+      {agentChecked && !agentReady && (
         <div className="px-2.5 py-1.5 border-b border-line flex items-center gap-1.5 flex-shrink-0 bg-spectrum-sunken/40">
           <Cpu className="w-3 h-3 text-spectrum-amber flex-shrink-0" />
           <span className="text-[10px] text-spectrum-textDim truncate">
@@ -446,7 +473,7 @@ export const CopilotDrawer: React.FC = () => {
               ) : (
                 <span className="flex items-center gap-1 text-spectrum-accent">
                   <Terminal className="w-2.5 h-2.5" />
-                  {msg.agentModel?.replace('_', ' ').toUpperCase() ?? 'AGENT'}
+                  BUILT-IN PLANNER
                 </span>
               )}
             </div>
@@ -561,7 +588,7 @@ export const CopilotDrawer: React.FC = () => {
             placeholder={
               busy
                 ? 'Working… ⌘⏎ to queue this next'
-                : agentReady
+                : agentReady || !agentChecked
                   ? 'Ask anything, or tell me what to change…'
                   : 'Tell me what to change…'
             }
