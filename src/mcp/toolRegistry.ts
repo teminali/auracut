@@ -1314,7 +1314,21 @@ defineTool({
       if (videoTrack) snapped = state.snapCutsToBeats(videoTrack.id);
     }
 
-    return { bpm: Math.round(result.bpm), beats: result.beatsMs.length, cutsSnapped: snapped };
+    /* Say how much of this is measurement and how much is the tempo
+       estimate filling gaps — a grid that anchored to nothing is a
+       metronome, and the caller should be able to tell. */
+    const anchoredPct = result.beatsMs.length
+      ? Math.round((result.beatsAnchored / result.beatsMs.length) * 100)
+      : 0;
+
+    return {
+      bpm: Number(result.bpm.toFixed(1)),
+      beats: result.beatsMs.length,
+      onsetsDetected: result.onsetsDetected,
+      beatsOnRealOnsets: result.beatsAnchored,
+      confidence: `${anchoredPct}% of the beats sit on a detected onset; the rest are interpolated at the estimated tempo.`,
+      cutsSnapped: snapped,
+    };
   },
 });
 

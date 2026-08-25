@@ -11,6 +11,14 @@ export interface BeatDetectionResult {
   bpm: number;
   /** Beat positions in TIMELINE milliseconds (offset already applied). */
   beatsMs: number[];
+  /** How many onsets the detector found in the audio. */
+  onsetsDetected: number;
+  /**
+   * How many emitted beats sit on a real onset rather than on the
+   * interpolated grid. A low ratio means the markers are mostly the
+   * tempo estimate talking, which the caller should be able to know.
+   */
+  beatsAnchored: number;
   /** Onset strength envelope, normalised 0..1 — useful for visualisation. */
   novelty: number[];
   durationMs: number;
@@ -153,25 +161,94 @@ function estimateBpm(onsetFrames: number[], frameMs: number): number {
     }
   }
 
-  const bpm = 60000 / (bestPeriod * frameMs);
+  /*
+    `bestPeriod` is a whole number of analysis frames, and a frame is
+    23.2ms — so the representable tempos near 120 BPM are 123.0 and
+    117.4, and there is no 120. A 120 BPM click track measured 123, and
+    because the grid below was generated from that number the error
+    scaled: ~200ms adrift after 8 seconds, and over four seconds adrift
+    across a three-minute song.
+
+    Refine over a LONG baseline instead. The first and last onset each
+    carry at most half a frame of error, so dividing their separation by
+    the number of periods between them divides that error by the beat
+    count — 15 periods turns +-11.6ms into +-0.8ms.
+  */
+  const refined = refinePeriod(onsetFrames, bestPeriod);
+  const bpm = 60000 / (refined * frameMs);
   return Math.max(MIN_BPM, Math.min(MAX_BPM, bpm));
 }
 
+/** Sub-frame beat period, measured across the whole detected span. */
+function refinePeriod(onsetFrames: number[], coarsePeriod: number): number {
+  if (onsetFrames.length < 2 || coarsePeriod <= 0) return coarsePeriod;
+
+  const first = onsetFrames[0];
+  const last = onsetFrames[onsetFrames.length - 1];
+  const span = last - first;
+  if (span <= 0) return coarsePeriod;
+
+  const periods = Math.round(span / coarsePeriod);
+  if (periods < 1) return coarsePeriod;
+
+  const refined = span / periods;
+  // Reject a refinement that disagrees wildly — that means the coarse
+  // estimate was on the wrong multiple, not slightly off.
+  return Math.abs(refined - coarsePeriod) > coarsePeriod * 0.25 ? coarsePeriod : refined;
+}
+
 /** Lay a regular grid at `bpm`, phase-aligned to the strongest early onset. */
+/**
+ * Lay a grid at `bpm`, then pull each beat onto the real onset nearest
+ * it.
+ *
+ * The grid alone used to be the whole answer: the detected onsets were
+ * discarded apart from the first, which set the phase. That makes the
+ * markers a metronome rather than a description of the music — every
+ * error in the tempo estimate accumulates, and any track that is not
+ * perfectly machine-timed drifts away from its own beats.
+ *
+ * Anchoring keeps the regularity where the music is steady (the grid
+ * fills gaps the onset detector missed) and follows the music where it
+ * is not (each anchored beat re-zeroes the accumulated error).
+ */
 function buildBeatGrid(
   onsetFrames: number[],
   bpm: number,
   frameMs: number,
   totalFrames: number
-): number[] {
+): { beats: number[]; anchored: number } {
   const periodFrames = 60000 / bpm / frameMs;
-  const phase = onsetFrames.length > 0 ? onsetFrames[0] : 0;
+  if (periodFrames <= 0) return { beats: [], anchored: 0 };
+
+  // Within a quarter of a beat is the same beat; further away it is a
+  // different one, and snapping to it would be worse than the grid.
+  const tolerance = periodFrames / 4;
+  const onsets = [...onsetFrames].sort((a, b) => a - b);
 
   const beats: number[] = [];
-  for (let f = phase; f < totalFrames; f += periodFrames) {
-    beats.push(Math.round(f * frameMs));
+  let anchored = 0;
+  let cursor = onsets.length > 0 ? onsets[0] : 0;
+
+  for (let expected = cursor; expected < totalFrames; expected += periodFrames) {
+    let best: number | null = null;
+    let bestDistance = tolerance;
+
+    for (const onset of onsets) {
+      const distance = Math.abs(onset - expected);
+      if (distance <= bestDistance) {
+        bestDistance = distance;
+        best = onset;
+      }
+      // Onsets are sorted, so nothing further along can be closer.
+      if (onset > expected + tolerance) break;
+    }
+
+    if (best !== null) anchored++;
+    beats.push(Math.round((best ?? expected) * frameMs));
   }
-  return beats;
+
+  return { beats, anchored };
 }
 
 /**
@@ -191,7 +268,9 @@ export async function detectBeats(url: string, offsetMs = 0): Promise<BeatDetect
 
   return {
     bpm,
-    beatsMs: grid.map((ms) => ms + offsetMs),
+    beatsMs: grid.beats.map((ms) => ms + offsetMs),
+    onsetsDetected: onsetFrames.length,
+    beatsAnchored: grid.anchored,
     novelty: Array.from(novelty),
     durationMs: (samples.length / sampleRate) * 1000,
   };
