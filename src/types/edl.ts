@@ -426,6 +426,21 @@ export const TRANSITION_TYPES = [
   'push_left', 'push_right', 'slide_up', 'spin', 'blur_dissolve',
 ] as const satisfies readonly TransitionType[];
 
+/*
+  Runtime lists for the unions above.
+
+  A union alone cannot be checked at a boundary — an agent passing
+  `easing: "bouncy"` type-checks nowhere and lands in the project, where
+  the easing lookup misses and the animation quietly plays linear. These
+  are what `oneOf()` validates against, and `satisfies` keeps them in
+  step with the type.
+*/
+export const EASINGS = [
+  'linear', 'hold', 'easeIn', 'easeOut', 'easeInOut', 'bezier',
+] as const satisfies readonly Easing[];
+
+export const FPS_VALUES = [24, 30, 60] as const;
+
 export const SHAPE_KINDS = [
   'rectangle', 'ellipse', 'triangle', 'polygon', 'star',
   'line', 'arrow', 'heart', 'blob', 'path',

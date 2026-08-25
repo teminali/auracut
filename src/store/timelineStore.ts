@@ -140,12 +140,21 @@ export interface TimelineActions {
   toggleCanvasGuides: () => void;
 
   /* structural edits */
-  splitClip: (clipId: string, splitTimeMs: number) => void;
+  /*
+    These five report whether they did anything.
+
+    Each one bails silently on a locked clip, a locked track, or a time
+    outside the clip — all ordinary situations — and every tool above
+    them returned success regardless. Splitting at a playhead that is
+    not over the clip is the common case, and it reported a cut that
+    never happened.
+  */
+  splitClip: (clipId: string, splitTimeMs: number) => boolean;
   splitAtPlayhead: () => void;
-  trimClip: (clipId: string, newStartMs?: number, newEndMs?: number, ripple?: boolean) => void;
-  moveClip: (clipId: string, targetTrackId: string, newStartTimeMs: number) => void;
+  trimClip: (clipId: string, newStartMs?: number, newEndMs?: number, ripple?: boolean) => boolean;
+  moveClip: (clipId: string, targetTrackId: string, newStartTimeMs: number) => boolean;
   moveClips: (moves: { clipId: string; trackId: string; startTimeMs: number }[]) => void;
-  deleteClip: (clipId: string, ripple?: boolean) => void;
+  deleteClip: (clipId: string, ripple?: boolean) => boolean;
   deleteSelected: () => void;
   duplicateClip: (clipId: string) => void;
   insertClip: (trackId: string, asset: MediaAsset, startTimeMs: number) => string;
@@ -153,7 +162,7 @@ export interface TimelineActions {
   closeGapsOnTrack: (trackId: string) => void;
 
   /* creative edits */
-  freezeFrame: (clipId: string, atMs: number, holdMs?: number) => void;
+  freezeFrame: (clipId: string, atMs: number, holdMs?: number) => boolean;
   reverseClip: (clipId: string) => void;
   detachAudio: (clipId: string) => void;
   groupSelected: () => void;
@@ -193,16 +202,28 @@ export interface TimelineActions {
   moveKeyframe: (clipId: string, keyframeId: string, timeOffsetMs: number, value?: number) => void;
   setKeyframeEasing: (clipId: string, keyframeId: string, easing: KeyframePoint['easing'], bezier?: [number, number, number, number]) => void;
   clearKeyframes: (clipId: string, property?: AnimatableProperty) => void;
-  applyMotionPreset: (clipId: string, preset: MotionPresetId) => void;
+  applyMotionPreset: (clipId: string, preset: MotionPresetId) => boolean;
 
   /* VFX effect stack */
   addEffect: (clipId: string, type: string, params?: Record<string, any>) => string | null;
-  removeEffect: (clipId: string, effectRef: string) => void;
+  /** Number removed. Zero means the reference matched nothing. */
+  removeEffect: (clipId: string, effectRef: string) => number;
   reorderEffect: (clipId: string, effectRef: string, direction: -1 | 1) => void;
   toggleEffect: (clipId: string, effectRef: string) => void;
-  setEffectParam: (clipId: string, effectRef: string, param: string, value: unknown) => void;
+  /**
+   * Why this reports instead of returning void: it used to no-op
+   * silently on an unknown effect, an unknown param or a rejected
+   * value, and the tool above it returned success every time. An agent
+   * would tell the user it had changed a parameter that never moved.
+   */
+  setEffectParam: (
+    clipId: string, effectRef: string, param: string, value: unknown
+  ) => { ok: boolean; error?: string };
   setEffectIntensity: (clipId: string, effectRef: string, intensity: number) => void;
-  addEffectKeyframe: (clipId: string, effectRef: string, param: string, timeOffsetMs: number, value: number) => void;
+  /** False when the clip or the effect could not be found. */
+  addEffectKeyframe: (
+    clipId: string, effectRef: string, param: string, timeOffsetMs: number, value: number
+  ) => boolean;
   removeEffectKeyframe: (clipId: string, effectRef: string, keyframeId: string) => void;
   clearEffects: (clipId: string) => void;
   copyEffectsTo: (sourceClipId: string, targetClipIds: string[]) => void;
@@ -653,6 +674,7 @@ export const useTimelineStore = create<TimelineStore>()(
         didSplit = true;
       });
       if (didSplit) get().commit('Split clip');
+      return didSplit;
     },
 
     splitAtPlayhead: () => {
@@ -670,12 +692,14 @@ export const useTimelineStore = create<TimelineStore>()(
       for (const id of targets) splitClip(id, playheadMs);
     },
 
-    trimClip: (clipId, newStartMs, newEndMs, ripple = false) =>
+    trimClip: (clipId, newStartMs, newEndMs, ripple = false) => {
+      let trimmed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
         const { track, clip } = found;
         if (clip.locked || track.locked) return;
+        trimmed = true;
 
         const MIN_DURATION = 100;
         const oldStart = clip.startTimeMs;
@@ -702,9 +726,12 @@ export const useTimelineStore = create<TimelineStore>()(
           if (delta !== 0) rippleShift(track, oldEnd, delta, clip.id);
         }
         sortClips(track);
-      }),
+      });
+      return trimmed;
+    },
 
-    moveClip: (clipId, targetTrackId, newStartTimeMs) =>
+    moveClip: (clipId, targetTrackId, newStartTimeMs) => {
+      let moved = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
@@ -714,13 +741,16 @@ export const useTimelineStore = create<TimelineStore>()(
         const target = s.tracks.find((t) => t.id === targetTrackId);
         if (!target || target.locked) return;
 
-        const moved = track.clips.splice(index, 1)[0];
-        moved.trackId = targetTrackId;
-        moved.startTimeMs = Math.max(0, Math.round(newStartTimeMs));
-        target.clips.push(moved);
+        const lifted = track.clips.splice(index, 1)[0];
+        lifted.trackId = targetTrackId;
+        lifted.startTimeMs = Math.max(0, Math.round(newStartTimeMs));
+        target.clips.push(lifted);
         sortClips(target);
         if (track !== target) sortClips(track);
-      }),
+        moved = true;
+      });
+      return moved;
+    },
 
     moveClips: (moves) =>
       set((s) => {
@@ -760,6 +790,7 @@ export const useTimelineStore = create<TimelineStore>()(
         removed = true;
       });
       if (removed) get().commit('Delete clip');
+      return removed;
     },
 
     deleteSelected: () => {
@@ -854,12 +885,14 @@ export const useTimelineStore = create<TimelineStore>()(
     /* ══ creative edits ══ */
 
     freezeFrame: (clipId, atMs, holdMs = 2000) => {
+      let held = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
         const { track, clip, index } = found;
         const clipEnd = clip.startTimeMs + clip.durationMs;
         if (atMs <= clip.startTimeMs || atMs >= clipEnd) return;
+        held = true;
 
         const headDuration = atMs - clip.startTimeMs;
         const tailDuration = clipEnd - atMs;
@@ -899,7 +932,8 @@ export const useTimelineStore = create<TimelineStore>()(
         sortClips(track);
         s.selectedClipIds = [frozen.id];
       });
-      get().commit('Freeze frame');
+      if (held) get().commit('Freeze frame');
+      return held;
     },
 
     reverseClip: (clipId) => {
@@ -1250,12 +1284,14 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     applyMotionPreset: (clipId, preset) => {
+      let applied = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
         const { clip } = found;
         const spec = MOTION_PRESETS[preset];
         if (!spec) return;
+        applied = true;
 
         const touched = new Set(spec.map((k) => k.property));
         clip.keyframes = clip.keyframes.filter((k) => !touched.has(k.property));
@@ -1271,7 +1307,8 @@ export const useTimelineStore = create<TimelineStore>()(
         }
         clip.keyframes.sort((a, b) => a.timeOffsetMs - b.timeOffsetMs);
       });
-      get().commit(`Apply ${preset.replace(/_/g, ' ')}`);
+      if (applied) get().commit(`Apply ${preset.replace(/_/g, ' ')}`);
+      return applied;
     },
 
     /* ══ VFX effect stack ══ */
@@ -1281,25 +1318,36 @@ export const useTimelineStore = create<TimelineStore>()(
       if (!def) return null;
 
       const effectId = uid('fx');
+      let added = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
         const instance = createEffectInstance(type, effectId, params);
-        if (instance) found.clip.effects.push(instance);
+        if (!instance) return;
+        found.clip.effects.push(instance);
+        added = true;
       });
+      /* Returning an id for an effect that was never pushed is how a tool
+         reports success on a missing clip. */
+      if (!added) return null;
       get().commit(`Add ${def.label}`);
       return effectId;
     },
 
     removeEffect: (clipId, effectRef) => {
+      let removed = 0;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        const before = found.clip.effects.length;
         found.clip.effects = found.clip.effects.filter(
           (e) => e.id !== effectRef && e.type !== effectRef
         );
+        removed = before - found.clip.effects.length;
       });
-      get().commit('Remove effect');
+      // Do not push a history entry for a removal that removed nothing.
+      if (removed > 0) get().commit('Remove effect');
+      return removed;
     },
 
     reorderEffect: (clipId, effectRef, direction) => {
@@ -1324,13 +1372,36 @@ export const useTimelineStore = create<TimelineStore>()(
       });
     },
 
-    setEffectParam: (clipId, effectRef, param, value) =>
+    setEffectParam: (clipId, effectRef, param, value) => {
+      let outcome: { ok: boolean; error?: string } = {
+        ok: false,
+        error: `No clip "${clipId}".`,
+      };
+
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
-        const result = validateProperty(found.clip, `effects.${effectRef}.${param}`, value);
-        if (result.ok) applyClipProperty(found.clip, `effects.${effectRef}.${param}`, result.value);
-      }),
+
+        const fx = found.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
+        if (!fx) {
+          const have = found.clip.effects.map((e) => e.type).join(', ') || 'none';
+          outcome = { ok: false, error: `"${found.clip.name}" has no effect "${effectRef}". On it: ${have}.` };
+          return;
+        }
+
+        const path = `effects.${effectRef}.${param}`;
+        const result = validateProperty(found.clip, path, value);
+        if (!result.ok) {
+          outcome = { ok: false, error: result.error ?? `Could not set ${path}.` };
+          return;
+        }
+
+        applyClipProperty(found.clip, path, result.value);
+        outcome = { ok: true };
+      });
+
+      return outcome;
+    },
 
     setEffectIntensity: (clipId, effectRef, intensity) =>
       set((s) => {
@@ -1340,10 +1411,12 @@ export const useTimelineStore = create<TimelineStore>()(
       }),
 
     addEffectKeyframe: (clipId, effectRef, param, timeOffsetMs, value) => {
+      let placed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         const fx = found?.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
         if (!fx) return;
+        placed = true;
         if (!fx.keyframes) fx.keyframes = [];
 
         const t = Math.max(0, Math.round(timeOffsetMs));
@@ -1355,7 +1428,8 @@ export const useTimelineStore = create<TimelineStore>()(
           fx.keyframes.sort((a, b) => a.timeOffsetMs - b.timeOffsetMs);
         }
       });
-      get().commit('Keyframe effect parameter');
+      if (placed) get().commit('Keyframe effect parameter');
+      return placed;
     },
 
     removeEffectKeyframe: (clipId, effectRef, keyframeId) => {

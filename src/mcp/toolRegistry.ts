@@ -16,8 +16,9 @@ import { useProjectStore } from '../store/projectStore';
 import { useMcpStore } from '../store/mcpStore';
 import { useGapStore } from '../store/gapStore';
 import {
-  AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset, MediaAsset, ClipType,
+  AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset, MediaAsset, ClipType, AnimatableProperty,
   TRANSITION_TYPES, SHAPE_KINDS, SPEED_CURVE_PRESETS, ASPECT_DIMENSIONS,
+  EASINGS, FPS_VALUES,
 } from '../types/edl';
 import { describeClipProperties, getClipProperty, PROPERTY_SCHEMA } from '../engine/propertyPath';
 import { EFFECT_REGISTRY, getEffectDefinition } from '../engine/effectsRegistry';
@@ -529,7 +530,10 @@ defineTool({
     }
     const id = resolveClipId(clipId);
     const effectId = timeline().addEffect(id, effectType, params ?? {});
-    if (effectId && intensity !== undefined) timeline().setEffectIntensity(id, effectId, intensity);
+    if (!effectId) {
+      throw new Error(`Could not add "${effectType}" to clip ${id} — the clip was not found.`);
+    }
+    if (intensity !== undefined) timeline().setEffectIntensity(id, effectId, intensity);
     return { clipId: id, effectId, effectType, label: def.label };
   },
 });
@@ -544,8 +548,13 @@ defineTool({
   }),
   handler: ({ clipId, effect }) => {
     const id = resolveClipId(clipId);
-    timeline().removeEffect(id, effect);
-    return { clipId: id, removed: effect };
+    const removed = timeline().removeEffect(id, effect);
+    if (removed === 0) {
+      const clip = findClipById(timeline().tracks, id);
+      const have = clip?.effects.map((e) => `${e.type} (${e.id})`).join(', ') || 'none';
+      throw new Error(`No effect "${effect}" on that clip, so nothing was removed. On it: ${have}.`);
+    }
+    return { clipId: id, removed: effect, count: removed };
   },
 });
 
@@ -561,7 +570,8 @@ defineTool({
   }),
   handler: ({ clipId, effect, param, value }) => {
     const id = resolveClipId(clipId);
-    timeline().setEffectParam(id, effect, param, value);
+    const result = timeline().setEffectParam(id, effect, param, value);
+    if (!result.ok) throw new Error(result.error ?? `Could not set ${param} on "${effect}".`);
     return { clipId: id, effect, param, value };
   },
 });
@@ -578,10 +588,19 @@ defineTool({
   }),
   handler: ({ clipId, effect, param, keyframes }) => {
     const id = resolveClipId(clipId);
+    let placed = 0;
     for (const kf of keyframes) {
-      timeline().addEffectKeyframe(id, effect, param, kf.timeOffsetMs, kf.value);
+      if (timeline().addEffectKeyframe(id, effect, param, kf.timeOffsetMs, kf.value)) placed++;
     }
-    return { clipId: id, effect, param, keyframeCount: keyframes.length };
+    if (placed === 0) {
+      const clip = findClipById(timeline().tracks, id);
+      const have = clip?.effects.map((e) => e.type).join(', ') || 'none';
+      throw new Error(
+        `No effect "${effect}" on that clip, so no keyframes were placed. On it: ${have}. ` +
+        'Add the effect first with add_effect.'
+      );
+    }
+    return { clipId: id, effect, param, keyframeCount: placed };
   },
 });
 
@@ -696,7 +715,7 @@ defineTool({
     points: z.array(z.object({ x: z.number(), y: z.number() })).min(2),
     orientToPath: z.boolean().optional().describe('Rotate the layer to follow the path direction'),
     closed: z.boolean().optional(),
-    easing: z.string().optional(),
+    easing: z.string().optional().describe(`One of: ${EASINGS.join(', ')}`),
   }),
   handler: ({ clipId, points, orientToPath, closed, easing }) => {
     const id = resolveClipId(clipId);
@@ -705,7 +724,7 @@ defineTool({
       points,
       orientToPath: orientToPath ?? false,
       closed: closed ?? false,
-      easing: (easing as any) ?? 'easeInOut',
+      easing: easing ? oneOf(easing, EASINGS, 'easing') : 'easeInOut',
     });
     return { clipId: id, pointCount: points.length };
   },
@@ -725,7 +744,7 @@ defineTool({
       throw new Error(`Unknown preset "${preset}". Available: ${valid.join(', ')}`);
     }
     const id = resolveClipId(clipId);
-    timeline().applyMotionPreset(id, preset as MotionPresetId);
+    if (!timeline().applyMotionPreset(id, preset as MotionPresetId)) throw new Error(refuseReason(id));
     return { clipId: id, preset };
   },
 });
@@ -742,7 +761,7 @@ defineTool({
       z.object({
         timeOffsetMs: z.number().describe('Milliseconds from the clip start'),
         value: z.number(),
-        easing: z.string().optional(),
+        easing: z.string().optional().describe(`One of: ${EASINGS.join(', ')}`),
       })
     ).min(1),
   }),
@@ -755,10 +774,11 @@ defineTool({
     const state = timeline();
     for (const kf of keyframes) {
       state.addKeyframe(id, {
-        property: property as any,
+        // Checked against `valid` immediately above, so this cast is earned.
+        property: property as AnimatableProperty,
         timeOffsetMs: kf.timeOffsetMs,
         value: kf.value,
-        easing: (kf.easing as any) ?? 'easeInOut',
+        easing: kf.easing ? oneOf(kf.easing, EASINGS, 'easing') : 'easeInOut',
       });
     }
     return { clipId: id, property, count: keyframes.length };
@@ -788,6 +808,35 @@ defineTool({
 /* ═══════════════════════════════════════════════════════════════════
    TIMELINE STRUCTURE
    ═══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Why an edit that looked valid did nothing.
+ *
+ * The store bails silently on a locked clip, a locked track, or a time
+ * outside the clip. Those are ordinary situations, not bugs — but every
+ * tool here used to return success for them, so an agent reported cuts
+ * and deletions that never happened.
+ */
+function refuseReason(clipId: string, atMs?: number): string {
+  const clip = findClipById(timeline().tracks, clipId);
+  if (!clip) return `Clip "${clipId}" no longer exists.`;
+
+  const track = timeline().tracks.find((t) => t.id === clip.trackId);
+  if (clip.locked) return `"${clip.name}" is locked. Unlock it first.`;
+  if (track?.locked) return `Track "${track.name}" is locked. Unlock it first.`;
+
+  if (atMs !== undefined) {
+    const start = clip.startTimeMs;
+    const end = start + clip.durationMs;
+    if (atMs <= start || atMs >= end) {
+      return (
+        `${atMs}ms is not inside "${clip.name}" (${start}–${end}ms). ` +
+        'Move the playhead over the clip, or pass an explicit atMs within it.'
+      );
+    }
+  }
+  return 'The editor declined the edit.';
+}
 
 defineTool({
   name: 'insert_clip',
@@ -823,8 +872,9 @@ defineTool({
   handler: ({ clipId, atMs }) => {
     const state = timeline();
     const id = resolveClipId(clipId);
-    state.splitClip(id, atMs ?? state.playheadMs);
-    return { clipId: id, splitAtMs: atMs ?? state.playheadMs };
+    const at = atMs ?? state.playheadMs;
+    if (!state.splitClip(id, at)) throw new Error(refuseReason(id, at));
+    return { clipId: id, splitAtMs: at };
   },
 });
 
@@ -840,8 +890,21 @@ defineTool({
   }),
   handler: ({ clipId, newStartMs, newEndMs, ripple }) => {
     const id = resolveClipId(clipId);
-    timeline().trimClip(id, newStartMs, newEndMs, ripple);
-    return { clipId: id, newStartMs, newEndMs };
+    if (!timeline().trimClip(id, newStartMs, newEndMs, ripple)) throw new Error(refuseReason(id));
+
+    /* Report where the clip ACTUALLY landed. Trims are clamped to a
+       minimum duration and to zero, so echoing the request back would
+       claim a start of -400ms that the store refused. */
+    const clip = findClipById(timeline().tracks, id);
+    return {
+      clipId: id,
+      startMs: clip?.startTimeMs,
+      endMs: clip ? clip.startTimeMs + clip.durationMs : undefined,
+      durationMs: clip?.durationMs,
+      ...(newStartMs !== undefined && clip && clip.startTimeMs !== newStartMs
+        ? { note: `Start was clamped to ${clip.startTimeMs}ms.` }
+        : {}),
+    };
   },
 });
 
@@ -859,9 +922,15 @@ defineTool({
     const id = resolveClipId(clipId);
     const clip = findClipById(state.tracks, id)!;
     const tid = targetTrackId ? resolveTrackId(targetTrackId) : clip.trackId;
-    state.moveClip(id, tid, startTimeMs);
+    if (!state.moveClip(id, tid, startTimeMs)) {
+      const target = state.tracks.find((t) => t.id === tid);
+      throw new Error(
+        target?.locked ? `Track "${target.name}" is locked. Unlock it first.` : refuseReason(id)
+      );
+    }
     state.commit('Move clip');
-    return { clipId: id, trackId: tid, startTimeMs };
+    const moved = findClipById(timeline().tracks, id);
+    return { clipId: id, trackId: tid, startTimeMs: moved?.startTimeMs ?? startTimeMs };
   },
 });
 
@@ -875,7 +944,7 @@ defineTool({
   }),
   handler: ({ clipId, ripple }) => {
     const id = resolveClipId(clipId);
-    timeline().deleteClip(id, ripple);
+    if (!timeline().deleteClip(id, ripple)) throw new Error(refuseReason(id));
     return { deletedClipId: id };
   },
 });
@@ -965,8 +1034,9 @@ defineTool({
   handler: ({ clipId, atMs, holdMs }) => {
     const state = timeline();
     const id = resolveClipId(clipId);
-    state.freezeFrame(id, atMs ?? state.playheadMs, holdMs ?? 2000);
-    return { clipId: id, holdMs: holdMs ?? 2000 };
+    const at = atMs ?? state.playheadMs;
+    if (!state.freezeFrame(id, at, holdMs ?? 2000)) throw new Error(refuseReason(id, at));
+    return { clipId: id, atMs: at, holdMs: holdMs ?? 2000 };
   },
 });
 
@@ -1271,7 +1341,17 @@ defineTool({
         oneOf(aspectRatio, Object.keys(ASPECT_DIMENSIONS) as AspectRatio[], 'aspect ratio')
       );
     }
-    if (fps) proj.setFps(fps as 24 | 30 | 60);
+    if (fps !== undefined) {
+      /*
+        `fps as 24 | 30 | 60` accepted 25, 29.97, anything. It landed in
+        the project, and every consumer that switches on the three
+        supported rates then fell through its cases.
+      */
+      if (!(FPS_VALUES as readonly number[]).includes(fps)) {
+        throw new Error(`AuraCut renders at ${FPS_VALUES.join(', ')} fps. "${fps}" is not one of them.`);
+      }
+      proj.setFps(fps as (typeof FPS_VALUES)[number]);
+    }
     if (backgroundColor) proj.setBackgroundColor(backgroundColor);
     if (name) proj.setProjectName(name);
     return { aspectRatio: proj.project.aspectRatio, fps: proj.project.fps };
