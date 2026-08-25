@@ -25,6 +25,16 @@ const shared = {
   external: ['electron', 'electron-updater', 'electron-log'],
   sourcemap: process.env.NODE_ENV !== 'production',
   logLevel: 'info',
+  define: {
+    /*
+      Whether this build was code-signed is decided HERE, at build time,
+      and must be baked into the bundle. Reading process.env at runtime
+      would always be undefined: the CI environment does not survive into
+      the packaged app, so a correctly signed macOS build would still have
+      reported that it cannot update itself.
+    */
+    'process.env.AURACUT_SIGNED': JSON.stringify(process.env.AURACUT_SIGNED ?? '0'),
+  },
 };
 
 await Promise.all([

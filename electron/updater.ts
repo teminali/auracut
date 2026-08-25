@@ -73,8 +73,20 @@ function canSelfUpdate(): boolean {
   return process.env.AURACUT_SIGNED === '1';
 }
 
+let initialised = false;
+
 export function initAutoUpdater(window: BrowserWindow) {
+  // The window is re-bound on every call so events reach the live one.
   mainWindow = window;
+
+  /*
+    Everything below registers global handlers exactly once. On macOS
+    `createWindow()` runs again whenever the dock icon is clicked with no
+    windows open, and `ipcMain.handle` throws on a duplicate channel —
+    which would take down the second window before it appeared.
+  */
+  if (initialised) return;
+  initialised = true;
 
   log.transports.file.level = 'info';
   const autoUpdater = updater();

@@ -67,14 +67,10 @@ mac:
 
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
-  contents:
-    - x: 140
-      y: 190
-      type: file
-    - x: 400
-      y: 190
-      type: link
-      path: /Applications
+  # No `contents:` override. A `type: file` entry with no `path` makes
+  # electron-builder try to stage the project directory itself and fail
+  # with "not a file"; the default layout is already app-left,
+  # Applications-right, which is all that was wanted.
 
 # ── Windows ────────────────────────────────────────────────────────
 win:
