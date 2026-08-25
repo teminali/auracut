@@ -630,7 +630,11 @@ function renderTextClip(
       ctx.shadowOffsetY = style.shadowOffsetY;
     }
 
-    if (style.strokeColor && style.strokeWidth > 0) {
+    /* Wave strokes each character at its own offset, so the flat
+       whole-line stroke would sit behind it as a straight ghost. */
+    const perCharacter = style.kineticAnimation === 'wave';
+
+    if (!perCharacter && style.strokeColor && style.strokeWidth > 0) {
       ctx.strokeStyle = style.strokeColor;
       ctx.lineWidth = style.strokeWidth;
       drawTextLine(ctx, line, anchorX, y, style, 'stroke');
@@ -641,8 +645,37 @@ function renderTextClip(
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // Karaoke highlights the active word rather than the whole line.
-    if (style.kineticAnimation === 'karaoke_highlight' && style.highlightColor) {
+    /*
+      Wave rides each character on a sine offset, phase-shifted along the
+      line. It was offered by the type, by `list_properties` and by the
+      inspector dropdown, and drawn by nothing — selecting it produced
+      static text and no error.
+    */
+    if (style.kineticAnimation === 'wave') {
+      const amplitude = style.fontSize * 0.18;
+      const prevAlign = ctx.textAlign;
+      ctx.textAlign = 'left';
+      ctx.fillStyle = style.color;
+
+      const lineWidth = ctx.measureText(line).width;
+      let cursor =
+        anchorX - (style.align === 'center' ? lineWidth / 2 : style.align === 'right' ? lineWidth : 0);
+
+      for (const char of line) {
+        // Two cycles across the line, one full cycle per second of clip.
+        const phase = (cursor - anchorX) / Math.max(1, lineWidth) * Math.PI * 4;
+        const offsetY = Math.sin(progress * Math.PI * 2 + phase) * amplitude;
+
+        if (style.strokeColor && style.strokeWidth > 0) {
+          ctx.strokeStyle = style.strokeColor;
+          ctx.lineWidth = style.strokeWidth;
+          ctx.strokeText(char, cursor, y + offsetY);
+        }
+        ctx.fillText(char, cursor, y + offsetY);
+        cursor += ctx.measureText(char).width;
+      }
+      ctx.textAlign = prevAlign;
+    } else if (style.kineticAnimation === 'karaoke_highlight' && style.highlightColor) {
       const words = line.split(' ');
       const activeIndex = Math.floor(progress * words.length);
       let cursor = anchorX - (style.align === 'center' ? ctx.measureText(line).width / 2 : 0);

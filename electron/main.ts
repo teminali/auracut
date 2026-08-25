@@ -42,6 +42,16 @@ function createWindow() {
     },
   });
 
+  /*
+    `queryLocalFonts()` is gated behind a permission that has no UI in
+    Electron, so without this it is denied by default and the font
+    picker silently falls back to probing a candidate list. Local fonts
+    are exactly as sensitive as the fonts already readable through CSS.
+  */
+  mainWindow.webContents.session.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === 'local-fonts');
+  });
+
   // Painting into a hidden window and revealing it once ready avoids the
   // white flash every Electron app gets for free otherwise.
   mainWindow.once('ready-to-show', () => mainWindow?.show());

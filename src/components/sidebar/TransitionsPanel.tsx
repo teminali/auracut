@@ -4,6 +4,7 @@ import { useUiStore } from '../../store/uiStore';
 import { TransitionType } from '../../types/edl';
 import { SliderRow, SegmentedControl, Section } from '../ui/Controls';
 import { Layers, ArrowLeftRight } from 'lucide-react';
+import { PanelSearch, matchesQuery } from './PanelSearch';
 
 const TRANSITIONS: { id: TransitionType; label: string; glyph: string; hint: string }[] = [
   { id: 'crossfade', label: 'Dissolve', glyph: '🎬', hint: 'Classic film dissolve' },
@@ -29,6 +30,7 @@ export const TransitionsPanel: React.FC = () => {
   const removeTransition = useTimelineStore((s) => s.removeTransition);
   const pushToast = useUiStore((s) => s.pushToast);
 
+  const [query, setQuery] = useState('');
   const [durationMs, setDurationMs] = useState(400);
   const [position, setPosition] = useState<'in' | 'out' | 'seam'>('seam');
 
@@ -41,6 +43,11 @@ export const TransitionsPanel: React.FC = () => {
     }
     return null;
   }, [tracks, selectedClipIds]);
+
+  const shown = React.useMemo(
+    () => TRANSITIONS.filter((t) => matchesQuery(query, t.label, t.hint, t.id)),
+    [query]
+  );
 
   const apply = (type: TransitionType) => {
     if (!clip) {
@@ -122,8 +129,22 @@ export const TransitionsPanel: React.FC = () => {
         )}
       </div>
 
+      <div className="p-2 pt-0 flex-shrink-0">
+        <PanelSearch
+          value={query}
+          onChange={setQuery}
+          noun="transitions"
+          countLabel={`${shown.length}/${TRANSITIONS.length}`}
+        />
+      </div>
+
       <div className="flex-1 overflow-y-auto p-2 grid grid-cols-2 gap-1.5 content-start">
-        {TRANSITIONS.map((item) => (
+        {shown.length === 0 && (
+          <p className="col-span-2 text-[10px] text-spectrum-textFaint text-center py-4">
+            Nothing matches “{query}”.
+          </p>
+        )}
+        {shown.map((item) => (
           <button
             key={item.id}
             onClick={() => apply(item.id)}

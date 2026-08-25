@@ -1,4 +1,5 @@
 import React from 'react';
+import { loadFonts, loadedFonts, FontOption } from '../../engine/systemFonts';
 import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, KineticAnimation } from '../../types/edl';
 import { Section, SliderRow, ColorField, ToggleRow, SegmentedControl, NumberField } from '../ui/Controls';
@@ -7,10 +8,12 @@ import {
   Bold, Italic, CaseUpper,
 } from 'lucide-react';
 
-const FONTS = [
-  'Inter', 'JetBrains Mono', 'Georgia', 'Impact', 'Arial Black',
-  'Courier New', 'Times New Roman', 'Verdana', 'Trebuchet MS',
-];
+/*
+  The font list used to be these nine names, hardcoded and identical on
+  every machine — so a Mac with hundreds of families could use nine, and
+  several of the nine are Windows fonts a Mac does not have, which fell
+  back to the default with no indication. Now measured per machine.
+*/
 
 const ANIMATIONS: { value: KineticAnimation; label: string }[] = [
   { value: 'none', label: 'None' },
@@ -36,6 +39,15 @@ const TEXT_PRESETS = [
 export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
   const updateClipText = useTimelineStore((s) => s.updateClipText);
   const commit = useTimelineStore((s) => s.commit);
+
+  /* Enumerating the system list is async, so render what is known and
+     fill in the rest — a picker that appears empty reads as broken. */
+  const [fonts, setFonts] = React.useState<FontOption[]>(() => loadedFonts());
+  React.useEffect(() => {
+    let live = true;
+    void loadFonts().then((all) => { if (live) setFonts(all); });
+    return () => { live = false; };
+  }, []);
 
   const style = clip.textStyle;
   if (!style) return null;
@@ -88,7 +100,11 @@ export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
             onChange={(e) => { set({ fontFamily: e.target.value }); commit('Set font'); }}
             className="pro-input w-full h-7 px-2 text-[11px] cursor-pointer"
           >
-            {FONTS.map((f) => <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>)}
+            {fonts.map((f) => (
+              <option key={f.family} value={f.family} style={{ fontFamily: f.family }}>
+                {f.family}
+              </option>
+            ))}
           </select>
         </div>
 

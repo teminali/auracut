@@ -33,6 +33,7 @@ import { getClipBaseSize } from '../engine/geometry';
 import { getNaturalSize } from '../engine/compositor';
 import { runHardwareExport, unsupportedAudioSettings } from '../engine/exportPipeline';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
+import { loadFonts, isFontAvailable } from '../engine/systemFonts';
 import { followToolCall } from '../engine/agentPresence';
 
 /* ── Tool definition ────────────────────────────────────────────── */
@@ -669,12 +670,23 @@ defineTool({
     const tid = trackId ? resolveTrackId(trackId) : (state.tracks.find((t) => t.type === 'text')?.id ?? state.tracks[0].id);
     const id = state.addTextLayer(tid, text, startTimeMs ?? state.playheadMs, durationMs ?? 4000);
 
+    const warnings: string[] = [];
     if (style) {
       const patch: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(style)) patch[k.startsWith('textStyle.') ? k : `textStyle.${k}`] = v;
+
+      /* An unavailable family is accepted by the browser and rendered in
+         the default face, so the agent would report a font it did not get. */
+      const family = patch['textStyle.fontFamily'];
+      if (typeof family === 'string' && !isFontAvailable(family)) {
+        warnings.push(
+          `"${family}" is not installed on this machine, so the text will render in the default face. ` +
+          'Call list_fonts to see what is available.'
+        );
+      }
       state.patchClip(id, patch);
     }
-    return { clipId: id, text };
+    return { clipId: id, text, ...(warnings.length ? { warnings } : {}) };
   },
 });
 
@@ -1908,6 +1920,32 @@ defineTool({
       type: asset.type,
       durationMs: asset.durationMs,
       ...(asset.width ? { dimensions: `${asset.width}×${asset.height}` } : {}),
+    };
+  },
+});
+
+defineTool({
+  name: 'list_fonts',
+  category: 'discovery',
+  description:
+    'List the font families this machine can actually render, measured rather than assumed. ' +
+    'Call before setting textStyle.fontFamily — it is a free-form string, so an unavailable ' +
+    'name is accepted, silently falls back to the default, and the text renders in the wrong face.',
+  schema: z.object({
+    filter: z.string().optional().describe('Only families containing this text'),
+  }),
+  handler: async ({ filter }) => {
+    const fonts = await loadFonts();
+    const needle = filter?.trim().toLowerCase();
+    const shown = needle ? fonts.filter((f) => f.family.toLowerCase().includes(needle)) : fonts;
+
+    return {
+      count: shown.length,
+      total: fonts.length,
+      /* Bundled ones ship with AuraCut and are present on every machine;
+         system ones are whatever this computer happens to have. */
+      bundled: shown.filter((f) => f.source === 'bundled').map((f) => f.family),
+      system: shown.filter((f) => f.source === 'system').map((f) => f.family),
     };
   },
 });

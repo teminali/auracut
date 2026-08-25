@@ -8,6 +8,7 @@ import {
   Type, Plus, Square, Circle, Triangle, Star, Minus, MoveRight,
   Heart, Hexagon, Spline, Layers,
 } from 'lucide-react';
+import { PanelSearch, matchesQuery } from './PanelSearch';
 
 const TITLE_PRESETS = [
   { id: 'headline', label: 'Bold Headline', text: 'YOUR HEADLINE', style: { fontSize: 108, fontWeight: 900, uppercase: true, strokeWidth: 10, kineticAnimation: 'pop_in' } },
@@ -51,16 +52,39 @@ export const TextPanel: React.FC = () => {
     patchClip(id, patch);
   };
 
+  const [query, setQuery] = React.useState('');
+  const titles = React.useMemo(
+    () => TITLE_PRESETS.filter((p) => matchesQuery(query, p.label, p.text, p.id)),
+    [query]
+  );
+  const shapes = React.useMemo(
+    () => SHAPES.filter((sh) => matchesQuery(query, sh.label, sh.kind)),
+    [query]
+  );
+
   return (
     <div className="w-full h-full bg-spectrum-panel border-r border-line flex flex-col overflow-hidden">
       <div className="panel-header">
         <span className="panel-title">Titles & Graphics</span>
       </div>
 
+      <div className="p-2 pb-0 flex-shrink-0">
+        <PanelSearch
+          value={query}
+          onChange={setQuery}
+          noun="titles & shapes"
+          countLabel={`${titles.length + shapes.length}/${TITLE_PRESETS.length + SHAPES.length}`}
+        />
+      </div>
+
       <div className="flex-1 overflow-y-auto">
+        {titles.length === 0 && shapes.length === 0 && (
+          <p className="text-[10px] text-spectrum-textFaint text-center py-5">Nothing matches “{query}”.</p>
+        )}
+        {titles.length > 0 && (
         <Section title="Titles" icon={Type}>
           <div className="space-y-1.5">
-            {TITLE_PRESETS.map((preset) => (
+            {titles.map((preset) => (
               <button
                 key={preset.id}
                 onClick={() => addTitle(preset)}
@@ -81,10 +105,12 @@ export const TextPanel: React.FC = () => {
             ))}
           </div>
         </Section>
+        )}
 
+        {shapes.length > 0 && (
         <Section title="Shapes" icon={Square}>
           <div className="grid grid-cols-3 gap-1.5">
-            {SHAPES.map((shape) => {
+            {shapes.map((shape) => {
               const Icon = shape.icon;
               return (
                 <button
@@ -102,7 +128,9 @@ export const TextPanel: React.FC = () => {
             })}
           </div>
         </Section>
+        )}
 
+        {/* Utility layers are not assets to browse, so a search never hides them. */}
         <Section title="Utility layers" icon={Layers}>
           <button
             onClick={() => addAdjustmentLayer(overlayTrackId, playheadMs)}

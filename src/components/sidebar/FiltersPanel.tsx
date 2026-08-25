@@ -6,6 +6,7 @@ import { useUiStore } from '../../store/uiStore';
 import { DEFAULT_FILTERS, Clip } from '../../types/edl';
 import { Section } from '../ui/Controls';
 import { Sliders, Layers, Check } from 'lucide-react';
+import { PanelSearch, matchesQuery } from './PanelSearch';
 
 const LOOKS: { id: string; label: string; swatch: string; hint: string; filters: Partial<Clip['filters']> }[] = [
   { id: 'teal_orange', label: 'Teal & Orange', hint: 'Blockbuster standard', swatch: 'linear-gradient(135deg,#0b3d4d 0%,#1c6b7a 45%,#ff9a4d 100%)', filters: { temperature: -14, tint: 10, contrast: 22, saturation: 18, vignette: 28 } },
@@ -27,6 +28,12 @@ export const FiltersPanel: React.FC = () => {
   const patchClips = useTimelineStore((s) => s.patchClip);
   const commit = useTimelineStore((s) => s.commit);
   const pushToast = useUiStore((s) => s.pushToast);
+
+  const [query, setQuery] = React.useState('');
+  const shown = React.useMemo(
+    () => LOOKS.filter((l) => matchesQuery(query, l.label, l.hint, l.id)),
+    [query]
+  );
 
   const apply = (look: typeof LOOKS[number], toAll: boolean) => {
     const targets = toAll
@@ -59,8 +66,20 @@ export const FiltersPanel: React.FC = () => {
         )}
       </div>
 
+      <div className="p-2 pb-0 flex-shrink-0">
+        <PanelSearch
+          value={query}
+          onChange={setQuery}
+          noun="looks"
+          countLabel={`${shown.length}/${LOOKS.length}`}
+        />
+      </div>
+
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
-        {LOOKS.map((look) => (
+        {shown.length === 0 && (
+          <p className="text-[10px] text-spectrum-textFaint text-center py-4">Nothing matches “{query}”.</p>
+        )}
+        {shown.map((look) => (
           <div key={look.id} className="card-interactive p-2 flex items-center gap-2.5 group">
             <span
               className="w-11 h-11 rounded-squircle-xs border border-line flex-shrink-0"
