@@ -4,6 +4,7 @@ import http from 'http';
 import { initAutoUpdater } from './updater';
 import { initToolBridge, setBridgeWindow } from './toolBridge';
 import { transcribeMedia, transcriberStatus, analyzeAudio, setupTranscription } from './transcribe';
+import { startExport, writeFrame, finishExport, cancelExport, ExportClipAudio, StartExportOptions } from './render';
 import { startRpcServer } from './rpcServer';
 import {
   startSession, stopSession, resetSession, isRunning, findClaudeCli, getCliVersion,
@@ -127,6 +128,15 @@ function registerAgentIpc() {
   ipcMain.handle('audio:analyze', async (_e, p: { mediaUrl: string; silenceThresholdDb?: number; minSilenceMs?: number }) =>
     analyzeAudio(p.mediaUrl, p.silenceThresholdDb, p.minSilenceMs));
   ipcMain.handle('stt:setup', async (_e, p: { model?: string }) => setupTranscription(p?.model));
+
+  /* Export. Frames arrive from the renderer as JPEG and go straight to
+     ffmpeg's stdin; audio is rebuilt from sources at the end. */
+  ipcMain.handle('export:start', (_e, opts: StartExportOptions) => startExport(opts));
+  ipcMain.handle('export:frame', (_e, p: { sessionId: string; jpeg: Uint8Array }) =>
+    writeFrame(p.sessionId, p.jpeg));
+  ipcMain.handle('export:finish', (_e, p: { sessionId: string; audioClips: ExportClipAudio[] }) =>
+    finishExport(p.sessionId, p.audioClips));
+  ipcMain.handle('export:cancel', (_e, p: { sessionId: string }) => { cancelExport(p.sessionId); return true; });
 
   ipcMain.handle('claude:stop', () => { stopSession(); return true; });
   ipcMain.handle('claude:reset', () => { resetSession(); return true; });

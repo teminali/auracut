@@ -39,6 +39,14 @@ export interface ElectronAPI {
     onProgress: (cb: (p: { percent: number; note: string }) => void) => () => void;
   };
 
+  /** Real video export: frames to ffmpeg, audio muxed in. */
+  exporter: {
+    start: (opts: any) => Promise<{ sessionId?: string; error?: string }>;
+    frame: (sessionId: string, jpeg: Uint8Array) => Promise<{ ok: boolean; error?: string }>;
+    finish: (sessionId: string, audioClips: any[]) => Promise<any>;
+    cancel: (sessionId: string) => Promise<boolean>;
+  };
+
   /** The Claude Code session that powers the Copilot. */
   claude: {
     status: () => Promise<ClaudeStatus>;
@@ -92,6 +100,13 @@ const api: ElectronAPI = {
       ipcRenderer.on('stt:progress', handler);
       return () => ipcRenderer.removeListener('stt:progress', handler);
     },
+  },
+
+  exporter: {
+    start: (opts) => ipcRenderer.invoke('export:start', opts),
+    frame: (sessionId, jpeg) => ipcRenderer.invoke('export:frame', { sessionId, jpeg }),
+    finish: (sessionId, audioClips) => ipcRenderer.invoke('export:finish', { sessionId, audioClips }),
+    cancel: (sessionId) => ipcRenderer.invoke('export:cancel', { sessionId }),
   },
 
   claude: {

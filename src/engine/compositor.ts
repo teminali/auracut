@@ -6,7 +6,7 @@
    the transform gizmo uses, which is what keeps handles glued to pixels.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { Track, Clip, ProjectSettings, ClipTransition, ClipTextStyle, ShapeStyle, MotionPath } from '../types/edl';
+import { Track, Clip, ClipType, ProjectSettings, ClipTransition, ClipTextStyle, ShapeStyle, MotionPath } from '../types/edl';
 import {
   getClipBox,
   getClipBaseSize,
@@ -19,6 +19,10 @@ import {
   EffectRenderContext,
 } from './effectsRegistry';
 import { interpolateKeyframes, applyEasing } from './keyframeMath';
+import {
+  likelyVideoUrl, getVideoFrame, getVideoNaturalSize, videoFailed, getVideoGeneration,
+  preloadVideo,
+} from './videoEngine';
 
 /* ── Media cache ────────────────────────────────────────────────── */
 
@@ -42,7 +46,9 @@ const mediaCache = new Map<string, CachedMedia>();
 let mediaGeneration = 0;
 
 export function getMediaGeneration(): number {
-  return mediaGeneration;
+  // Video counts too: a completed seek produces a new frame with nothing
+  // else in the store changed, and a paused preview must repaint for it.
+  return mediaGeneration + getVideoGeneration();
 }
 
 export function getCachedImage(url: string): HTMLImageElement {
@@ -80,6 +86,18 @@ export function getCachedImage(url: string): HTMLImageElement {
 /** Natural dimensions of a clip's media once decoded, else null. */
 export function getNaturalSize(clip: Clip): { width: number; height: number } | null {
   if (!clip.mediaUrl) return null;
+
+  if (likelyVideoUrl(clip.mediaUrl, clip.type)) {
+    const size = getVideoNaturalSize(clip.mediaUrl);
+    if (size) return size;
+    if (!videoFailed(clip.mediaUrl)) {
+      // Metadata has not landed yet — fall back to what the import probed.
+      return clip.naturalWidth && clip.naturalHeight
+        ? { width: clip.naturalWidth, height: clip.naturalHeight }
+        : null;
+    }
+  }
+
   getCachedImage(clip.mediaUrl);
   // Read through the cache entry — the CORS fallback can swap the element.
   const el = mediaCache.get(clip.mediaUrl)?.el;
@@ -112,6 +130,90 @@ export function isMediaReady(url?: string): boolean {
   if (!url) return false;
   const entry = mediaCache.get(url);
   return !!entry && entry.loaded;
+}
+
+/* ── Which decoder draws this clip? ─────────────────────────────────
+
+   Video and stills need different elements, and the declared clip type
+   cannot be trusted on its own — the seed project shipped JPEGs typed
+   `video` with `.mov` names. So: guess from the URL, and if the guess
+   fails to decode, fall through to the other cache rather than paint a
+   placeholder forever.                                               */
+
+/** The drawable source for a clip's media, or null while it decodes. */
+function resolveClipSource(clip: Clip): CanvasImageSource | null {
+  const url = clip.mediaUrl;
+  if (!url) return null;
+
+  if (likelyVideoUrl(url, clip.type)) {
+    const frame = getVideoFrame(url);
+    if (frame) return frame;
+    // Still decoding — hold the placeholder rather than mis-drawing.
+    if (!videoFailed(url)) return null;
+    // Decode failed: the label lied. Try it as a still.
+  }
+
+  getCachedImage(url);
+  const img = mediaCache.get(url)?.el;
+  return img && img.complete && img.naturalWidth > 0 ? img : null;
+}
+
+/**
+ * Wait for every source the timeline references and report the ones
+ * nothing can decode.
+ *
+ * Asked of the compositor rather than of either cache because the
+ * answer depends on both: a clip typed `video` whose URL is really a
+ * JPEG decodes through the image path, and must not be reported as
+ * broken just because the video element refused it. Export uses this
+ * to refuse to encode a placeholder gradient as if it were footage.
+ */
+export async function undecodableSources(tracks: Track[], timeoutMs = 15000): Promise<string[]> {
+  const wanted = new Map<string, ClipType>();
+  for (const track of tracks) {
+    if (track.type === 'audio') continue;
+    for (const clip of track.clips) {
+      if (clip.hidden || !clip.mediaUrl) continue;
+      if (clip.type === 'text' || clip.type === 'shape' || clip.type === 'adjustment') continue;
+      wanted.set(clip.mediaUrl, clip.type);
+    }
+  }
+  if (wanted.size === 0) return [];
+
+  // Kick every decode off together rather than one at a time.
+  for (const [url, type] of wanted) {
+    if (likelyVideoUrl(url, type)) preloadVideo(url);
+    else getCachedImage(url);
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  const broken: string[] = [];
+
+  for (const [url, type] of wanted) {
+    let ok = false;
+
+    while (Date.now() < deadline) {
+      if (likelyVideoUrl(url, type)) {
+        if (getVideoNaturalSize(url)) { ok = true; break; }
+        // Video decode failed — the label may be wrong, so try a still.
+        if (videoFailed(url)) {
+          getCachedImage(url);
+          const entry = mediaCache.get(url);
+          if (entry?.loaded) { ok = true; break; }
+          if (entry?.failed) break;
+        }
+      } else {
+        const entry = mediaCache.get(url);
+        if (entry?.loaded) { ok = true; break; }
+        if (entry?.failed) break;
+      }
+      await new Promise((r) => setTimeout(r, 40));
+    }
+
+    if (!ok) broken.push(url);
+  }
+
+  return broken;
 }
 
 /* ── Transitions ────────────────────────────────────────────────── */
@@ -951,9 +1053,8 @@ function renderClipPass(
     ctx.fillStyle = 'rgba(0,0,0,0)';
     ctx.fillRect(-halfW, -halfH, box.width, box.height);
   } else if (clip.mediaUrl) {
-    getCachedImage(clip.mediaUrl);
-    const img = mediaCache.get(clip.mediaUrl)?.el;
-    if (img && img.complete && img.naturalWidth > 0) {
+    const img = resolveClipSource(clip);
+    if (img) {
       if (fx.rgbSplitPx > 0.5) {
         // Chromatic aberration: three offset passes through channel filters.
         const split = fx.rgbSplitPx;
@@ -1080,6 +1181,19 @@ export function renderTimelineFrame(
 
   ctx.fillStyle = project.backgroundColor || '#000000';
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+  /*
+    Everything below lays out in PROJECT pixels: `getClipBox` centres on
+    `project.width / 2`, and a clip's `transform.x` is an offset in those
+    same units. So a canvas that is not the project's size needs a scale
+    here, or the whole composition renders at project size in the corner
+    of the frame — which is exactly what a 4K export of a 1080p sequence
+    used to do. These two parameters existed and only the background fill
+    was honouring them.
+  */
+  const scaleX = canvasWidth / project.width;
+  const scaleY = canvasHeight / project.height;
+  if (scaleX !== 1 || scaleY !== 1) ctx.scale(scaleX, scaleY);
 
   // Highest index paints first so track 0 ends up on top.
   const ordered = [...tracks].sort((a, b) => b.index - a.index);

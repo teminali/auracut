@@ -18,44 +18,56 @@ export const INITIAL_PROJECT: ProjectSettings = {
   updatedAt: Date.now(),
 };
 
+/*
+  These are STILLS, and they say so.
+
+  They used to be typed `video`, named `.mov`, and labelled
+  `ProRes 422 HQ` at `18.4 MB` — while being Unsplash JPEGs. That fiction
+  hid a real bug for a long time: the compositor had no video decode path
+  at all, and drew every clip through an <img>. Stills render fine that
+  way, so the demo looked like a working video editor while actual footage
+  rendered as a grey placeholder gradient.
+
+  A seed project that misdescribes itself is a test that always passes.
+*/
 export const SAMPLE_MEDIA_ASSETS: MediaAsset[] = [
   {
     id: 'media_cyber_city',
-    name: 'A001_C001_NeonCity_4K.mov',
-    type: 'video',
+    name: 'Still_NeonCity.jpg',
+    type: 'image',
     url: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1600&q=80',
     thumbnailUrl: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=300&q=80',
     durationMs: 6000,
     width: 1920,
     height: 1080,
-    fileSizeFormatted: '18.4 MB',
-    codec: 'ProRes 422 HQ',
+    fileSizeFormatted: '—',
+    codec: 'JPEG',
     transcript: 'Welcome to the future of AI commerce in Tanzania.',
   },
   {
     id: 'media_spiderman_jump',
-    name: 'A001_C002_CinematicJump.mov',
-    type: 'video',
+    name: 'Still_CinematicJump.jpg',
+    type: 'image',
     url: 'https://images.unsplash.com/photo-1635863138275-d9b33299680b?auto=format&fit=crop&w=1600&q=80',
     thumbnailUrl: 'https://images.unsplash.com/photo-1635863138275-d9b33299680b?auto=format&fit=crop&w=300&q=80',
     durationMs: 5000,
     width: 1920,
     height: 1080,
-    fileSizeFormatted: '14.2 MB',
-    codec: 'ProRes 422 HQ',
+    fileSizeFormatted: '—',
+    codec: 'JPEG',
     transcript: 'DukaBot AI gives your duka superpowers.',
   },
   {
     id: 'media_duka_store',
-    name: 'A001_C003_KariakooStore.mov',
-    type: 'video',
+    name: 'Still_KariakooStore.jpg',
+    type: 'image',
     url: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?auto=format&fit=crop&w=1600&q=80',
     thumbnailUrl: 'https://images.unsplash.com/photo-1555529669-e69e7aa0ba9a?auto=format&fit=crop&w=300&q=80',
     durationMs: 5000,
     width: 1920,
     height: 1080,
-    fileSizeFormatted: '12.8 MB',
-    codec: 'ProRes 422 HQ',
+    fileSizeFormatted: '—',
+    codec: 'JPEG',
     transcript: 'Record sales over WhatsApp in seconds.',
   },
   {
@@ -205,8 +217,8 @@ export const INITIAL_TRACKS: Track[] = [
       createClip({
         id: 'clip_vid_1',
         trackId: 'track_main_v1',
-        type: 'video',
-        name: 'A001_C001_NeonCity.mov',
+        type: 'image',
+        name: 'Still_NeonCity.jpg',
         mediaUrl: asset('media_cyber_city').url,
         thumbnailUrl: asset('media_cyber_city').thumbnailUrl,
         color: '#2f6fb8',
@@ -221,8 +233,8 @@ export const INITIAL_TRACKS: Track[] = [
       createClip({
         id: 'clip_vid_2',
         trackId: 'track_main_v1',
-        type: 'video',
-        name: 'A001_C002_CinematicJump.mov',
+        type: 'image',
+        name: 'Still_CinematicJump.jpg',
         mediaUrl: asset('media_spiderman_jump').url,
         thumbnailUrl: asset('media_spiderman_jump').thumbnailUrl,
         color: '#2f6fb8',
@@ -237,8 +249,8 @@ export const INITIAL_TRACKS: Track[] = [
       createClip({
         id: 'clip_vid_3',
         trackId: 'track_main_v1',
-        type: 'video',
-        name: 'A001_C003_KariakooStore.mov',
+        type: 'image',
+        name: 'Still_KariakooStore.jpg',
         mediaUrl: asset('media_duka_store').url,
         thumbnailUrl: asset('media_duka_store').thumbnailUrl,
         color: '#2f6fb8',

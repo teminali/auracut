@@ -23,6 +23,7 @@ import { PlaybackControls } from './PlaybackControls';
 import { useMeasure } from '../../hooks/useMeasure';
 import { useRafLoop } from '../../hooks/useRafLoop';
 import { audioEngine } from '../../engine/audioEngine';
+import { syncVideo } from '../../engine/videoEngine';
 import {
   Grid3x3, Ratio, Film, Magnet, ZoomIn, ZoomOut, Maximize2, Minimize2, Gauge,
 } from 'lucide-react';
@@ -109,6 +110,13 @@ export const PreviewPlayer: React.FC = () => {
       with no separate clock to drift against.
     */
     audioEngine.sync(state.tracks, state.playheadMs, isPlaying, playbackRate);
+
+    /*
+      And the picture. Video clips draw from <video> elements, which hold
+      whatever frame they were last seeked to — so they need the playhead
+      pushed at them every frame exactly as the sound does.
+    */
+    syncVideo(state.tracks, state.playheadMs, isPlaying, playbackRate);
 
     // Meters read the actual output graph. They used to be Math.random(),
     // which bounced convincingly while nothing was playing at all.

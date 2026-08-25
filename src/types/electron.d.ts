@@ -48,6 +48,28 @@ export interface AuraCutElectronAPI {
     onProgress: (cb: (p: { percent: number; note: string }) => void) => () => void;
   };
 
+  exporter: {
+    start: (opts: {
+      width: number; height: number; fps: number;
+      codec: 'h264' | 'hevc' | 'prores'; outputPath: string;
+      hardware?: boolean; bitrateMbps?: number;
+    }) => Promise<{ sessionId?: string; error?: string }>;
+    frame: (sessionId: string, jpeg: Uint8Array) => Promise<{ ok: boolean; error?: string }>;
+    finish: (sessionId: string, audioClips: unknown[]) => Promise<{
+      ok: boolean; outputPath?: string; frames?: number; hasAudio?: boolean;
+      bytes?: number; error?: string; audioError?: string;
+      /* `hasAudio: false` cannot say whether the timeline was silent or the
+         mix was dropped. This can. */
+      audio?: {
+        requested: number;
+        included: number;
+        dropped: { source: string; reason: string }[];
+        note?: string;
+      };
+    }>;
+    cancel: (sessionId: string) => Promise<boolean>;
+  };
+
   claude: {
     status: () => Promise<ClaudeStatus>;
     send: (prompt: string, resume: boolean) => Promise<boolean>;

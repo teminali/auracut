@@ -90,6 +90,18 @@ export function startRpcServer(): http.Server {
     }
   });
 
+  /*
+    These are long local operations — a 4K render can run for many
+    minutes. Node's default request timeout dropped the connection
+    mid-export: the file completed on disk and the caller got nothing
+    back, which looks exactly like a failure.
+  */
+  server.timeout = 0;
+  server.requestTimeout = 0;
+  server.headersTimeout = 0;
+  server.keepAliveTimeout = 0;
+  server.on('connection', (socket) => socket.setTimeout(0));
+
   server.listen(RPC_PORT, '127.0.0.1', () => {
     console.log(`[AuraCut] RPC bridge on http://127.0.0.1:${RPC_PORT}/rpc`);
   });

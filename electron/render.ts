@@ -1,0 +1,444 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Export — actually writing a file.
+
+   What was here before rendered every frame correctly and then encoded
+   nothing: no VideoEncoder, no muxer, no ffmpeg. It ran the frame loop,
+   printed "Muxing AAC audio streams and finalizing MP4 container…",
+   slept 400ms, and returned a path to a file that had never been
+   created — reporting "Hardware Export Complete". An editor that cannot
+   produce a file is not an editor.
+
+   The pipeline, in three verifiable steps:
+
+     1. VIDEO  the renderer composites each frame and hands it over as
+               JPEG; ffmpeg reads them from stdin as an image2pipe
+               stream and encodes to h264 / hevc / prores.
+     2. AUDIO  the timeline's audio is rebuilt as an ffmpeg filtergraph
+               straight from the source files — trim to the clip's source
+               range, delay to its timeline position, apply gain and
+               fades, mix. Deterministic, and independent of whatever the
+               preview engine happens to be doing.
+     3. MUX    stream-copy the two together.
+
+   Three steps rather than one command because when an export fails you
+   need to know which half broke.
+   ═══════════════════════════════════════════════════════════════════ */
+
+import { spawn, execFile } from 'child_process';
+import { app } from 'electron';
+import path from 'path';
+import fs from 'fs';
+import { ffmpeg } from './transcribe';
+
+export interface ExportClipAudio {
+  mediaUrl: string;
+  /** Where it sits on the timeline. */
+  startTimeMs: number;
+  durationMs: number;
+  /** Where playback begins inside the source. */
+  sourceStartMs: number;
+  volume: number;
+  fadeInMs: number;
+  fadeOutMs: number;
+  speed: number;
+}
+
+export interface StartExportOptions {
+  width: number;
+  height: number;
+  fps: number;
+  codec: 'h264' | 'hevc' | 'prores';
+  outputPath: string;
+  /** Prefer Apple VideoToolbox where the codec supports it. */
+  hardware?: boolean;
+  bitrateMbps?: number;
+}
+
+interface Session {
+  id: string;
+  proc: ReturnType<typeof spawn>;
+  videoPath: string;
+  outputPath: string;
+  options: StartExportOptions;
+  framesWritten: number;
+  stderr: string;
+  /** Set when ffmpeg dies early, so writeFrame can fail loudly. */
+  failed: Error | null;
+  closed: Promise<void>;
+}
+
+const sessions = new Map<string, Session>();
+let counter = 0;
+
+function encoderArgs(options: StartExportOptions): string[] {
+  const { codec, hardware, bitrateMbps } = options;
+
+  if (codec === 'prores') {
+    // Profile 3 = ProRes 422 HQ, the usual delivery/intermediate choice.
+    return ['-c:v', 'prores_ks', '-profile:v', '3', '-pix_fmt', 'yuv422p10le'];
+  }
+
+  const bitrate = bitrateMbps ? ['-b:v', `${bitrateMbps}M`] : ['-crf', '18'];
+
+  if (hardware) {
+    // VideoToolbox ignores CRF, so give it an explicit bitrate.
+    const vtBitrate = bitrateMbps ?? (options.height >= 2000 ? 40 : 12);
+    return [
+      '-c:v', codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox',
+      '-b:v', `${vtBitrate}M`,
+      '-pix_fmt', 'yuv420p',
+      ...(codec === 'hevc' ? ['-tag:v', 'hvc1'] : []),
+    ];
+  }
+
+  return [
+    '-c:v', codec === 'hevc' ? 'libx265' : 'libx264',
+    ...bitrate,
+    '-preset', 'medium',
+    '-pix_fmt', 'yuv420p',
+    ...(codec === 'hevc' ? ['-tag:v', 'hvc1'] : []),
+  ];
+}
+
+export function startExport(options: StartExportOptions): { sessionId: string } | { error: string } {
+  const ff = ffmpeg();
+  if (!ff) return { error: 'ffmpeg was not found. Install it with `brew install ffmpeg` to export.' };
+
+  /*
+    Accept either an absolute path or a bare filename. Only main knows
+    where "Movies" actually is, and a renderer-side guess put every
+    default export at `/Movies/...`, which no user can write to.
+  */
+  if (!path.isAbsolute(options.outputPath)) {
+    const base = path.basename(options.outputPath) || 'AuraCut_Export.mp4';
+    options = { ...options, outputPath: path.join(app.getPath('videos'), base) };
+  }
+
+  const id = `exp_${Date.now().toString(36)}_${++counter}`;
+  const dir = fs.mkdtempSync(path.join(app.getPath('temp'), 'auracut-export-'));
+  const videoPath = path.join(dir, options.codec === 'prores' ? 'video.mov' : 'video.mp4');
+
+  const args = [
+    '-y',
+    // Input: a stream of JPEGs, one per frame, at the project rate.
+    '-f', 'image2pipe',
+    '-framerate', String(options.fps),
+    '-i', 'pipe:0',
+    ...encoderArgs(options),
+    '-r', String(options.fps),
+    videoPath,
+  ];
+
+  const proc = spawn(ff, args, { stdio: ['pipe', 'ignore', 'pipe'] });
+
+  const session: Session = {
+    id, proc, videoPath, outputPath: options.outputPath, options,
+    framesWritten: 0, stderr: '', failed: null,
+    closed: Promise.resolve(),
+  };
+
+  proc.stderr?.setEncoding('utf8');
+  proc.stderr?.on('data', (chunk: string) => {
+    // Keep only the tail; ffmpeg is chatty and the end is what matters.
+    session.stderr = (session.stderr + chunk).slice(-4000);
+  });
+
+  // A broken pipe here means ffmpeg exited; surface it rather than crash.
+  proc.stdin?.on('error', (err: Error) => { session.failed = err; });
+  proc.on('error', (err) => { session.failed = err; });
+
+  session.closed = new Promise<void>((resolve) => {
+    proc.on('close', (code) => {
+      if (code !== 0) session.failed = new Error(session.stderr.trim().slice(-800) || `ffmpeg exited ${code}`);
+      resolve();
+    });
+  });
+
+  sessions.set(id, session);
+  return { sessionId: id };
+}
+
+/** Push one composited frame. Applies backpressure so memory stays flat. */
+export function writeFrame(sessionId: string, jpeg: Uint8Array): Promise<{ ok: boolean; error?: string }> {
+  const session = sessions.get(sessionId);
+  if (!session) return Promise.resolve({ ok: false, error: 'No such export session.' });
+  if (session.failed) return Promise.resolve({ ok: false, error: session.failed.message });
+
+  return new Promise((resolve) => {
+    const buffer = Buffer.from(jpeg);
+    const ok = session.proc.stdin?.write(buffer, (err) =>
+      err ? resolve({ ok: false, error: err.message }) : undefined
+    );
+    session.framesWritten++;
+
+    // `write` returning false means the buffer is full — wait for drain
+    // instead of queueing gigabytes of frames in memory.
+    if (ok === false) session.proc.stdin?.once('drain', () => resolve({ ok: true }));
+    else resolve({ ok: true });
+  });
+}
+
+/* ── Audio ────────────────────────────────────────────────────────
+   Rebuilt from the sources rather than captured from the preview, so a
+   render is reproducible and does not depend on playback state.       */
+
+export interface AudioMixReport {
+  path: string | null;
+  /** How many sources made it into the mix. */
+  included: number;
+  /** Sources ffmpeg could not open, with the reason. */
+  dropped: { source: string; reason: string }[];
+  /** Set when the mix failed for a reason other than a bad source. */
+  error?: string;
+}
+
+/** Can ffmpeg actually open this? Cheap, and the answer decides the mix. */
+function probeSource(ff: string, source: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile(
+      ff,
+      ['-nostdin', '-v', 'error', '-i', source, '-t', '0.1', '-f', 'null', '-'],
+      { timeout: 30_000, maxBuffer: 1024 * 512 },
+      (err, _out, stderr) => {
+        const text = (stderr || '').trim();
+        // ffmpeg reports an unopenable input on stderr while still exiting 0,
+        // so the exit code alone is not the answer.
+        const broke = Boolean(err) || /Error opening input|Invalid data|No such file|Protocol not found|Server returned/i.test(text);
+        resolve(broke ? (text.split('\n').find((l) => /Error|Invalid|No such|Server/i.test(l)) ?? 'unreadable') : null);
+      }
+    );
+  });
+}
+
+function mixArgsFor(clips: ExportClipAudio[], outPath: string): string[] {
+  const inputs: string[] = [];
+  const filters: string[] = [];
+
+  clips.forEach((clip, i) => {
+    const source = clip.mediaUrl.startsWith('file://')
+      ? decodeURIComponent(clip.mediaUrl.replace('file://', ''))
+      : clip.mediaUrl;
+
+    /*
+      Remote hosts often refuse ffmpeg's default identity. The demo
+      project's music returns 403 without a browser User-Agent, which
+      silently produced a video with no sound.
+    */
+    if (/^https?:/.test(source)) {
+      inputs.push(
+        '-user_agent',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0 Safari/537.36'
+      );
+    }
+    // Seek before the input so ffmpeg skips rather than decodes-and-drops.
+    inputs.push('-ss', (clip.sourceStartMs / 1000).toFixed(3), '-i', source);
+
+    const chain: string[] = [];
+    // Length of source needed, accounting for speed.
+    const takeSeconds = (clip.durationMs * clip.speed) / 1000;
+    chain.push(`atrim=0:${takeSeconds.toFixed(3)}`);
+
+    if (clip.speed !== 1) {
+      // atempo is limited to 0.5–2.0 per stage, so chain them.
+      let remaining = clip.speed;
+      const stages: number[] = [];
+      while (remaining > 2) { stages.push(2); remaining /= 2; }
+      while (remaining < 0.5) { stages.push(0.5); remaining /= 0.5; }
+      stages.push(remaining);
+      for (const s of stages) chain.push(`atempo=${s.toFixed(4)}`);
+    }
+
+    chain.push('asetpts=PTS-STARTPTS');
+    if (clip.volume !== 1) chain.push(`volume=${clip.volume.toFixed(3)}`);
+    if (clip.fadeInMs > 0) chain.push(`afade=t=in:st=0:d=${(clip.fadeInMs / 1000).toFixed(3)}`);
+    if (clip.fadeOutMs > 0) {
+      const start = Math.max(0, (clip.durationMs - clip.fadeOutMs) / 1000);
+      chain.push(`afade=t=out:st=${start.toFixed(3)}:d=${(clip.fadeOutMs / 1000).toFixed(3)}`);
+    }
+    // Place it at its timeline position.
+    chain.push(`adelay=${Math.round(clip.startTimeMs)}:all=1`);
+    chain.push('aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo');
+
+    filters.push(`[${i}:a]${chain.join(',')}[a${i}]`);
+  });
+
+  const mixInputs = clips.map((_, i) => `[a${i}]`).join('');
+  // `normalize=0` keeps a single clip at its own level instead of
+  // attenuating everything by the number of inputs.
+  filters.push(`${mixInputs}amix=inputs=${clips.length}:dropout_transition=0:normalize=0[out]`);
+
+  return [
+    '-y', '-nostdin', ...inputs,
+    '-filter_complex', filters.join(';'),
+    '-map', '[out]',
+    '-c:a', 'aac', '-b:a', '320k',
+    outPath,
+  ];
+}
+
+function runMix(ff: string, args: string[], outPath: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile(ff, args, { timeout: 900_000, maxBuffer: 1024 * 1024 * 16 }, (err) => {
+      resolve(err || !fs.existsSync(outPath) ? null : outPath);
+    });
+  });
+}
+
+/**
+ * Build the audio bed, and say what happened.
+ *
+ * One unreadable source used to silence the ENTIRE render: the mix threw,
+ * the failure was swallowed as "audio is not worth failing a render over",
+ * and the export returned `ok: true, hasAudio: false`. The user asked for
+ * a video with sound, got a silent file, and was told it worked. The seed
+ * project reproduced it every time — its music URL 403s to ffmpeg.
+ *
+ * Failing the whole render is still the wrong answer. Dropping the one bad
+ * source, keeping the rest, and REPORTING the loss is the right one.
+ */
+async function buildAudioMix(clips: ExportClipAudio[], outPath: string): Promise<AudioMixReport> {
+  const ff = ffmpeg();
+  if (!ff) return { path: null, included: 0, dropped: [], error: 'ffmpeg was not found.' };
+  if (clips.length === 0) return { path: null, included: 0, dropped: [] };
+
+  // Optimistic first: when every source is readable this costs nothing.
+  const first = await runMix(ff, mixArgsFor(clips, outPath), outPath);
+  if (first) return { path: first, included: clips.length, dropped: [] };
+
+  // Something failed. Find out which sources, rather than guessing.
+  const sources = clips.map((c) =>
+    c.mediaUrl.startsWith('file://') ? decodeURIComponent(c.mediaUrl.replace('file://', '')) : c.mediaUrl
+  );
+  const reasons = await Promise.all(sources.map((src) => probeSource(ff, src)));
+
+  const dropped: { source: string; reason: string }[] = [];
+  const usable: ExportClipAudio[] = [];
+  clips.forEach((clip, i) => {
+    if (reasons[i]) dropped.push({ source: sources[i], reason: reasons[i]! });
+    else usable.push(clip);
+  });
+
+  if (usable.length === 0) {
+    return {
+      path: null,
+      included: 0,
+      dropped,
+      error: dropped.length ? undefined : 'The audio mix failed for a reason no source explains.',
+    };
+  }
+
+  const retry = await runMix(ff, mixArgsFor(usable, outPath), outPath);
+  return retry
+    ? { path: retry, included: usable.length, dropped }
+    : { path: null, included: 0, dropped, error: 'The audio mix failed even after dropping unreadable sources.' };
+}
+
+export interface FinishResult {
+  ok: boolean;
+  outputPath?: string;
+  frames?: number;
+  hasAudio?: boolean;
+  bytes?: number;
+  error?: string;
+  /*
+    Why the file has the audio it has. `hasAudio: false` alone cannot
+    distinguish "the timeline is silent" from "the mix was dropped", and
+    the caller has to be able to tell the user which.
+  */
+  audio?: {
+    requested: number;
+    included: number;
+    dropped: { source: string; reason: string }[];
+    note?: string;
+  };
+}
+
+export async function finishExport(
+  sessionId: string,
+  audioClips: ExportClipAudio[]
+): Promise<FinishResult> {
+  const session = sessions.get(sessionId);
+  if (!session) return { ok: false, error: 'No such export session.' };
+
+  const ff = ffmpeg();
+  const workDir = path.dirname(session.videoPath);
+
+  const cleanup = () => {
+    sessions.delete(sessionId);
+    try { fs.rmSync(workDir, { recursive: true, force: true }); } catch { /* best effort */ }
+  };
+
+  // Close the pipe and let ffmpeg flush.
+  session.proc.stdin?.end();
+  await session.closed;
+
+  if (session.failed) {
+    const error = session.failed.message;
+    cleanup();
+    return { ok: false, error };
+  }
+
+  if (!fs.existsSync(session.videoPath) || fs.statSync(session.videoPath).size < 1024) {
+    cleanup();
+    return { ok: false, error: `Encoding produced no video. ${session.stderr.slice(-400)}` };
+  }
+
+  // Audio, if the timeline has any.
+  const mix = await buildAudioMix(audioClips, path.join(workDir, 'audio.m4a'));
+  const audioReport = {
+    requested: audioClips.length,
+    included: mix.included,
+    dropped: mix.dropped,
+    ...(mix.error ? { note: mix.error } : {}),
+  };
+
+  fs.mkdirSync(path.dirname(session.outputPath), { recursive: true });
+
+  if (!mix.path || !ff) {
+    fs.copyFileSync(session.videoPath, session.outputPath);
+    const bytes = fs.statSync(session.outputPath).size;
+    cleanup();
+    return {
+      ok: true, outputPath: session.outputPath, frames: session.framesWritten,
+      hasAudio: false, bytes, audio: audioReport,
+    };
+  }
+
+  // Mux: stream-copy both, so nothing is re-encoded and nothing degrades.
+  const muxed = await new Promise<boolean>((resolve) => {
+    execFile(
+      ff,
+      ['-y', '-i', session.videoPath, '-i', mix.path,
+       '-c', 'copy', '-map', '0:v:0', '-map', '1:a:0', '-shortest', session.outputPath],
+      { timeout: 600_000 },
+      (err) => resolve(!err && fs.existsSync(session.outputPath))
+    );
+  });
+
+  if (!muxed) {
+    // Better to deliver a silent file than nothing at all — but say so.
+    fs.copyFileSync(session.videoPath, session.outputPath);
+    const bytes = fs.statSync(session.outputPath).size;
+    cleanup();
+    return {
+      ok: true, outputPath: session.outputPath, frames: session.framesWritten,
+      hasAudio: false, bytes,
+      audio: { ...audioReport, note: 'The audio mixed but could not be muxed into the container.' },
+    };
+  }
+
+  const bytes = fs.statSync(session.outputPath).size;
+  cleanup();
+  return {
+    ok: true, outputPath: session.outputPath, frames: session.framesWritten,
+    hasAudio: true, bytes, audio: audioReport,
+  };
+}
+
+export function cancelExport(sessionId: string): void {
+  const session = sessions.get(sessionId);
+  if (!session) return;
+  try { session.proc.stdin?.end(); session.proc.kill('SIGKILL'); } catch { /* already gone */ }
+  try { fs.rmSync(path.dirname(session.videoPath), { recursive: true, force: true }); } catch { /* best effort */ }
+  sessions.delete(sessionId);
+}

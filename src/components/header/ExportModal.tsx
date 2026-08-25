@@ -62,16 +62,21 @@ export const ExportModal: React.FC = () => {
     setExportProgress(0, 'Preparing…', 'preparing');
 
     try {
-      const outputPath = await runHardwareExport(
+      const result = await runHardwareExport(
         tracks,
         project,
         { resolution, fps: project.fps as 30 | 60, codec },
         (progress, statusText) => setExportProgress(progress, statusText, 'rendering')
       );
-      setLastExportPath(outputPath);
-      setDone(outputPath);
+      setLastExportPath(result.outputPath);
+      setDone(result.outputPath);
       setExportProgress(100, 'Complete', 'done');
-      pushToast({ kind: 'success', title: 'Export finished', detail: outputPath });
+      pushToast({
+        kind: 'success',
+        title: 'Export finished',
+        // Say what actually landed on disk, not just where it was aimed.
+        detail: `${result.outputPath} · ${(result.bytes / 1024 / 1024).toFixed(1)} MB · ${result.frames} frames`,
+      });
     } catch (err) {
       setExportProgress(0, 'Failed', 'error');
       pushToast({ kind: 'error', title: 'Export failed', detail: (err as Error).message });

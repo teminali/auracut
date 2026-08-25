@@ -1340,28 +1340,121 @@ defineTool({
   },
 });
 
+/**
+ * Per-clip audio settings the export filtergraph does not implement yet.
+ *
+ * Returned to the caller instead of being dropped: an omission the agent
+ * never hears about is one it reports to the user as done.
+ */
+function unappliedAudioSettings(): string[] {
+  const notes = new Set<string>();
+  for (const track of timeline().tracks) {
+    for (const clip of track.clips) {
+      if (clip.audio?.ducking) {
+        notes.add('Automatic ducking is not applied to the render — set the levels manually.');
+      }
+      if (clip.audio?.pitch) {
+        notes.add('Pitch shift is a preview-only setting and is not in the render.');
+      }
+      if (clip.audio?.voiceEffect && clip.audio.voiceEffect !== 'none') {
+        notes.add(`Voice effect "${clip.audio.voiceEffect}" is not in the render.`);
+      }
+      if (clip.audio?.noiseReduction) {
+        notes.add('Noise reduction is not applied to the render.');
+      }
+    }
+  }
+  return [...notes];
+}
+
 defineTool({
   name: 'render_export',
   category: 'project',
-  description: 'Render the sequence to a video file.',
+  description:
+    'Render the sequence to a real video file on disk with ffmpeg, picture and sound. Returns ' +
+    'the path, the byte size and the frame count measured from the file that was written, so a ' +
+    'successful result means a file exists. Roughly real-time or better; 4K is several times ' +
+    'that. Tell the user before starting a long one.',
   schema: z.object({
     resolution: z.enum(['720p', '1080p', '4k']).optional(),
     fps: z.number().optional(),
     codec: z.enum(['h264', 'hevc', 'prores']).optional(),
+    outputPath: z
+      .string()
+      .optional()
+      .describe('Absolute destination path, or a bare filename placed in ~/Movies'),
+    durationMs: z
+      .number()
+      .optional()
+      .describe('Render only this much of the timeline; defaults to the whole sequence'),
+    hardware: z
+      .boolean()
+      .optional()
+      .describe('Use Apple VideoToolbox where the codec supports it — much faster, slightly larger'),
   }),
-  handler: async ({ resolution, fps, codec }) => {
+  handler: async ({ resolution, fps, codec, outputPath, hardware, durationMs }) => {
     const proj = project();
     proj.setExportModalOpen(true);
     proj.setIsExporting(true);
     try {
-      const outputPath = await runHardwareExport(
+      const result = await runHardwareExport(
         timeline().tracks,
         proj.project,
-        { resolution: resolution ?? '1080p', fps: (fps ?? proj.project.fps) as 30 | 60, codec: codec ?? 'h264' },
+        {
+          resolution: resolution ?? '1080p',
+          fps: (fps ?? proj.project.fps) as 30 | 60,
+          codec: codec ?? 'h264',
+          outputPath,
+          durationMs,
+          hardware,
+        },
         (progress, statusText) => proj.setExportProgress(progress, statusText)
       );
-      proj.setLastExportPath(outputPath);
-      return { outputPath };
+      proj.setLastExportPath(result.outputPath);
+
+      const notApplied = unappliedAudioSettings();
+      for (const note of notApplied) {
+        useGapStore.getState().record({
+          request: 'Apply per-clip audio processing to the exported render',
+          reason: note,
+          suggestion: 'Extend the export filtergraph with the per-clip audio chain',
+        });
+      }
+
+      /*
+        A source ffmpeg could not open is dropped so the render still
+        completes — but the caller MUST be told, or it reports a silent
+        file to the user as a finished job.
+      */
+      const dropped = result.audio?.dropped ?? [];
+      for (const d of dropped) {
+        useGapStore.getState().record({
+          request: 'Include this audio source in the render',
+          reason: `${d.source} could not be read by ffmpeg: ${d.reason}`,
+          suggestion: 'Import remote audio to a local file before rendering',
+        });
+      }
+
+      const warnings = [
+        ...notApplied,
+        ...(result.audioError ? [result.audioError] : []),
+      ];
+
+      return {
+        outputPath: result.outputPath,
+        bytes: result.bytes,
+        sizeMb: Number((result.bytes / 1024 / 1024).toFixed(2)),
+        frames: result.frames,
+        hasAudio: result.hasAudio,
+        audio: result.audio
+          ? { requested: result.audio.requested, included: result.audio.included }
+          : undefined,
+        elapsedMs: result.elapsedMs,
+        ...(warnings.length ? { warnings } : {}),
+        ...(warnings.length
+          ? { tellTheUser: 'This render is not exactly what was asked for — repeat the warnings above to the user.' }
+          : {}),
+      };
     } finally {
       proj.setIsExporting(false);
     }
