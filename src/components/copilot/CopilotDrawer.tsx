@@ -24,9 +24,11 @@ import { ContextPreflight } from './ContextPreflight';
 import { FrameAnnotator } from './FrameAnnotator';
 import { RichText } from './RichText';
 import { AgentThread } from './AgentThread';
+import { GapLog } from './GapLog';
+import { useGapStore } from '../../store/gapStore';
 import {
   Sparkles, X, ArrowUp, Cpu, ChevronDown, ChevronRight, Terminal,
-  Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair,
+  Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair, Lightbulb,
 } from 'lucide-react';
 
 const MODELS: { value: string; label: string; hint: string }[] = [
@@ -61,6 +63,8 @@ export const CopilotDrawer: React.FC = () => {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [isAnnotating, setAnnotating] = useState(false);
   const [preflightOpen, setPreflightOpen] = useState(false);
+  const [gapLogOpen, setGapLogOpen] = useState(false);
+  const openGaps = useGapStore((g) => g.gaps.filter((x) => !x.resolved).length);
 
   /*
     The Copilot prefers to BE Claude Code rather than imitate it. When the
@@ -260,6 +264,16 @@ export const CopilotDrawer: React.FC = () => {
           )}
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
+          {openGaps > 0 && (
+            <button
+              onClick={() => setGapLogOpen(true)}
+              className="h-[20px] px-1.5 rounded-[5px] border border-spectrum-amber/35 bg-spectrum-amber/10 text-spectrum-amber text-[10px] font-medium flex items-center gap-1 mr-1"
+              title={`${openGaps} thing${openGaps === 1 ? '' : 's'} asked for that AuraCut cannot do yet`}
+            >
+              <Lightbulb className="w-2.5 h-2.5" />
+              {openGaps}
+            </button>
+          )}
           <button
             onClick={() => { clearChat(); agent.clear(); }}
             className="pro-btn w-[22px] h-[22px]"
@@ -478,6 +492,8 @@ export const CopilotDrawer: React.FC = () => {
               : 'Enter to send · ⇧Enter for a new line · ↑ for the last prompt'}
         </p>
       </div>
+
+      {gapLogOpen && <GapLog onClose={() => setGapLogOpen(false)} />}
 
       {isAnnotating && frame && (
         <FrameAnnotator

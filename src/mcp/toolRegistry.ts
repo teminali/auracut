@@ -14,7 +14,11 @@ import { z } from 'zod';
 import { useTimelineStore, findClipById, getContentEndMs } from '../store/timelineStore';
 import { useProjectStore } from '../store/projectStore';
 import { useMcpStore } from '../store/mcpStore';
-import { AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset, MediaAsset, ClipType } from '../types/edl';
+import { useGapStore } from '../store/gapStore';
+import {
+  AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset, MediaAsset, ClipType,
+  TRANSITION_TYPES, SHAPE_KINDS, SPEED_CURVE_PRESETS, ASPECT_DIMENSIONS,
+} from '../types/edl';
 import { describeClipProperties, getClipProperty, PROPERTY_SCHEMA } from '../engine/propertyPath';
 import { EFFECT_REGISTRY, getEffectDefinition } from '../engine/effectsRegistry';
 import { MOTION_PRESET_LABELS, MotionPresetId } from '../store/timelineStore';
@@ -100,6 +104,27 @@ function requireClip(ref?: string) {
 /* ═══════════════════════════════════════════════════════════════════
    DISCOVERY — how the agent learns what it can touch
    ═══════════════════════════════════════════════════════════════════ */
+
+/**
+ * Check a value against the set the editor actually supports.
+ *
+ * Casting an unrecognised string through `as SomeUnion` is worse than
+ * useless: the tool reports success, the value lands in the project, and
+ * the compositor quietly renders nothing — so an agent tells the user it
+ * did the thing, and the user sees no change and no error. Failing loudly
+ * WITH the list of valid values is what lets a caller pick again instead
+ * of guessing.
+ */
+function oneOf<T extends string>(
+  value: string,
+  allowed: readonly T[],
+  label: string
+): T {
+  if ((allowed as readonly string[]).includes(value)) return value as T;
+  throw new Error(
+    `AuraCut has no ${label} called "${value}". Supported: ${allowed.join(', ')}.`
+  );
+}
 
 defineTool({
   name: 'describe_timeline',
@@ -610,7 +635,7 @@ defineTool({
   category: 'graphics',
   description: 'Create a vector shape layer (rectangle, ellipse, triangle, polygon, star, line, arrow, heart, blob, path).',
   schema: z.object({
-    kind: z.string().describe('Shape kind'),
+    kind: z.string().describe(`Shape kind. One of: ${SHAPE_KINDS.join(', ')}`),
     trackId: z.string().optional(),
     startTimeMs: z.number().optional(),
     durationMs: z.number().optional(),
@@ -619,7 +644,12 @@ defineTool({
   handler: ({ kind, trackId, startTimeMs, durationMs, style }) => {
     const state = timeline();
     const tid = trackId ? resolveTrackId(trackId) : (state.selectedTrackId ?? state.tracks[0].id);
-    const id = state.addShapeLayer(tid, kind as ShapeKind, startTimeMs ?? state.playheadMs, durationMs ?? 3000);
+    const id = state.addShapeLayer(
+      tid,
+      oneOf(kind, SHAPE_KINDS, 'shape'),
+      startTimeMs ?? state.playheadMs,
+      durationMs ?? 3000
+    );
 
     if (style) {
       const patch: Record<string, unknown> = {};
@@ -859,7 +889,7 @@ defineTool({
   schema: z.object({
     clipId: z.string().optional(),
     toClipId: z.string().optional().describe('When given, the transition is placed across the seam'),
-    transitionType: z.string(),
+    transitionType: z.string().describe(`One of: ${TRANSITION_TYPES.join(', ')}`),
     durationMs: z.number().optional(),
     position: z.enum(['in', 'out']).optional(),
   }),
@@ -870,12 +900,18 @@ defineTool({
 
     if (toClipId) {
       const target = resolveClipId(toClipId);
-      state.applyTransitionToClip(id, 'out', transitionType as TransitionType, dur);
-      state.applyTransitionToClip(target, 'in', transitionType as TransitionType, dur);
+      const kind = oneOf(transitionType, TRANSITION_TYPES, 'transition');
+      state.applyTransitionToClip(id, 'out', kind, dur);
+      state.applyTransitionToClip(target, 'in', kind, dur);
       return { seam: [id, target], transitionType, durationMs: dur };
     }
 
-    state.applyTransitionToClip(id, position ?? 'out', transitionType as TransitionType, dur);
+    state.applyTransitionToClip(
+      id,
+      position ?? 'out',
+      oneOf(transitionType, TRANSITION_TYPES, 'transition'),
+      dur
+    );
     return { clipId: id, transitionType, durationMs: dur, position: position ?? 'out' };
   },
 });
@@ -887,7 +923,7 @@ defineTool({
   schema: z.object({
     clipId: z.string().optional(),
     multiplier: z.number().min(0.05).max(20).optional(),
-    curvePreset: z.string().optional(),
+    curvePreset: z.string().optional().describe(`One of: ${SPEED_CURVE_PRESETS.join(', ')}`),
     reversed: z.boolean().optional(),
     customPoints: z.array(z.object({ timePct: z.number(), speedMult: z.number() })).optional(),
   }),
@@ -900,7 +936,7 @@ defineTool({
     }
     state.updateClipSpeed(id, {
       ...(multiplier !== undefined ? { multiplier } : {}),
-      ...(curvePreset ? { curvePreset: curvePreset as SpeedCurvePreset } : {}),
+      ...(curvePreset ? { curvePreset: oneOf(curvePreset, SPEED_CURVE_PRESETS, 'speed curve') } : {}),
       ...(reversed !== undefined ? { reversed } : {}),
     });
     state.commit('Set speed');
@@ -1092,7 +1128,11 @@ defineTool({
   }),
   handler: ({ aspectRatio, fps, backgroundColor, name }) => {
     const proj = project();
-    if (aspectRatio) proj.setAspectRatio(aspectRatio as AspectRatio);
+    if (aspectRatio) {
+      proj.setAspectRatio(
+        oneOf(aspectRatio, Object.keys(ASPECT_DIMENSIONS) as AspectRatio[], 'aspect ratio')
+      );
+    }
     if (fps) proj.setFps(fps as 24 | 30 | 60);
     if (backgroundColor) proj.setBackgroundColor(backgroundColor);
     if (name) proj.setProjectName(name);
@@ -1436,6 +1476,52 @@ defineTool({
       type: a.type,
       durationMs: a.durationMs,
       ...(a.width ? { dimensions: `${a.width}×${a.height}` } : {}),
+    })),
+  }),
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   CAPABILITY GAPS
+   ═══════════════════════════════════════════════════════════════════ */
+
+defineTool({
+  name: 'report_capability_gap',
+  category: 'discovery',
+  description:
+    'Record that the user asked for something AuraCut cannot do. Call this WHENEVER you ' +
+    'have to tell the user no, or had to substitute something different from what they ' +
+    'asked for — including when you found a workaround. This is how missing features ' +
+    'reach the developer; a refusal you only speak aloud is lost the moment the panel ' +
+    'scrolls. Then still tell the user plainly what you could not do and what you suggest.',
+  schema: z.object({
+    request: z.string().describe("What the user asked for, in their words where possible"),
+    reason: z.string().describe('Why AuraCut cannot do it'),
+    suggestion: z.string().optional().describe('The tool or feature that would close the gap'),
+    workaround: z.string().optional().describe('What you did instead, if anything'),
+  }),
+  handler: ({ request, reason, suggestion, workaround }) => {
+    const gap = useGapStore.getState().record({ request, reason, suggestion, workaround });
+    return {
+      recorded: true,
+      gapId: gap.id,
+      timesRequested: gap.count,
+      note: 'Logged for the developer. Tell the user what you could not do and what you suggest instead.',
+    };
+  },
+});
+
+defineTool({
+  name: 'list_capability_gaps',
+  category: 'discovery',
+  description: 'List everything previously recorded as missing from AuraCut.',
+  schema: z.object({}),
+  handler: () => ({
+    gaps: useGapStore.getState().gaps.map((g) => ({
+      request: g.request,
+      reason: g.reason,
+      suggestion: g.suggestion,
+      timesRequested: g.count,
+      resolved: g.resolved,
     })),
   }),
 });

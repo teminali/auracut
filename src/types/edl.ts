@@ -410,6 +410,32 @@ export interface MediaAsset {
 
 /* ── Canonical dimensions per aspect ratio ──────────────────────── */
 
+/* ═══════════════════════════════════════════════════════════════════
+   Runtime value lists.
+
+   The unions above vanish at compile time, so a tool taking one of them
+   from an agent has nothing to check against — it can only cast and
+   hope. These arrays are the checkable form, and they double as the
+   "here is what I DO support" list in the error message, which is the
+   difference between a dead end and a second attempt.
+   ═══════════════════════════════════════════════════════════════════ */
+
+export const TRANSITION_TYPES = [
+  'none', 'crossfade', 'dip_to_black', 'dip_to_white', 'whip_pan',
+  'zoom_in', 'zoom_out', 'glitch', 'diagonal_split', 'flash',
+  'push_left', 'push_right', 'slide_up', 'spin', 'blur_dissolve',
+] as const satisfies readonly TransitionType[];
+
+export const SHAPE_KINDS = [
+  'rectangle', 'ellipse', 'triangle', 'polygon', 'star',
+  'line', 'arrow', 'heart', 'blob', 'path',
+] as const satisfies readonly ShapeKind[];
+
+export const SPEED_CURVE_PRESETS = [
+  'linear', 'montage', 'hero', 'bullet_time',
+  'jump_cut', 'flash_in', 'flash_out', 'custom',
+] as const satisfies readonly SpeedCurvePreset[];
+
 export const ASPECT_DIMENSIONS: Record<AspectRatio, { width: number; height: number; label: string }> = {
   '16:9': { width: 1920, height: 1080, label: 'Landscape · YouTube' },
   '9:16': { width: 1080, height: 1920, label: 'Vertical · TikTok / Reels' },
