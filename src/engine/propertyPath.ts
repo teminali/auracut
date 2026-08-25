@@ -79,8 +79,6 @@ export const PROPERTY_SCHEMA: PropertySchema[] = [
   { path: 'filters.grain', label: 'Grain', type: 'number', min: 0, max: 100 },
   { path: 'filters.blur', label: 'Blur', type: 'number', min: 0, max: 100, unit: 'px', animatable: true },
   { path: 'filters.hueRotate', label: 'Hue rotate', type: 'number', min: -180, max: 180, unit: '°', animatable: true },
-  { path: 'filters.lut', label: 'LUT', type: 'string' },
-  { path: 'filters.lutIntensity', label: 'LUT intensity', type: 'number', min: 0, max: 100 },
 
   /* Mask */
   { path: 'mask.enabled', label: 'Mask enabled', type: 'boolean' },

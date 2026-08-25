@@ -86,6 +86,27 @@ export const PreviewPlayer: React.FC = () => {
 
   const lastRenderKey = useRef('');
 
+  /*
+    Bumped on EVERY store mutation.
+
+    The repaint key used to be built from `historyIndex`, which only
+    moves when something calls `commit()`. Four mutations never do —
+    `setEffectParam`, `setEffectIntensity`, `updateShapeStyle` and
+    `setMotionPath` — so dragging an effect slider, or an agent setting
+    an effect parameter, changed the project and left the picture
+    exactly as it was until some unrelated edit forced a repaint.
+
+    Subscribing catches every write, including any added later, which a
+    hand-maintained list of fields in the key would not.
+  */
+  const storeRevision = useRef(0);
+  useEffect(() => {
+    const bump = () => { storeRevision.current++; };
+    const unsubTimeline = useTimelineStore.subscribe(bump);
+    const unsubProject = useProjectStore.subscribe(bump);
+    return () => { unsubTimeline(); unsubProject(); };
+  }, []);
+
   useRafLoop((deltaMs) => {
     const state = useTimelineStore.getState();
     const { isPlaying, playbackRate, loopEnabled, inPointMs, outPointMs } = state;
@@ -136,6 +157,7 @@ export const PreviewPlayer: React.FC = () => {
       `${project.width}x${project.height}`,
       state.historyIndex,
       state.txDepth,
+      storeRevision.current,
       getMediaGeneration(),
       structuralSignature.current,
     ].join('|');

@@ -127,8 +127,13 @@ export interface ClipFilters {
   grain: number;
   blur: number;
   hueRotate: number;
-  lut?: string;
-  lutIntensity: number;
+  /*
+    `lut` and `lutIntensity` used to live here. `lut` was a free-form
+    string with no vocabulary, no UI, no preset list and no renderer —
+    a property advertised to the agent that could never hold a correct
+    value. Real .cube LUT support is a feature, not a field; it belongs
+    in the gap log until someone builds it.
+  */
 }
 
 export interface ClipChromaKey {
@@ -506,7 +511,6 @@ export const DEFAULT_FILTERS: ClipFilters = {
   grain: 0,
   blur: 0,
   hueRotate: 0,
-  lutIntensity: 100,
 };
 
 export const DEFAULT_CHROMA: ClipChromaKey = {

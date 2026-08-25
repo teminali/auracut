@@ -1498,7 +1498,22 @@ defineTool({
     }
     if (backgroundColor) proj.setBackgroundColor(backgroundColor);
     if (name) proj.setProjectName(name);
-    return { aspectRatio: proj.project.aspectRatio, fps: proj.project.fps };
+
+    /*
+      Read the state AFTER the writes. `proj` is a snapshot taken before
+      them, so returning `proj.project` reported the values the canvas
+      used to have — asking for 9:16 answered "16:9" while the preview
+      correctly went vertical.
+    */
+    const after = project().project;
+    return {
+      aspectRatio: after.aspectRatio,
+      fps: after.fps,
+      width: after.width,
+      height: after.height,
+      backgroundColor: after.backgroundColor,
+      name: after.name,
+    };
   },
 });
 
@@ -1581,7 +1596,8 @@ defineTool({
     'successful result means a file exists. Roughly real-time or better; 4K is several times ' +
     'that. Tell the user before starting a long one.',
   schema: z.object({
-    resolution: z.enum(['720p', '1080p', '4k']).optional(),
+    resolution: z.enum(['720p', '1080p', '1440p', '4k']).optional()
+      .describe('Short edge of the output; the aspect follows the project. 1440p is "2K".'),
     fps: z.number().optional(),
     codec: z.enum(['h264', 'hevc', 'prores']).optional(),
     outputPath: z

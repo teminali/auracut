@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { useProjectStore } from '../../store/projectStore';
 import { useTimelineStore, getContentEndMs } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
-import { runHardwareExport } from '../../engine/exportPipeline';
+import { runHardwareExport, ExportResolution } from '../../engine/exportPipeline';
 import { formatDuration } from '../../utils/time';
 import { SegmentedControl, ToggleRow, Section } from '../ui/Controls';
 import { X, Download, Check, Film, Loader2 } from 'lucide-react';
 
+/* The short edge — the long edge follows the project's aspect ratio. */
 const RESOLUTIONS = [
   { value: '720p', label: '720p', hint: 'Fast' },
   { value: '1080p', label: '1080p', hint: 'Standard' },
+  { value: '1440p', label: '2K', hint: 'Sharper' },
   { value: '4k', label: '4K', hint: 'Maximum' },
 ] as const;
 
@@ -41,7 +43,7 @@ export const ExportModal: React.FC = () => {
   const outPointMs = useTimelineStore((s) => s.outPointMs);
   const pushToast = useUiStore((s) => s.pushToast);
 
-  const [resolution, setResolution] = useState<'720p' | '1080p' | '4k'>('1080p');
+  const [resolution, setResolution] = useState<ExportResolution>('1080p');
   const [codec, setCodec] = useState<'h264' | 'hevc' | 'prores'>('h264');
   const [rangeOnly, setRangeOnly] = useState(false);
   const [done, setDone] = useState<string | null>(null);

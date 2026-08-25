@@ -16,8 +16,10 @@ import { Track, ProjectSettings } from '../types/edl';
 import { renderTimelineFrame, undecodableSources } from './compositor';
 import { seekVideosForFrame } from './videoEngine';
 
+export type ExportResolution = '720p' | '1080p' | '1440p' | '4k';
+
 export interface ExportConfig {
-  resolution: '1080p' | '4k' | '720p';
+  resolution: ExportResolution;
   fps: 30 | 60;
   codec: 'h264' | 'hevc' | 'prores';
   bitrateMbps?: number;
@@ -77,11 +79,43 @@ export function unsupportedAudioSettings(tracks: Track[]): string[] {
   return [...found];
 }
 
-const RESOLUTIONS: Record<ExportConfig['resolution'], { width: number; height: number }> = {
-  '720p': { width: 1280, height: 720 },
-  '1080p': { width: 1920, height: 1080 },
-  '4k': { width: 3840, height: 2160 },
+/*
+  The SHORT edge of the output, not a fixed landscape frame.
+
+  The table used to be literal {1920, 1080} pairs, so a 9:16 project
+  exported at "1080p" got a 1920x1080 landscape file — and since the
+  compositor scales the composition to the canvas, the scale came out
+  non-uniform and the whole picture was squashed. Export follows the
+  project's aspect ratio; the setting only chooses how big.
+
+  1440p is what consumer apps label "2K".
+*/
+const RESOLUTION_SHORT_EDGE: Record<ExportResolution, number> = {
+  '720p': 720,
+  '1080p': 1080,
+  '1440p': 1440,
+  '4k': 2160,
 };
+
+export const RESOLUTION_LABELS: Record<ExportResolution, string> = {
+  '720p': 'HD · 720p',
+  '1080p': 'Full HD · 1080p',
+  '1440p': '2K · 1440p',
+  '4k': '4K · 2160p',
+};
+
+function outputSize(project: ProjectSettings, resolution: ExportResolution): { width: number; height: number } {
+  const short = RESOLUTION_SHORT_EDGE[resolution];
+  const portrait = project.height > project.width;
+  const aspect = project.width / project.height;
+
+  // h264 and hevc reject odd dimensions outright, so round to even.
+  const even = (n: number) => Math.max(2, Math.round(n / 2) * 2);
+
+  return portrait
+    ? { width: even(short), height: even(short / aspect) }
+    : { width: even(short * aspect), height: even(short) };
+}
 
 function canvasToJpeg(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
@@ -161,7 +195,7 @@ export async function runHardwareExport(
   }
 
   const startedAt = Date.now();
-  const { width, height } = RESOLUTIONS[config.resolution];
+  const { width, height } = outputSize(project, config.resolution);
   const renderMs = config.durationMs ?? project.durationMs;
   const totalFrames = Math.max(1, Math.round((renderMs / 1000) * config.fps));
   const frameIntervalMs = 1000 / config.fps;

@@ -19,6 +19,7 @@ import {
   EffectRenderContext,
 } from './effectsRegistry';
 import { interpolateKeyframes, applyEasing } from './keyframeMath';
+import { toneFilterId } from './toneFilters';
 import {
   likelyVideoUrl, getVideoFrame, getVideoNaturalSize, videoFailed, getVideoGeneration,
   preloadVideo,
@@ -357,6 +358,16 @@ function buildFilterString(clip: Clip): string {
   if (f.saturation !== 0) parts.push(`saturate(${(100 + f.saturation).toFixed(1)}%)`);
   if (f.hueRotate !== 0) parts.push(`hue-rotate(${f.hueRotate}deg)`);
   if (f.blur > 0) parts.push(`blur(${f.blur}px)`);
+
+  /*
+    Highlights, shadows and sharpen need a tone curve and a convolution,
+    which no CSS filter function can express — they were stored, shown
+    as sliders, offered to the agent, and rendered by nothing. The SVG
+    filter goes LAST so the curve reads the already-graded image, the
+    same order a colourist would work in.
+  */
+  const tone = toneFilterId(f);
+  if (tone) parts.push(`url(#${tone})`);
 
   return parts.length > 0 ? parts.join(' ') : 'none';
 }
@@ -1061,7 +1072,10 @@ function renderClipPass(
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
         ctx.globalAlpha = alpha * 0.55;
-        ctx.filter = 'url(#none) sepia(1) hue-rotate(-50deg) saturate(6)';
+        // `url(#none)` used to lead this list. It references a filter that
+        // does not exist, which invalidates the ENTIRE filter string — so
+        // the red channel pass was drawing untinted.
+        ctx.filter = 'sepia(1) hue-rotate(-50deg) saturate(6)';
         ctx.drawImage(img, -halfW - split, -halfH, box.width, box.height);
         ctx.filter = 'sepia(1) hue-rotate(90deg) saturate(6)';
         ctx.drawImage(img, -halfW + split, -halfH, box.width, box.height);
