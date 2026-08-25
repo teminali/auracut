@@ -2,6 +2,12 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import path from 'path';
 import http from 'http';
 import { initAutoUpdater } from './updater';
+import { initToolBridge, setBridgeWindow } from './toolBridge';
+import { startRpcServer } from './rpcServer';
+import {
+  startSession, stopSession, resetSession, isRunning, findClaudeCli, getCliVersion,
+  writeMcpConfig,
+} from './claudeSession';
 
 /*
   This file is bundled to CommonJS (`main.cjs`), so `__dirname` is native
@@ -46,8 +52,10 @@ function createWindow() {
   }
 
   initAutoUpdater(mainWindow);
+  setBridgeWindow(mainWindow);
 
   mainWindow.on('closed', () => {
+    setBridgeWindow(null);
     mainWindow = null;
   });
 }
@@ -75,53 +83,40 @@ ipcMain.handle('dialog:saveExport', async (_, defaultName: string) => {
   return result.filePath;
 });
 
-function startEmbeddedMcpHttpServer() {
-  const sseClients = new Set<http.ServerResponse>();
+/* ── Claude Code session IPC ─────────────────────────────────────── */
 
-  const server = http.createServer((req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    if (req.method === 'OPTIONS') {
-      res.writeHead(204);
-      res.end();
-      return;
-    }
-
-    if (req.url === '/sse') {
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      });
-      res.write('data: {"type": "connected", "server": "auracut-mcp", "port": 3888}\n\n');
-      sseClients.add(res);
-
-      req.on('close', () => {
-        sseClients.delete(res);
-      });
-      return;
-    }
-
-    if (req.url === '/mcp/tools' && req.method === 'GET') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', server: 'AuraCut MCP Server 1.0.0', port: 3888 }));
-      return;
-    }
-
-    res.writeHead(404);
-    res.end();
+function registerAgentIpc() {
+  ipcMain.handle('claude:status', async () => {
+    const cli = findClaudeCli();
+    return {
+      installed: Boolean(cli),
+      path: cli,
+      version: cli ? await getCliVersion(cli) : null,
+      running: isRunning(),
+    };
   });
 
-  server.listen(3888, () => {
-    console.log('[AuraCut Electron] Embedded MCP Server running on http://localhost:3888/sse');
+  ipcMain.handle('claude:send', async (_e, payload: { prompt: string; resume?: boolean }) => {
+    if (!mainWindow) return false;
+    if (isRunning()) return false;
+    await startSession(mainWindow, { prompt: payload.prompt, resume: payload.resume });
+    return true;
   });
+
+  /* The same config the in-app session uses, so the user can point their
+     own terminal at the running editor with `claude --mcp-config <path>`. */
+  ipcMain.handle('claude:mcpConfigPath', () => writeMcpConfig());
+
+  ipcMain.handle('claude:stop', () => { stopSession(); return true; });
+  ipcMain.handle('claude:reset', () => { resetSession(); return true; });
 }
 
 app.whenReady().then(() => {
+  initToolBridge();
+  registerAgentIpc();
+  startRpcServer();
+  writeMcpConfig();
   createWindow();
-  startEmbeddedMcpHttpServer();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

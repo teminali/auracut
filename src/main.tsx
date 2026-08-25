@@ -1,7 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
+import { registerToolBridge } from './engine/toolBridgeClient';
 import './index.css';
+
+/* Serve external tool calls (Claude Code over MCP) from this process,
+   which is the only one that holds the project. */
+registerToolBridge();
 
 /* In development, expose the stores so the app can be driven from the console
    (and from automated smoke tests) without adding hooks to components. */
@@ -12,7 +17,8 @@ if (import.meta.env.DEV) {
     import('./store/agentChatStore'),
     import('./store/uiStore'),
     import('./mcp/toolRegistry'),
-  ]).then(([timeline, project, chat, ui, mcp]) => {
+    import('./store/claudeAgentStore'),
+  ]).then(([timeline, project, chat, ui, mcp, agent]) => {
     (window as any).__auracut = {
       timeline: timeline.useTimelineStore,
       project: project.useProjectStore,
@@ -20,6 +26,7 @@ if (import.meta.env.DEV) {
       ui: ui.useUiStore,
       executeTool: mcp.executeTool,
       tools: mcp.AURA_TOOLS,
+      agent: agent.useClaudeAgentStore,
     };
   });
 }

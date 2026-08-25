@@ -11,6 +11,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useProjectStore } from '../../store/projectStore';
 import { useAgentChatStore } from '../../store/agentChatStore';
 import { useLayoutStore } from '../../store/layoutStore';
+import { useClaudeAgentStore } from '../../store/claudeAgentStore';
 import { useTimelineStore } from '../../store/timelineStore';
 import { QUICK_ACTIONS, hasModelEndpoint, AgentThoughtStep } from '../../engine/agentBridge';
 import {
@@ -21,6 +22,8 @@ import { Annotation, CapturedFrame } from '../../types/context';
 import { McpActivityLog } from './McpActivityLog';
 import { ContextPreflight } from './ContextPreflight';
 import { FrameAnnotator } from './FrameAnnotator';
+import { RichText } from './RichText';
+import { AgentThread } from './AgentThread';
 import {
   Sparkles, X, ArrowUp, Cpu, ChevronDown, ChevronRight, Terminal,
   Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair,
@@ -58,6 +61,22 @@ export const CopilotDrawer: React.FC = () => {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [isAnnotating, setAnnotating] = useState(false);
   const [preflightOpen, setPreflightOpen] = useState(false);
+
+  /*
+    The Copilot prefers to BE Claude Code rather than imitate it. When the
+    CLI is installed we hand the whole turn to it — it brings its own file,
+    shell and web tools alongside AuraCut's, which is the difference
+    between "understands the phrasings I hardcoded" and "understands you".
+    Without it we fall back to the built-in planner.
+  */
+  const agent = useClaudeAgentStore();
+  const agentReady = Boolean(agent.status?.installed);
+
+  useEffect(() => {
+    void agent.refreshStatus();
+    return agent.attach();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -129,7 +148,14 @@ export const CopilotDrawer: React.FC = () => {
   */
   const submit = async () => {
     const text = input.trim();
-    if (!text || currentRun) return;
+    if (!text || currentRun || agent.isRunning) return;
+
+    if (agentReady) {
+      setInput('');
+      setHistoryIndex(-1);
+      await agent.send(text);
+      return;
+    }
 
     let liveFrame = frame;
     let liveAttached = frameAttached;
@@ -222,12 +248,23 @@ export const CopilotDrawer: React.FC = () => {
           <Sparkles className="w-3.5 h-3.5 text-spectrum-accent flex-shrink-0" />
           <span className="text-ui font-semibold text-spectrum-text flex-shrink-0">Copilot</span>
           <span
-            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${hasModelEndpoint() ? 'bg-spectrum-green' : 'bg-spectrum-amber'}`}
-            title={hasModelEndpoint() ? 'Model endpoint linked' : 'No model linked — using the local planner'}
+            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${agentReady ? 'bg-spectrum-green' : 'bg-spectrum-amber'}`}
+            title={
+              agentReady
+                ? `Claude Code ${agent.status?.version ?? ''} — full agent`
+                : 'Claude Code CLI not found — using the built-in planner'
+            }
           />
+          {agentReady && (
+            <span className="text-[9px] font-mono text-spectrum-textFaint truncate">Claude Code</span>
+          )}
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button onClick={clearChat} className="pro-btn w-[22px] h-[22px]" title="Clear the conversation">
+          <button
+            onClick={() => { clearChat(); agent.clear(); }}
+            className="pro-btn w-[22px] h-[22px]"
+            title="Clear the conversation"
+          >
             <Trash2 className="w-3 h-3" />
           </button>
           <button onClick={() => setCopilotOpen(false)} className="pro-btn w-[22px] h-[22px]" title="Close">
@@ -242,8 +279,8 @@ export const CopilotDrawer: React.FC = () => {
         annotationCount={frameAttached ? annotations.length : 0}
       />
 
-      {/* Model */}
-      <div className="px-2 py-1.5 border-b border-line flex items-center gap-1.5 flex-shrink-0">
+      {/* Model — only the built-in planner has a model to choose. */}
+      <div className={`px-2 py-1.5 border-b border-line flex items-center gap-1.5 flex-shrink-0 ${agentReady ? 'hidden' : ''}`}>
         <Cpu className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
         <select
           value={selectedModel}
@@ -279,7 +316,22 @@ export const CopilotDrawer: React.FC = () => {
         <div className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-l from-spectrum-panel to-transparent" />
       </div>
 
-      {/* Live run */}
+      {/* Agent activity */}
+      {agent.isRunning && (
+        <div className="px-2.5 py-2 bg-spectrum-card border-b border-line flex items-center justify-between gap-2 flex-shrink-0 animate-fade-in">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Loader2 className="w-3 h-3 text-spectrum-accent animate-spin flex-shrink-0" />
+            <span className="text-[10px] font-mono text-spectrum-accent truncate">
+              {agent.activity || 'Working…'}
+            </span>
+          </div>
+          <button onClick={agent.stop} className="btn-ghost-danger h-5 px-1.5 gap-1 text-[9px] flex-shrink-0">
+            <Square className="w-2 h-2 fill-current" /> Stop
+          </button>
+        </div>
+      )}
+
+      {/* Live run (built-in planner) */}
       {currentRun && (
         <div className="px-2.5 py-2 bg-spectrum-card border-b border-line space-y-1.5 flex-shrink-0 animate-fade-in">
           <div className="flex items-center justify-between gap-2">
@@ -304,6 +356,15 @@ export const CopilotDrawer: React.FC = () => {
 
       {/* Thread */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[96px]">
+        {agentReady ? (
+          agent.turns.length === 0 ? (
+            <AgentIntro />
+          ) : (
+            <AgentThread turns={agent.turns} />
+          )
+        ) : (
+          <>
+            <CliMissingNotice status={agent.status} />
         {messages.map((msg) => (
           <div key={msg.id} className={`flex flex-col gap-1 min-w-0 ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}>
             <div className="flex items-center gap-1.5 px-0.5 text-[9px] text-spectrum-textFaint font-mono">
@@ -352,6 +413,8 @@ export const CopilotDrawer: React.FC = () => {
             </div>
           </div>
         ))}
+          </>
+        )}
         <div ref={endRef} />
       </div>
 
@@ -365,7 +428,7 @@ export const CopilotDrawer: React.FC = () => {
 
       {/* Composer */}
       <div className="p-2 border-t border-line flex-shrink-0 space-y-2 max-h-[52vh] overflow-y-auto">
-        {hasPrompt && (
+        {hasPrompt && !agentReady && (
           <ContextPreflight
             report={report}
             forceOpen={preflightOpen}
@@ -388,7 +451,7 @@ export const CopilotDrawer: React.FC = () => {
             onChange={(e) => { setInput(e.target.value); if (preflightOpen) setPreflightOpen(false); }}
             onKeyDown={handleKeyDown}
             rows={1}
-            placeholder="Tell me what to change…"
+            placeholder={agentReady ? 'Ask, or tell me what to change…' : 'Tell me what to change…'}
             disabled={!!currentRun}
             className="flex-1 bg-transparent outline-none text-[12px] text-spectrum-text placeholder:text-spectrum-textFaint resize-none max-h-24 min-w-0 leading-snug py-0.5"
             onInput={(e) => {
@@ -399,7 +462,7 @@ export const CopilotDrawer: React.FC = () => {
           />
           <button
             onClick={submit}
-            disabled={!!currentRun || !hasPrompt}
+            disabled={!!currentRun || agent.isRunning || !hasPrompt}
             className="btn-primary w-7 h-7 rounded-full flex-shrink-0"
             title={blocked ? 'Fix the context checks and send (Enter)' : 'Send (Enter)'}
           >
@@ -408,9 +471,11 @@ export const CopilotDrawer: React.FC = () => {
         </div>
 
         <p className="text-[10px] text-spectrum-textFaint px-1 leading-snug">
-          {blocked
-            ? 'Send will sort the checks above first, then run this.'
-            : 'Enter to send · ⇧Enter for a new line · ↑ for the last prompt'}
+          {agentReady
+            ? 'Enter to send · ⇧Enter for a new line · full file, shell and web access'
+            : blocked
+              ? 'Send will sort the checks above first, then run this.'
+              : 'Enter to send · ⇧Enter for a new line · ↑ for the last prompt'}
         </p>
       </div>
 
@@ -431,46 +496,49 @@ export const CopilotDrawer: React.FC = () => {
 };
 
 /* ═══════════════════════════════════════════════════════════════════
-   Minimal markdown
-
-   Agents write markdown whether or not you ask them to, and a reply full
-   of literal ** and ` characters reads as broken output. This handles the
-   three things that actually show up in practice — bold, inline code and
-   bullet lines — and deliberately nothing else: no links, no HTML, no
-   dangerouslySetInnerHTML, so model output can never inject markup.
+   Empty states
    ═══════════════════════════════════════════════════════════════════ */
 
-const RichText: React.FC<{ text: string }> = ({ text }) => (
-  <div className="whitespace-pre-wrap break-words">
-    {text.split('\n').map((line, i) => {
-      const bullet = /^\s*[•*-]\s+/.test(line);
-      const body = bullet ? line.replace(/^\s*[•*-]\s+/, '') : line;
-      return (
-        <div key={i} className={bullet ? 'flex gap-1.5 pl-0.5' : undefined}>
-          {bullet && <span className="text-spectrum-textDim flex-shrink-0">•</span>}
-          <span className="min-w-0">{renderInline(body)}</span>
+const AgentIntro: React.FC = () => (
+  <div className="space-y-2.5 text-ui-sm text-spectrum-textMuted leading-relaxed">
+    <p className="text-spectrum-text font-medium">Claude Code is driving this editor.</p>
+    <p>
+      It can see your timeline and change it, and it has its own tools too — reading files,
+      downloading, searching the web.
+    </p>
+    <div className="space-y-1.5 pt-1">
+      {[
+        'import the newest video from my Downloads',
+        'cut the silence out of the dialogue',
+        'give the whole thing a warm cinematic grade',
+        'what is on my timeline right now?',
+      ].map((example) => (
+        <div key={example} className="flex gap-1.5">
+          <span className="text-spectrum-textFaint flex-shrink-0">›</span>
+          <span className="italic">{example}</span>
         </div>
-      );
-    })}
+      ))}
+    </div>
   </div>
 );
 
-/** Split on **bold** and `code`, keeping the delimiters out of the output. */
-function renderInline(line: string): React.ReactNode[] {
-  return line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean).map((part, i) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return (
-        <code key={i} className="font-mono text-[11px] px-1 py-px rounded-[3px] bg-black/30 text-spectrum-accent">
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    return <React.Fragment key={i}>{part}</React.Fragment>;
-  });
-}
+const CliMissingNotice: React.FC<{ status: { installed: boolean } | null }> = ({ status }) => {
+  // Null means we have not checked yet — say nothing rather than accuse.
+  if (status === null || status.installed) return null;
+
+  return (
+    <div className="rounded-squircle-sm border border-spectrum-amber/35 bg-spectrum-amber/[0.06] p-2.5 space-y-1.5">
+      <p className="text-ui-sm font-medium text-spectrum-text">Running on the built-in planner</p>
+      <p className="text-[10px] text-spectrum-textDim leading-relaxed">
+        It understands common editing phrasings, but it cannot hold a conversation or touch
+        your files. Install the Claude Code CLI and reopen AuraCut to get the full agent:
+      </p>
+      <code className="block text-[10px] font-mono text-spectrum-accent bg-black/30 rounded-[3px] px-1.5 py-1">
+        npm i -g @anthropic-ai/claude-code
+      </code>
+    </div>
+  );
+};
 
 /* ═══════════════════════════════════════════════════════════════════
    Live context strip

@@ -22,9 +22,15 @@ Download the build for your platform from
 
 ### First launch on macOS
 
-Current builds are **not notarised by Apple**, so Gatekeeper will refuse the
-first open. Right-click the app → **Open** → **Open**, once. After that it
-launches normally.
+Current builds are **not notarised by Apple**, so Gatekeeper refuses the first
+open. On macOS 15 and later the old right-click → **Open** escape hatch is
+gone, so clear the quarantine flag instead:
+
+```bash
+find /Applications/AuraCut.app -print0 | xargs -0 xattr -d com.apple.quarantine
+```
+
+(`xattr -r` does **not** work — macOS 26 removed the `-r` flag.)
 
 ---
 
@@ -54,6 +60,70 @@ the repository secrets and the same code path starts working with no changes:
 
 The release workflow detects `CSC_LINK` and stamps `AURACUT_SIGNED=1` into the
 build, which is what flips the app from "tell the user" to "just update".
+
+---
+
+## The Copilot
+
+The Copilot panel does not implement an agent — it **runs** one. Each turn
+spawns the Claude Code CLI with AuraCut registered as an MCP server, so the
+model gets its whole native toolset (Bash, Read, Write, WebFetch, downloads)
+*alongside* all 44 AuraCut editing tools, and every edit lands in the window
+you are looking at.
+
+```bash
+npm i -g @anthropic-ai/claude-code
+```
+
+That is the only requirement. It authenticates with your existing Claude
+subscription — there is no API key to paste and no per-token billing beyond
+what your plan already covers. Without the CLI the Copilot falls back to a
+built-in regex planner that handles common editing phrasings but cannot hold
+a conversation or touch your files; the panel says so rather than pretending.
+
+Things that work because the agent has real tools:
+
+```
+import the newest video from my Downloads
+download <url> and put it on the timeline
+cut the silence out of the dialogue
+give the whole thing a warm cinematic grade
+what is on my timeline right now?
+```
+
+### Driving it from your own terminal
+
+The same bridge works from outside the app. With AuraCut running:
+
+```bash
+claude --mcp-config "~/Library/Application Support/auracut/mcp-auracut.json" --strict-mcp-config
+```
+
+Edits appear live in the open window. The config is rewritten each launch
+because it carries a per-session token; the RPC bridge binds to 127.0.0.1
+only and rejects requests without it.
+
+### How it fits together
+
+```
+Copilot drawer ──IPC──> main ──spawn──> claude CLI
+                                            │ MCP (stdio)
+                                            ▼
+                                      mcpStdio.cjs
+                                            │ HTTP 127.0.0.1:3888 (+token)
+                                            ▼
+                                      main ──IPC──> renderer
+                                                      │
+                                                      ▼
+                                                 tool registry
+                                                 (owns the project)
+```
+
+The last hop is the important one. The editing tools operate on the zustand
+stores, which live in the renderer, so an external process cannot call them
+directly — it has to ask the window. An earlier version of the stdio server
+ran the tools in its own process against a fresh, empty store and edited a
+project nobody could see.
 
 ---
 

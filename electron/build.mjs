@@ -50,4 +50,13 @@ await Promise.all([
     outfile: 'dist-electron/preload.cjs',
     format: 'cjs',
   }),
+  /* The MCP shim is a THIRD entry point, launched as its own process by
+     Claude Code. It must not import Electron — it runs under
+     ELECTRON_RUN_AS_NODE, where the electron module is unavailable. */
+  build({
+    ...shared,
+    entryPoints: ['electron/mcpStdio.ts'],
+    outfile: 'dist-electron/mcpStdio.cjs',
+    format: 'cjs',
+  }),
 ]);

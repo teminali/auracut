@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { useTimelineStore, findClipById, getContentEndMs } from '../store/timelineStore';
 import { useProjectStore } from '../store/projectStore';
 import { useMcpStore } from '../store/mcpStore';
-import { AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset } from '../types/edl';
+import { AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset, MediaAsset, ClipType } from '../types/edl';
 import { describeClipProperties, getClipProperty, PROPERTY_SCHEMA } from '../engine/propertyPath';
 import { EFFECT_REGISTRY, getEffectDefinition } from '../engine/effectsRegistry';
 import { MOTION_PRESET_LABELS, MotionPresetId } from '../store/timelineStore';
@@ -37,7 +37,7 @@ export interface ToolContext {
 export interface AuraTool<S extends z.ZodTypeAny = z.ZodTypeAny> {
   name: string;
   description: string;
-  category: 'discovery' | 'timeline' | 'properties' | 'effects' | 'graphics' | 'audio' | 'ai' | 'project';
+  category: 'discovery' | 'timeline' | 'properties' | 'effects' | 'graphics' | 'audio' | 'ai' | 'project' | 'media';
   schema: S;
   handler: (args: z.infer<S>, ctx: ToolContext) => Promise<unknown> | unknown;
 }
@@ -1319,3 +1319,123 @@ function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
   }
   return {};
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   MEDIA INGEST
+
+   The bridge between "a file exists on disk" and "it is in the project".
+   An external agent can fetch, download or generate a file with its own
+   tools; this is how that file becomes something the editor can cut.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/** Probe a media file in the renderer to learn its real duration/size. */
+function probeMedia(url: string, type: ClipType): Promise<{
+  durationMs: number;
+  width?: number;
+  height?: number;
+  thumbnailUrl: string;
+}> {
+  return new Promise((resolve) => {
+    // Images have no duration and decode as an <img>.
+    if (type === 'image') {
+      const img = new Image();
+      img.onload = () =>
+        resolve({ durationMs: 5000, width: img.naturalWidth, height: img.naturalHeight, thumbnailUrl: url });
+      img.onerror = () => resolve({ durationMs: 5000, thumbnailUrl: '' });
+      img.src = url;
+      return;
+    }
+
+    const el = document.createElement(type === 'audio' ? 'audio' : 'video');
+    el.preload = 'metadata';
+
+    const done = (ok: boolean) => {
+      if (!ok) { resolve({ durationMs: 5000, thumbnailUrl: '' }); return; }
+      const video = el as HTMLVideoElement;
+      resolve({
+        durationMs: Number.isFinite(el.duration) ? Math.round(el.duration * 1000) : 5000,
+        width: video.videoWidth || undefined,
+        height: video.videoHeight || undefined,
+        thumbnailUrl: type === 'audio' ? '' : url,
+      });
+    };
+
+    el.onloadedmetadata = () => done(true);
+    el.onerror = () => done(false);
+    // Never hang the tool call on a codec the browser cannot open.
+    setTimeout(() => done(Number.isFinite(el.duration)), 4000);
+    el.src = url;
+  });
+}
+
+function classifyByExtension(filePath: string): ClipType {
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+  if (['mp3', 'wav', 'aac', 'm4a', 'flac', 'ogg'].includes(ext)) return 'audio';
+  if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'heic'].includes(ext)) return 'image';
+  return 'video';
+}
+
+defineTool({
+  name: 'import_media_from_path',
+  category: 'media',
+  description:
+    'Import a media file from an absolute path on disk into the project media pool. ' +
+    'Use after downloading or locating a file. Returns the new asset id, which insert_clip accepts.',
+  schema: z.object({
+    path: z.string().describe('Absolute path to a video, audio or image file'),
+    name: z.string().optional().describe('Display name; defaults to the file name'),
+  }),
+  handler: async ({ path: filePath, name }) => {
+    if (!filePath.startsWith('/')) {
+      throw new Error(`Path must be absolute, got "${filePath}"`);
+    }
+
+    const fileName = name ?? filePath.split('/').pop() ?? 'Imported media';
+    const type = classifyByExtension(filePath);
+
+    /*
+      file:// works here because the window runs with webSecurity disabled;
+      the URL is kept as the asset's source so the compositor and the
+      exporter read the original file rather than a copy in memory.
+    */
+    const url = `file://${encodeURI(filePath).replace(/#/g, '%23')}`;
+    const probed = await probeMedia(url, type);
+
+    const asset: MediaAsset = {
+      id: `asset_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+      name: fileName,
+      type,
+      url,
+      thumbnailUrl: probed.thumbnailUrl,
+      durationMs: probed.durationMs,
+      width: probed.width,
+      height: probed.height,
+      fileSizeFormatted: '—',
+    };
+
+    timeline().addMediaAsset(asset);
+    return {
+      assetId: asset.id,
+      name: asset.name,
+      type: asset.type,
+      durationMs: asset.durationMs,
+      ...(asset.width ? { dimensions: `${asset.width}×${asset.height}` } : {}),
+    };
+  },
+});
+
+defineTool({
+  name: 'list_media_pool',
+  category: 'media',
+  description: 'List every media asset currently imported, with ids usable by insert_clip.',
+  schema: z.object({}),
+  handler: () => ({
+    assets: timeline().mediaPool.map((a) => ({
+      id: a.id,
+      name: a.name,
+      type: a.type,
+      durationMs: a.durationMs,
+      ...(a.width ? { dimensions: `${a.width}×${a.height}` } : {}),
+    })),
+  }),
+});

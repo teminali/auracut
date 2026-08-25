@@ -12,10 +12,37 @@ export type UpdateStatus =
   | { state: 'manual-only'; version: string; url: string }
   | { state: 'error'; message: string };
 
+export interface ClaudeStatus {
+  installed: boolean;
+  path: string | null;
+  version: string | null;
+  running: boolean;
+}
+
+/** One line of Claude Code's stream-json output. */
+export interface ClaudeEvent {
+  type: string;
+  [key: string]: unknown;
+}
+
 export interface AuraCutElectronAPI {
   openMediaDialog: () => Promise<string[] | null>;
   saveExportDialog: (defaultName: string) => Promise<string | null>;
   platform: string;
+
+  bridge: {
+    onListTools: (cb: (id: string) => void) => void;
+    onCallTool: (cb: (id: string, name: string, args: Record<string, unknown>) => void) => void;
+    respond: (payload: { id: string; ok: boolean; data?: unknown; error?: string }) => void;
+  };
+
+  claude: {
+    status: () => Promise<ClaudeStatus>;
+    send: (prompt: string, resume: boolean) => Promise<boolean>;
+    stop: () => Promise<boolean>;
+    reset: () => Promise<boolean>;
+    onEvent: (cb: (event: ClaudeEvent) => void) => () => void;
+  };
   updater: {
     getStatus: () => Promise<UpdateStatus>;
     getCurrentVersion: () => Promise<string>;
