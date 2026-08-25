@@ -124,12 +124,17 @@ export const AiToolsPanel: React.FC = () => {
   };
 
   const findBroll = () => {
-    const found = analyzeTranscriptForBroll(tracks);
-    setSuggestions(found);
+    const mediaPool = useTimelineStore.getState().mediaPool;
+    const report = analyzeTranscriptForBroll(tracks, mediaPool);
+    setSuggestions(report.suggestions);
+
+    const found = report.suggestions.length;
     pushToast({
-      kind: found.length > 0 ? 'success' : 'info',
-      title: found.length > 0 ? `${found.length} B-roll cutaways found` : 'No B-roll matches',
-      detail: found.length > 0 ? 'Review them below, then insert.' : 'Add dialogue or a transcript first.',
+      kind: found > 0 ? 'success' : 'info',
+      title: found > 0 ? `${found} B-roll cutaway${found === 1 ? '' : 's'} found` : 'No B-roll matches',
+      // Say WHY nothing matched — "add dialogue first" was a guess that was
+      // usually wrong, since the usual cause is an unrelated media pool.
+      detail: found > 0 ? 'Review them below, then insert.' : report.note ?? 'Nothing in the media pool matched.',
     });
   };
 

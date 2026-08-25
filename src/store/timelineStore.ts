@@ -264,8 +264,19 @@ export interface TimelineActions {
   setBeatMarkers: (beatsMs: number[]) => void;
 
   /* AI-facing bulk operations */
-  sliceAndRemoveSilence: (trackId: string) => number;
-  generateAutoCaptions: (audioTrackId?: string, language?: string) => void;
+  /**
+   * Cut the given TIMELINE ranges out of a track and close the gaps.
+   *
+   * Replaces `sliceAndRemoveSilence`, which detected nothing: it trimmed
+   * 200ms off the head and tail of every clip on the track regardless of
+   * content and reported the total as silence it had found. The ranges
+   * now come from ffmpeg's `silencedetect` via `analyze_audio`, so this
+   * is pure surgery on measurements taken elsewhere.
+   */
+  removeRanges: (trackId: string, ranges: { startMs: number; endMs: number }[]) => {
+    removedMs: number;
+    clipsAffected: number;
+  };
   importCaptions: (cues: CaptionCue[], options?: ImportCaptionOptions) => number;
   snapCutsToBeats: (trackId: string, toleranceMs?: number) => number;
 
@@ -1750,81 +1761,101 @@ export const useTimelineStore = create<TimelineStore>()(
 
     /* ══ AI bulk operations ══ */
 
-    sliceAndRemoveSilence: (trackId) => {
+    removeRanges: (trackId, ranges) => {
       let removedMs = 0;
+      let clipsAffected = 0;
+
       set((s) => {
-        const track = s.tracks.find((t) => t.id === trackId) ?? s.tracks.find((t) => t.type === 'audio');
-        if (!track || track.clips.length === 0) return;
+        const track = s.tracks.find((t) => t.id === trackId);
+        if (!track || track.clips.length === 0 || ranges.length === 0) return;
+
+        // Merge overlapping ranges so a region is never removed twice.
+        const merged: { startMs: number; endMs: number }[] = [];
+        for (const r of [...ranges].sort((a, b) => a.startMs - b.startMs)) {
+          if (r.endMs <= r.startMs) continue;
+          const last = merged[merged.length - 1];
+          if (last && r.startMs <= last.endMs) last.endMs = Math.max(last.endMs, r.endMs);
+          else merged.push({ startMs: r.startMs, endMs: r.endMs });
+        }
+        if (merged.length === 0) return;
 
         sortClips(track);
-        let cursor = track.clips[0].startTimeMs;
+        const rebuilt: Clip[] = [];
 
         for (const clip of track.clips) {
-          // Model a detected pause as ~200ms of head and tail dead air.
-          const trimmed = Math.max(400, clip.durationMs - 400);
-          removedMs += clip.durationMs - trimmed;
-          clip.startTimeMs = cursor;
-          clip.durationMs = trimmed;
-          clip.sourceStartMs += 200;
-          clip.sourceDurationMs = trimmed;
-          cursor += trimmed;
+          const clipStart = clip.startTimeMs;
+          const clipEnd = clipStart + clip.durationMs;
+
+          /*
+            What survives, in timeline coordinates. A range may split one
+            clip into several pieces, so this is a list, not a pair.
+          */
+          let pieces: { startMs: number; endMs: number }[] = [{ startMs: clipStart, endMs: clipEnd }];
+
+          for (const cut of merged) {
+            const next: { startMs: number; endMs: number }[] = [];
+            for (const piece of pieces) {
+              if (cut.endMs <= piece.startMs || cut.startMs >= piece.endMs) {
+                next.push(piece);
+                continue;
+              }
+              if (cut.startMs > piece.startMs) next.push({ startMs: piece.startMs, endMs: cut.startMs });
+              if (cut.endMs < piece.endMs) next.push({ startMs: cut.endMs, endMs: piece.endMs });
+            }
+            pieces = next;
+          }
+
+          const survivingMs = pieces.reduce((n, p) => n + (p.endMs - p.startMs), 0);
+          if (survivingMs !== clip.durationMs) clipsAffected++;
+          removedMs += clip.durationMs - survivingMs;
+
+          // A clip entirely inside a removed range simply goes.
+          if (pieces.length === 0) continue;
+
+          pieces.forEach((piece, i) => {
+            const copy: Clip = i === 0 ? clip : (structuredClone(current(clip)) as Clip);
+            if (i > 0) copy.id = uid('clip');
+
+            const headOffset = piece.startMs - clipStart;
+            const duration = piece.endMs - piece.startMs;
+
+            copy.startTimeMs = piece.startMs;
+            copy.durationMs = duration;
+            copy.sourceStartMs = clip.sourceStartMs + headOffset * (clip.speed?.multiplier ?? 1);
+            copy.sourceDurationMs = duration * (clip.speed?.multiplier ?? 1);
+            // Keyframes are clip-relative; rebase and drop the ones cut out.
+            copy.keyframes = clip.keyframes
+              .filter((k) => k.timeOffsetMs >= headOffset && k.timeOffsetMs < headOffset + duration)
+              .map((k) => ({ ...k, id: uid('kf'), timeOffsetMs: k.timeOffsetMs - headOffset }));
+            // A transition across a cut edge no longer has anything to cross.
+            if (i > 0) copy.transitionIn = undefined;
+            if (i < pieces.length - 1) copy.transitionOut = undefined;
+
+            rebuilt.push(copy);
+          });
         }
-      });
-      get().commit('Auto-cut silence');
-      return removedMs;
-    },
 
-    generateAutoCaptions: (audioTrackId, language = 'sw') => {
-      const phrases = [
-        { text: 'DUKABOT AI COMMERCE OS', start: 500, dur: 3500, color: '#4c9dff' },
-        { text: 'ODA ZOTE WHATSAPP KWA RAHISI', start: 4200, dur: 3800, color: '#2fc98d' },
-        { text: 'HAKUNA MAKARATASI TENA KARIAKOO', start: 8200, dur: 4000, color: '#f5a524' },
-        { text: 'ANZA BURE LEO: DUKABOTAI.COM', start: 12400, dur: 3200, color: '#f472b6' },
-      ];
-
-      set((s) => {
-        let textTrack = s.tracks.find((t) => t.type === 'text');
-        if (!textTrack) {
-          textTrack = {
-            id: uid('track'),
-            type: 'text',
-            name: 'Auto Captions',
-            index: 0,
-            muted: false,
-            locked: false,
-            solo: false,
-            volume: 1,
-            heightPx: 46,
-            collapsed: false,
-            clips: [],
-          };
-          s.tracks.unshift(textTrack);
-          s.tracks.forEach((t, i) => { t.index = i; });
+        /*
+          Close the gaps. Each surviving piece slides left by the total
+          removed time that lay before it.
+        */
+        rebuilt.sort((a, b) => a.startTimeMs - b.startTimeMs);
+        for (const clip of rebuilt) {
+          let shift = 0;
+          for (const cut of merged) {
+            if (cut.endMs <= clip.startTimeMs) shift += cut.endMs - cut.startMs;
+            else break;
+          }
+          clip.startTimeMs = Math.max(0, clip.startTimeMs - shift);
         }
 
-        textTrack.clips = phrases.map((p) =>
-          createClip({
-            id: uid('cap'),
-            trackId: textTrack!.id,
-            type: 'text',
-            name: p.text,
-            color: clipColorFor('text'),
-            startTimeMs: p.start,
-            durationMs: p.dur,
-            sourceDurationMs: p.dur,
-            transform: { y: 380 },
-            textStyle: {
-              text: p.text,
-              color: '#ffffff',
-              highlightColor: p.color,
-              fontSize: 64,
-              strokeWidth: 8,
-              kineticAnimation: 'kinetic_stack',
-            },
-          })
-        );
+        track.clips = rebuilt;
+        sortClips(track);
+        s.selectedClipIds = s.selectedClipIds.filter((id) => rebuilt.some((c) => c.id === id));
       });
-      get().commit(`Auto captions (${language})`);
+
+      if (removedMs > 0) get().commit('Remove silence');
+      return { removedMs, clipsAffected };
     },
 
     importCaptions: (cues, options = {}) => {

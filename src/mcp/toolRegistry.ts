@@ -18,10 +18,10 @@ import { useGapStore } from '../store/gapStore';
 import {
   AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset, MediaAsset, ClipType, AnimatableProperty,
   TRANSITION_TYPES, SHAPE_KINDS, SPEED_CURVE_PRESETS, ASPECT_DIMENSIONS,
-  EASINGS, FPS_VALUES,
+  EASINGS, FPS_VALUES, CLIP_TYPES,
 } from '../types/edl';
 import { describeClipProperties, getClipProperty, PROPERTY_SCHEMA } from '../engine/propertyPath';
-import { EFFECT_REGISTRY, getEffectDefinition } from '../engine/effectsRegistry';
+import { EFFECT_REGISTRY, EFFECT_CATEGORIES, getEffectDefinition } from '../engine/effectsRegistry';
 import { MOTION_PRESET_LABELS, MotionPresetId } from '../store/timelineStore';
 import { parseCaptions, serializeCaptions, reflowCues, CaptionCue } from '../engine/captions';
 import {
@@ -222,10 +222,19 @@ defineTool({
   category: 'discovery',
   description: 'Browse the VFX catalogue: every effect type, its category and its parameter schema.',
   schema: z.object({
-    category: z.string().optional().describe('Filter by category: stylize, blur, distort, light, color, generate, motion, utility'),
+    category: z
+      .string()
+      .optional()
+      .describe(`Filter by category. One of: ${EFFECT_CATEGORIES.map((c) => c.id).join(', ')}`),
   }),
   handler: ({ category }) => {
-    const list = category ? EFFECT_REGISTRY.filter((e) => e.category === category) : EFFECT_REGISTRY;
+    /* A typo used to return `{count: 0, effects: []}` — indistinguishable
+       from "that category is empty", which sent the agent looking for an
+       effect catalogue that does not exist. */
+    const wanted = category
+      ? oneOf(category, EFFECT_CATEGORIES.map((c) => c.id), 'effect category')
+      : undefined;
+    const list = wanted ? EFFECT_REGISTRY.filter((e) => e.category === wanted) : EFFECT_REGISTRY;
     return {
       count: list.length,
       effects: list.map((e) => ({
@@ -448,7 +457,7 @@ defineTool({
   schema: z.object({
     clipIds: z.array(z.string()).optional().describe('Explicit clip ids; omit to use the current selection'),
     trackId: z.string().optional().describe('Target every clip on this track instead'),
-    clipType: z.string().optional().describe('Only clips of this type (video, text, audio, image, shape)'),
+    clipType: z.string().optional().describe(`Only clips of this type. One of: ${CLIP_TYPES.join(', ')}`),
     properties: z.record(z.any()),
     relative: z
       .boolean()
@@ -471,7 +480,17 @@ defineTool({
     }
 
     if (clipType) {
-      targets = targets.filter((id) => findClipById(state.tracks, id)?.type === clipType);
+      /* An unrecognised type used to filter everything out and report
+         "0 clips updated" — success, with nothing done and no clue why. */
+      const wanted = oneOf(clipType, CLIP_TYPES, 'clip type');
+      const before = targets.length;
+      targets = targets.filter((id) => findClipById(state.tracks, id)?.type === wanted);
+      if (targets.length === 0) {
+        throw new Error(
+          `None of the ${before} candidate clip${before === 1 ? '' : 's'} is of type "${wanted}", ` +
+          'so nothing was changed.'
+        );
+      }
     }
 
     const applied: string[] = [];
@@ -1289,33 +1308,158 @@ defineTool({
 defineTool({
   name: 'remove_silence',
   category: 'audio',
-  description: 'Detect and cut dialogue pauses on a track, closing the gaps.',
-  schema: z.object({ trackId: z.string().optional() }),
-  handler: ({ trackId }) => {
+  description:
+    'Measure the dead air on a track with ffmpeg and cut it out, closing the gaps. ' +
+    'The silence is detected from the audio itself, not estimated — call with dryRun ' +
+    'first to see what it would cut before it cuts anything.',
+  schema: z.object({
+    trackId: z.string().optional(),
+    silenceThresholdDb: z.number().optional().describe('Below this counts as silence; default -35'),
+    minSilenceMs: z.number().optional().describe('Ignore pauses shorter than this; default 400'),
+    keepPaddingMs: z
+      .number()
+      .optional()
+      .describe('Leave this much of each pause so speech does not sound clipped; default 120'),
+    dryRun: z.boolean().optional().describe('Report what would be cut without changing anything'),
+  }),
+  handler: async ({ trackId, silenceThresholdDb, minSilenceMs, keepPaddingMs, dryRun }) => {
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (!api?.stt) {
+      throw new Error('Removing silence needs the desktop app — it measures the audio with ffmpeg.');
+    }
+
+    const state = timeline();
     const tid = trackId ? resolveTrackId(trackId) : resolveTrackId('audio');
-    const removedMs = timeline().sliceAndRemoveSilence(tid);
-    return { trackId: tid, removedMs, removedSeconds: Number((removedMs / 1000).toFixed(2)) };
+    const track = state.tracks.find((t) => t.id === tid);
+    if (!track) throw new Error(`No track "${tid}".`);
+
+    const sourced = track.clips.filter((c) => c.mediaUrl);
+    if (sourced.length === 0) {
+      throw new Error(`Track "${track.name}" has no clips with audio to measure.`);
+    }
+
+    const padding = keepPaddingMs ?? 120;
+    const ranges: { startMs: number; endMs: number }[] = [];
+    const measured: { clip: string; silences: number }[] = [];
+
+    for (const clip of sourced) {
+      const result = await api.stt.analyze({
+        mediaUrl: clip.mediaUrl!,
+        silenceThresholdDb,
+        minSilenceMs,
+      });
+      if (!result.ok) throw new Error(result.message);
+
+      const speed = clip.speed?.multiplier ?? 1;
+      const clipEnd = clip.startTimeMs + clip.durationMs;
+      let kept = 0;
+
+      for (const region of result.silences as { startMs: number; endMs: number }[]) {
+        /*
+          ffmpeg measures the SOURCE file. Map into timeline time through
+          the clip's in-point and speed, then clamp to the clip — a clip
+          is usually a window onto a longer recording, and the silence
+          outside that window is not on the timeline at all.
+        */
+        const toTimeline = (sourceMs: number) =>
+          clip.startTimeMs + (sourceMs - clip.sourceStartMs) / speed;
+
+        const startMs = Math.max(clip.startTimeMs, toTimeline(region.startMs) + padding);
+        const endMs = Math.min(clipEnd, toTimeline(region.endMs) - padding);
+        if (endMs - startMs <= 0) continue;
+
+        ranges.push({ startMs, endMs });
+        kept++;
+      }
+      measured.push({ clip: clip.name, silences: kept });
+    }
+
+    const wouldRemoveMs = ranges.reduce((n, r) => n + (r.endMs - r.startMs), 0);
+
+    if (dryRun) {
+      return {
+        dryRun: true,
+        trackId: tid,
+        track: track.name,
+        measured,
+        cuts: ranges.length,
+        wouldRemoveMs: Math.round(wouldRemoveMs),
+        wouldRemoveSeconds: Number((wouldRemoveMs / 1000).toFixed(2)),
+        ranges: ranges.slice(0, 40).map((r) => ({ startMs: Math.round(r.startMs), endMs: Math.round(r.endMs) })),
+      };
+    }
+
+    if (ranges.length === 0) {
+      return {
+        trackId: tid,
+        track: track.name,
+        measured,
+        removedMs: 0,
+        removedSeconds: 0,
+        note: 'No silence long enough to cut was found. Try a higher silenceThresholdDb or a shorter minSilenceMs.',
+      };
+    }
+
+    const { removedMs, clipsAffected } = state.removeRanges(tid, ranges);
+    return {
+      trackId: tid,
+      track: track.name,
+      measured,
+      cuts: ranges.length,
+      clipsAffected,
+      removedMs: Math.round(removedMs),
+      removedSeconds: Number((removedMs / 1000).toFixed(2)),
+    };
   },
 });
 
 defineTool({
   name: 'suggest_broll',
   category: 'ai',
-  description: 'Scan the dialogue for keywords and propose contextual B-roll cutaways.',
+  description:
+    'Match the caption text against the names and transcripts of the media already in the ' +
+    'project, and propose cutaways where a line and an asset agree. Only ever suggests media ' +
+    'the project actually contains — AuraCut has no stock library — and says which word matched ' +
+    'what, so the basis is checkable. Returns nothing rather than guessing.',
   schema: z.object({ insert: z.boolean().optional().describe('Also place the suggestions on the overlay track') }),
   handler: ({ insert }) => {
     const state = timeline();
-    const suggestions = analyzeTranscriptForBroll(state.tracks);
+    const report = analyzeTranscriptForBroll(state.tracks, state.mediaPool);
 
+    if (report.suggestions.length === 0) {
+      /* A tool that cannot do the job says so and records why, instead of
+         returning a confident list of irrelevant stock footage. */
+      useGapStore.getState().record({
+        request: 'Suggest B-roll cutaways for the dialogue',
+        reason: report.note ?? 'Nothing in the media pool matched the captions.',
+        suggestion: 'A searchable stock library, or embedding-based matching instead of word overlap',
+      });
+      return { count: 0, inserted: false, suggestions: [], note: report.note, unmatchedWords: report.unmatched };
+    }
+
+    let inserted = 0;
     if (insert) {
       const overlay = state.tracks.find((t) => t.type === 'overlay') ?? state.tracks[0];
-      for (const s of suggestions) state.insertClip(overlay.id, s.mediaAsset, s.startTimeMs);
+      for (const suggestion of report.suggestions) {
+        const clipId = state.insertClip(overlay.id, suggestion.mediaAsset, suggestion.startTimeMs);
+        if (clipId) {
+          state.patchClip(clipId, { durationMs: suggestion.durationMs });
+          inserted++;
+        }
+      }
     }
 
     return {
-      count: suggestions.length,
-      inserted: Boolean(insert),
-      suggestions: suggestions.map((s) => ({ asset: s.mediaAsset.name, atMs: s.startTimeMs, reason: (s as any).keyword ?? undefined })),
+      count: report.suggestions.length,
+      inserted,
+      suggestions: report.suggestions.map((x) => ({
+        asset: x.mediaAsset.name,
+        atMs: x.startTimeMs,
+        durationMs: x.durationMs,
+        matchedWord: x.keyword,
+        reason: x.reason,
+      })),
+      ...(report.unmatched.length ? { unmatchedWords: report.unmatched } : {}),
     };
   },
 });

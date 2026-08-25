@@ -435,6 +435,10 @@ export const TRANSITION_TYPES = [
   are what `oneOf()` validates against, and `satisfies` keeps them in
   step with the type.
 */
+export const CLIP_TYPES = [
+  'video', 'audio', 'text', 'image', 'sticker', 'shape', 'adjustment',
+] as const satisfies readonly ClipType[];
+
 export const EASINGS = [
   'linear', 'hold', 'easeIn', 'easeOut', 'easeInOut', 'bezier',
 ] as const satisfies readonly Easing[];
