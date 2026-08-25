@@ -29,7 +29,7 @@ import { GapLog } from './GapLog';
 import { useGapStore } from '../../store/gapStore';
 import {
   Sparkles, X, ArrowUp, Cpu, ChevronDown, ChevronRight, Terminal,
-  Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair, Lightbulb,
+  Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair, Lightbulb, Eye, EyeOff,
 } from 'lucide-react';
 
 /** A keycap, so the hint line reads as keys rather than as punctuation. */
@@ -44,6 +44,8 @@ export const CopilotDrawer: React.FC = () => {
   const setCopilotOpen = useProjectStore((s) => s.setCopilotOpen);
   const copilotWidth = useLayoutStore((s) => s.copilotWidth);
   const setCopilotWidth = useLayoutStore((s) => s.setCopilotWidth);
+  const followAgent = useLayoutStore((s) => s.followAgent);
+  const toggleFollowAgent = useLayoutStore((s) => s.toggleFollowAgent);
 
   const {
     messages, currentRun, showThoughts, history,
@@ -334,6 +336,17 @@ export const CopilotDrawer: React.FC = () => {
               {openGaps}
             </button>
           )}
+          <button
+            onClick={toggleFollowAgent}
+            className={`pro-btn w-[22px] h-[22px] ${followAgent ? 'text-spectrum-accent' : ''}`}
+            title={
+              followAgent
+                ? 'The editor follows the Copilot — panels, selection and playhead move with its work. Click to stop following.'
+                : 'The editor stays put while the Copilot works. Click to follow along.'
+            }
+          >
+            {followAgent ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+          </button>
           <button
             onClick={() => setShowMcpLog((v) => !v)}
             className={`pro-btn w-[22px] h-[22px] ${showMcpLog ? 'text-spectrum-green' : ''}`}

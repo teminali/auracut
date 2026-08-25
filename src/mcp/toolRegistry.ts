@@ -33,6 +33,7 @@ import { getClipBaseSize } from '../engine/geometry';
 import { getNaturalSize } from '../engine/compositor';
 import { runHardwareExport, unsupportedAudioSettings } from '../engine/exportPipeline';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
+import { followToolCall } from '../engine/agentPresence';
 
 /* ── Tool definition ────────────────────────────────────────────── */
 
@@ -1734,6 +1735,9 @@ export async function executeTool(
   try {
     const data = await tool.handler(parsed.data, { agentName });
     const durationMs = Math.round(performance.now() - started);
+
+    /* Let the editor follow the work — real UI state, no simulation. */
+    followToolCall(name, parsed.data as Record<string, unknown>, data);
     useMcpStore.getState().logToolExecution({
       toolName: name,
       parameters: parsed.data as Record<string, unknown>,

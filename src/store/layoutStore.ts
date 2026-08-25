@@ -16,6 +16,13 @@ interface LayoutState {
   activeTab: SidebarTab;
 
   /* Monitor overlays */
+  /**
+   * Whether the editor follows the Copilot's work — opening the panel it
+   * is using, selecting the clip it changed, moving the playhead to what
+   * it is looking at. Nothing is simulated; every movement is a real
+   * consequence of a tool that really ran.
+   */
+  followAgent: boolean;
   showSafeAreas: boolean;
   showRuleOfThirds: boolean;
   showCinemaLetterbox: boolean;
@@ -28,6 +35,7 @@ interface LayoutState {
   setActiveTab: (tab: SidebarTab) => void;
   toggleSidebar: () => void;
   toggleInspector: () => void;
+  toggleFollowAgent: () => void;
   toggleSafeAreas: () => void;
   toggleRuleOfThirds: () => void;
   toggleCinemaLetterbox: () => void;
@@ -50,6 +58,8 @@ export const useLayoutStore = create<LayoutState>()(
       isInspectorCollapsed: false,
       activeTab: 'media',
 
+      followAgent: true,
+
       showSafeAreas: false,
       showRuleOfThirds: false,
       showCinemaLetterbox: false,
@@ -63,6 +73,7 @@ export const useLayoutStore = create<LayoutState>()(
 
       toggleSidebar: () => set((s) => ({ isSidebarCollapsed: !s.isSidebarCollapsed })),
       toggleInspector: () => set((s) => ({ isInspectorCollapsed: !s.isInspectorCollapsed })),
+      toggleFollowAgent: () => set((st) => ({ followAgent: !st.followAgent })),
       toggleSafeAreas: () => set((s) => ({ showSafeAreas: !s.showSafeAreas })),
       toggleRuleOfThirds: () => set((s) => ({ showRuleOfThirds: !s.showRuleOfThirds })),
       toggleCinemaLetterbox: () => set((s) => ({ showCinemaLetterbox: !s.showCinemaLetterbox })),
@@ -79,6 +90,9 @@ export const useLayoutStore = create<LayoutState>()(
         timelineHeight: s.timelineHeight,
         copilotWidth: s.copilotWidth,
         activeTab: s.activeTab,
+        // A preference, not a layout, but the user set it deliberately
+        // and expects it to still be set next launch.
+        followAgent: s.followAgent,
       }),
     }
   )
