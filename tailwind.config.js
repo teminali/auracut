@@ -127,6 +127,12 @@ export default {
 
       keyframes: {
         'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        /* Indeterminate progress. The agent cannot know how many steps
+           remain, and a percentage would be a guess shown as a fact. */
+        'run-sweep': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(400%)' },
+        },
         'slide-up': {
           from: { opacity: '0', transform: 'translateY(6px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
@@ -154,6 +160,7 @@ export default {
         'scale-in': 'scale-in 0.15s cubic-bezier(0.32,0.72,0,1)',
         'pulse-ring': 'pulse-ring 2.2s ease-out infinite',
         'shimmer': 'shimmer 1.4s infinite',
+        'run-sweep': 'run-sweep 1.5s cubic-bezier(0.4,0,0.6,1) infinite',
       },
     },
   },

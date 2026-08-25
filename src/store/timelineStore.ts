@@ -45,7 +45,7 @@ import {
 import { INITIAL_TRACKS, SAMPLE_MEDIA_ASSETS } from '../mcp/defaultMedia';
 import { CaptionCue } from '../engine/captions';
 import { createEffectInstance, getEffectDefinition } from '../engine/effectsRegistry';
-import { validateProperty, applyClipProperty, resolvePropertyAlias } from '../engine/propertyPath';
+import { validateProperty, applyClipProperty, resolvePropertyAlias, getClipProperty } from '../engine/propertyPath';
 
 /* ── ids ────────────────────────────────────────────────────────── */
 
@@ -209,7 +209,15 @@ export interface TimelineActions {
 
   /* generic property addressing — powers the AI copilot */
   setClipProperty: (clipId: string, path: string, value: unknown) => { ok: boolean; error?: string };
-  patchClip: (clipId: string, patch: Record<string, unknown>) => { applied: string[]; errors: string[] };
+  patchClip: (
+    clipId: string,
+    patch: Record<string, unknown>
+  ) => {
+    applied: string[];
+    errors: string[];
+    /** Per-path before/after, so a caller can show or verify the change. */
+    changes: { path: string; from: unknown; to: unknown }[];
+  };
 
   /* graphics layers */
   addShapeLayer: (trackId: string, kind: ShapeKind, startTimeMs: number, durationMs?: number) => string;
@@ -1411,6 +1419,14 @@ export const useTimelineStore = create<TimelineStore>()(
     patchClip: (clipId, patch) => {
       const applied: string[] = [];
       const errors: string[] = [];
+      /*
+        The value BEFORE the write, captured per path.
+
+        Worth the extra read: "set saturation to 45" and "saturation was
+        already 45" are the same result otherwise, and both the diff view
+        and an agent checking its own work need to tell them apart.
+      */
+      const changes: { path: string; from: unknown; to: unknown }[] = [];
 
       set((s) => {
         const found = findClip(s.tracks, clipId);
@@ -1424,8 +1440,10 @@ export const useTimelineStore = create<TimelineStore>()(
             : (resolvePropertyAlias(rawPath) ?? rawPath);
           const result = validateProperty(found.clip, path, value);
           if (result.ok) {
+            const before = getClipProperty(found.clip, path);
             applyClipProperty(found.clip, path, result.value);
             applied.push(path);
+            changes.push({ path, from: before, to: result.value });
           } else {
             errors.push(result.error ?? `Could not set ${rawPath}`);
           }
@@ -1433,7 +1451,7 @@ export const useTimelineStore = create<TimelineStore>()(
       });
 
       if (applied.length > 0) get().commit(`Update ${applied.length} propert${applied.length === 1 ? 'y' : 'ies'}`);
-      return { applied, errors };
+      return { applied, errors, changes };
     },
 
     /* ══ graphics layers ══ */

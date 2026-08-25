@@ -17,6 +17,9 @@ export interface AgentToolCall {
   /** Undefined while the call is still in flight. */
   ok?: boolean;
   resultPreview?: string;
+  /** Wall clock, so the UI can show what was slow and why a turn took time. */
+  startedAt: number;
+  endedAt?: number;
 }
 
 export interface AgentTurn {
@@ -27,6 +30,8 @@ export interface AgentTurn {
   isError?: boolean;
   costUsd?: number;
   timestamp: number;
+  /** Set when the turn finishes, so elapsed stops climbing. */
+  endedAt?: number;
 }
 
 interface ClaudeAgentState {
@@ -35,6 +40,8 @@ interface ClaudeAgentState {
   isRunning: boolean;
   /** What the agent is doing right now, for the progress strip. */
   activity: string;
+  /** When the running turn started, for a live elapsed readout. */
+  startedAt: number | null;
   /** True once a turn has completed, so the next one can --resume. */
   hasSession: boolean;
 
@@ -58,6 +65,7 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
   turns: [],
   isRunning: false,
   activity: '',
+  startedAt: null,
   hasSession: false,
 
   refreshStatus: async () => {
@@ -94,6 +102,7 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
       turns: [...s.turns, userTurn, agentTurn],
       isRunning: true,
       activity: 'Starting…',
+      startedAt: Date.now(),
     }));
 
     await api.claude.send(prompt, get().hasSession);
@@ -101,12 +110,12 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
 
   stop: () => {
     void window.electronAPI?.claude.stop();
-    set({ isRunning: false, activity: '' });
+    set({ isRunning: false, activity: '', startedAt: null });
   },
 
   clear: () => {
     void window.electronAPI?.claude.reset();
-    set({ turns: [], hasSession: false, isRunning: false, activity: '' });
+    set({ turns: [], hasSession: false, isRunning: false, activity: '', startedAt: null });
   },
 
   /**
@@ -153,7 +162,12 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
                 ...t,
                 toolCalls: [
                   ...t.toolCalls,
-                  { id: block.id ?? `t_${t.toolCalls.length}`, name: block.name!, input: block.input ?? {} },
+                  {
+                    id: block.id ?? `t_${t.toolCalls.length}`,
+                    name: block.name!,
+                    input: block.input ?? {},
+                    startedAt: Date.now(),
+                  },
                 ],
               }));
             }
@@ -179,7 +193,7 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
               ...t,
               toolCalls: t.toolCalls.map((c) =>
                 c.id === block.tool_use_id
-                  ? { ...c, ok: !block.is_error, resultPreview: preview.slice(0, 400) }
+                  ? { ...c, ok: !block.is_error, resultPreview: preview.slice(0, 1200), endedAt: Date.now() }
                   : c
               ),
             }));
@@ -195,17 +209,24 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
             text: t.text || String(event.result ?? ''),
             isError: Boolean(event.is_error),
             costUsd: typeof event.total_cost_usd === 'number' ? event.total_cost_usd : undefined,
+            endedAt: Date.now(),
           }));
           set({ hasSession: true, activity: '' });
           return;
 
         case 'auracut_error':
-          patchLast((t) => ({ ...t, text: String(event.message ?? 'Something went wrong.'), isError: true }));
-          set({ isRunning: false, activity: '' });
+          patchLast((t) => ({
+            ...t,
+            text: String(event.message ?? 'Something went wrong.'),
+            isError: true,
+            endedAt: Date.now(),
+          }));
+          set({ isRunning: false, activity: '', startedAt: null });
           return;
 
         case 'auracut_done':
-          set({ isRunning: false, activity: '' });
+          patchLast((t) => (t.endedAt ? t : { ...t, endedAt: Date.now() }));
+          set({ isRunning: false, activity: '', startedAt: null });
           return;
 
         default:

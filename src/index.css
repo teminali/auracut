@@ -89,6 +89,18 @@
     border-radius: 5px;
   }
 
+  /*
+    A control INSIDE a .pro-input wrapper is already marked by the
+    wrapper's own :focus-within ring. Without this, every wrapped text
+    field draws two concentric blue rings — and text inputs match
+    :focus-visible on a plain click, not just on keyboard focus, so it
+    happened every single time.
+  */
+  .pro-input :focus-visible,
+  .squircle-input :focus-visible {
+    box-shadow: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

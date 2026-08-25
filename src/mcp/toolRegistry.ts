@@ -30,7 +30,7 @@ import {
 import { detectBeats } from '../engine/beatDetect';
 import { getClipBaseSize } from '../engine/geometry';
 import { getNaturalSize } from '../engine/compositor';
-import { runHardwareExport } from '../engine/exportPipeline';
+import { runHardwareExport, unsupportedAudioSettings } from '../engine/exportPipeline';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
 
 /* ── Tool definition ────────────────────────────────────────────── */
@@ -424,9 +424,17 @@ defineTool({
     if (result.applied.length === 0 && result.errors.length > 0) {
       throw new Error(result.errors.join('; '));
     }
+    /* Report what actually moved. A path that was already at the target
+       value comes back as `unchanged`, which is the difference between
+       "I set it" and "it was already like that". */
+    const changed = result.changes.filter((c) => !Object.is(c.from, c.to));
+    const unchanged = result.changes.filter((c) => Object.is(c.from, c.to)).map((c) => c.path);
+
     return {
       clipId: id,
       applied: result.applied,
+      changes: changed.map((c) => ({ path: c.path, from: c.from, to: c.to })),
+      ...(unchanged.length ? { unchanged } : {}),
       ...(result.errors.length > 0 ? { warnings: result.errors } : {}),
     };
   },
@@ -1340,33 +1348,6 @@ defineTool({
   },
 });
 
-/**
- * Per-clip audio settings the export filtergraph does not implement yet.
- *
- * Returned to the caller instead of being dropped: an omission the agent
- * never hears about is one it reports to the user as done.
- */
-function unappliedAudioSettings(): string[] {
-  const notes = new Set<string>();
-  for (const track of timeline().tracks) {
-    for (const clip of track.clips) {
-      if (clip.audio?.ducking) {
-        notes.add('Automatic ducking is not applied to the render — set the levels manually.');
-      }
-      if (clip.audio?.pitch) {
-        notes.add('Pitch shift is a preview-only setting and is not in the render.');
-      }
-      if (clip.audio?.voiceEffect && clip.audio.voiceEffect !== 'none') {
-        notes.add(`Voice effect "${clip.audio.voiceEffect}" is not in the render.`);
-      }
-      if (clip.audio?.noiseReduction) {
-        notes.add('Noise reduction is not applied to the render.');
-      }
-    }
-  }
-  return [...notes];
-}
-
 defineTool({
   name: 'render_export',
   category: 'project',
@@ -1412,7 +1393,7 @@ defineTool({
       );
       proj.setLastExportPath(result.outputPath);
 
-      const notApplied = unappliedAudioSettings();
+      const notApplied = unsupportedAudioSettings(timeline().tracks);
       for (const note of notApplied) {
         useGapStore.getState().record({
           request: 'Apply per-clip audio processing to the exported render',

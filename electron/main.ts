@@ -53,6 +53,18 @@ function createWindow() {
     void mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
+  /* In development, renderer errors are otherwise invisible from a
+     terminal — a crashed React tree just looks like a black window. */
+  if (!app.isPackaged) {
+    mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+      console.log(`[renderer:${level}] ${message}  (${sourceId}:${line})`);
+    });
+    mainWindow.webContents.on('render-process-gone', (_e, details) =>
+      console.log('[renderer] gone:', JSON.stringify(details)));
+    mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) =>
+      console.log(`[renderer] did-fail-load ${code} ${desc} ${url}`));
+  }
+
   initAutoUpdater(mainWindow);
   setBridgeWindow(mainWindow);
 

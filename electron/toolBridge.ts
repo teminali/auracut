@@ -90,6 +90,21 @@ function ask<T>(channel: string, payload: unknown, timeoutMs = DEFAULT_TIMEOUT_M
   });
 }
 
+/**
+ * A PNG of the actual window.
+ *
+ * `screencapture` needs a screen-recording grant the terminal usually
+ * does not have, and the compositor's own frame render shows the
+ * picture without any of the UI around it. Neither can answer "does
+ * the panel look right", which is a question worth being able to ask
+ * from outside the app.
+ */
+export async function captureWindow(): Promise<string | null> {
+  if (!targetWindow || targetWindow.isDestroyed()) return null;
+  const image = await targetWindow.webContents.capturePage();
+  return image.toPNG().toString('base64');
+}
+
 export const bridge = {
   /** The tool manifest, read from the live registry rather than a copy. */
   listTools: () => ask<unknown[]>('bridge:list-tools', {}),

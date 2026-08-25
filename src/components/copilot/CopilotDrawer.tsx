@@ -24,6 +24,7 @@ import { ContextPreflight } from './ContextPreflight';
 import { FrameAnnotator } from './FrameAnnotator';
 import { RichText } from './RichText';
 import { AgentThread } from './AgentThread';
+import { RunStatus } from './RunStatus';
 import { GapLog } from './GapLog';
 import { useGapStore } from '../../store/gapStore';
 import {
@@ -31,12 +32,12 @@ import {
   Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair, Lightbulb,
 } from 'lucide-react';
 
-const MODELS: { value: string; label: string; hint: string }[] = [
-  { value: 'antigravity', label: 'Antigravity Agent', hint: 'IDE-connected' },
-  { value: 'claude_code', label: 'Claude Code', hint: 'Terminal agent' },
-  { value: 'codex_sonnet', label: 'Codex Sonnet', hint: 'Hosted' },
-  { value: 'local_llm', label: 'Local LLM', hint: 'Ollama / MLX' },
-];
+/** A keycap, so the hint line reads as keys rather than as punctuation. */
+const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <kbd className="px-1 h-[14px] inline-flex items-center rounded-[3px] border border-line bg-spectrum-sunken font-mono text-[9px] text-spectrum-textDim">
+    {children}
+  </kbd>
+);
 
 export const CopilotDrawer: React.FC = () => {
   const isOpen = useProjectStore((s) => s.isCopilotOpen);
@@ -45,8 +46,8 @@ export const CopilotDrawer: React.FC = () => {
   const setCopilotWidth = useLayoutStore((s) => s.setCopilotWidth);
 
   const {
-    messages, currentRun, selectedModel, showThoughts, history,
-    setSelectedModel, toggleThoughts, sendPrompt, cancelRun, clearChat,
+    messages, currentRun, showThoughts, history,
+    toggleThoughts, sendPrompt, cancelRun, clearChat,
   } = useAgentChatStore();
 
   /* The protocol depends on live editor state, so subscribe to the bits
@@ -64,6 +65,15 @@ export const CopilotDrawer: React.FC = () => {
   const [isAnnotating, setAnnotating] = useState(false);
   const [preflightOpen, setPreflightOpen] = useState(false);
   const [gapLogOpen, setGapLogOpen] = useState(false);
+  const [showMcpLog, setShowMcpLog] = useState(false);
+  /*
+    A prompt typed while the agent is still working.
+
+    Sending it immediately is not possible — one CLI session, one turn at
+    a time — and throwing away what the user typed is worse. Holding it
+    and firing when the turn ends means an interruption is never lost.
+  */
+  const [queued, setQueued] = useState<string | null>(null);
   const openGaps = useGapStore((g) => g.gaps.filter((x) => !x.resolved).length);
 
   /*
@@ -109,6 +119,32 @@ export const CopilotDrawer: React.FC = () => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
+  /* Send whatever was typed mid-turn, once the turn is actually over. */
+  useEffect(() => {
+    if (!queued || agent.isRunning || currentRun) return;
+    const text = queued;
+    setQueued(null);
+    void (agentReady ? agent.send(text) : sendPrompt(text, buildEnvelope({
+      annotations: frameAttached ? annotations : [],
+      frame,
+      includeFrame: frameAttached,
+    })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queued, agent.isRunning, currentRun, agentReady]);
+
+  /* Esc stops the agent — the shortcut people reach for without thinking. */
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (agent.isRunning) { agent.stop(); e.preventDefault(); }
+      else if (currentRun) { cancelRun(); e.preventDefault(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, agent.isRunning, currentRun]);
+
   const attachFrame = useCallback(() => {
     const captured = captureCurrentFrame();
     setFrame(captured);
@@ -139,6 +175,20 @@ export const CopilotDrawer: React.FC = () => {
 
   const hasPrompt = input.trim().length > 0;
   const blocked = hasPrompt && !report.ready;
+  const busy = Boolean(currentRun) || agent.isRunning;
+
+  /* Calls made so far in the turn that is running right now. */
+  const runningToolCalls = agent.turns.length
+    ? agent.turns[agent.turns.length - 1].toolCalls.length
+    : 0;
+
+  /*
+    The intro already offers examples, so the pill row would be a second
+    menu of the same thing stacked under the first. Pills are for LATER —
+    once there is a conversation above them and the intro is gone.
+  */
+  const threadEmpty = agentReady ? agent.turns.length === 0 : messages.length === 0;
+  const showSuggestions = !busy && !hasPrompt && !threadEmpty;
 
   /*
     Send never dead-ends.
@@ -152,7 +202,15 @@ export const CopilotDrawer: React.FC = () => {
   */
   const submit = async () => {
     const text = input.trim();
-    if (!text || currentRun || agent.isRunning) return;
+    if (!text) return;
+
+    /* Busy: hold it rather than swallow the keypress. */
+    if (currentRun || agent.isRunning) {
+      setQueued(text);
+      setInput('');
+      setHistoryIndex(-1);
+      return;
+    }
 
     if (agentReady) {
       setInput('');
@@ -252,16 +310,18 @@ export const CopilotDrawer: React.FC = () => {
           <Sparkles className="w-3.5 h-3.5 text-spectrum-accent flex-shrink-0" />
           <span className="text-ui font-semibold text-spectrum-text flex-shrink-0">Copilot</span>
           <span
-            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${agentReady ? 'bg-spectrum-green' : 'bg-spectrum-amber'}`}
+            className="flex items-center gap-1 flex-shrink-0 min-w-0"
             title={
               agentReady
-                ? `Claude Code ${agent.status?.version ?? ''} — full agent`
+                ? `Claude Code ${agent.status?.version ?? ''} — full agent, with file, shell and web access`
                 : 'Claude Code CLI not found — using the built-in planner'
             }
-          />
-          {agentReady && (
-            <span className="text-[9px] font-mono text-spectrum-textFaint truncate">Claude Code</span>
-          )}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${agentReady ? 'bg-spectrum-green' : 'bg-spectrum-amber'}`} />
+            <span className="text-[9px] font-mono text-spectrum-textFaint truncate">
+              {agentReady ? 'Claude Code' : 'built-in'}
+            </span>
+          </span>
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
           {openGaps > 0 && (
@@ -274,6 +334,13 @@ export const CopilotDrawer: React.FC = () => {
               {openGaps}
             </button>
           )}
+          <button
+            onClick={() => setShowMcpLog((v) => !v)}
+            className={`pro-btn w-[22px] h-[22px] ${showMcpLog ? 'text-spectrum-green' : ''}`}
+            title={showMcpLog ? 'Hide the raw MCP call log' : 'Show the raw MCP call log'}
+          >
+            <Activity className="w-3 h-3" />
+          </button>
           <button
             onClick={() => { clearChat(); agent.clear(); }}
             className="pro-btn w-[22px] h-[22px]"
@@ -293,56 +360,35 @@ export const CopilotDrawer: React.FC = () => {
         annotationCount={frameAttached ? annotations.length : 0}
       />
 
-      {/* Model — only the built-in planner has a model to choose. */}
-      <div className={`px-2 py-1.5 border-b border-line flex items-center gap-1.5 flex-shrink-0 ${agentReady ? 'hidden' : ''}`}>
-        <Cpu className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
-        <select
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value as any)}
-          className="pro-input select-native flex-1 h-[26px] px-2 text-ui-sm cursor-pointer min-w-0"
-        >
-          {MODELS.map((m) => (
-            <option key={m.value} value={m.value}>{m.label} · {m.hint}</option>
-          ))}
-        </select>
-      </div>
+      {/*
+        There used to be a four-option model picker here — Antigravity /
+        Claude Code / Codex Sonnet / Local LLM. It chose nothing.
+        `configureModelEndpoint` is defined and never called, so picking
+        "Local LLM" changed one string in a log and no behaviour at all.
+        A control that does nothing is worse than no control: it makes a
+        user believe they configured something.
+      */}
+      {!agentReady && (
+        <div className="px-2.5 py-1.5 border-b border-line flex items-center gap-1.5 flex-shrink-0 bg-spectrum-sunken/40">
+          <Cpu className="w-3 h-3 text-spectrum-amber flex-shrink-0" />
+          <span className="text-[10px] text-spectrum-textDim truncate">
+            Built-in planner · pattern matching, no model
+          </span>
+        </div>
+      )}
 
       {/*
-        Quick actions scroll horizontally. The fade on the right edge is not
-        decoration — without it a cut-off chip reads as a broken layout
-        rather than as "there is more this way".
+        Live status — the one line that says whether this thing is working
+        and on what, without scrolling the thread.
       */}
-      <div className="relative flex-shrink-0 border-b border-line">
-        <div className="px-2 py-2 flex items-center gap-1 overflow-x-auto scrollbar-none">
-          {QUICK_ACTIONS.map((action) => (
-            <button
-              key={action.label}
-              onClick={() => { setInput(action.prompt); inputRef.current?.focus(); }}
-              disabled={!!currentRun}
-              className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs whitespace-nowrap flex-shrink-0"
-              title={`${action.prompt} — loads into the box so you can check the context first`}
-            >
-              <span>{action.icon}</span>
-              {action.label}
-            </button>
-          ))}
-        </div>
-        <div className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-l from-spectrum-panel to-transparent" />
-      </div>
-
-      {/* Agent activity */}
       {agent.isRunning && (
-        <div className="px-2.5 py-2 bg-spectrum-card border-b border-line flex items-center justify-between gap-2 flex-shrink-0 animate-fade-in">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Loader2 className="w-3 h-3 text-spectrum-accent animate-spin flex-shrink-0" />
-            <span className="text-[10px] font-mono text-spectrum-accent truncate">
-              {agent.activity || 'Working…'}
-            </span>
-          </div>
-          <button onClick={agent.stop} className="btn-ghost-danger h-5 px-1.5 gap-1 text-[9px] flex-shrink-0">
-            <Square className="w-2 h-2 fill-current" /> Stop
-          </button>
-        </div>
+        <RunStatus
+          activity={agent.activity}
+          startedAt={agent.startedAt}
+          toolCalls={runningToolCalls}
+          costUsd={undefined}
+          onStop={agent.stop}
+        />
       )}
 
       {/* Live run (built-in planner) */}
@@ -372,7 +418,7 @@ export const CopilotDrawer: React.FC = () => {
       <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[96px]">
         {agentReady ? (
           agent.turns.length === 0 ? (
-            <AgentIntro />
+            <AgentIntro onPick={(text) => { setInput(text); inputRef.current?.focus(); }} />
           ) : (
             <AgentThread turns={agent.turns} />
           )
@@ -432,13 +478,20 @@ export const CopilotDrawer: React.FC = () => {
         <div ref={endRef} />
       </div>
 
-      {/* MCP log */}
-      <div className="border-t border-line flex-shrink-0">
-        <div className="px-2.5 py-1 flex items-center gap-1 text-[9px] font-semibold text-spectrum-textDim uppercase tracking-wider">
-          <Activity className="w-2.5 h-2.5 text-spectrum-green" /> Live MCP calls
+      {/*
+        The raw MCP log is off by default now. Every call already appears
+        in the thread, grouped and readable; a second permanently-visible
+        copy of the same information was costing vertical space the
+        conversation needed more.
+      */}
+      {showMcpLog && (
+        <div className="border-t border-line flex-shrink-0 animate-fade-in">
+          <div className="px-2.5 py-1 flex items-center gap-1 text-[9px] font-semibold text-spectrum-textDim uppercase tracking-wider">
+            <Activity className="w-2.5 h-2.5 text-spectrum-green" /> Live MCP calls
+          </div>
+          <McpActivityLog />
         </div>
-        <McpActivityLog />
-      </div>
+      )}
 
       {/* Composer */}
       <div className="p-2 border-t border-line flex-shrink-0 space-y-2 max-h-[52vh] overflow-y-auto">
@@ -458,6 +511,33 @@ export const CopilotDrawer: React.FC = () => {
           />
         )}
 
+        {/*
+          Suggestions live next to the box, and only when there is nothing
+          to read above them. As a permanent strip they pushed the
+          conversation down the panel forever to save one sentence of
+          typing on the first prompt only.
+        */}
+        {showSuggestions && (
+          <div className="relative">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-0.5">
+              {QUICK_ACTIONS.map((action) => (
+                <button
+                  key={action.label}
+                  onClick={() => { setInput(action.prompt); inputRef.current?.focus(); }}
+                  className="h-[24px] px-2 gap-1.5 text-ui-xs whitespace-nowrap flex-shrink-0 flex items-center
+                             rounded-full border border-line text-spectrum-textMuted
+                             hover:border-spectrum-accentLine hover:text-spectrum-text transition-colors"
+                  title={`${action.prompt} — loads into the box so you can check the context first`}
+                >
+                  <span>{action.icon}</span>
+                  {action.label}
+                </button>
+              ))}
+            </div>
+            <div className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-l from-spectrum-panel to-transparent" />
+          </div>
+        )}
+
         <div className="pro-input flex items-end gap-1.5 p-1.5">
           <textarea
             ref={inputRef}
@@ -465,32 +545,54 @@ export const CopilotDrawer: React.FC = () => {
             onChange={(e) => { setInput(e.target.value); if (preflightOpen) setPreflightOpen(false); }}
             onKeyDown={handleKeyDown}
             rows={1}
-            placeholder={agentReady ? 'Ask, or tell me what to change…' : 'Tell me what to change…'}
-            disabled={!!currentRun}
-            className="flex-1 bg-transparent outline-none text-[12px] text-spectrum-text placeholder:text-spectrum-textFaint resize-none max-h-24 min-w-0 leading-snug py-0.5"
+            placeholder={
+              busy
+                ? 'Working… ⌘⏎ to queue this next'
+                : agentReady
+                  ? 'Ask anything, or tell me what to change…'
+                  : 'Tell me what to change…'
+            }
+            className="flex-1 bg-transparent outline-none text-[12px] text-spectrum-text placeholder:text-spectrum-textFaint resize-none max-h-28 min-w-0 leading-snug py-0.5"
             onInput={(e) => {
               const el = e.currentTarget;
               el.style.height = 'auto';
-              el.style.height = `${Math.min(96, el.scrollHeight)}px`;
+              el.style.height = `${Math.min(112, el.scrollHeight)}px`;
             }}
           />
-          <button
-            onClick={submit}
-            disabled={!!currentRun || agent.isRunning || !hasPrompt}
-            className="btn-primary w-7 h-7 rounded-full flex-shrink-0"
-            title={blocked ? 'Fix the context checks and send (Enter)' : 'Send (Enter)'}
-          >
-            <ArrowUp className="w-4 h-4" />
-          </button>
+          {busy ? (
+            <button
+              onClick={agent.isRunning ? agent.stop : cancelRun}
+              className="btn-ghost-danger w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center"
+              title="Stop the agent (Esc)"
+            >
+              <Square className="w-3 h-3 fill-current" />
+            </button>
+          ) : (
+            <button
+              onClick={submit}
+              disabled={!hasPrompt}
+              className="btn-primary w-7 h-7 rounded-full flex-shrink-0"
+              title={blocked ? 'Fix the context checks and send (Enter)' : 'Send (Enter)'}
+            >
+              <ArrowUp className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        <p className="text-[10px] text-spectrum-textFaint px-1 leading-snug">
-          {agentReady
-            ? 'Enter to send · ⇧Enter for a new line · full file, shell and web access'
-            : blocked
-              ? 'Send will sort the checks above first, then run this.'
-              : 'Enter to send · ⇧Enter for a new line · ↑ for the last prompt'}
-        </p>
+        <div className="flex items-center gap-1.5 px-1 text-[9px] text-spectrum-textFaint leading-snug flex-wrap">
+          {queued ? (
+            <span className="text-spectrum-accent">Queued — sends when this turn finishes.</span>
+          ) : blocked && !agentReady ? (
+            <span>Send will sort the checks above first, then run this.</span>
+          ) : (
+            <>
+              <Kbd>⏎</Kbd><span>send</span>
+              <Kbd>⇧⏎</Kbd><span>new line</span>
+              <Kbd>↑</Kbd><span>history</span>
+              {busy && (<><Kbd>esc</Kbd><span>stop</span></>)}
+            </>
+          )}
+        </div>
       </div>
 
       {gapLogOpen && <GapLog onClose={() => setGapLogOpen(false)} />}
@@ -515,24 +617,37 @@ export const CopilotDrawer: React.FC = () => {
    Empty states
    ═══════════════════════════════════════════════════════════════════ */
 
-const AgentIntro: React.FC = () => (
-  <div className="space-y-2.5 text-ui-sm text-spectrum-textMuted leading-relaxed">
-    <p className="text-spectrum-text font-medium">Claude Code is driving this editor.</p>
-    <p>
-      It can see your timeline and change it, and it has its own tools too — reading files,
-      downloading, searching the web.
-    </p>
-    <div className="space-y-1.5 pt-1">
-      {[
-        'import the newest video from my Downloads',
-        'cut the silence out of the dialogue',
-        'give the whole thing a warm cinematic grade',
-        'what is on my timeline right now?',
-      ].map((example) => (
-        <div key={example} className="flex gap-1.5">
-          <span className="text-spectrum-textFaint flex-shrink-0">›</span>
-          <span className="italic">{example}</span>
-        </div>
+const EXAMPLES = [
+  { text: 'What is on my timeline right now?', hint: 'reads the edit' },
+  { text: 'Import the newest video from my Downloads', hint: 'uses your files' },
+  { text: 'Cut the silence out of the dialogue', hint: 'edits the timeline' },
+  { text: 'Give the whole thing a warm cinematic grade', hint: 'grades every clip' },
+];
+
+const AgentIntro: React.FC<{ onPick: (text: string) => void }> = ({ onPick }) => (
+  <div className="pt-1 space-y-3">
+    <div className="space-y-1.5">
+      <p className="text-ui-lg text-spectrum-text font-semibold">Claude Code is driving this editor.</p>
+      <p className="text-ui-sm text-spectrum-textMuted leading-relaxed">
+        It can read your timeline and change it, and it brings its own tools too — your files,
+        the shell, the web. Ask in plain language; it will show you every step it takes.
+      </p>
+    </div>
+
+    <div className="space-y-1">
+      {EXAMPLES.map((example) => (
+        <button
+          key={example.text}
+          onClick={() => onPick(example.text)}
+          className="w-full text-left rounded-squircle-xs border border-line/70 bg-spectrum-sunken/40
+                     px-2 py-1 hover:border-spectrum-accentLine hover:bg-spectrum-card/60
+                     transition-colors group"
+        >
+          <span className="block text-ui-sm text-spectrum-textMuted group-hover:text-spectrum-text transition-colors">
+            {example.text}
+          </span>
+          <span className="block text-[9px] font-mono text-spectrum-textFaint mt-0.5">{example.hint}</span>
+        </button>
       ))}
     </div>
   </div>

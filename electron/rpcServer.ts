@@ -10,7 +10,7 @@
 
 import http from 'http';
 import crypto from 'crypto';
-import { bridge } from './toolBridge';
+import { bridge, captureWindow } from './toolBridge';
 
 export const RPC_PORT = 3888;
 
@@ -80,6 +80,12 @@ export function startRpcServer(): http.Server {
 
         case 'ping':
           send(res, 200, { result: { ok: true } });
+          return;
+
+        /* A screenshot of the real window, for verifying the UI from
+           outside the app. */
+        case 'debug/capture':
+          send(res, 200, { result: { pngBase64: await captureWindow() } });
           return;
 
         default:
