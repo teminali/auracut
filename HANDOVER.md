@@ -783,3 +783,37 @@ being told things are fine. Several times this session the useful move was
 - **Name your own mistakes plainly** and move on.
 - Commit messages here explain *why* and record the failure mode, so the next
   person does not re-derive it. Keep that.
+
+---
+
+## Tool quirks found by using the app, not reading it
+
+These cost real time and are invisible from the source. Found while
+building the logo sting through the MCP tools.
+
+**`add_keyframes` APPENDS, it does not replace.** Calling it twice on the
+same property stacks both sets and the tool reports success both times.
+Two bars ended up carrying 15 keyframes each and the original values kept
+winning, so a "fix" changed nothing. To re-animate a property, delete and
+rebuild the clip — or add a `replace` option, which is the better fix.
+
+**A shape layer's base box is 480x480, not the canvas.** `scaleX: 0.6`
+gives a 288px-wide bar in a 1920px project, not 1152px. Guessing this
+wrong twice is what stopped the logo's bars from sitting flush. Derive
+sizes from the base, or measure.
+
+**`get_frame_context` bounds are PRE-mask and PRE-crop.** They cannot
+confirm framing. Render the frame (`includeImage: true`, read
+`frame.imageDataUrl`) and look at the pixels — or assert numerically on
+the bounds you *can* trust, like the gap between two shapes.
+
+**Only one instance can hold the RPC port.** Port 3888 is taken by
+whichever Kerf started first, but `mcp-kerf.json` is rewritten by
+whichever started *last* — so the config on disk can carry a token the
+listener will reject, and every tool call returns "Bad or missing token".
+Kill the other instance. A clean fix would be to fail loudly on
+EADDRINUSE rather than write a config that cannot work.
+
+**The bundled starter is built in code** (`src/engine/starterProject.ts`),
+not stored as a snapshot, so it cannot drift from the EDL format. It
+seeds Recents only when the list is empty and is displaced by real work.
