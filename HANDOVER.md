@@ -577,8 +577,17 @@ was never the slow part. The cause was
 is read back for JPEG encoding, so keep the surface on the CPU" —
 reasonable, and backwards. Removing it: 22.5 → 55 fps at 1080p in dev.
 
-**Packaged is slower than dev** — 24.6 ms/frame against 15.7. The 55 fps
-number is a dev number; packaged is ~36 fps. Nobody has looked into why.
+**Packaged was recorded as slower than dev** — 24.6 ms/frame against
+15.7 — and it does not reproduce. Measured interleaved, three-plus runs
+per condition on the starter project at 1080p: packaged 11.1 mean, dev
+11.3 mean, 1.5% apart and inside the spread of either.
+
+The original pair was taken "minutes apart", and that is the whole
+explanation available: the first dev reading of the session that checked
+this was 16.1 ms/frame, 43% above the dev mean of the same build, for
+reasons that survived neither eight spinning CPU cores (+8%) nor running
+five suites first (no change). Two readings minutes apart do not
+establish a difference on this machine. `NEXT.md` §2 has the numbers.
 
 A ring of canvases with the encodes issued together was built and
 deleted: 6277 / 6210 / 6318 ms at ring sizes 1, 4 and 8. `toBlob`

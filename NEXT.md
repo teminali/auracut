@@ -170,26 +170,42 @@ failure this work ended rather than a smaller version of it.
 `BaseAudioContext`, which is what makes the chain measurable offline. Keep
 that. It is the only reason there is a test at all.
 
-## 2. Packaged encodes ~1.6x slower than dev  *(uninvestigated)*
+## 2. Closed — the packaged/dev encode gap does not reproduce
 
-345 frames at 1080p:
+The record said packaged encodes at 24.6 ms/frame against dev's 15.7, and
+listed canvas acceleration under `file://`, GPU rasterisation flags and
+the ad-hoc signature as suspects. Measured properly, on the starter
+project at 1080p, 345 frames, interleaved so ordering and drift cannot
+carry the result:
 
-    dev       15.7 ms/frame   (encode 4,913ms)
-    packaged  24.6 ms/frame   (encode 7,855ms)
+    packaged (block 1, n=3)   11.0  10.9  10.8
+    dev      (n=8)            11.0  11.5  11.7  11.1  11.3  11.3  11.3  11.3
+    packaged (block 2, n=3)   11.6  11.3  11.2
 
-Same machine, same project, minutes apart. The **55 fps figure quoted for
-the export improvement is a dev number**; packaged is ~36 fps.
+Packaged 11.1 mean, dev 11.3 mean — **1.5% apart, inside the run-to-run
+spread of either**, with packaged marginally ahead, which is what a
+production build should be. There is nothing here to investigate.
 
-`render_export` returns a `timing` breakdown now, so this is measurable
-without adding anything. Suspects, in order: the packaged renderer runs
-from `file://` and may get different canvas acceleration; GPU rasterisation
-flags differ between a dev-server page and a packaged one; the ad-hoc
-signature or sandbox may affect it.
+**What produced the original number is worth more than the number.** My
+own first dev reading of the session was **16.1 ms/frame — 43% above the
+dev mean** — taken minutes after the eight-suite regression finished. One
+reading, on the same build and the same project, "minutes apart" from the
+others, exactly the methodology the 24.6-vs-15.7 pair came from.
 
-**Do not assume it is ffmpeg** — the breakdown already says the cost is
-`encodeMs`, which is `canvas.toBlob` in the renderer.
+I could not pin what made that one reading slow, and would rather say so
+than guess: eight spinning CPU cores only moved it 11.1 → 12.0, and
+running five suites first changed nothing at all (11.3). The likeliest
+remaining cause is residual I/O and memory-bandwidth pressure from the
+suites' ffmpeg subprocesses, but that is unverified.
 
----
+**The lesson for anything measured next:** two readings minutes apart do
+not establish a difference on this machine. Interleave the conditions,
+take at least three of each, and quote the spread. `render_export` returns
+the breakdown, so this costs one loop.
+
+Caveat: one machine (Apple silicon). A real packaged/dev difference on
+Windows or Linux would not show up here, and §6 still has nobody having
+run either.
 
 ## 3. Done — `get_frame_context` now reports undecoded frames
 
