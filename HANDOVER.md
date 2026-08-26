@@ -626,6 +626,13 @@ one. Now four of four, worst distance 251ms → 0ms.
 
 ### The test suite
 
+**`npm run verify` runs all of it** — boots its own Kerf on a free port,
+runs the eight suites, kills it, exits non-zero. ~19s. `npm test` runs 166
+unit tests with no app at all. Note that six of the eight suites exit 0
+whether they are green or red, so the runner parses their summary lines
+rather than trusting exit codes; a `&&` chain would report success on a
+red run.
+
 `tools/` — eight suites, 107 checks, run against a live Kerf:
 
     verify_keyframes.py       28   every animatable property, on pixels

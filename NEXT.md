@@ -11,7 +11,7 @@ been reconciled rather than left listing finished work.
 
 ---
 
-## Getting a working loop (do this first, it has four traps)
+## Getting a working loop (do this first, it has six traps)
 
 ```bash
 # 1. Vite dev server. It picks the next free port if 5173 is taken, so
@@ -54,6 +54,23 @@ encoding variation.
 check `ps -o lstart` against when the build finished before believing a
 packaged result. Port 3888 answering is not evidence that the thing
 answering is the thing you just built.
+
+**Trap 5 — editing `src/**` while suites run hangs them for 30 minutes.**
+Vite HMR pushes a FULL PAGE RELOAD to every connected client. The
+renderer's stores are rebuilt under the running suite, the in-flight
+bridge request loses the window that was going to answer it, and
+`toolBridge`'s `SLOW_TOOLS` gives `render_export` **30 minutes** — so it
+does not fail, it sits there. `npm run verify` counts `[vite] connecting…`
+lines per suite and reports any suite that ran across one as DISTURBED.
+Use `npm run verify -- --built` to be immune, or do not edit while it runs.
+
+**Trap 6 — `yarn install` can leave `node_modules/electron/dist` empty.**
+Its postinstall reported success and extracted only
+`LICENSES.chromium.html`; `npm run verify` then failed preflight with "no
+Electron binary". The zip is already in `~/Library/Caches/electron/<hash>/`
+— unzip it into `dist/`, then `chmod -R +x` the `MacOS` and `Frameworks`
+directories (unzip drops the executable bits) and write
+`Electron.app/Contents/MacOS/Electron` into `path.txt`.
 
 **Trap 4 — only one Kerf holds port 3888.** The packaged app and a dev
 build fight over it; the loser rewrites `mcp-kerf.json` with a token the
@@ -260,24 +277,41 @@ passes a single-frame check.
 
 ---
 
-## 5. The test suite needs a runner that does not need the app up
+## 5. Done — `npm test` and `npm run verify`
 
-Eight suites, 107 checks, all driving a live Kerf over RPC. That is the right
-way to test this system — the bugs it catches live in the render path, not
-in pure functions — but it means there is no `npm test`, nothing runs in
-CI, and a contributor without the app running gets nothing.
+```bash
+npm test              # 166 unit tests, ~0.5s, no Kerf required
+npm run verify        # 8 suites, 107 checks, ~19s, boots and kills its own Kerf
+npm run verify -- --built   # against dist/, immune to HMR (see the trap below)
+```
 
-**Options, roughly in order of value:**
-1. A script that boots Electron headless, runs all eight, and exits non-zero
-   on failure. Closest to what exists and would work in CI.
-2. Vitest for the genuinely pure parts — `keyframeMath`, `geometry`,
-   `beatDetect`'s tempo estimator, `projectIO`'s migration ladder. Cheap,
-   fast, and would have caught the tempo bug. **Not installed** — adding
-   it touches `package.json` and `yarn.lock` (see §8).
-3. Regressions for the six findings in HANDOVER §8, which is what Stage 1
-   item 2 originally asked for and is still not done.
+`tools/run_all_suites.py` picks a free port from 3950, strips
+`ELECTRON_RUN_AS_NODE`, polls `describe_timeline` rather than sleeping,
+and kills the process group afterwards — including on failure and SIGINT.
 
----
+**Six of the eight suites exit 0 whether they are green or red.** A `&&`
+chain would have reported success on a red run. A suite passes only with
+exit 0 AND a summary line AND `n == m > 0` AND no FAIL/ERROR line, and the
+summary is the last line MATCHING `n/m`, not the last line — because
+`verify_keyframes` prints `failing: …` after its count, so `tail -1` is
+wrong exactly when it is red.
+
+Unit tests cover `keyframeMath` (against an independent bisection bezier
+solver), `geometry` (against geometric identity), `beatDetect`'s
+arithmetic (against synthetic percussion, never a bare click track) and
+`projectIO`'s migration ladder. Every tolerance has a sibling negative
+control.
+
+CI is at `.github/workflows/verify.yml` — macOS, all eight suites, nothing
+excluded, `workflow_dispatch` only. **It has never been run.** It dumps
+`getGPUFeatureStatus()` so the first run answers whether a GitHub VM gives
+`verify_gpu` a WebGL2 context, instead of someone guessing. Make it a gate
+once you have watched it finish.
+
+### Still open here
+
+- **Regressions for the six findings in HANDOVER §8.** This was Stage 1
+  item 2 originally and is still not done — §5's other two parts are.
 
 ## 6. Still not started, from the original plan
 
@@ -321,38 +355,44 @@ comments so the reasoning survives.
 
 ## 8. Housekeeping
 
-**`yarn.lock` has an uncommitted 2,059-line change. It is an abandoned
-start on §5.2, and it must not be committed as it stands.** Settled by
-diffing it block by block against `HEAD`:
+**The `yarn.lock` question is settled and the fear was misplaced.** Two
+sessions kept a 2,059-line change out of every commit, and this file said
+committing it would break the Windows and Linux builds. That was true of
+what was in the tree — an abandoned `npm i -D vitest jsdom` — and NOT
+true of the operation itself.
 
-- **What it is.** `vitest@3.2.7`, `jsdom@30.0.1` and `chai@5.3.3` are in
-  the lock and installed in `node_modules`, marked `dev` in npm's own
-  `node_modules/.package-lock.json` (written 18:06). `package.json`
-  mentions none of them, there is no root `package-lock.json`, no
-  `vitest.config.*` and no test file. So: `npm i -D vitest jsdom` ran,
-  `package.json` was put back and the npm lockfile deleted, and the
-  regenerated `yarn.lock` plus `node_modules` were left behind.
-- **It is not tampering.** Of the 493 package blocks in both versions,
-  **0 changed version and 0 changed integrity at the same version**. All
-  493 differ only in the `resolved` host — `registry.yarnpkg.com` and
-  `registry.npmjs.org` are the same registry. 74 names added are the
-  vitest/jsdom tree.
-- **But committing it would break the Windows and Linux builds.** It
-  drops **50 platform-specific optional binaries** — every
-  `@esbuild/linux-*`, `@esbuild/win32-*`, `@esbuild/android-*`,
-  `@rollup/rollup-linux-*`, `@rollup/rollup-win32-*` — because it was
-  regenerated on darwin-arm64 and only recorded this platform's
-  optionalDependencies. §6 already notes CI builds Windows and Linux and
-  nobody has run either; this is how they would start failing, on a commit
-  that looks like noise in a lockfile.
+The dropped platform binaries were an **npm** artifact. Tested in a
+throwaway copy first, then done for real: `yarn install` at 1.22.22
+regenerates the lock with **0 package names lost, 0 existing versions
+removed, and all 51 `@esbuild`/`@rollup` platform entries intact**, linux
+and win32 included. It only ADDS — 57 packages gained a second version
+alongside the one already there, which is vitest's own esbuild and rollup
+resolving newer. Committed in `21a848a` after reinstalling from it and
+re-running all 107 checks plus the 166 unit tests.
 
-Left uncommitted, as before. `git checkout yarn.lock` reverts it safely —
-`node_modules` is not touched by that, so vitest stays installed until
-someone actually installs. When §5.2 is done for real, add vitest to
-`package.json` properly and regenerate the lock somewhere that keeps every
-platform's binaries.
+**If you regenerate it again, use yarn, not npm**, and check the diff by
+package name rather than by line count before believing it.
 
----
+### New findings with no home yet
+
+- **`computeNovelty` has no absolute floor.** It divides by its own
+  maximum, so a steady tone — a pad, a drone, a reverb tail — has its 1.5%
+  RMS ripple stretched to a full-scale novelty curve, and `pickOnsets`
+  returns 36 onsets in 5 seconds of a 440Hz sine. Silence is safe only
+  because `max === 0` short-circuits the divide. The markers would be
+  noise while `beatsAnchored` reported them as solidly anchored, which is
+  the same family as the two beat bugs in §3a. Pinned by a test in
+  `src/engine/beatDetect.test.ts` that records the behaviour rather than
+  asserting it is correct.
+- **`computeViewport`'s comment says "Rounded so the canvas lands on
+  whole pixels". There is no rounding.** Nothing is broken — the gizmo
+  and the compositor both come through it, so they agree — but the
+  comment is false.
+- **`EASING_BEZIERS` does not describe the curves `applyEasing` uses.**
+  `EASING_BEZIERS.easeIn` is the CSS bezier; `applyEasing('easeIn')` is
+  `t*t`. Nothing outside the module reads the table, so nothing renders
+  wrong, but its "exposed so the UI can preview the exact curve" comment
+  is stale and the first person to use it will draw the wrong curve.
 
 ## How the maintainer wants this worked
 
