@@ -6,7 +6,10 @@
    the transform gizmo uses, which is what keeps handles glued to pixels.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { Track, Clip, ClipType, ProjectSettings, ClipTransition, ClipTextStyle, ShapeStyle, MotionPath } from '../types/edl';
+import {
+  Track, Clip, ClipType, ProjectSettings, ClipTransition, ClipTextStyle, ShapeStyle,
+  MotionPath, AnimatableProperty, ClipFilters, ClipMask,
+} from '../types/edl';
 import {
   getClipBox,
   getClipBaseSize,
@@ -347,8 +350,52 @@ function resolveTransitionEffect(
 
 /* ── Colour filters ─────────────────────────────────────────────── */
 
-function buildFilterString(clip: Clip): string {
+/* ── Animated property resolution ───────────────────────────────────
+
+   Every clip property that `list_properties` reports as animatable is
+   resolved here, at the moment it is used, rather than being read
+   straight off the clip. `interpolateKeyframes` returns the fallback
+   after a single length check when a clip has no keyframes, so a static
+   clip pays almost nothing for this.
+
+   Before, only the seven transform properties were ever resolved. The
+   rest were read as literals, which is why a keyframe on a filter or a
+   stroke width was accepted, stored, drawn in the keyframe editor, and
+   then ignored by the renderer.                                        */
+
+function animated(
+  clip: Clip,
+  property: AnimatableProperty,
+  offsetMs: number,
+  fallback: number
+): number {
+  return interpolateKeyframes(clip.keyframes, property, offsetMs, fallback);
+}
+
+/** `clip.filters` with any keyframes applied. */
+function resolvedFilters(clip: Clip, offsetMs: number): ClipFilters {
   const f = clip.filters;
+  if (clip.keyframes.length === 0) return f;
+  return {
+    ...f,
+    brightness: animated(clip, 'filters.brightness', offsetMs, f.brightness),
+    contrast: animated(clip, 'filters.contrast', offsetMs, f.contrast),
+    saturation: animated(clip, 'filters.saturation', offsetMs, f.saturation),
+    exposure: animated(clip, 'filters.exposure', offsetMs, f.exposure),
+    temperature: animated(clip, 'filters.temperature', offsetMs, f.temperature),
+    tint: animated(clip, 'filters.tint', offsetMs, f.tint),
+    highlights: animated(clip, 'filters.highlights', offsetMs, f.highlights),
+    shadows: animated(clip, 'filters.shadows', offsetMs, f.shadows),
+    sharpen: animated(clip, 'filters.sharpen', offsetMs, f.sharpen),
+    vignette: animated(clip, 'filters.vignette', offsetMs, f.vignette),
+    grain: animated(clip, 'filters.grain', offsetMs, f.grain),
+    blur: animated(clip, 'filters.blur', offsetMs, f.blur),
+    hueRotate: animated(clip, 'filters.hueRotate', offsetMs, f.hueRotate),
+  };
+}
+
+function buildFilterString(clip: Clip, offsetMs: number): string {
+  const f = resolvedFilters(clip, offsetMs);
   const parts: string[] = [];
 
   // Exposure and brightness both act on luminance; fold them together.
@@ -377,9 +424,10 @@ function drawColorTemperature(
   ctx: CanvasRenderingContext2D,
   clip: Clip,
   width: number,
-  height: number
+  height: number,
+  offsetMs: number
 ): void {
-  const { temperature, tint } = clip.filters;
+  const { temperature, tint } = resolvedFilters(clip, offsetMs);
   if (temperature === 0 && tint === 0) return;
 
   ctx.save();
@@ -406,14 +454,49 @@ function drawColorTemperature(
 
 /* ── Masking ────────────────────────────────────────────────────── */
 
-function applyMask(ctx: CanvasRenderingContext2D, clip: Clip, box: ClipBox): void {
-  const m = clip.mask;
-  if (!m.enabled) return;
+/** The resolved mask for a clip at an instant, keyframes applied. */
+function resolvedMask(clip: Clip, offsetMs: number): ClipMask {
+  const base = clip.mask;
+  if (clip.keyframes.length === 0) return base;
+  return {
+    ...base,
+    sizeX: animated(clip, 'mask.sizeX', offsetMs, base.sizeX),
+    sizeY: animated(clip, 'mask.sizeY', offsetMs, base.sizeY),
+    offsetX: animated(clip, 'mask.offsetX', offsetMs, base.offsetX),
+    offsetY: animated(clip, 'mask.offsetY', offsetMs, base.offsetY),
+    rotation: animated(clip, 'mask.rotation', offsetMs, base.rotation),
+    roundness: animated(clip, 'mask.roundness', offsetMs, base.roundness),
+    featherPx: animated(clip, 'mask.featherPx', offsetMs, base.featherPx),
+  };
+}
 
+/**
+ * Trace the mask outline into the current path.
+ *
+ * Pulled out of `applyMask` because a feathered mask cannot use
+ * `ctx.clip()` — clipping is binary, so the same outline has to be
+ * FILLED into a separate layer and blurred instead. One tracer, two
+ * consumers, so the hard and soft paths cannot describe different shapes.
+ */
+function traceMaskPath(ctx: CanvasRenderingContext2D, m: ClipMask, box: ClipBox): void {
   const w = (box.width * m.sizeX) / 100;
   const h = (box.height * m.sizeY) / 100;
   const ox = (box.width * m.offsetX) / 100;
   const oy = (box.height * m.offsetY) / 100;
+
+  /*
+    `mask.rotation` was stored, listed by `list_properties` with a
+    -180..180 range, and read by nothing — every mask sat axis-aligned
+    however it was set. A clipping region is kept in device space once
+    applied, so the transform can be rotated for the trace and rotated
+    back afterwards without disturbing it.
+  */
+  const rad = (m.rotation * Math.PI) / 180;
+  if (rad !== 0) {
+    ctx.translate(ox, oy);
+    ctx.rotate(rad);
+    ctx.translate(-ox, -oy);
+  }
 
   ctx.beginPath();
 
@@ -447,16 +530,15 @@ function applyMask(ctx: CanvasRenderingContext2D, clip: Clip, box: ClipBox): voi
     }
 
     case 'heart': {
-      const s = Math.min(w, h) / 2;
-      ctx.moveTo(ox, oy + s * 0.6);
-      ctx.bezierCurveTo(ox - s * 1.4, oy - s * 0.4, ox - s * 0.5, oy - s * 1.1, ox, oy - s * 0.35);
-      ctx.bezierCurveTo(ox + s * 0.5, oy - s * 1.1, ox + s * 1.4, oy - s * 0.4, ox, oy + s * 0.6);
+      const sz = Math.min(w, h) / 2;
+      ctx.moveTo(ox, oy + sz * 0.6);
+      ctx.bezierCurveTo(ox - sz * 1.4, oy - sz * 0.4, ox - sz * 0.5, oy - sz * 1.1, ox, oy - sz * 0.35);
+      ctx.bezierCurveTo(ox + sz * 0.5, oy - sz * 1.1, ox + sz * 1.4, oy - sz * 0.4, ox, oy + sz * 0.6);
       ctx.closePath();
       break;
     }
 
     case 'film':
-      // Letterboxed slot with rounded ends.
       ctx.roundRect(-w / 2 + ox, -h / 4 + oy, w, h / 2, h / 8);
       break;
 
@@ -465,6 +547,24 @@ function applyMask(ctx: CanvasRenderingContext2D, clip: Clip, box: ClipBox): voi
       ctx.roundRect(-w / 2 + ox, -h / 2 + oy, w, h, Math.min(m.roundness, Math.min(w, h) / 2));
       break;
   }
+
+  if (rad !== 0) {
+    ctx.translate(ox, oy);
+    ctx.rotate(-rad);
+    ctx.translate(-ox, -oy);
+  }
+}
+
+function applyMask(
+  ctx: CanvasRenderingContext2D,
+  clip: Clip,
+  box: ClipBox,
+  offsetMs: number
+): void {
+  const m = resolvedMask(clip, offsetMs);
+  if (!m.enabled) return;
+
+  traceMaskPath(ctx, m, box);
 
   if (m.inverted) {
     // Even-odd against the full box carves the shape out instead.
@@ -531,8 +631,14 @@ function renderTextClip(
   clip: Clip,
   offsetMs: number
 ): void {
-  const style = clip.textStyle;
-  if (!style || !style.text) return;
+  const baseStyle = clip.textStyle;
+  if (!baseStyle || !baseStyle.text) return;
+
+  const style: ClipTextStyle = clip.keyframes.length === 0 ? baseStyle : {
+    ...baseStyle,
+    fontSize: animated(clip, 'textStyle.fontSize', offsetMs, baseStyle.fontSize),
+    letterSpacing: animated(clip, 'textStyle.letterSpacing', offsetMs, baseStyle.letterSpacing),
+  };
 
   const { lines, width, height } = measureLines(ctx, style);
 
@@ -936,9 +1042,27 @@ function traceShape(ctx: CanvasRenderingContext2D, style: ShapeStyle, w: number,
   }
 }
 
-function renderShapeClip(ctx: CanvasRenderingContext2D, clip: Clip, box: ClipBox): void {
-  const style = clip.shapeStyle;
-  if (!style) return;
+function renderShapeClip(
+  ctx: CanvasRenderingContext2D,
+  clip: Clip,
+  box: ClipBox,
+  offsetMs: number
+): void {
+  const base = clip.shapeStyle;
+  if (!base) return;
+
+  /* trimStart/trimEnd exist so a stroke can DRAW ON, which is the whole
+     point of them and was impossible while they could not be keyframed.
+     Same for strokeWidth: a mark built from strokes could be moved but
+     never scaled, because its length came from the layout box and its
+     weight was a literal. */
+  const style: ShapeStyle = clip.keyframes.length === 0 ? base : {
+    ...base,
+    strokeWidth: animated(clip, 'shapeStyle.strokeWidth', offsetMs, base.strokeWidth),
+    trimStart: animated(clip, 'shapeStyle.trimStart', offsetMs, base.trimStart),
+    trimEnd: animated(clip, 'shapeStyle.trimEnd', offsetMs, base.trimEnd),
+    cornerRadius: animated(clip, 'shapeStyle.cornerRadius', offsetMs, base.cornerRadius),
+  };
 
   const isStrokeOnly = style.kind === 'line' || style.kind === 'arrow';
 
@@ -992,6 +1116,104 @@ function renderShapeClip(ctx: CanvasRenderingContext2D, clip: Clip, box: ClipBox
 
 /* ── Clip rendering ─────────────────────────────────────────────── */
 
+/*
+  Two scratch canvases, reused across every clip and every frame.
+
+  A feathered mask needs the clip drawn in ISOLATION: the outline is
+  filled into its own layer, blurred, and used as an alpha source with
+  `destination-in`. Doing that on the main canvas would erase everything
+  already composited under the clip, and blurring after the content is
+  drawn would blur the CONTENT rather than the mask edge.
+
+  Allocated once. A 1080p canvas pair is ~16MB and creating them per clip
+  per frame is the difference between a soft mask being usable and being
+  a reason not to use soft masks.
+*/
+let layerCanvas: HTMLCanvasElement | null = null;
+let maskCanvas: HTMLCanvasElement | null = null;
+
+function scratchPair(width: number, height: number) {
+  if (!layerCanvas) layerCanvas = document.createElement('canvas');
+  if (!maskCanvas) maskCanvas = document.createElement('canvas');
+  for (const c of [layerCanvas, maskCanvas]) {
+    if (c.width !== width || c.height !== height) {
+      c.width = width;
+      c.height = height;
+    }
+  }
+  const lc = layerCanvas.getContext('2d');
+  const mc = maskCanvas.getContext('2d');
+  if (!lc || !mc) return null;
+  lc.setTransform(1, 0, 0, 1, 0, 0);
+  mc.setTransform(1, 0, 0, 1, 0, 0);
+  lc.clearRect(0, 0, width, height);
+  mc.clearRect(0, 0, width, height);
+  return { layer: layerCanvas, layerCtx: lc, mask: maskCanvas, maskCtx: mc };
+}
+
+/**
+ * Draw a clip through a feathered mask.
+ *
+ * `mask.featherPx` was stored, listed with a 0..200 range and rendered by
+ * nothing, because `ctx.clip()` is binary — there is no soft clip. The
+ * only way to get a soft edge is to build the alpha separately:
+ *
+ *   1. draw the clip unmasked into a layer,
+ *   2. fill the mask outline into a second layer through a blur,
+ *   3. `destination-in` the second onto the first,
+ *   4. composite the result.
+ */
+function renderClipFeathered(
+  ctx: CanvasRenderingContext2D,
+  clip: Clip,
+  project: ProjectSettings,
+  playheadMs: number,
+  offsetMs: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  mask: ClipMask,
+  box: ClipBox
+): boolean {
+  const pair = scratchPair(canvasWidth, canvasHeight);
+  if (!pair) return false;
+
+  // 1 — the clip, drawn with its mask suppressed so the edge stays soft.
+  const unmasked: Clip = { ...clip, mask: { ...clip.mask, enabled: false } };
+  renderClipPass(pair.layerCtx, unmasked, project, playheadMs, offsetMs, canvasWidth, canvasHeight);
+
+  // 2 — the outline, filled through a blur, in the clip's own space.
+  const mctx = pair.maskCtx;
+  mctx.save();
+  mctx.translate(box.cx, box.cy);
+  if (box.rotation !== 0) mctx.rotate((box.rotation * Math.PI) / 180);
+  const feather = Math.max(0, mask.featherPx);
+  if (mask.inverted) {
+    /* Inverted: opaque everywhere, with a soft hole punched out. Filling
+       an even-odd path would work for a hard edge but not a blurred one —
+       the blur has to apply to the hole, not to the union. */
+    mctx.fillStyle = '#ffffff';
+    mctx.fillRect(-canvasWidth, -canvasHeight, canvasWidth * 2, canvasHeight * 2);
+    mctx.globalCompositeOperation = 'destination-out';
+  }
+  mctx.filter = `blur(${feather.toFixed(1)}px)`;
+  mctx.fillStyle = '#ffffff';
+  traceMaskPath(mctx, mask, box);
+  mctx.fill();
+  mctx.restore();
+
+  // 3 — the blurred outline becomes the layer's alpha.
+  pair.layerCtx.globalCompositeOperation = 'destination-in';
+  pair.layerCtx.drawImage(pair.mask, 0, 0);
+  pair.layerCtx.globalCompositeOperation = 'source-over';
+
+  // 4 — composite, in canvas space, ignoring whatever transform is set.
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(pair.layer, 0, 0);
+  ctx.restore();
+  return true;
+}
+
 function renderClip(
   ctx: CanvasRenderingContext2D,
   clip: Clip,
@@ -1001,6 +1223,16 @@ function renderClip(
   canvasHeight: number
 ): void {
   const offsetMs = playheadMs - clip.startTimeMs;
+
+  const mask = resolvedMask(clip, offsetMs);
+  if (mask.enabled && mask.featherPx > 0.5) {
+    const natural = getNaturalSize(clip);
+    const box = getClipBox(clip, project, playheadMs, natural);
+    if (renderClipFeathered(ctx, clip, project, playheadMs, offsetMs,
+                            canvasWidth, canvasHeight, mask, box)) {
+      return;
+    }
+  }
 
   // Motion blur renders the clip several times across the shutter interval.
   const mb = clip.motionBlur;
@@ -1067,6 +1299,18 @@ function renderClipPass(
   if (box.rotation !== 0 || fx.rotation !== 0 || pathAngle !== 0) {
     ctx.rotate(((box.rotation + fx.rotation + pathAngle) * Math.PI) / 180);
   }
+
+  /*
+    The anchor. `transform.anchorX/anchorY` were settable, listed by
+    `list_properties` with a 0..1 range, and read by NOTHING — every clip
+    pivoted on its own centre no matter what they said. cx/cy locate the
+    anchor, so once the context is rotated the content has to be pushed
+    back by the distance from the anchor to the centre; a 0.5,0.5 anchor
+    makes that zero, which is why nobody noticed.
+  */
+  if (box.anchorX !== 0.5 || box.anchorY !== 0.5) {
+    ctx.translate((0.5 - box.anchorX) * box.width, (0.5 - box.anchorY) * box.height);
+  }
   if (fx.scale !== 1) ctx.scale(fx.scale, fx.scale);
   if (clip.transform.flipH || clip.transform.flipV) {
     ctx.scale(clip.transform.flipH ? -1 : 1, clip.transform.flipV ? -1 : 1);
@@ -1075,9 +1319,9 @@ function renderClipPass(
   // `pre` hooks run before the mask so shake/pulse move the whole layer.
   runEffectHooks(ctx, clip, box, offsetMs, 'pre');
 
-  applyMask(ctx, clip, box);
+  applyMask(ctx, clip, box, offsetMs);
 
-  const cssFilter = buildFilterString(clip);
+  const cssFilter = buildFilterString(clip, offsetMs);
   const transitionBlur = fx.blurPx > 0 ? ` blur(${fx.blurPx.toFixed(1)}px)` : '';
   const preFilter = ctx.filter && ctx.filter !== 'none' ? ctx.filter : '';
   const combined = [preFilter, cssFilter === 'none' ? '' : cssFilter, transitionBlur.trim()]
@@ -1089,7 +1333,7 @@ function renderClipPass(
   const halfH = box.height / 2;
 
   if (clip.type === 'shape') {
-    renderShapeClip(ctx, clip, box);
+    renderShapeClip(ctx, clip, box, offsetMs);
   } else if (clip.type === 'text') {
     /*
       Text is drawn from its own font metrics, so unlike a shape or a
@@ -1144,18 +1388,19 @@ function renderClipPass(
   ctx.filter = 'none';
 
   if (clip.type !== 'text') {
-    drawColorTemperature(ctx, clip, box.width, box.height);
+    drawColorTemperature(ctx, clip, box.width, box.height, offsetMs);
 
-    if (clip.filters.vignette > 0) {
+    const rf = resolvedFilters(clip, offsetMs);
+    if (rf.vignette > 0) {
       const radius = Math.max(box.width, box.height) * 0.62;
       const grad = ctx.createRadialGradient(0, 0, radius * 0.38, 0, 0, radius);
       grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(1, `rgba(0,0,0,${Math.min(0.95, clip.filters.vignette / 100)})`);
+      grad.addColorStop(1, `rgba(0,0,0,${Math.min(0.95, rf.vignette / 100)})`);
       ctx.fillStyle = grad;
       ctx.fillRect(-halfW, -halfH, box.width, box.height);
     }
 
-    if (clip.filters.grain > 0) drawGrain(ctx, box, clip.filters.grain, sampleMs);
+    if (rf.grain > 0) drawGrain(ctx, box, rf.grain, sampleMs);
   }
 
   // `post` hooks composite on top of the drawn layer, still in clip space.

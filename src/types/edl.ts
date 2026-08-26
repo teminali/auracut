@@ -8,7 +8,21 @@ export type TrackType = 'video' | 'audio' | 'text' | 'overlay' | 'effect';
 export type ClipType = 'video' | 'audio' | 'text' | 'image' | 'sticker' | 'shape' | 'adjustment';
 export type AspectRatio = '16:9' | '9:16' | '1:1' | '4:5' | '4:3' | '21:9';
 
-/** Properties that can be animated with keyframes. */
+/**
+ * Properties that can be animated with keyframes.
+ *
+ * There used to be seven of these while `propertyPath.ts` advertised
+ * twenty-four as `animatable: true`. `list_properties` said a filter or a
+ * stroke width could be keyframed, `add_keyframes` refused the name, and
+ * nothing reconciled the two — so an agent was told to do something the
+ * next call would reject. Every entry here is now resolved at render
+ * time, and `PROPERTY_SCHEMA` is generated against this list rather than
+ * hand-flagged, so the two cannot drift apart again.
+ *
+ * The first seven keep their bare names because projects already contain
+ * them. Everything added since uses the same dotted path `list_properties`
+ * reports, so there is one vocabulary instead of two.
+ */
 export type AnimatableProperty =
   | 'positionX'
   | 'positionY'
@@ -16,7 +30,71 @@ export type AnimatableProperty =
   | 'scaleY'
   | 'rotation'
   | 'opacity'
-  | 'volume';
+  | 'volume'
+  | 'anchorX'
+  | 'anchorY'
+  | 'filters.brightness'
+  | 'filters.contrast'
+  | 'filters.saturation'
+  | 'filters.exposure'
+  | 'filters.temperature'
+  | 'filters.tint'
+  | 'filters.highlights'
+  | 'filters.shadows'
+  | 'filters.sharpen'
+  | 'filters.vignette'
+  | 'filters.grain'
+  | 'filters.blur'
+  | 'filters.hueRotate'
+  | 'mask.sizeX'
+  | 'mask.sizeY'
+  | 'mask.offsetX'
+  | 'mask.offsetY'
+  | 'mask.rotation'
+  | 'mask.roundness'
+  | 'mask.featherPx'
+  | 'textStyle.fontSize'
+  | 'textStyle.letterSpacing'
+  | 'shapeStyle.strokeWidth'
+  | 'shapeStyle.trimStart'
+  | 'shapeStyle.trimEnd'
+  | 'shapeStyle.cornerRadius';
+
+/**
+ * Every animatable property, as data. The type above is the compile-time
+ * view of this list; this is the one the tool layer validates against and
+ * the property schema is generated from.
+ */
+export const ANIMATABLE_PROPERTIES = [
+  'positionX', 'positionY', 'scaleX', 'scaleY', 'rotation', 'opacity', 'volume',
+  'anchorX', 'anchorY',
+  'filters.brightness', 'filters.contrast', 'filters.saturation', 'filters.exposure',
+  'filters.temperature', 'filters.tint', 'filters.highlights', 'filters.shadows',
+  'filters.sharpen', 'filters.vignette', 'filters.grain', 'filters.blur',
+  'filters.hueRotate',
+  'mask.sizeX', 'mask.sizeY', 'mask.offsetX', 'mask.offsetY', 'mask.rotation',
+  'mask.roundness', 'mask.featherPx',
+  'textStyle.fontSize', 'textStyle.letterSpacing',
+  'shapeStyle.strokeWidth', 'shapeStyle.trimStart', 'shapeStyle.trimEnd',
+  'shapeStyle.cornerRadius',
+] as const satisfies readonly AnimatableProperty[];
+
+/**
+ * The dotted path a keyframe property corresponds to, for the seven that
+ * predate the dotted vocabulary. Used to keep `patch_clip` and
+ * `add_keyframes` talking about the same thing.
+ */
+export const KEYFRAME_PATH_ALIASES: Record<string, AnimatableProperty> = {
+  'transform.x': 'positionX',
+  'transform.y': 'positionY',
+  'transform.scaleX': 'scaleX',
+  'transform.scaleY': 'scaleY',
+  'transform.rotation': 'rotation',
+  'transform.opacity': 'opacity',
+  'transform.anchorX': 'anchorX',
+  'transform.anchorY': 'anchorY',
+  'audio.volume': 'volume',
+};
 
 export type Easing = 'linear' | 'hold' | 'easeIn' | 'easeOut' | 'easeInOut' | 'bezier';
 

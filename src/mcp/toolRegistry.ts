@@ -17,6 +17,7 @@ import { useMcpStore } from '../store/mcpStore';
 import { useGapStore } from '../store/gapStore';
 import {
   AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset, MediaAsset, ClipType, AnimatableProperty,
+  ANIMATABLE_PROPERTIES, KEYFRAME_PATH_ALIASES,
   TRANSITION_TYPES, SHAPE_KINDS, SPEED_CURVE_PRESETS, ASPECT_DIMENSIONS,
   EASINGS, FPS_VALUES, CLIP_TYPES,
 } from '../types/edl';
@@ -792,7 +793,15 @@ defineTool({
   name: 'add_keyframes',
   category: 'graphics',
   description:
-    'Animate any transform property with explicit keyframes. Property must be one of positionX, positionY, scaleX, scaleY, rotation, opacity, volume.',
+    'Animate a clip property with explicit keyframes. Accepts the transform names ' +
+    '(positionX, positionY, scaleX, scaleY, rotation, opacity, anchorX, anchorY, volume) and the ' +
+    'dotted paths list_properties reports as animatable — filters.* (brightness, contrast, ' +
+    'saturation, exposure, temperature, tint, highlights, shadows, sharpen, vignette, grain, ' +
+    'blur, hueRotate), mask.* (sizeX, sizeY, offsetX, offsetY, rotation, roundness, featherPx), ' +
+    'textStyle.fontSize, textStyle.letterSpacing, and shapeStyle.* (strokeWidth, trimStart, ' +
+    'trimEnd, cornerRadius). transform.x / transform.y and the other patch_clip paths are ' +
+    'accepted as aliases. NOTE: this APPENDS — calling it twice on one property stacks both ' +
+    'sets and reports success both times.',
   schema: z.object({
     clipId: z.string().optional(),
     property: z.string(),
@@ -805,22 +814,29 @@ defineTool({
     ).min(1),
   }),
   handler: ({ clipId, property, keyframes }) => {
-    const valid = ['positionX', 'positionY', 'scaleX', 'scaleY', 'rotation', 'opacity', 'volume'];
-    if (!valid.includes(property)) {
-      throw new Error(`"${property}" is not animatable. Use one of: ${valid.join(', ')}`);
+    /*
+      `patch_clip` addresses `transform.x`; keyframes have always called
+      the same thing `positionX`. Two names for one property is a trap
+      whichever one you learned first, so both are accepted here and
+      normalised to the stored name.
+    */
+    const resolved = KEYFRAME_PATH_ALIASES[property] ?? (property as AnimatableProperty);
+    if (!(ANIMATABLE_PROPERTIES as readonly string[]).includes(resolved)) {
+      throw new Error(
+        `"${property}" is not animatable. Use one of: ${ANIMATABLE_PROPERTIES.join(', ')}`
+      );
     }
     const id = resolveClipId(clipId);
     const state = timeline();
     for (const kf of keyframes) {
       state.addKeyframe(id, {
-        // Checked against `valid` immediately above, so this cast is earned.
-        property: property as AnimatableProperty,
+        property: resolved,
         timeOffsetMs: kf.timeOffsetMs,
         value: kf.value,
         easing: kf.easing ? oneOf(kf.easing, EASINGS, 'easing') : 'easeInOut',
       });
     }
-    return { clipId: id, property, count: keyframes.length };
+    return { clipId: id, property: resolved, count: keyframes.length };
   },
 });
 

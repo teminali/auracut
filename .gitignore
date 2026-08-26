@@ -23,3 +23,7 @@ yarn-error.log*
 .env.local
 *.p12
 *.mobileprovision
+
+# Python bytecode from tools/
+__pycache__/
+*.pyc

@@ -43,6 +43,14 @@ export interface ClipBox {
   baseHeight: number;
   scaleX: number;
   scaleY: number;
+  /**
+   * Normalised 0..1 pivot inside the clip's own box. 0.5,0.5 is the
+   * centre. `cx`/`cy` locate THIS point, and scale and rotation turn
+   * about it — which is what makes a stroke able to grow from one end
+   * rather than from the middle.
+   */
+  anchorX: number;
+  anchorY: number;
 }
 
 /** Maps canvas space ⇄ view (CSS) space for the program monitor. */
@@ -240,6 +248,8 @@ export function getClipBox(
   const scaleY = interpolateKeyframes(clip.keyframes, 'scaleY', offsetMs, t.scaleY);
   const rotation = interpolateKeyframes(clip.keyframes, 'rotation', offsetMs, t.rotation);
   const opacity = interpolateKeyframes(clip.keyframes, 'opacity', offsetMs, t.opacity);
+  const anchorX = interpolateKeyframes(clip.keyframes, 'anchorX', offsetMs, t.anchorX ?? 0.5);
+  const anchorY = interpolateKeyframes(clip.keyframes, 'anchorY', offsetMs, t.anchorY ?? 0.5);
 
   const base = getClipBaseSize(clip, project, natural);
 
@@ -254,6 +264,8 @@ export function getClipBox(
     baseHeight: base.height,
     scaleX,
     scaleY,
+    anchorX,
+    anchorY,
   };
 }
 

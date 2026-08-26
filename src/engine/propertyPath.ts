@@ -13,7 +13,7 @@
    value returns a helpful error instead of corrupting the project.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { Clip, ClipEffect } from '../types/edl';
+import { Clip, ClipEffect, ANIMATABLE_PROPERTIES, KEYFRAME_PATH_ALIASES } from '../types/edl';
 import { getEffectDefinition, coerceParam } from './effectsRegistry';
 
 export type PropertyValueType = 'number' | 'boolean' | 'string' | 'color' | 'enum';
@@ -35,7 +35,7 @@ export interface PropertySchema {
 
 /* ── The addressable surface ────────────────────────────────────── */
 
-export const PROPERTY_SCHEMA: PropertySchema[] = [
+const PROPERTY_SCHEMA_BASE: PropertySchema[] = [
   /* Timing */
   { path: 'startTimeMs', label: 'Start time', type: 'number', min: 0, unit: 'ms', description: 'Position on the timeline' },
   { path: 'durationMs', label: 'Duration', type: 'number', min: 100, unit: 'ms' },
@@ -46,12 +46,12 @@ export const PROPERTY_SCHEMA: PropertySchema[] = [
   { path: 'color', label: 'Timeline colour', type: 'color' },
 
   /* Transform */
-  { path: 'transform.x', label: 'Position X', type: 'number', min: -6000, max: 6000, unit: 'px', animatable: true },
-  { path: 'transform.y', label: 'Position Y', type: 'number', min: -6000, max: 6000, unit: 'px', animatable: true },
-  { path: 'transform.scaleX', label: 'Scale X', type: 'number', min: 0.01, max: 12, step: 0.01, animatable: true },
-  { path: 'transform.scaleY', label: 'Scale Y', type: 'number', min: 0.01, max: 12, step: 0.01, animatable: true },
-  { path: 'transform.rotation', label: 'Rotation', type: 'number', min: -3600, max: 3600, unit: '°', animatable: true },
-  { path: 'transform.opacity', label: 'Opacity', type: 'number', min: 0, max: 1, step: 0.01, animatable: true },
+  { path: 'transform.x', label: 'Position X', type: 'number', min: -6000, max: 6000, unit: 'px' },
+  { path: 'transform.y', label: 'Position Y', type: 'number', min: -6000, max: 6000, unit: 'px' },
+  { path: 'transform.scaleX', label: 'Scale X', type: 'number', min: 0.01, max: 12, step: 0.01 },
+  { path: 'transform.scaleY', label: 'Scale Y', type: 'number', min: 0.01, max: 12, step: 0.01 },
+  { path: 'transform.rotation', label: 'Rotation', type: 'number', min: -3600, max: 3600, unit: '°' },
+  { path: 'transform.opacity', label: 'Opacity', type: 'number', min: 0, max: 1, step: 0.01 },
   { path: 'transform.anchorX', label: 'Anchor X', type: 'number', min: 0, max: 1, step: 0.01 },
   { path: 'transform.anchorY', label: 'Anchor Y', type: 'number', min: 0, max: 1, step: 0.01 },
   { path: 'transform.flipH', label: 'Flip horizontal', type: 'boolean' },
@@ -66,27 +66,27 @@ export const PROPERTY_SCHEMA: PropertySchema[] = [
   },
 
   /* Colour */
-  { path: 'filters.brightness', label: 'Brightness', type: 'number', min: -100, max: 100, animatable: true },
-  { path: 'filters.contrast', label: 'Contrast', type: 'number', min: -100, max: 100, animatable: true },
-  { path: 'filters.saturation', label: 'Saturation', type: 'number', min: -100, max: 200, animatable: true },
-  { path: 'filters.exposure', label: 'Exposure', type: 'number', min: -100, max: 100, animatable: true },
-  { path: 'filters.temperature', label: 'Temperature', type: 'number', min: -100, max: 100, animatable: true },
-  { path: 'filters.tint', label: 'Tint', type: 'number', min: -100, max: 100, animatable: true },
+  { path: 'filters.brightness', label: 'Brightness', type: 'number', min: -100, max: 100 },
+  { path: 'filters.contrast', label: 'Contrast', type: 'number', min: -100, max: 100 },
+  { path: 'filters.saturation', label: 'Saturation', type: 'number', min: -100, max: 200 },
+  { path: 'filters.exposure', label: 'Exposure', type: 'number', min: -100, max: 100 },
+  { path: 'filters.temperature', label: 'Temperature', type: 'number', min: -100, max: 100 },
+  { path: 'filters.tint', label: 'Tint', type: 'number', min: -100, max: 100 },
   { path: 'filters.highlights', label: 'Highlights', type: 'number', min: -100, max: 100 },
   { path: 'filters.shadows', label: 'Shadows', type: 'number', min: -100, max: 100 },
   { path: 'filters.sharpen', label: 'Sharpen', type: 'number', min: 0, max: 100 },
-  { path: 'filters.vignette', label: 'Vignette', type: 'number', min: 0, max: 100, animatable: true },
+  { path: 'filters.vignette', label: 'Vignette', type: 'number', min: 0, max: 100 },
   { path: 'filters.grain', label: 'Grain', type: 'number', min: 0, max: 100 },
-  { path: 'filters.blur', label: 'Blur', type: 'number', min: 0, max: 100, unit: 'px', animatable: true },
-  { path: 'filters.hueRotate', label: 'Hue rotate', type: 'number', min: -180, max: 180, unit: '°', animatable: true },
+  { path: 'filters.blur', label: 'Blur', type: 'number', min: 0, max: 100, unit: 'px' },
+  { path: 'filters.hueRotate', label: 'Hue rotate', type: 'number', min: -180, max: 180, unit: '°' },
 
   /* Mask */
   { path: 'mask.enabled', label: 'Mask enabled', type: 'boolean' },
   { path: 'mask.type', label: 'Mask shape', type: 'enum', enumValues: ['rectangle', 'circle', 'ellipse', 'split', 'star', 'heart', 'film'] },
-  { path: 'mask.sizeX', label: 'Mask width', type: 'number', min: 1, max: 200, unit: '%', animatable: true },
-  { path: 'mask.sizeY', label: 'Mask height', type: 'number', min: 1, max: 200, unit: '%', animatable: true },
-  { path: 'mask.offsetX', label: 'Mask offset X', type: 'number', min: -100, max: 100, unit: '%', animatable: true },
-  { path: 'mask.offsetY', label: 'Mask offset Y', type: 'number', min: -100, max: 100, unit: '%', animatable: true },
+  { path: 'mask.sizeX', label: 'Mask width', type: 'number', min: 1, max: 200, unit: '%' },
+  { path: 'mask.sizeY', label: 'Mask height', type: 'number', min: 1, max: 200, unit: '%' },
+  { path: 'mask.offsetX', label: 'Mask offset X', type: 'number', min: -100, max: 100, unit: '%' },
+  { path: 'mask.offsetY', label: 'Mask offset Y', type: 'number', min: -100, max: 100, unit: '%' },
   { path: 'mask.roundness', label: 'Mask roundness', type: 'number', min: 0, max: 400 },
   { path: 'mask.featherPx', label: 'Mask feather', type: 'number', min: 0, max: 200, unit: 'px' },
   { path: 'mask.inverted', label: 'Mask inverted', type: 'boolean' },
@@ -103,7 +103,7 @@ export const PROPERTY_SCHEMA: PropertySchema[] = [
   { path: 'motionBlur.samples', label: 'Blur samples', type: 'number', min: 2, max: 16 },
 
   /* Audio */
-  { path: 'audio.volume', label: 'Volume', type: 'number', min: 0, max: 4, step: 0.01, animatable: true },
+  { path: 'audio.volume', label: 'Volume', type: 'number', min: 0, max: 4, step: 0.01 },
   { path: 'audio.fadeInMs', label: 'Fade in', type: 'number', min: 0, max: 20000, unit: 'ms' },
   { path: 'audio.fadeOutMs', label: 'Fade out', type: 'number', min: 0, max: 20000, unit: 'ms' },
   { path: 'audio.pitch', label: 'Pitch', type: 'number', min: -24, max: 24, unit: 'st' },
@@ -121,7 +121,7 @@ export const PROPERTY_SCHEMA: PropertySchema[] = [
   /* Text */
   { path: 'textStyle.text', label: 'Text content', type: 'string', appliesTo: ['text'] },
   { path: 'textStyle.fontFamily', label: 'Font family', type: 'string', appliesTo: ['text'] },
-  { path: 'textStyle.fontSize', label: 'Font size', type: 'number', min: 6, max: 500, unit: 'px', appliesTo: ['text'], animatable: true },
+  { path: 'textStyle.fontSize', label: 'Font size', type: 'number', min: 6, max: 500, unit: 'px', appliesTo: ['text'] },
   { path: 'textStyle.fontWeight', label: 'Font weight', type: 'number', min: 100, max: 900, step: 100, appliesTo: ['text'] },
   { path: 'textStyle.italic', label: 'Italic', type: 'boolean', appliesTo: ['text'] },
   { path: 'textStyle.uppercase', label: 'Uppercase', type: 'boolean', appliesTo: ['text'] },
@@ -153,12 +153,12 @@ export const PROPERTY_SCHEMA: PropertySchema[] = [
   },
   { path: 'shapeStyle.fill', label: 'Fill', type: 'color', appliesTo: ['shape'] },
   { path: 'shapeStyle.stroke', label: 'Stroke', type: 'color', appliesTo: ['shape'] },
-  { path: 'shapeStyle.strokeWidth', label: 'Stroke width', type: 'number', min: 0, max: 100, appliesTo: ['shape'], animatable: true },
+  { path: 'shapeStyle.strokeWidth', label: 'Stroke width', type: 'number', min: 0, max: 100, appliesTo: ['shape'] },
   { path: 'shapeStyle.cornerRadius', label: 'Corner radius', type: 'number', min: 0, max: 500, appliesTo: ['shape'] },
   { path: 'shapeStyle.points', label: 'Point count', type: 'number', min: 3, max: 24, appliesTo: ['shape'] },
   { path: 'shapeStyle.innerRatio', label: 'Star inner ratio', type: 'number', min: 0.05, max: 1, step: 0.01, appliesTo: ['shape'] },
-  { path: 'shapeStyle.trimStart', label: 'Trim start', type: 'number', min: 0, max: 1, step: 0.01, appliesTo: ['shape'], animatable: true },
-  { path: 'shapeStyle.trimEnd', label: 'Trim end', type: 'number', min: 0, max: 1, step: 0.01, appliesTo: ['shape'], animatable: true },
+  { path: 'shapeStyle.trimStart', label: 'Trim start', type: 'number', min: 0, max: 1, step: 0.01, appliesTo: ['shape'] },
+  { path: 'shapeStyle.trimEnd', label: 'Trim end', type: 'number', min: 0, max: 1, step: 0.01, appliesTo: ['shape'] },
   { path: 'shapeStyle.pathData', label: 'SVG path data', type: 'string', appliesTo: ['shape'] },
 
   /* Motion path */
@@ -167,6 +167,23 @@ export const PROPERTY_SCHEMA: PropertySchema[] = [
   { path: 'motionPath.closed', label: 'Closed path', type: 'boolean' },
   { path: 'motionPath.easing', label: 'Path easing', type: 'enum', enumValues: ['linear', 'hold', 'easeIn', 'easeOut', 'easeInOut', 'bezier'] },
 ];
+
+/*
+  `animatable` used to be a hand-written flag on each entry, and it drifted:
+  twenty-four properties claimed it while exactly seven could be keyframed,
+  so `list_properties` told an agent to animate a filter and `add_keyframes`
+  then refused the name. Deriving it from ANIMATABLE_PROPERTIES means the
+  claim and the capability are the same fact.
+*/
+const ANIMATABLE_PATHS = new Set<string>([
+  ...ANIMATABLE_PROPERTIES,
+  ...Object.keys(KEYFRAME_PATH_ALIASES),
+]);
+
+export const PROPERTY_SCHEMA: PropertySchema[] = PROPERTY_SCHEMA_BASE.map((p) =>
+  ANIMATABLE_PATHS.has(p.path) ? { ...p, animatable: true } : p
+);
+
 
 const SCHEMA_BY_PATH = new Map(PROPERTY_SCHEMA.map((s) => [s.path, s]));
 
