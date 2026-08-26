@@ -26,6 +26,7 @@
 import React from 'react';
 import { useProjectStore } from '../../store/projectStore';
 import { useRecentsStore, RecentProject } from '../../store/recentsStore';
+import { KerfMark } from '../ui/KerfMark';
 import { buildStarterProject } from '../../engine/starterProject';
 import { useClaudeAgentStore } from '../../store/claudeAgentStore';
 import { useUiStore } from '../../store/uiStore';
@@ -142,6 +143,12 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
           <div className="flex items-center gap-2.5">
             <span className="w-7 h-7 rounded-squircle-sm bg-spectrum-accent/15 border border-spectrum-accentLine flex items-center justify-center">
               <Film className="w-4 h-4 text-spectrum-accent" />
+            </span>
+            <span
+              className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center shadow-raised flex-shrink-0"
+              style={{ background: 'linear-gradient(145deg,#6ba5ff,#3a6ff0)' }}
+            >
+              <KerfMark className="w-[15px] h-[15px]" />
             </span>
             <span className="text-ui-lg font-semibold text-spectrum-text tracking-tight">Kerf</span>
           </div>
