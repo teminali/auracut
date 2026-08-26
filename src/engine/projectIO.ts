@@ -10,7 +10,7 @@ import { useTimelineStore } from '../store/timelineStore';
 import { useProjectStore } from '../store/projectStore';
 import { Track, TimelineMarker, MediaAsset, ProjectSettings, createClip, Clip } from '../types/edl';
 
-const FORMAT_VERSION = 2;
+export const FORMAT_VERSION = 2;
 
 /* ═══════════════════════════════════════════════════════════════════
    Migration.
@@ -34,7 +34,7 @@ const FORMAT_VERSION = 2;
    nothing, because `createClip` already backfills those.
    ═══════════════════════════════════════════════════════════════════ */
 
-type AnyFile = Record<string, unknown>;
+export type AnyFile = Record<string, unknown>;
 
 const MIGRATIONS: Record<number, (file: AnyFile) => AnyFile> = {
   /*
@@ -46,7 +46,9 @@ const MIGRATIONS: Record<number, (file: AnyFile) => AnyFile> = {
   1: (file) => ({ ...file, version: 2 }),
 };
 
-function migrate(file: AnyFile): { file: AnyFile; from: number; steps: number } {
+/* Exported for the format tests: this is the whole ladder, and it is
+   decidable without a store, a file or a running app. */
+export function migrateProjectFile(file: AnyFile): { file: AnyFile; from: number; steps: number } {
   const from = typeof file.version === 'number' && file.version > 0 ? file.version : 1;
   let current: AnyFile = { ...file, version: from };
   let steps = 0;
@@ -105,6 +107,17 @@ export function deserializeProject(json: string): LoadResult {
     return { ok: false, error: 'That file is not valid JSON.' };
   }
 
+  /*
+    `null` is valid JSON, so it clears the try/catch above and then
+    throws a TypeError on the property read — the one input that could
+    make this function raise instead of returning a LoadResult, which
+    every caller assumes it never does. A four-byte truncated file, or an
+    autosave slot written as "null", is enough. Found by the unit tests.
+  */
+  if (parsed === null || typeof parsed !== 'object') {
+    return { ok: false, error: 'That is not a Kerf project file.' };
+  }
+
   const raw = parsed as AnyFile;
   if (raw.format !== 'kerf.project') {
     return { ok: false, error: 'That is not a Kerf project file.' };
@@ -126,7 +139,7 @@ export function deserializeProject(json: string): LoadResult {
     };
   }
 
-  const { file: upgraded, from, steps } = migrate(raw);
+  const { file: upgraded, from, steps } = migrateProjectFile(raw);
   if (from < FORMAT_VERSION && steps === 0) {
     return {
       ok: false,

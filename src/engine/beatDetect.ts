@@ -27,8 +27,13 @@ export interface BeatDetectionResult {
   durationMs: number;
 }
 
-const HOP_SIZE = 512;
-const TARGET_RATE = 22050;
+/*
+  Exported so the analysis chain can be tested without WebAudio. Only
+  `detectBeats` needs a browser; everything below it is arithmetic on a
+  Float32Array, and that is the part that was wrong for months.
+*/
+export const HOP_SIZE = 512;
+export const TARGET_RATE = 22050;
 
 let sharedContext: AudioContext | null = null;
 
@@ -79,7 +84,7 @@ async function loadMono(url: string): Promise<{ samples: Float32Array; sampleRat
 }
 
 /** Frame-wise energy rise — a cheap stand-in for spectral flux. */
-function computeNovelty(samples: Float32Array): Float32Array {
+export function computeNovelty(samples: Float32Array): Float32Array {
   const frames = Math.floor(samples.length / HOP_SIZE);
   const energy = new Float32Array(frames);
 
@@ -107,7 +112,7 @@ function computeNovelty(samples: Float32Array): Float32Array {
 }
 
 /** Peaks that clear a local moving average by a margin. */
-function pickOnsets(novelty: Float32Array, frameMs: number): number[] {
+export function pickOnsets(novelty: Float32Array, frameMs: number): number[] {
   const WINDOW = 24;
   const MIN_GAP_FRAMES = Math.max(2, Math.round(90 / frameMs)); // ≥90ms apart
   const onsets: number[] = [];
@@ -150,7 +155,7 @@ const TEMPO_SIGMA_OCTAVES = 0.55;
     before it is allowed to move a beat off the grid. */
 const ANCHOR_STRENGTH_RATIO = 0.6;
 
-function tempoPrior(bpm: number): number {
+export function tempoPrior(bpm: number): number {
   const octaves = Math.log2(bpm / TEMPO_CENTRE_BPM) / TEMPO_SIGMA_OCTAVES;
   return Math.exp(-0.5 * octaves * octaves);
 }
@@ -183,7 +188,7 @@ function tempoPrior(bpm: number): number {
  * pattern between the beats, plus the brand-film bed: the onset-train
  * estimator got 4 of 13 within 3%, this gets 13 of 13.
  */
-function estimateBpm(novelty: Float32Array, frameMs: number): number {
+export function estimateBpm(novelty: Float32Array, frameMs: number): number {
   const MIN_BPM = 70;
   const MAX_BPM = 190;
   const minLag = Math.max(1, Math.round(60000 / MAX_BPM / frameMs));
@@ -286,7 +291,7 @@ function estimateBpm(novelty: Float32Array, frameMs: number): number {
  * the true beat fell from 87.5ms to 9.0ms — from two and a half frames
  * to a quarter of one.
  */
-function buildBeatGrid(
+export function buildBeatGrid(
   onsetFrames: number[],
   bpm: number,
   frameMs: number,
@@ -294,7 +299,18 @@ function buildBeatGrid(
   novelty: Float32Array
 ): { beats: number[]; anchored: number } {
   const periodFrames = 60000 / bpm / frameMs;
-  if (periodFrames <= 0 || totalFrames <= 0) return { beats: [], anchored: 0 };
+  /*
+    `bpm === 0` makes periodFrames Infinity, which a `<= 0` guard lets
+    through — and the phase search below then steps `candidate` by 0.25
+    towards a bound it can never reach, hanging the renderer with no
+    error. Unreachable from `detectBeats`, because `estimateBpm` clamps
+    to 70..190, so this never fired in the app; it fires the moment
+    anything else calls in with a user-supplied or unset tempo. Found by
+    the unit tests, which hung on it.
+  */
+  if (!Number.isFinite(periodFrames) || periodFrames <= 0 || totalFrames <= 0) {
+    return { beats: [], anchored: 0 };
+  }
 
   const onsets = [...onsetFrames].sort((a, b) => a - b);
 
