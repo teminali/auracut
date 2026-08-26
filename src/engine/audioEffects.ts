@@ -58,6 +58,49 @@ export interface VoiceChain {
   applied: string[];
 }
 
+/* ── The pitch worklet ─────────────────────────────────────────────
+
+   `addModule` is async and `buildVoiceChain` is not, so the module is
+   loaded per context and remembered. A chain built before the module
+   lands simply has no pitch node in it — and `pitchReady` is threaded
+   through so the caller can SAY that rather than quietly omitting it,
+   which is the failure this whole module exists to end.               */
+
+const workletLoaded = new WeakMap<BaseAudioContext, Promise<boolean>>();
+
+export function ensurePitchWorklet(ctx: BaseAudioContext): Promise<boolean> {
+  const existing = workletLoaded.get(ctx);
+  if (existing) return existing;
+
+  const ctxWithWorklet = ctx as BaseAudioContext & { audioWorklet?: AudioWorklet };
+  if (!ctxWithWorklet.audioWorklet) {
+    const no = Promise.resolve(false);
+    workletLoaded.set(ctx, no);
+    return no;
+  }
+
+  /*
+    `new URL(..., import.meta.url)` is what makes this work in the dev
+    server AND in the packaged build: Vite rewrites it to the emitted
+    asset's real path either way. A bare relative string resolves against
+    the document in dev and against the asar root when packaged, and the
+    packaged one is the build nobody runs until it matters.
+  */
+  const url = new URL('./pitchWorklet.js', import.meta.url).href;
+  const loading = ctxWithWorklet
+    .audioWorklet!.addModule(url)
+    .then(() => true)
+    .catch((err: unknown) => {
+      // Loud, not silent: without this the preview drops pitch and the
+      // only symptom is that it sounds wrong.
+      console.error('[Kerf] pitch worklet failed to load; playback cannot pitch-shift', err);
+      return false;
+    });
+
+  workletLoaded.set(ctx, loading);
+  return loading;
+}
+
 /**
  * Butterworth, expressed the way WebAudio wants it: DECIBELS.
  *
@@ -106,25 +149,18 @@ export interface UnpreviewableSetting {
 export function unpreviewableAudio(a: ClipAudioSettings): UnpreviewableSetting[] {
   const out: UnpreviewableSetting[] = [];
 
-  if (a.pitch !== 0) {
-    out.push({
-      setting: 'pitch',
-      short: `Pitch (${a.pitch > 0 ? '+' : ''}${a.pitch} st) is in the export, not in playback.`,
-      why:
-        'Playback streams each clip through an <audio> element, whose only pitch control is ' +
-        'playbackRate — and that moves speed with it. Shifting pitch alone needs ' +
-        'AudioBufferSourceNode.detune, i.e. decoding whole clips into memory.',
-    });
-  }
-  if (a.voiceEffect === 'deep' || a.voiceEffect === 'high') {
-    out.push({
-      setting: 'voiceEffect',
-      short: `The "${a.voiceEffect}" voice effect is in the export, not in playback.`,
-      why:
-        `It is a ${a.voiceEffect === 'deep' ? '-5' : '+5'} semitone shift, so it runs into the ` +
-        'same limit as pitch: an element cannot be retuned without also being sped up.',
-    });
-  }
+  /*
+    `pitch`, `deep` and `high` USED to be listed here.
+
+    They are previewed now. The reasoning that put them on this list —
+    that moving pitch without moving speed needs
+    `AudioBufferSourceNode.detune` and therefore decoding whole clips
+    into memory — was true of that technique and not of the problem.
+    `pitchWorklet.js` is a granular shifter running in an AudioWorklet:
+    it reads a delay line faster or slower than it is written and
+    crossfades two heads over the seam, so it processes a streamed
+    element exactly as well as a buffer. No decode, no memory budget.
+  */
   if (a.noiseReduction) {
     out.push({
       setting: 'noiseReduction',
@@ -198,7 +234,11 @@ function aecho(
  * pass-through gain, so the caller never has to special-case "no chain"
  * and the graph shape does not change when a setting is cleared.
  */
-export function buildVoiceChain(ctx: BaseAudioContext, a: ClipAudioSettings): VoiceChain {
+export function buildVoiceChain(
+  ctx: BaseAudioContext,
+  a: ClipAudioSettings,
+  opts: { pitchReady?: boolean } = {}
+): VoiceChain {
   const nodes: AudioNode[] = [];
   const applied: string[] = [];
 
@@ -209,7 +249,35 @@ export function buildVoiceChain(ctx: BaseAudioContext, a: ClipAudioSettings): Vo
   let tail: AudioNode = input;
   const chain = (n: AudioNode) => { tail.connect(n); tail = n; nodes.push(n); };
 
+  /*
+    Pitch first, so everything after it filters the shifted signal — the
+    same order the export builds: afftdn, pitch, then the voice effect.
+    `deep` and `high` are ±5 semitones of exactly this machinery, which
+    is why they stopped being unpreviewable the moment it existed.
+  */
+  const semitones =
+    (a.pitch ?? 0) +
+    (a.voiceEffect === 'deep' ? -5 : a.voiceEffect === 'high' ? 5 : 0);
+
+  if (semitones !== 0 && opts.pitchReady) {
+    const shifter = new AudioWorkletNode(ctx as AudioContext, 'kerf-pitch', {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+    });
+    shifter.parameters.get('semitones')!.value = semitones;
+    chain(shifter);
+    if (a.pitch) applied.push(`pitch ${a.pitch > 0 ? '+' : ''}${a.pitch}`);
+    if (a.voiceEffect === 'deep' || a.voiceEffect === 'high') applied.push(a.voiceEffect);
+  }
+
   switch (a.voiceEffect as VoiceEffect) {
+    // deep and high are handled above as a pitch shift; there is nothing
+    // further to add for them.
+    case 'deep':
+    case 'high':
+      break;
+
     case 'telephone': {
       // Render: highpass=f=400, lowpass=f=3200, volume=1.4
       const hp = ctx.createBiquadFilter();
@@ -319,12 +387,15 @@ export function disposeChain(chain: VoiceChain): void {
  * this, switching a clip to `telephone` mid-session did nothing until the
  * voice happened to be released for another reason.
  *
- * `volume`, the fades, `pitch` and `noiseReduction` are deliberately NOT
- * in here: volume and fades are written per frame as gain, and the other
- * two build no nodes.
+ * `volume`, the fades and `noiseReduction` are deliberately NOT in here:
+ * volume and fades are written per frame as gain, and noise reduction
+ * builds no nodes because playback cannot do it at all.
  */
 export function chainSignature(a: ClipAudioSettings): string {
-  return a.voiceEffect ?? 'none';
+  // `pitch` is in here now. It builds a node, so changing it has to
+  // rebuild the chain — without this, dragging the pitch slider moved a
+  // number nothing was reading.
+  return `${a.voiceEffect ?? 'none'}:${a.pitch ?? 0}`;
 }
 
 /* ── Ducking ───────────────────────────────────────────────────────
@@ -422,12 +493,14 @@ export async function measureChain(
   for (const hz of PROBE_HZ) {
     const ctx = offlineCtx(Math.round(sampleRate * 0.5), sampleRate);
     if (!ctx) return null;
+    // Each OfflineAudioContext needs its own copy of the module.
+    const pitchReady = await ensurePitchWorklet(ctx);
 
     const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.value = hz;
 
-    const chain = buildVoiceChain(ctx, a);
+    const chain = buildVoiceChain(ctx, a, { pitchReady });
     applied = chain.applied;
     osc.connect(chain.input);
     chain.output.connect(ctx.destination);
@@ -449,7 +522,8 @@ export async function measureChain(
   buf.getChannelData(0)[0] = 1;
   const src = irCtx.createBufferSource();
   src.buffer = buf;
-  const irChain = buildVoiceChain(irCtx, a);
+  const irPitchReady = await ensurePitchWorklet(irCtx);
+  const irChain = buildVoiceChain(irCtx, a, { pitchReady: irPitchReady });
   src.connect(irChain.input);
   irChain.output.connect(irCtx.destination);
   src.start();

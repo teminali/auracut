@@ -23,6 +23,7 @@ import { Track, Clip } from '../types/edl';
 import {
   VoiceChain,
   buildVoiceChain,
+  ensurePitchWorklet,
   chainSignature,
   disposeChain,
   duckGainFor,
@@ -62,6 +63,9 @@ class AudioPlaybackEngine {
   private keyBus: GainNode | null = null;
   private keyAnalyser: AnalyserNode | null = null;
   private duckBuffer = new Float32Array(1024);
+
+  /** Whether the pitch worklet has loaded; chains built before it lack pitch. */
+  private pitchReady = false;
 
   private voices = new Map<string, Voice>();
   private levelBuffer = new Float32Array(1024);
@@ -106,6 +110,21 @@ class AudioPlaybackEngine {
     this.keyAnalyser.fftSize = 2048;
     this.keyAnalyser.smoothingTimeConstant = 0;
     this.keyBus.connect(this.keyAnalyser);
+
+    /*
+      The pitch worklet loads asynchronously, and any voice built before
+      it lands has no shifter in it. Rather than leave those silently
+      unpitched, drop them when the module arrives so the next frame
+      rebuilds them — `sync` runs every frame, so "next frame" is ~16ms.
+    */
+    void ensurePitchWorklet(this.ctx).then((ok) => {
+      this.pitchReady = ok;
+      if (!ok) return;
+      for (const [clipId, voice] of this.voices) {
+        if (voice.sig.endsWith(':0') && !/deep|high/.test(voice.sig)) continue;
+        this.release(clipId);
+      }
+    });
 
     return this.ctx;
   }
@@ -152,7 +171,7 @@ class AudioPlaybackEngine {
     const gain = ctx.createGain();
     gain.gain.value = 0;
 
-    const chain = buildVoiceChain(ctx, clip.audio);
+    const chain = buildVoiceChain(ctx, clip.audio, { pitchReady: this.pitchReady });
     source.connect(chain.input);
     chain.output.connect(gain);
 
@@ -189,7 +208,7 @@ class AudioPlaybackEngine {
     if (sig !== voice.sig) {
       try { voice.source.disconnect(); } catch { /* already detached */ }
       disposeChain(voice.chain);
-      voice.chain = buildVoiceChain(ctx, clip.audio);
+      voice.chain = buildVoiceChain(ctx, clip.audio, { pitchReady: this.pitchReady });
       voice.source.connect(voice.chain.input);
       voice.chain.output.connect(voice.gain);
       voice.sig = sig;

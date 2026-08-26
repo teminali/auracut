@@ -200,13 +200,58 @@ check('robot · named as an approximation',
       any('robot' in a for a in ok(call('describe_audio_preview', {}), 'd')['approximations']),
       'listed under approximations, not claimed identical')
 
+# ── 4b. pitch — the preview must now MATCH the render ───────────────
+#      NEXT.md §1 said this needed a new playback architecture. It needed
+#      a different technique: a granular shifter in an AudioWorklet reads
+#      a delay line off-rate and crossfades the seam, so it works on the
+#      streamed element with no decode and no memory budget.
+#
+#      A tone in, and the fundamental out of BOTH engines. That is the
+#      claim that matters — the two will not match sample for sample,
+#      because ffmpeg resamples and time-stretches instead.
+TONE = write_wav(os.path.join(TMP, 'tone440.wav'),
+                 np.sin(2 * np.pi * 440 * np.arange(int(SR * 2.5)) / SR) * 0.5)
+
+def dominant_hz(x, lo=80, hi=4000):
+    seg = x[int(0.6 * SR):int(2.0 * SR)]
+    spec = np.abs(np.fft.rfft(seg * np.hanning(len(seg))))
+    f = np.fft.rfftfreq(len(seg), 1 / SR)
+    m = (f >= lo) & (f <= hi)
+    return float(f[m][int(np.argmax(spec[m]))])
+
+for label, props, semis in (
+    ('pitch +7',  {'audio.pitch': 7},              7),
+    ('pitch -7',  {'audio.pitch': -7},            -7),
+    ('deep',      {'audio.voiceEffect': 'deep'},  -5),
+    ('high',      {'audio.voiceEffect': 'high'},   5),
+):
+    want = 440 * (2 ** (semis / 12))
+    cid, x = render(TONE, label.replace(' ', '_').replace('+', 'p'), props)
+    rendered = dominant_hz(x)
+    p = preview(cid)
+
+    check(f'{label} · the RENDER shifts the fundamental',
+          abs(rendered - want) / want < 0.04,
+          f'440 -> {rendered:.1f}Hz, want {want:.1f}Hz')
+    check(f'{label} · the preview declares it applied',
+          p['previewMatchesRender'] and any(str(semis) in a or label.split()[0] in a
+                                            for a in p['previewApplies']),
+          f"previewApplies={p['previewApplies']}, matchesRender={p['previewMatchesRender']}")
+    # And the preview chain really shifts: its measured band gains move,
+    # because a 440Hz tone through it comes out somewhere else entirely.
+    m = p['measured']
+    check(f'{label} · the preview chain is NOT transparent',
+          abs(m['impulsePeak'] - 1.0) > 0.001 or any(abs(v) > 0.5 for v in m['bandDb'].values()),
+          f"peak={m['impulsePeak']}, bands moved")
+
 # ── 5. what the preview CANNOT do ───────────────────────────────────
 #     Declared, AND transparent, AND actually different in the render.
 dry = noise_dry
+#     pitch, deep and high used to be in this list. They are previewed
+#     now — see section 4b. noiseReduction is what is left: ffmpeg's
+#     afftdn is a spectral subtraction with a learned noise profile and
+#     WebAudio has no equivalent.
 for label, props, key in (
-    ('pitch +7',        {'audio.pitch': 7},                     'pitch'),
-    ('deep',            {'audio.voiceEffect': 'deep'},          'deep'),
-    ('high',            {'audio.voiceEffect': 'high'},          'high'),
     ('noiseReduction',  {'audio.noiseReduction': True},         'noise'),
 ):
     cid, x = render(NOISE, label.replace(' ', '_').replace('+', 'p'), props)

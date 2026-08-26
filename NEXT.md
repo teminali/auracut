@@ -161,7 +161,7 @@ Note also that Vite HMR full-reloads the page on some edits, which resets
 ### Verifying
 
 ```bash
-npm run verify          # all twelve suites, 295 checks, own Kerf, exits non-zero
+npm run verify          # all twelve suites, 298 checks, own Kerf, exits non-zero
 npm test                # 166 unit tests, no app needed
 ```
 
@@ -171,7 +171,7 @@ To drive one suite by hand against an instance you already have running:
 KERF_RPC_PORT=<port> python3 tools/verify_keyframes.py
 ```
 
-295 checks across twelve suites. All are green in dev **and in the packaged app**, in any
+298 checks across twelve suites. All are green in dev **and in the packaged app**, in any
 order, and green again if you run the whole set a second time against the
 same running app. Run them before you start and after you finish; if one
 is red before you have touched anything, that is the finding.
@@ -203,44 +203,47 @@ frame timing or encode noise. 28/28, every row at Δ0.000.
 
 ---
 
-## 1. Pitch in playback needs a different playback architecture
+## 1. Done — pitch in playback, without decoding anything
 
-**What was done.** Playback ignored `pitch`, `voiceEffect`,
-`noiseReduction` and `ducking` while the export applied all four, so the
-preview quietly disagreed with the render. Four of those now match, one is
-a labelled approximation, and the rest are declared rather than faked:
+This section used to say pitch needed `AudioBufferSourceNode.detune`,
+i.e. decoding each clip to a buffer, ~100MB for a ten-minute track, "a
+change to the playback architecture, not an addition to it".
 
-| setting | playback | evidence |
-|---|---|---|
-| `telephone` | matches the render | transfer functions agree to **0.41dB**, 100Hz–12kHz |
-| `echo` | matches the render | taps at 0/180/340ms in the rendered file AND the preview |
-| `stadium` | matches the render | taps at 0/420/780/1200ms in both |
-| `robot` | approximation, said so | ffmpeg sweeps its own delay line; this sweeps a `DelayNode` |
-| `ducking` | approximation, said so | same threshold/ratio, key bus measured per frame not per sample |
-| `pitch`, `deep`, `high` | **declared, not faked** | preview measures transparent; the render measurably differs |
-| `noiseReduction` | **declared, not faked** | same |
+**The premise was too narrow.** `detune` is one way to move pitch; it is
+not the only one. `src/engine/pitchWorklet.js` is a granular shifter in
+an AudioWorklet: it reads a delay line faster or slower than it is
+written and crossfades two heads half a grain apart, so the seam always
+falls where a head is silent. It processes whatever samples arrive, so a
+`MediaElementAudioSourceNode` works exactly as well as a buffer. No
+decode, no memory budget, no eviction, and the streaming architecture is
+untouched.
 
-`src/engine/audioEffects.ts`, `describe_audio_preview`, an amber panel in
-the Audio inspector, and `tools/verify_playback_audio.py` (26 checks,
-which measure BOTH engines and compare them).
+`pitch`, `deep` and `high` are previewed now, and measured on both
+engines by `verify_playback_audio.py`:
 
-**What is left, and it is the hard part that was always hard.** `pitch`
-and the `deep`/`high` effects need pitch moved without moving speed. A
-voice is a `MediaElementAudioSourceNode` around an `<audio>` element,
-whose only pitch control is `playbackRate`, which moves both. Doing it
-properly means `AudioBufferSourceNode.detune`, i.e. decoding clips to
-buffers — ~100MB for a ten-minute track, which is exactly why playback
-streams from elements. That is a change to the playback architecture, not
-an addition to it, and it should not be started without deciding what
-happens to memory on a long timeline.
+    pitch +7   render 440 -> 659.3Hz   (want 659.3)
+    pitch -7   render 440 -> 293.6Hz   (want 293.7)
+    deep       render 440 -> 329.3Hz   (want 329.6)
+    high       render 440 -> 587.1Hz   (want 587.3)
 
-`noiseReduction` has no WebAudio equivalent at all. A gate and a shelf
-would produce something that is not what `afftdn` produces, which is the
-failure this work ended rather than a smaller version of it.
+The preview's shifter lands within ~0.5% of the same targets. It is
+listed as an APPROXIMATION rather than a match, because ffmpeg resamples
+and time-stretches (`asetrate` + `atempo`) where this runs grains — the
+fundamental and the duration agree, the samples do not.
 
-**If you do take it on:** `buildVoiceChain` already takes any
-`BaseAudioContext`, which is what makes the chain measurable offline. Keep
-that. It is the only reason there is a test at all.
+**`noiseReduction` is the only thing left that the preview cannot do.**
+ffmpeg's `afftdn` is a spectral subtraction with a learned noise profile
+and WebAudio has no equivalent. A gate and a shelf would produce
+something that is not what the render produces, which is the failure this
+work ended rather than a smaller version of it. It stays declared.
+
+**If you touch the shifter:** the sign of the read-head drift is the
+whole thing. Raising pitch means reading FASTER, which SHRINKS the lag
+behind the write head — `offset -= ratio - 1`. Getting it backwards
+inverts the effect and is not subtle: +12 semitones came out at 85Hz
+against a wanted 880. Caught before integration by running the inner
+loop standalone against a 440Hz sine, which is a cheaper place to find
+it than a live audio graph.
 
 ## 2. Closed — the packaged/dev encode gap does not reproduce
 

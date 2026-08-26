@@ -3364,9 +3364,15 @@ defineTool({
       const a = clip.audio;
       const notPreviewed = unpreviewableAudio(a).map((u) => `${u.short} ${u.why}`);
       const applied: string[] = [];
-      if (a.voiceEffect && a.voiceEffect !== 'none' && a.voiceEffect !== 'deep' && a.voiceEffect !== 'high') {
-        applied.push(a.voiceEffect);
-      }
+      /*
+        `deep` and `high` were excluded here because playback could not
+        pitch-shift. It can now — they are ±5 semitones through the same
+        AudioWorklet as `pitch` — so excluding them would under-report
+        what the preview does, which is the same class of error as
+        over-reporting it.
+      */
+      if (a.voiceEffect && a.voiceEffect !== 'none') applied.push(a.voiceEffect);
+      if (a.pitch) applied.push(`pitch ${a.pitch > 0 ? '+' : ''}${a.pitch}`);
       if (a.ducking && duckingActive) applied.push('ducking');
       if (a.ducking && !duckingActive) {
         notPreviewed.push(
@@ -3410,6 +3416,9 @@ defineTool({
          not belong in previewCannotApply, but "matches" would be too
          strong a word for either of them. */
       approximations: [
+        'pitch, deep and high — the render resamples and time-stretches (asetrate + atempo); ' +
+        'the preview runs a granular shifter in an AudioWorklet. The fundamental lands within ' +
+        '~0.5% either way and the duration is unchanged, but they are not the same samples',
         'robot — the render uses ffmpeg vibrato; the preview sweeps a delay line. Same rate ' +
         'and depth, not the same samples',
         'ducking — the render sidechains per sample; the preview measures the key bus once ' +
