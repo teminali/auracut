@@ -633,7 +633,7 @@ whether they are green or red, so the runner parses their summary lines
 rather than trusting exit codes; a `&&` chain would report success on a
 red run.
 
-`tools/` — eight suites, 107 checks, run against a live Kerf:
+`tools/` — ten suites, 219 checks, run against a live Kerf:
 
     verify_keyframes.py       28   every animatable property, on pixels
     verify_gpu.py              6   chroma key, despill, displacement
@@ -643,6 +643,8 @@ red run.
     verify_ffmpeg_bridge.py   12   every operation, against written files
     verify_playback_audio.py  26   preview vs render, both measured (§3c)
     verify_frame_context.py    8   mediaPending, on a race it must win
+    verify_montage.py         38   cuts on beats, measured in the exported file
+    verify_altitude.py        74   look presets and PiP geometry, on pixels
 
 All green in dev **and in the packaged app**. Every check measures the
 artifact — rendered pixels, exported audio, a file on disk — because

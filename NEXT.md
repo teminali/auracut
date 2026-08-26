@@ -109,14 +109,17 @@ Note also that Vite HMR full-reloads the page on some edits, which resets
 ### Verifying
 
 ```bash
-for f in verify_keyframes verify_gpu verify_audio verify_project_format \
-         verify_tools verify_ffmpeg_bridge verify_playback_audio \
-         verify_frame_context; do
-  echo -n "$f: "; python3 tools/$f.py | tail -1
-done
+npm run verify          # all ten suites, 219 checks, ~29s, own Kerf, exits non-zero
+npm test                # 166 unit tests, no app needed
 ```
 
-107 checks across eight suites. All are green in dev **and in the packaged app**, in any
+To drive one suite by hand against an instance you already have running:
+
+```bash
+KERF_RPC_PORT=<port> python3 tools/verify_keyframes.py
+```
+
+219 checks across ten suites. All are green in dev **and in the packaged app**, in any
 order, and green again if you run the whole set a second time against the
 same running app. Run them before you start and after you finish; if one
 is red before you have touched anything, that is the finding.
@@ -315,19 +318,32 @@ once you have watched it finish.
 
 ## 6. Still not started, from the original plan
 
-These predate the last two sessions and nothing has changed about them.
-
 - **Crash and error reporting** (Stage 1.3). You still learn about
   failures by looking for them.
 - **Windows and Linux.** CI builds them; nobody has run either.
 - **Performance at scale.** Long timelines, hundreds of clips, memory over
   a long session — all still unmeasured. The export is now instrumented;
   nothing else is.
-- **The altitude tools** (Stage 3.9): `analyze_reference_video`,
-  `create_picture_in_picture`, `apply_look_preset`, `auto_montage_to_beats`,
-  `batch_apply`, `assemble_from_folder`. `analyze_reference_video` is the
-  flagship and the natural first skill — the last session did that job by
-  hand in ~20 improvised calls, which is exactly the argument for it.
+- **The altitude tools** (Stage 3.9) — **five of six are done.**
+  `apply_look_preset`, `batch_apply`, `create_picture_in_picture`,
+  `auto_montage_to_beats` and `assemble_from_folder` shipped in `adb77e0`,
+  with `verify_montage.py` (38) and `verify_altitude.py` (74, plus 25
+  under `--selftest`). `analyze_reference_video` — the flagship and the
+  natural first skill — is the one still open.
+
+  Three limits those tools found and REPORT rather than hide, worth
+  knowing before building on them:
+  - `patch_clip`/`patch_clips` write straight through a lock, while
+    `splitClip`, `trimClip`, `moveClip` and `updateClipTransform` all
+    honour it. Not reconciled; the new tools skip locked clips by default
+    and offer `includeLocked`.
+  - Four filters render nothing on a `text` clip (`temperature`, `tint`,
+    `vignette`, `grain` sit under `if (clip.type !== 'text')`), and the
+    tone filters have nothing to act on over an `adjustment` layer, which
+    fills `rgba(0,0,0,0)`. Reported per clip as `inertProperties`.
+  - `cornerRadiusPx` and `shadow` cannot both render: the rounded mask is
+    a hard `ctx.clip()` set before the draw, and `drop_shadow` sets
+    `ctx.shadowBlur` on the same context.
 
 ---
 
