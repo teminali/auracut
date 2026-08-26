@@ -41,6 +41,13 @@ import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
 import { followToolCall } from '../engine/agentPresence';
 import { buildStarterProject, STARTER_NAME } from '../engine/starterProject';
 import { deserializeProject } from '../engine/projectIO';
+import {
+  LOOK_PRESETS, getLookPreset, lookPresetIds, applyLookToClips,
+} from '../engine/lookPresets';
+import { selectClips, runBatchApply } from '../engine/batchApply';
+import {
+  PIP_CORNERS, PIP_FIT_MODE, computePipGeometry, buildPipPatch,
+} from '../engine/pictureInPicture';
 
 /* ── Tool definition ────────────────────────────────────────────── */
 
@@ -1958,6 +1965,423 @@ defineTool({
       width: p.width,
       height: p.height,
       fps: p.fps,
+    };
+  },
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   ALTITUDE — one call where the agent used to improvise six and check
+
+   Rule of thumb from HANDOVER §5: if the agent needed more than six
+   calls and a verification step, it should have been one tool. All the
+   logic lives in `src/engine/{lookPresets,batchApply,pictureInPicture}.ts`;
+   these blocks are argument validation and reporting.
+   ═══════════════════════════════════════════════════════════════════ */
+
+defineTool({
+  name: 'apply_look_preset',
+  category: 'effects',
+  description:
+    'Apply a named colour grade across many clips in one call. Presets: '
+    + LOOK_PRESETS.map((p) => `${p.id} (${p.description})`).join(' · ')
+    + '. Every value is a filters.* path the compositor is proven to render — nothing here is '
+    + 'stored-but-inert. Returns the exact grade, which clips got it, which were skipped and why, '
+    + 'and what must change in the rendered frame if it worked, so you can check it with '
+    + 'get_frame_context instead of trusting this result.',
+  schema: z.object({
+    preset: z.string().describe(`One of: ${lookPresetIds().join(', ')}`),
+    strength: z.number().min(0).max(2).optional()
+      .describe('Scales the whole grade. 1 = as designed, 0.5 = half, 0 = neutral. Default 1.'),
+    mode: z.enum(['replace', 'additive']).optional()
+      .describe('replace (default) writes all 13 filters so two looks cannot compound invisibly; '
+        + 'additive adds the preset on top of whatever grade is already there'),
+    clipIds: z.array(z.string()).optional().describe('Explicit clips; overrides every other selector'),
+    tracks: z.array(z.string()).optional().describe('Track ids or names'),
+    clipTypes: z.array(z.string()).optional()
+      .describe(`Override the default (video, image, sticker). One of: ${CLIP_TYPES.join(', ')}`),
+    nameMatch: z.string().optional().describe('Substring, or /regex/ with slashes'),
+    startMs: z.number().optional(),
+    endMs: z.number().optional(),
+    selectedOnly: z.boolean().optional(),
+    includeLocked: z.boolean().optional().describe('Grade locked clips too. Default false.'),
+  }),
+  handler: (a) => {
+    const preset = getLookPreset(a.preset);
+    if (!preset) {
+      throw new Error(
+        `Kerf has no look preset called "${a.preset}". Available: `
+        + LOOK_PRESETS.map((p) => `${p.id} — ${p.label}`).join(', ') + '.'
+      );
+    }
+    const strength = a.strength ?? 1;
+    const gradableTypes = a.clipTypes?.map((t) => oneOf(t, CLIP_TYPES, 'clip type'));
+
+    const state = timeline();
+    const selection = selectClips(state.tracks, state.selectedClipIds, {
+      clipIds: a.clipIds?.map((r) => resolveClipId(r)),
+      tracks: a.tracks,
+      /* The type filter is applied by the GRADER, not by the selector:
+         a clip excluded by the selector is reported as "did not match",
+         which is true but useless when the real answer is "a text clip
+         cannot draw a temperature wash". */
+      nameMatch: a.nameMatch,
+      startMs: a.startMs,
+      endMs: a.endMs,
+      selectedOnly: a.selectedOnly,
+    });
+
+    if (selection.matched.length === 0) {
+      throw new Error(
+        `No clip matched, so nothing was graded. ${selection.totalClips} clip(s) were examined; `
+        + selection.predicates.map((p) => `${p.predicate}="${p.value}" excluded ${p.excluded}`).join(', ')
+        + '.'
+      );
+    }
+
+    const result = applyLookToClips(
+      preset,
+      selection.matched,
+      { strength, mode: a.mode ?? 'replace', includeLocked: a.includeLocked === true, gradableTypes },
+      (id, values) => timeline().patchClip(id, values)
+    );
+
+    if (result.appliedTo === 0) {
+      throw new Error(
+        `"${preset.id}" reached no clip. ${result.skipped.length} candidate(s) were skipped: `
+        + result.skipped.map((s) => `${s.name} — ${s.reason}`).join('; ')
+      );
+    }
+
+    return {
+      ...result,
+      examined: selection.totalClips,
+      matched: selection.matched.length,
+      rejectedByPredicate: selection.rejected.length,
+      predicates: selection.predicates,
+      verifyWith:
+        'get_frame_context({ includeImage: true }) — wait for mediaPending: 0, then check the '
+        + '`expect` rows above against the picture.',
+    };
+  },
+});
+
+defineTool({
+  name: 'batch_apply',
+  category: 'properties',
+  description:
+    'Apply the same property patch to every clip matching a predicate — track, type, name, time '
+    + 'range or selection — in one call. Unlike patch_clips it reports EVERY clip individually: '
+    + 'the ones it changed with before/after values, the ones it matched but did not write and why '
+    + '(locked clip, locked track, no valid property for that clip type), and the ones the predicate '
+    + 'excluded with the predicate that did it. Locked clips are skipped by default; patch_clip '
+    + 'writes straight through a lock. Use dryRun to see the plan before committing to it.',
+  schema: z.object({
+    properties: z.record(z.any()).describe('Map of property path → value, same paths as patch_clip'),
+    clipIds: z.array(z.string()).optional().describe('Explicit clips; overrides every other selector'),
+    tracks: z.array(z.string()).optional().describe('Track ids or names'),
+    clipTypes: z.array(z.string()).optional().describe(`One of: ${CLIP_TYPES.join(', ')}`),
+    nameMatch: z.string().optional().describe('Substring (case-insensitive), or /regex/ with slashes'),
+    startMs: z.number().optional().describe('Start of the time window, ms'),
+    endMs: z.number().optional().describe('End of the time window, ms'),
+    timeMode: z.enum(['overlap', 'contained']).optional()
+      .describe('overlap (default) takes any clip touching the window; contained needs it wholly inside'),
+    selectedOnly: z.boolean().optional().describe('Restrict to the current selection'),
+    relative: z.boolean().optional().describe('Treat numbers as deltas on each clip\'s current value'),
+    dryRun: z.boolean().optional().describe('Report what WOULD change without writing anything'),
+    includeLocked: z.boolean().optional().describe('Write through locks. Default false.'),
+    includeHidden: z.boolean().optional().describe('Default true — hidden clips are still edited.'),
+    limit: z.number().int().min(1).optional().describe('Stop after this many clips; the rest are reported as skipped'),
+  }),
+  handler: (a) => {
+    if (Object.keys(a.properties).length === 0) {
+      throw new Error('batch_apply needs at least one property. Nothing was changed.');
+    }
+    const state = timeline();
+    const selection = selectClips(state.tracks, state.selectedClipIds, {
+      clipIds: a.clipIds?.map((r) => resolveClipId(r)),
+      tracks: a.tracks,
+      clipTypes: a.clipTypes?.map((t) => oneOf(t, CLIP_TYPES, 'clip type')),
+      nameMatch: a.nameMatch,
+      startMs: a.startMs,
+      endMs: a.endMs,
+      timeMode: a.timeMode,
+      selectedOnly: a.selectedOnly,
+    });
+
+    if (selection.matched.length === 0) {
+      /* "0 clips updated" with no reason is the failure mode this whole
+         tool is a reaction to, so an empty match is an error carrying the
+         arithmetic that produced it. */
+      throw new Error(
+        `No clip matched, so nothing was changed. ${selection.totalClips} clip(s) examined; `
+        + (selection.predicates.length
+          ? selection.predicates.map((p) => `${p.predicate}="${p.value}" excluded ${p.excluded}`).join(', ')
+          : 'the project has no clips')
+        + '.'
+      );
+    }
+
+    return runBatchApply(selection, a.properties, {
+      relative: a.relative,
+      dryRun: a.dryRun,
+      includeLocked: a.includeLocked,
+      includeHidden: a.includeHidden,
+      limit: a.limit,
+    }, (id, values) => timeline().patchClip(id, values));
+  },
+});
+
+defineTool({
+  name: 'create_picture_in_picture',
+  category: 'graphics',
+  description:
+    'Place one clip as an inset over another — corner or explicit position, size as a fraction of '
+    + 'the frame, optional border, corner radius and drop shadow. The inset is scaled UNIFORMLY from '
+    + 'its own source aspect ratio, so a portrait source in a landscape sequence is letterboxed by '
+    + 'size rather than squashed to fit. Returns the measured box in project pixels and as a '
+    + 'percentage of the frame, plus where the aspect ratio came from — if the media has not decoded '
+    + 'yet that is said out loud rather than guessed.',
+  schema: z.object({
+    insetClipId: z.string().optional().describe('An existing clip to turn into the inset'),
+    insetAssetId: z.string().optional().describe('Media-pool asset id or name; inserted on a new top track'),
+    backgroundClipId: z.string().optional()
+      .describe('The clip the inset sits over. Omit to detect the bottom-most visible clip at the inset\'s start.'),
+    corner: z.enum(PIP_CORNERS).optional().describe('Default top-right'),
+    positionPct: z.object({ x: z.number(), y: z.number() }).optional()
+      .describe('Inset CENTRE as a percentage of frame width/height. Overrides corner.'),
+    sizePct: z.number().min(2).max(100).optional().describe('Inset width as % of frame width. Default 30.'),
+    marginPct: z.number().min(0).max(45).optional()
+      .describe('Gap from the frame edge as % of the frame\'s short edge. Default 4.'),
+    maxHeightPct: z.number().min(5).max(100).optional()
+      .describe('Ceiling on inset height as % of frame height. Default 80 — a tall source honours this over sizePct.'),
+    startTimeMs: z.number().optional().describe('Defaults to the background clip\'s start, else the playhead'),
+    durationMs: z.number().optional().describe('Defaults to the background clip\'s duration'),
+    cornerRadiusPx: z.number().min(0).optional().describe('Rounded corners, in project pixels'),
+    border: z.object({
+      widthPx: z.number().min(0),
+      color: z.string().optional(),
+    }).optional(),
+    shadow: z.object({
+      blurPx: z.number().min(0),
+      opacity: z.number().min(0).max(100).optional(),
+      offsetX: z.number().optional(),
+      offsetY: z.number().optional(),
+      color: z.string().optional(),
+    }).optional().describe('Cannot be combined with cornerRadiusPx — the mask clips the shadow away'),
+    muteInsetAudio: z.boolean().optional().describe('Default true; two beds at once is almost never wanted'),
+    name: z.string().optional(),
+  }),
+  handler: (a) => {
+    const proj = project().project;
+    let state = timeline();
+
+    if (!a.insetClipId && !a.insetAssetId) {
+      throw new Error('Pass insetClipId (an existing clip) or insetAssetId (a media-pool asset). Nothing was changed.');
+    }
+    if (a.insetClipId && a.insetAssetId) {
+      throw new Error('Pass either insetClipId or insetAssetId, not both.');
+    }
+
+    /* ── the background, resolved BEFORE anything is inserted ──────
+       Once the inset exists it is itself a candidate, and "the clip
+       under the playhead" would happily return the inset. */
+    const wantedStart = a.startTimeMs;
+    let background: { clip: Clip; trackIndex: number; trackName: string } | null = null;
+    if (a.backgroundClipId) {
+      const id = resolveClipId(a.backgroundClipId);
+      for (const t of state.tracks) {
+        const c = t.clips.find((x) => x.id === id);
+        if (c) background = { clip: c, trackIndex: t.index, trackName: t.name };
+      }
+    } else {
+      const at = wantedStart ?? state.playheadMs;
+      const candidates: { clip: Clip; trackIndex: number; trackName: string }[] = [];
+      for (const t of state.tracks) {
+        if (t.type === 'audio') continue;
+        for (const c of t.clips) {
+          if (c.type === 'audio' || c.hidden) continue;
+          if (at >= c.startTimeMs && at < c.startTimeMs + c.durationMs) {
+            candidates.push({ clip: c, trackIndex: t.index, trackName: t.name });
+          }
+        }
+      }
+      /* Highest track index paints FIRST, so it is the bottom layer —
+         which is the one a PiP sits over. */
+      candidates.sort((x, y) => y.trackIndex - x.trackIndex);
+      background = candidates[0] ?? null;
+    }
+
+    const startTimeMs = a.startTimeMs ?? background?.clip.startTimeMs ?? state.playheadMs;
+
+    /* ── the inset ─────────────────────────────────────────────── */
+    let insetId: string;
+    let insetTrackId: string;
+    let createdTrack = false;
+    if (a.insetAssetId) {
+      const ref = a.insetAssetId;
+      const asset =
+        state.mediaPool.find((m) => m.id === ref) ??
+        state.mediaPool.find((m) => m.name.toLowerCase().includes(ref.toLowerCase()));
+      if (!asset) {
+        throw new Error(
+          `No media asset "${ref}". In the pool: ${state.mediaPool.map((m) => m.name).join(', ') || 'nothing'}.`
+        );
+      }
+      if (asset.type === 'audio') {
+        throw new Error(`"${asset.name}" is an audio asset and cannot be a picture-in-picture inset.`);
+      }
+      // A new track unshifts to index 0, which is the top of the stack.
+      insetTrackId = state.addTrack('video', a.name ?? 'PiP');
+      createdTrack = true;
+      insetId = timeline().insertClip(insetTrackId, asset, startTimeMs);
+    } else {
+      insetId = resolveClipId(a.insetClipId);
+      const found = timeline().tracks.find((t) => t.clips.some((c) => c.id === insetId));
+      if (!found) throw new Error(`Clip "${insetId}" disappeared mid-operation.`);
+      insetTrackId = found.id;
+    }
+
+    state = timeline();
+    if (background && background.clip.id === insetId) {
+      throw new Error('The inset and the background resolved to the same clip. Pass backgroundClipId explicitly.');
+    }
+
+    const insetTrack = state.tracks.find((t) => t.id === insetTrackId)!;
+    let clip = findClipById(state.tracks, insetId);
+    if (!clip) throw new Error(`Clip "${insetId}" disappeared mid-operation.`);
+
+    const warnings: string[] = [];
+    if (clip.locked || insetTrack.locked) {
+      throw new Error(
+        `The inset clip${insetTrack.locked ? '\'s track' : ''} is locked, so nothing was moved. Unlock it first.`
+      );
+    }
+
+    /* ── geometry ──────────────────────────────────────────────── */
+    const geometry = computePipGeometry({
+      project: proj,
+      clip,
+      natural: getNaturalSize(clip),
+      sizePct: a.sizePct ?? 30,
+      marginPct: a.marginPct ?? 4,
+      maxHeightPct: a.maxHeightPct ?? 80,
+      corner: a.corner,
+      positionPct: a.positionPct,
+    });
+    warnings.push(...geometry.warnings);
+
+    const durationMs = a.durationMs ?? background?.clip.durationMs;
+    const patch = buildPipPatch(geometry, {
+      cornerRadiusPx: a.cornerRadiusPx,
+      border: a.border ? { widthPx: a.border.widthPx, color: a.border.color ?? '#ffffff' } : undefined,
+      shadow: a.shadow
+        ? {
+            blurPx: a.shadow.blurPx,
+            opacity: a.shadow.opacity ?? 60,
+            offsetX: a.shadow.offsetX,
+            offsetY: a.shadow.offsetY,
+            color: a.shadow.color,
+          }
+        : undefined,
+    }, {
+      name: a.name,
+      startTimeMs,
+      durationMs,
+      muteAudio: a.muteInsetAudio !== false,
+    });
+    warnings.push(...patch.warnings);
+
+    const applied = timeline().patchClip(insetId, patch.properties);
+    if (applied.applied.length === 0) {
+      throw new Error(`Nothing could be written to the inset: ${applied.errors.join('; ')}`);
+    }
+    if (applied.errors.length > 0) warnings.push(...new Set(applied.errors));
+
+    /* Re-running the tool must not stack a second border on the first. */
+    const removedEffects: string[] = [];
+    for (const type of ['outline', 'drop_shadow']) {
+      if (timeline().removeEffect(insetId, type) > 0) removedEffects.push(type);
+    }
+    const addedEffects: string[] = [];
+    for (const fx of patch.effects) {
+      const id = timeline().addEffect(insetId, fx.type, fx.params);
+      if (id) addedEffects.push(fx.type);
+      else warnings.push(`Could not add the ${fx.type} effect to the inset.`);
+    }
+
+    /* ── z-order, measured rather than assumed ─────────────────── */
+    const finalState = timeline();
+    const finalInsetTrack = finalState.tracks.find((t) => t.id === insetTrackId)!;
+    let bgIndex: number | null = null;
+    if (background) {
+      for (const t of finalState.tracks) {
+        if (t.clips.some((c) => c.id === background!.clip.id)) bgIndex = t.index;
+      }
+    }
+    const insetOnTop = bgIndex === null ? null : finalInsetTrack.index < bgIndex;
+    if (insetOnTop === false) {
+      warnings.push(
+        `The inset is on track index ${finalInsetTrack.index} and the background is on ${bgIndex}. `
+        + 'Lower indices paint on top, so the inset will render BEHIND the background. '
+        + 'Move it to a track above, or pass insetAssetId to have one made.'
+      );
+    }
+    if (background === null) {
+      warnings.push(
+        'No background clip was visible at the inset\'s start time, so the inset is over the project '
+        + 'background colour and its timing was not aligned to anything.'
+      );
+    }
+
+    clip = findClipById(finalState.tracks, insetId)!;
+
+    return {
+      clipId: insetId,
+      trackId: insetTrackId,
+      trackCreated: createdTrack,
+      name: clip.name,
+      backgroundClipId: background?.clip.id ?? null,
+      backgroundName: background?.clip.name ?? null,
+      insetOnTop,
+      startTimeMs,
+      durationMs: clip.durationMs,
+      placement: a.positionPct ? 'explicit' : (a.corner ?? 'top-right'),
+      /* Everything a caller needs to check the picture without a second
+         round trip — the same numbers `get_frame_context` reports as
+         layer bounds. */
+      box: {
+        widthPx: Math.round(geometry.width),
+        heightPx: Math.round(geometry.height),
+        centerXPx: Math.round(geometry.centerX),
+        centerYPx: Math.round(geometry.centerY),
+        leftPx: Math.round(geometry.centerX - geometry.width / 2),
+        topPx: Math.round(geometry.centerY - geometry.height / 2),
+        widthPctOfFrame: Math.round((geometry.width / proj.width) * 1000) / 10,
+        heightPctOfFrame: Math.round((geometry.height / proj.height) * 1000) / 10,
+        marginPx: Math.round(geometry.marginPx),
+      },
+      aspect: {
+        source: Math.round(geometry.sourceAspect * 1000) / 1000,
+        rendered: Math.round(geometry.renderedAspect * 1000) / 1000,
+        knownFrom: geometry.aspectSource,
+        uniformScale: geometry.scaleX === geometry.scaleY,
+      },
+      transform: {
+        x: geometry.transformX, y: geometry.transformY,
+        scaleX: Math.round(geometry.scaleX * 10000) / 10000,
+        scaleY: Math.round(geometry.scaleY * 10000) / 10000,
+        fitMode: PIP_FIT_MODE,
+      },
+      ...(geometry.constrainedBy ? { constrainedBy: geometry.constrainedBy } : {}),
+      effects: addedEffects,
+      ...(removedEffects.length ? { replacedEffects: removedEffects } : {}),
+      cornerRadiusPx: a.cornerRadiusPx ?? 0,
+      /* Every path this call wrote, so "it reported a box" and "it moved
+         the clip" are separable facts. `mask.enabled` is always written —
+         to false when there is no corner radius — because a PiP must not
+         inherit a mask the clip happened to be carrying. */
+      propertiesWritten: applied.applied,
+      ...(warnings.length ? { warnings } : {}),
     };
   },
 });
