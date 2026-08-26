@@ -24,6 +24,7 @@
    need to know which half broke.
    ═══════════════════════════════════════════════════════════════════ */
 
+import { ffmpegSource } from './mediaPath';
 import { spawn, execFile } from 'child_process';
 import { app } from 'electron';
 import path from 'path';
@@ -215,9 +216,7 @@ function mixArgsFor(clips: ExportClipAudio[], outPath: string): string[] {
   const filters: string[] = [];
 
   clips.forEach((clip, i) => {
-    const source = clip.mediaUrl.startsWith('file://')
-      ? decodeURIComponent(clip.mediaUrl.replace('file://', ''))
-      : clip.mediaUrl;
+    const source = ffmpegSource(clip.mediaUrl);
 
     /*
       Remote hosts often refuse ffmpeg's default identity. The demo
@@ -307,7 +306,7 @@ async function buildAudioMix(clips: ExportClipAudio[], outPath: string): Promise
 
   // Something failed. Find out which sources, rather than guessing.
   const sources = clips.map((c) =>
-    c.mediaUrl.startsWith('file://') ? decodeURIComponent(c.mediaUrl.replace('file://', '')) : c.mediaUrl
+    ffmpegSource(c.mediaUrl)
   );
   const reasons = await Promise.all(sources.map((src) => probeSource(ff, src)));
 

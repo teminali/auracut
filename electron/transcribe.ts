@@ -15,6 +15,7 @@
    Never invent words.
    ═══════════════════════════════════════════════════════════════════ */
 
+import { ffmpegSource } from './mediaPath';
 import { execFile, execFileSync, spawn } from 'child_process';
 import { app } from 'electron';
 import path from 'path';
@@ -206,9 +207,7 @@ export async function transcribeMedia(
     /* ── 1. Extract mono 16 kHz PCM, which is what Whisper wants ── */
     options.onProgress?.(5, 'Extracting audio…');
 
-    const source = options.mediaUrl.startsWith('file://')
-      ? decodeURIComponent(options.mediaUrl.replace('file://', ''))
-      : options.mediaUrl;
+    const source = ffmpegSource(options.mediaUrl);
 
     await new Promise<void>((resolve, reject) => {
       execFile(
@@ -370,9 +369,7 @@ export async function analyzeAudio(
     };
   }
 
-  const source = mediaUrl.startsWith('file://')
-    ? decodeURIComponent(mediaUrl.replace('file://', ''))
-    : mediaUrl;
+  const source = ffmpegSource(mediaUrl);
 
   // One pass, three filters: loudness, statistics, silence regions.
   const filter =

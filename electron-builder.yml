@@ -26,10 +26,23 @@ files:
   - package.json
   - '!**/*.map'
 
-# The MCP shim is launched as its own process by Claude Code, so it has to
-# exist as a real file. Paths inside app.asar are not spawnable.
+# Anything a SEPARATE PROCESS has to open has to exist as a real file.
+# Paths inside app.asar are not spawnable and not readable — asar is a
+# virtual filesystem that only Electron's patched `fs` understands, so to
+# anyone else `app.asar` is a file and a path through it is "Not a
+# directory".
+#
+#  - the MCP shim, because Claude Code spawns it;
+#  - bundled audio and video, because ffmpeg reads them from the main
+#    process. The starter project's music bed is one of these: it played
+#    fine in the renderer and exported silent, because the renderer can
+#    read inside the archive and ffmpeg cannot.
+#
+# Unpacking puts a copy under app.asar.unpacked; `ffmpegSource()` in
+# electron/mediaPath.ts is what redirects the path to it.
 asarUnpack:
   - dist-electron/mcpStdio.cjs
+  - dist/assets/*.{wav,mp3,m4a,aac,ogg,flac,opus,mp4,mov,webm,mkv,m4v}
 
 publish:
   provider: github

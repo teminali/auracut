@@ -434,22 +434,44 @@ draws; only the file proves the file, which is the whole lesson of §3.
 Both were used here: the frame tool for every composition decision, a real
 export plus an independent ffmpeg pass for the result.
 
-### Verified in dev. NOT yet verified packaged.
+### Packaged, and it found a fourth bug — as usual
 
-Everything above was measured against the dev build. This file's own
-lesson is that dev parity is not evidence, and two of these changes are
-squarely in the at-risk class:
+The dev build exported audio. **The packaged build exported silence**, and
+this file's own rule earned its keep again.
 
-- **`new URL('../assets/kerf_film_bed.wav', import.meta.url)`** resolves
-  to `http://localhost:…` in dev and `file://…` when packaged. ffmpeg
-  should open both; only the first has been seen to work.
-- **`absoluteMediaUrl`** resolves against `document.baseURI`, which is the
-  dev server in dev and a `file://` path when packaged.
+`asar` is a virtual filesystem that only Electron's patched `fs`
+understands. The renderer read the bundled music bed happily and played
+it; ffmpeg, which is a separate OS process in main, got
+`…/app.asar/dist/assets/kerf_film_bed-J12PoKff.wav` and reported **"Not a
+directory"** — because to anything outside Electron, `app.asar` is a file,
+not a folder. The failure mode is a film that has music in the app and
+none in the export.
 
-Both are on the audio path, which is precisely where a packaged-only
-failure would show up as a silent film rather than an error. Re-run
-`npm run build && npx electron-builder --mac --dir --publish never`,
-open the starter, export, and check `hasAudio` before believing any of it.
+`electron-builder.yml` already carried this exact lesson for the MCP
+shim — *"Paths inside app.asar are not spawnable"* — and it applies just
+as much to anything a separate process has to **read**. Fixed in two
+parts, because either alone does nothing:
+
+- `asarUnpack` now covers `dist/assets/*.{wav,mp3,…,mp4,mov,…}`, which
+  puts a real copy under `app.asar.unpacked`;
+- `electron/mediaPath.ts` — `ffmpegSource()` — redirects any path through
+  `app.asar` to that copy, and does the `file://` decode that four call
+  sites in `render.ts` and `transcribe.ts` were each doing by hand.
+
+Verified on the packaged `.app`, launched under Finder conditions
+(`env -i`, minimal PATH, LaunchServices): `open_starter_project` →
+`render_export` → `hasAudio: true`, `audio: {requested: 1, included: 1}`,
+no warnings. Independently on the file: 1920x1080, 345 frames, 11.500s,
+h264 + aac stereo, 13 cuts from 4.000s to 10.000s, audio -25.9 -> -8.3 dB
+with the impact the loudest beat, peak -0.5 dBFS.
+
+**And a process note worth more than the bug.** The first packaged retest
+"failed" identically after the fix. The fix was fine; `pkill` had not
+killed the old instance and `open -a` re-activated it, so the same
+pre-fix binary answered on 3888 both times. Check `ps -o lstart` against
+when the build finished before believing a packaged result — the port
+being answered is not evidence that the thing answering is the thing you
+just built.
 
 ### What the film is, and why it is shaped that way
 
