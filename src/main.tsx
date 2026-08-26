@@ -2,11 +2,16 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { App } from './App';
 import { registerToolBridge } from './engine/toolBridgeClient';
+import { ErrorBoundary, installGlobalErrorHandlers } from './components/ErrorBoundary';
 import './index.css';
 
 /* Serve external tool calls (Claude Code over MCP) from this process,
    which is the only one that holds the project. */
 registerToolBridge();
+
+/* Before the tree mounts, so a throw during the first render is recorded
+   rather than leaving a black window and nothing else. */
+installGlobalErrorHandlers();
 
 /* In development, expose the stores so the app can be driven from the console
    (and from automated smoke tests) without adding hooks to components. */
@@ -33,6 +38,8 @@ if (import.meta.env.DEV) {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );

@@ -318,8 +318,26 @@ once you have watched it finish.
 
 ## 6. Still not started, from the original plan
 
-- **Crash and error reporting** (Stage 1.3). You still learn about
-  failures by looking for them.
+- ~~**Crash and error reporting** (Stage 1.3)~~ — **done.** Failures now
+  land in `~/Library/Application Support/kerf/logs/kerf.log`: main's
+  `uncaughtException`/`unhandledRejection` (which had no handler at all),
+  `render-process-gone`, `child-process-gone`, `did-fail-load`,
+  `unresponsive`, renderer `console.error`, `window.onerror`, unhandled
+  rejections, and a React error boundary that records the component stack
+  — the one thing no console line carries.
+
+  The old logging was wrapped in `if (!app.isPackaged)`, which is
+  backwards: in development you have devtools and a terminal, and in the
+  packaged build you have neither. **The one build where a user meets a
+  crash was the one build that wrote nothing down.**
+
+  Nothing is uploaded. That is a product decision with privacy
+  consequences and belongs to whoever ships it, not to a logging module.
+
+  Verified by causing each failure rather than by reading the code: a
+  throw inside a `setTimeout`, a rejected promise, a `console.error`, and
+  a React component made to throw during render — all four recorded with
+  stacks, and the crash screen screenshotted.
 - **Windows and Linux.** CI builds them; nobody has run either.
 - **Performance at scale.** Long timelines, hundreds of clips, memory over
   a long session — all still unmeasured. The export is now instrumented;

@@ -82,6 +82,13 @@ export interface ElectronAPI {
     }) => Promise<{ ok: boolean; path?: string; bytes?: number; error?: string }>;
   };
 
+  /** Renderer failures, into the log file main owns. */
+  crash: {
+    report: (payload: { message: string; detail?: string; source?: string })
+      => Promise<{ ok: boolean; logPath: string }>;
+    logPath: () => Promise<string>;
+  };
+
   /** Screen state, so the window close button can mean the right thing. */
   ui: {
     setScreen: (screen: 'home' | 'editor') => Promise<boolean>;
@@ -176,6 +183,10 @@ const api: ElectronAPI = {
     process: (opts) => ipcRenderer.invoke('ffmpeg:process', opts),
   },
 
+  crash: {
+    report: (payload) => ipcRenderer.invoke('crash:report', payload),
+    logPath: () => ipcRenderer.invoke('crash:logPath'),
+  },
   ui: {
     setScreen: (screen) => ipcRenderer.invoke('ui:setScreen', { screen }),
     onGoHome: (cb) => {

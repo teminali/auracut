@@ -8,6 +8,7 @@ import { startExport, writeFrame, finishExport, cancelExport, ExportClipAudio, S
 import { ffmpegSource } from './mediaPath';
 import { execFile } from 'child_process';
 import { startRpcServer } from './rpcServer';
+import { initCrashLog, logEvent, crashLogPath } from './crashLog';
 import {
   startSession, stopSession, resetSession, isRunning, findClaudeCli, getCliVersion,
   writeMcpConfig, setBackend, getBackendId, listBackends, autoSelectBackend,
@@ -100,17 +101,32 @@ function createWindow() {
     void mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  /* In development, renderer errors are otherwise invisible from a
-     terminal — a crashed React tree just looks like a black window. */
-  if (!app.isPackaged) {
-    mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
-      console.log(`[renderer:${level}] ${message}  (${sourceId}:${line})`);
-    });
-    mainWindow.webContents.on('render-process-gone', (_e, details) =>
-      console.log('[renderer] gone:', JSON.stringify(details)));
-    mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) =>
-      console.log(`[renderer] did-fail-load ${code} ${desc} ${url}`));
-  }
+  /*
+    Renderer failures, to the terminal in development AND to the log file
+    always.
+
+    This block used to be wrapped in `if (!app.isPackaged)`, which is
+    backwards: in development you have devtools and a terminal, and in
+    the packaged build you have neither. The one build where a user meets
+    a crash was the one build that recorded nothing.
+  */
+  mainWindow.webContents.on('console-message', (_e, level, message, line, sourceId) => {
+    if (!app.isPackaged) console.log(`[renderer:${level}] ${message}  (${sourceId}:${line})`);
+    // level 3 is console.error. Logging every log line would bury the
+    // one entry that matters under the app's own chatter.
+    if (level >= 3) logEvent('renderer', 'error', message, `${sourceId}:${line}`);
+  });
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    if (!app.isPackaged) console.log('[renderer] gone:', JSON.stringify(details));
+    logEvent('renderer', 'error', `render process gone: ${details.reason}`, details);
+  });
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    if (!app.isPackaged) console.log(`[renderer] did-fail-load ${code} ${desc} ${url}`);
+    // -3 is ERR_ABORTED, which every ordinary in-app navigation reports.
+    if (code !== -3) logEvent('renderer', 'error', `did-fail-load ${code} ${desc}`, url);
+  });
+  mainWindow.webContents.on('unresponsive', () =>
+    logEvent('renderer', 'warn', 'window became unresponsive'));
 
   initAutoUpdater(mainWindow);
   setBridgeWindow(mainWindow);
@@ -393,6 +409,32 @@ function registerAgentIpc() {
   ipcMain.handle('claude:reset', () => { resetSession(); return true; });
 }
 
+/*
+  Before anything else, because a failure during startup is exactly the
+  one nobody could see. `initCrashLog` only touches `app.getPath`, which
+  is valid this early.
+*/
+initCrashLog();
+
+/*
+  The renderer's own failures.
+
+  `console-message` catches what React logs, but a `window.onerror` or an
+  unhandled promise rejection in the renderer does not necessarily reach
+  the console in a form that survives — and the error boundary wants to
+  record a component stack, which no console line carries.
+*/
+function registerCrashIpc(): void {
+  ipcMain.handle(
+    'crash:report',
+    (_e, payload: { message: string; detail?: string; source?: string }) => {
+      logEvent('renderer', 'error', payload.message, payload.detail);
+      return { ok: true, logPath: crashLogPath() };
+    }
+  );
+  ipcMain.handle('crash:logPath', () => crashLogPath());
+}
+
 app.whenReady().then(() => {
   /*
     Land on a backend that can answer. Defaulting blindly to Claude meant
@@ -403,6 +445,7 @@ app.whenReady().then(() => {
 
   initToolBridge();
   registerAgentIpc();
+  registerCrashIpc();
   // Only once the port is actually ours — see rpcServer's listen callback.
   startRpcServer(() => writeMcpConfig());
   createWindow();

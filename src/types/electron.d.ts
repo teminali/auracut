@@ -122,6 +122,12 @@ export interface KerfElectronAPI {
     }>;
   };
 
+  crash: {
+    /** Record a renderer failure in the log file main owns. */
+    report: (payload: { message: string; detail?: string; source?: string })
+      => Promise<{ ok: boolean; logPath: string }>;
+    logPath: () => Promise<string>;
+  };
   ui: {
     setScreen: (screen: 'home' | 'editor') => Promise<boolean>;
     onGoHome: (cb: () => void) => () => void;
