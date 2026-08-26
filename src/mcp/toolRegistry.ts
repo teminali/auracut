@@ -1626,6 +1626,202 @@ defineTool({
   },
 });
 
+/**
+ * Bring a file on disk into the media pool.
+ *
+ * Shared by `import_media_from_path` and `ffmpeg_process`, which would
+ * otherwise each have their own copy of the URL encoding and the probe —
+ * and the encoding is the sort of detail that gets fixed in one of two
+ * places.
+ */
+async function importMediaFromPath(filePath: string, name?: string): Promise<MediaAsset> {
+  if (!filePath.startsWith('/')) {
+    throw new Error(`Path must be absolute, got "${filePath}"`);
+  }
+
+  const fileName = name ?? filePath.split('/').pop() ?? 'Imported media';
+  const type = classifyByExtension(filePath);
+
+  /*
+    file:// works here because the window runs with webSecurity disabled;
+    the URL is kept as the asset's source so the compositor and the
+    exporter read the original file rather than a copy in memory.
+  */
+  const url = `file://${encodeURI(filePath).replace(/#/g, '%23')}`;
+  const probed = await probeMedia(url, type);
+
+  const asset: MediaAsset = {
+    id: `asset_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+    name: fileName,
+    type,
+    url,
+    thumbnailUrl: probed.thumbnailUrl,
+    durationMs: probed.durationMs,
+    width: probed.width,
+    height: probed.height,
+    fileSizeFormatted: '—',
+  };
+
+  timeline().addMediaAsset(asset);
+  return asset;
+}
+
+const FFMPEG_OPERATIONS = [
+  'stabilize', 'interpolate', 'denoise', 'sharpen', 'deflicker',
+  'reverse', 'speed', 'lut', 'extract_audio', 'custom',
+] as const;
+
+defineTool({
+  name: 'ffmpeg_process',
+  category: 'media',
+  description:
+    'Pre-render a media file through ffmpeg and import the result as a new asset. This is how ' +
+    'Kerf does the things the real-time compositor cannot: stabilise shaky footage, interpolate ' +
+    'to a higher frame rate, denoise, reverse, apply a .cube LUT. It writes a new file and leaves ' +
+    'the original untouched, so it is safe to try. Slower than real time on long clips — say so ' +
+    'before starting one. Operations: ' + FFMPEG_OPERATIONS.join(', ') + '. `custom` takes a raw ' +
+    'ffmpeg filtergraph in `filtergraph`, which is the escape hatch for anything not listed.',
+  schema: z.object({
+    source: z.string().optional()
+      .describe('Clip id, media asset id or name, or an absolute path. Defaults to the selected clip.'),
+    operation: z.string().describe(`One of: ${FFMPEG_OPERATIONS.join(', ')}`),
+    filtergraph: z.string().optional().describe('For operation "custom": a raw -vf filtergraph'),
+    audioFiltergraph: z.string().optional().describe('For operation "custom": a raw -af filtergraph'),
+    fps: z.number().optional().describe('Target rate for "interpolate"'),
+    amount: z.number().optional().describe('0..100 strength, where the operation takes one'),
+    speed: z.number().optional().describe('Multiplier for "speed"; 0.5 is half, 2 is double'),
+    lutPath: z.string().optional().describe('Absolute path to a .cube file for "lut"'),
+    replaceClip: z.boolean().optional()
+      .describe('Point the source clip at the processed file instead of only importing it'),
+  }),
+  handler: async ({ source, operation, filtergraph, audioFiltergraph, fps, amount, speed, lutPath, replaceClip }) => {
+    const api = (window as any).electronAPI;
+    if (!api?.ffmpeg?.process) throw new Error('ffmpeg processing needs the desktop bridge.');
+
+    const op = oneOf(operation, FFMPEG_OPERATIONS as unknown as string[], 'operation');
+    const state = timeline();
+
+    /* Resolve the source to a URL: a clip, a pool asset, or a path. */
+    let input: string | null = null;
+    let label = 'processed';
+    let sourceClipId: string | null = null;
+
+    if (source && /^(\/|file:|https?:)/.test(source)) {
+      input = source;
+      label = source.split('/').pop() ?? 'processed';
+    } else {
+      const clip = source
+        ? findClipById(state.tracks, resolveClipId(source))
+        : findClipById(state.tracks, resolveClipId(undefined));
+      if (clip?.mediaUrl) {
+        input = clip.mediaUrl;
+        label = clip.name;
+        sourceClipId = clip.id;
+      } else if (source) {
+        const asset = state.mediaPool.find((a) => a.id === source)
+          ?? state.mediaPool.find((a) => a.name.toLowerCase().includes(source.toLowerCase()));
+        if (asset) { input = asset.url; label = asset.name; }
+      }
+    }
+    if (!input) throw new Error('No media source to process. Pass a clip id, an asset name, or an absolute path.');
+
+    const strength = Math.max(0, Math.min(100, amount ?? 50)) / 100;
+    let vf: string | undefined;
+    let af: string | undefined;
+    let audioOnly = false;
+    let outFps: number | undefined;
+
+    switch (op) {
+      case 'stabilize': {
+        /* libvidstab is not in every ffmpeg build; `deshake` is, and it
+           needs no analysis pass.
+
+           `rx` and `ry` MUST be multiples of 16. ffmpeg's own help says
+           "from 0 to 64" and says nothing about the step, so the filter
+           accepts the value and then refuses to initialise with
+           "Error opening output files: Not yet implemented in FFmpeg,
+           patches welcome" — which names neither the filter nor the
+           parameter. */
+        const search = Math.max(16, Math.min(64, Math.round((16 + strength * 48) / 16) * 16));
+        vf = `deshake=rx=${search}:ry=${search}:edge=3`;
+        break;
+      }
+      case 'interpolate':
+        outFps = fps ?? 60;
+        vf = `minterpolate=fps=${outFps}:mi_mode=mci:mc_mode=aobmc:vsbmc=1`;
+        break;
+      case 'denoise':
+        vf = `hqdn3d=${(strength * 8).toFixed(1)}:${(strength * 6).toFixed(1)}:${(strength * 12).toFixed(1)}:${(strength * 9).toFixed(1)}`;
+        af = 'afftdn=nf=-25';
+        break;
+      case 'sharpen':
+        vf = `unsharp=5:5:${(strength * 2).toFixed(2)}:5:5:0`;
+        break;
+      case 'deflicker':
+        vf = 'deflicker=mode=pm:size=10';
+        break;
+      case 'reverse':
+        vf = 'reverse';
+        af = 'areverse';
+        break;
+      case 'speed': {
+        const mult = Math.max(0.1, Math.min(10, speed ?? 2));
+        vf = `setpts=${(1 / mult).toFixed(5)}*PTS`;
+        /* atempo only spans 0.5..2.0 per stage, so a bigger change chains. */
+        const stages: number[] = [];
+        let remaining = mult;
+        while (remaining > 2) { stages.push(2); remaining /= 2; }
+        while (remaining < 0.5) { stages.push(0.5); remaining /= 0.5; }
+        stages.push(remaining);
+        af = stages.map((x) => `atempo=${x.toFixed(5)}`).join(',');
+        break;
+      }
+      case 'lut': {
+        if (!lutPath) throw new Error('operation "lut" needs `lutPath` — an absolute path to a .cube file.');
+        /* `lut` used to be a free-form string on ClipFilters with no
+           vocabulary, no UI and no renderer, and was removed for it.
+           This is the version that actually applies one. */
+        vf = `lut3d=file='${lutPath.replace(/'/g, "\\'")}'`;
+        break;
+      }
+      case 'extract_audio':
+        audioOnly = true;
+        break;
+      case 'custom':
+        if (!filtergraph && !audioFiltergraph) {
+          throw new Error('operation "custom" needs `filtergraph` and/or `audioFiltergraph`.');
+        }
+        vf = filtergraph;
+        af = audioFiltergraph;
+        break;
+    }
+
+    const result = await api.ffmpeg.process({
+      input, vf, af, fps: outFps, audioOnly, name: `${label}-${op}`,
+    });
+    if (!result.ok) throw new Error(`ffmpeg could not process it: ${result.error}`);
+
+    const imported = await importMediaFromPath(result.path, `${label} (${op})`);
+
+    if (replaceClip && sourceClipId) {
+      state.patchClip(sourceClipId, { mediaUrl: imported.url });
+      timeline().commit(`Process ${label} (${op})`);
+    }
+
+    return {
+      operation: op,
+      outputPath: result.path,
+      bytes: result.bytes,
+      sizeMb: Number(((result.bytes ?? 0) / 1024 / 1024).toFixed(2)),
+      assetId: imported.id,
+      name: imported.name,
+      durationMs: imported.durationMs,
+      filtergraph: vf ?? af ?? '(none)',
+      ...(replaceClip && sourceClipId ? { replacedClip: sourceClipId } : {}),
+    };
+  },
+});
+
 defineTool({
   name: 'open_project',
   category: 'project',
@@ -2045,34 +2241,7 @@ defineTool({
     name: z.string().optional().describe('Display name; defaults to the file name'),
   }),
   handler: async ({ path: filePath, name }) => {
-    if (!filePath.startsWith('/')) {
-      throw new Error(`Path must be absolute, got "${filePath}"`);
-    }
-
-    const fileName = name ?? filePath.split('/').pop() ?? 'Imported media';
-    const type = classifyByExtension(filePath);
-
-    /*
-      file:// works here because the window runs with webSecurity disabled;
-      the URL is kept as the asset's source so the compositor and the
-      exporter read the original file rather than a copy in memory.
-    */
-    const url = `file://${encodeURI(filePath).replace(/#/g, '%23')}`;
-    const probed = await probeMedia(url, type);
-
-    const asset: MediaAsset = {
-      id: `asset_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
-      name: fileName,
-      type,
-      url,
-      thumbnailUrl: probed.thumbnailUrl,
-      durationMs: probed.durationMs,
-      width: probed.width,
-      height: probed.height,
-      fileSizeFormatted: '—',
-    };
-
-    timeline().addMediaAsset(asset);
+    const asset = await importMediaFromPath(filePath, name);
     return {
       assetId: asset.id,
       name: asset.name,

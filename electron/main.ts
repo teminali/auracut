@@ -3,8 +3,10 @@ import path from 'path';
 import http from 'http';
 import { initAutoUpdater } from './updater';
 import { initToolBridge, setBridgeWindow } from './toolBridge';
-import { transcribeMedia, transcriberStatus, analyzeAudio, setupTranscription } from './transcribe';
+import { transcribeMedia, transcriberStatus, analyzeAudio, setupTranscription, ffmpeg } from './transcribe';
 import { startExport, writeFrame, finishExport, cancelExport, ExportClipAudio, StartExportOptions } from './render';
+import { ffmpegSource } from './mediaPath';
+import { execFile } from 'child_process';
 import { startRpcServer } from './rpcServer';
 import {
   startSession, stopSession, resetSession, isRunning, findClaudeCli, getCliVersion,
@@ -229,6 +231,77 @@ function registerAgentIpc() {
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
+  });
+
+  /*
+    The ffmpeg bridge.
+
+    A large slice of "Kerf cannot do that" is really "the compositor
+    cannot do that in real time" — stabilisation, frame interpolation,
+    denoise, reverse, a 3D LUT. All of them ffmpeg does well, offline, to
+    a file. Pre-rendering to temp and importing the result turns a wall
+    into a wait.
+
+    The renderer supplies a FILTER STRING and named options, never argv.
+    Building the command here means a caller cannot reach `-f`, an output
+    path, or anything else that writes where it likes; the worst it can
+    express is a bad filtergraph, which fails with ffmpeg's own message.
+  */
+  ipcMain.handle('ffmpeg:process', async (_e, p: {
+    input: string;
+    vf?: string;
+    af?: string;
+    fps?: number;
+    codec?: 'h264' | 'prores';
+    noAudio?: boolean;
+    audioOnly?: boolean;
+    name?: string;
+  }) => {
+    const ff = ffmpeg();
+    if (!ff) return { ok: false, error: 'ffmpeg was not found.' };
+
+    const fs = await import('fs');
+    const os = await import('os');
+    const dir = path.join(os.tmpdir(), 'kerf-processed');
+    fs.mkdirSync(dir, { recursive: true });
+
+    const safe = path.basename(p.name || 'processed').replace(/[^\w.\-]+/g, '_') || 'processed';
+    const ext = p.audioOnly ? 'wav' : p.codec === 'prores' ? 'mov' : 'mp4';
+    const outPath = path.join(dir, `${Date.now().toString(36)}_${safe}.${ext}`);
+
+    const args = ['-y', '-nostdin', '-i', ffmpegSource(p.input)];
+    if (p.vf) args.push('-vf', p.vf);
+    if (p.af) args.push('-af', p.af);
+    if (p.fps) args.push('-r', String(p.fps));
+
+    if (p.audioOnly) {
+      args.push('-vn', '-c:a', 'pcm_s16le', '-ar', '48000');
+    } else {
+      if (p.noAudio) args.push('-an');
+      else args.push('-c:a', 'aac', '-b:a', '256k');
+      if (p.codec === 'prores') args.push('-c:v', 'prores_ks', '-profile:v', '3');
+      else args.push('-c:v', 'libx264', '-crf', '16', '-preset', 'medium', '-pix_fmt', 'yuv420p');
+    }
+    args.push(outPath);
+
+    return await new Promise((resolve) => {
+      execFile(ff, args, { timeout: 15 * 60_000, maxBuffer: 1024 * 1024 }, (err, _o, stderr) => {
+        const text = (stderr || '').trim();
+        if (err || !fs.existsSync(outPath)) {
+          resolve({
+            ok: false,
+            error: text.split('\n').filter(Boolean).slice(-3).join(' ') || (err as Error)?.message || 'ffmpeg failed.',
+          });
+          return;
+        }
+        const size = fs.statSync(outPath).size;
+        if (size === 0) {
+          resolve({ ok: false, error: 'ffmpeg produced an empty file.' });
+          return;
+        }
+        resolve({ ok: true, path: outPath, bytes: size });
+      });
+    });
   });
 
   ipcMain.handle('audio:analyze', async (_e, p: { mediaUrl: string; silenceThresholdDb?: number; minSilenceMs?: number }) =>

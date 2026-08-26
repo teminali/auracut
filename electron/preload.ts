@@ -56,6 +56,13 @@ export interface ElectronAPI {
     read: (path: string) => Promise<{ ok: boolean; json?: string; error?: string }>;
   };
 
+  ffmpeg: {
+    process: (opts: {
+      input: string; vf?: string; af?: string; fps?: number;
+      codec?: 'h264' | 'prores'; noAudio?: boolean; audioOnly?: boolean; name?: string;
+    }) => Promise<{ ok: boolean; path?: string; bytes?: number; error?: string }>;
+  };
+
   /** Screen state, so the window close button can mean the right thing. */
   ui: {
     setScreen: (screen: 'home' | 'editor') => Promise<boolean>;
@@ -143,6 +150,10 @@ const api: ElectronAPI = {
 
   project: {
     read: (filePath) => ipcRenderer.invoke('project:read', { path: filePath }),
+  },
+
+  ffmpeg: {
+    process: (opts) => ipcRenderer.invoke('ffmpeg:process', opts),
   },
 
   ui: {
