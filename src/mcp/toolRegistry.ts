@@ -43,7 +43,7 @@ export interface ToolContext {
   agentName: string;
 }
 
-export interface AuraTool<S extends z.ZodTypeAny = z.ZodTypeAny> {
+export interface KerfTool<S extends z.ZodTypeAny = z.ZodTypeAny> {
   name: string;
   description: string;
   category: 'discovery' | 'timeline' | 'properties' | 'effects' | 'graphics' | 'audio' | 'ai' | 'project' | 'media';
@@ -51,10 +51,10 @@ export interface AuraTool<S extends z.ZodTypeAny = z.ZodTypeAny> {
   handler: (args: z.infer<S>, ctx: ToolContext) => Promise<unknown> | unknown;
 }
 
-const tools: AuraTool[] = [];
+const tools: KerfTool[] = [];
 
-function defineTool<S extends z.ZodTypeAny>(tool: AuraTool<S>): void {
-  tools.push(tool as unknown as AuraTool);
+function defineTool<S extends z.ZodTypeAny>(tool: KerfTool<S>): void {
+  tools.push(tool as unknown as KerfTool);
 }
 
 /* ── Helpers ────────────────────────────────────────────────────── */
@@ -127,7 +127,7 @@ function oneOf<T extends string>(
 ): T {
   if ((allowed as readonly string[]).includes(value)) return value as T;
   throw new Error(
-    `AuraCut has no ${label} called "${value}". Supported: ${allowed.join(', ')}.`
+    `Kerf has no ${label} called "${value}". Supported: ${allowed.join(', ')}.`
   );
 }
 
@@ -1189,9 +1189,9 @@ defineTool({
         reason: result.message,
         suggestion:
           result.reason === 'no-whisper' || result.reason === 'no-model'
-            ? 'Bundle a Whisper model with AuraCut, or ship whisper.cpp, so captions work with no setup'
+            ? 'Bundle a Whisper model with Kerf, or ship whisper.cpp, so captions work with no setup'
             : result.reason === 'no-ffmpeg'
-              ? 'Bundle an ffmpeg binary with AuraCut'
+              ? 'Bundle an ffmpeg binary with Kerf'
               : undefined,
       });
       throw new Error(result.message);
@@ -1447,7 +1447,7 @@ defineTool({
   description:
     'Match the caption text against the names and transcripts of the media already in the ' +
     'project, and propose cutaways where a line and an asset agree. Only ever suggests media ' +
-    'the project actually contains — AuraCut has no stock library — and says which word matched ' +
+    'the project actually contains — Kerf has no stock library — and says which word matched ' +
     'what, so the basis is checkable. Returns nothing rather than guessing.',
   schema: z.object({ insert: z.boolean().optional().describe('Also place the suggestions on the overlay track') }),
   handler: ({ insert }) => {
@@ -1520,7 +1520,7 @@ defineTool({
         supported rates then fell through its cases.
       */
       if (!(FPS_VALUES as readonly number[]).includes(fps)) {
-        throw new Error(`AuraCut renders at ${FPS_VALUES.join(', ')} fps. "${fps}" is not one of them.`);
+        throw new Error(`Kerf renders at ${FPS_VALUES.join(', ')} fps. "${fps}" is not one of them.`);
       }
       proj.setFps(fps as (typeof FPS_VALUES)[number]);
     }
@@ -1714,9 +1714,9 @@ defineTool({
    Dispatch
    ═══════════════════════════════════════════════════════════════════ */
 
-export const AURA_TOOLS: readonly AuraTool[] = tools;
+export const KERF_TOOLS: readonly KerfTool[] = tools;
 
-export function getTool(name: string): AuraTool | undefined {
+export function getTool(name: string): KerfTool | undefined {
   return tools.find((t) => t.name === name);
 }
 
@@ -1791,7 +1791,7 @@ export async function executeTool(
 
 /** JSON-Schema style listing for an MCP `tools/list` response. */
 export function getToolManifest() {
-  return AURA_TOOLS.map((t) => ({
+  return KERF_TOOLS.map((t) => ({
     name: t.name,
     description: t.description,
     category: t.category,
@@ -1959,7 +1959,7 @@ defineTool({
     return {
       count: shown.length,
       total: fonts.length,
-      /* Bundled ones ship with AuraCut and are present on every machine;
+      /* Bundled ones ship with Kerf and are present on every machine;
          system ones are whatever this computer happens to have. */
       bundled: shown.filter((f) => f.source === 'bundled').map((f) => f.family),
       system: shown.filter((f) => f.source === 'system').map((f) => f.family),
@@ -2046,7 +2046,7 @@ defineTool({
   name: 'list_sound_effects',
   category: 'discovery',
   description:
-    'The sound effects AuraCut can synthesise, with what each is for. AuraCut ships no ' +
+    'The sound effects Kerf can synthesise, with what each is for. Kerf ships no ' +
     'recorded audio library — these are generated on demand. For recorded music or SFX, ' +
     'find a file on disk and use import_media_from_path.',
   schema: z.object({}),
@@ -2086,14 +2086,14 @@ defineTool({
   name: 'report_capability_gap',
   category: 'discovery',
   description:
-    'Record that the user asked for something AuraCut cannot do. Call this WHENEVER you ' +
+    'Record that the user asked for something Kerf cannot do. Call this WHENEVER you ' +
     'have to tell the user no, or had to substitute something different from what they ' +
     'asked for — including when you found a workaround. This is how missing features ' +
     'reach the developer; a refusal you only speak aloud is lost the moment the panel ' +
     'scrolls. Then still tell the user plainly what you could not do and what you suggest.',
   schema: z.object({
     request: z.string().describe("What the user asked for, in their words where possible"),
-    reason: z.string().describe('Why AuraCut cannot do it'),
+    reason: z.string().describe('Why Kerf cannot do it'),
     suggestion: z.string().optional().describe('The tool or feature that would close the gap'),
     workaround: z.string().optional().describe('What you did instead, if anything'),
   }),
@@ -2111,7 +2111,7 @@ defineTool({
 defineTool({
   name: 'list_capability_gaps',
   category: 'discovery',
-  description: 'List everything previously recorded as missing from AuraCut.',
+  description: 'List everything previously recorded as missing from Kerf.',
   schema: z.object({}),
   handler: () => ({
     gaps: useGapStore.getState().gaps.map((g) => ({

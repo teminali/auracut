@@ -17,7 +17,7 @@
      needs setup  installed, but not signed in — opens a real terminal,
                   because OAuth cannot happen inside a child process
      missing      not installed — installs it, here, for real
-     unverified   works, but AuraCut has not confirmed how it streams
+     unverified   works, but Kerf has not confirmed how it streams
                   its output, so the answer arrives without the
                   step-by-step
    ═══════════════════════════════════════════════════════════════════ */
@@ -110,7 +110,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
   /**
    * Store a pasted key and re-probe.
    *
-   * Kept in AuraCut's own data directory rather than the user's shell
+   * Kept in Kerf's own data directory rather than the user's shell
    * profile: a GUI app launched from Finder cannot see that profile
    * anyway, which is why keys set there are invisible here.
    */
@@ -148,7 +148,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
 
         <div className="p-2.5 space-y-1.5 max-h-[62vh] overflow-y-auto">
           <p className="text-[10px] text-spectrum-textDim leading-relaxed px-0.5 pb-1">
-            Whichever you pick gets AuraCut's {48} editing tools over MCP, plus its own
+            Whichever you pick gets Kerf's {48} editing tools over MCP, plus its own
             file, shell and web access.
           </p>
 
@@ -258,7 +258,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                      the first time this backend runs a turn. */
                   <p className="mt-1.5 flex items-start gap-1 text-[9px] text-spectrum-amber/90 leading-snug">
                     <AlertTriangle className="w-2.5 h-2.5 mt-[1px] flex-shrink-0" />
-                    AuraCut has not verified how this CLI streams its output. Edits still work;
+                    Kerf has not verified how this CLI streams its output. Edits still work;
                     the answer arrives without the step-by-step.
                   </p>
                 )}

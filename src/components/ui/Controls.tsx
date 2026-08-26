@@ -227,9 +227,9 @@ const sliderTrackReset = `
 .group\\/slider input[type='range']::-webkit-slider-runnable-track { background: transparent; }
 `;
 
-if (typeof document !== 'undefined' && !document.getElementById('auracut-slider-reset')) {
+if (typeof document !== 'undefined' && !document.getElementById('kerf-slider-reset')) {
   const styleEl = document.createElement('style');
-  styleEl.id = 'auracut-slider-reset';
+  styleEl.id = 'kerf-slider-reset';
   styleEl.textContent = sliderTrackReset;
   document.head.appendChild(styleEl);
 }

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMcpStore } from '../../store/mcpStore';
-import { AURA_TOOLS } from '../../mcp/toolRegistry';
+import { KERF_TOOLS } from '../../mcp/toolRegistry';
 import { EFFECT_REGISTRY } from '../../engine/effectsRegistry';
 import { PROPERTY_SCHEMA } from '../../engine/propertyPath';
 import { X, Server, Wrench, Activity, Check, AlertCircle, Search, Copy } from 'lucide-react';
@@ -15,14 +15,14 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
 
   const tools = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return AURA_TOOLS;
-    return AURA_TOOLS.filter(
+    if (!needle) return KERF_TOOLS;
+    return KERF_TOOLS.filter(
       (t) => t.name.includes(needle) || t.description.toLowerCase().includes(needle) || t.category.includes(needle)
     );
   }, [query]);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, typeof AURA_TOOLS[number][]>();
+    const map = new Map<string, typeof KERF_TOOLS[number][]>();
     for (const tool of tools) {
       const list = map.get(tool.category) ?? [];
       list.push(tool);
@@ -50,7 +50,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-2 p-3 border-b border-line flex-shrink-0">
-          <Stat label="Tools" value={String(AURA_TOOLS.length)} />
+          <Stat label="Tools" value={String(KERF_TOOLS.length)} />
           <Stat label="Effects" value={String(EFFECT_REGISTRY.length)} />
           <Stat label="Properties" value={String(PROPERTY_SCHEMA.length)} />
           <Stat label="Calls" value={String(status.totalToolCalls)} />

@@ -52,9 +52,9 @@ interface ClaudeAgentState {
   attach: () => () => void;
 }
 
-/** Friendly label for a tool name, hiding the mcp__auracut__ prefix. */
+/** Friendly label for a tool name, hiding the mcp__kerf__ prefix. */
 export function prettyToolName(name: string): string {
-  return name.replace(/^mcp__auracut__/, '').replace(/_/g, ' ');
+  return name.replace(/^mcp__kerf__/, '').replace(/_/g, ' ');
 }
 
 /** The single live subscription, shared by every caller of attach(). */
@@ -214,7 +214,7 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
           set({ hasSession: true, activity: '' });
           return;
 
-        case 'auracut_error':
+        case 'kerf_error':
           patchLast((t) => ({
             ...t,
             text: String(event.message ?? 'Something went wrong.'),
@@ -224,7 +224,7 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
           set({ isRunning: false, activity: '', startedAt: null });
           return;
 
-        case 'auracut_done':
+        case 'kerf_done':
           patchLast((t) => (t.endedAt ? t : { ...t, endedAt: Date.now() }));
           set({ isRunning: false, activity: '', startedAt: null });
           return;

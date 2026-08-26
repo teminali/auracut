@@ -1,4 +1,4 @@
-# AuraCut
+# Kerf
 
 An open-source, non-linear video editor for the desktop, with the Model
 Context Protocol wired through the whole application — every edit the UI can
@@ -11,14 +11,14 @@ macOS · Windows · Linux · Electron + React + TypeScript
 ## Install
 
 Download the build for your platform from
-[Releases](https://github.com/teminali/auracut/releases/latest).
+[Releases](https://github.com/teminali/kerf/releases/latest).
 
 | Platform | File |
 | --- | --- |
-| macOS (Apple Silicon) | `AuraCut-<version>-arm64.dmg` |
-| macOS (Intel) | `AuraCut-<version>-x64.dmg` |
-| Windows | `AuraCut-Setup-<version>.exe` |
-| Linux | `AuraCut-<version>-x64.AppImage` |
+| macOS (Apple Silicon) | `Kerf-<version>-arm64.dmg` |
+| macOS (Intel) | `Kerf-<version>-x64.dmg` |
+| Windows | `Kerf-Setup-<version>.exe` |
+| Linux | `Kerf-<version>-x64.AppImage` |
 
 ### First launch on macOS
 
@@ -27,7 +27,7 @@ open. On macOS 15 and later the old right-click → **Open** escape hatch is
 gone, so clear the quarantine flag instead:
 
 ```bash
-find /Applications/AuraCut.app -print0 | xargs -0 xattr -d com.apple.quarantine
+find /Applications/Kerf.app -print0 | xargs -0 xattr -d com.apple.quarantine
 ```
 
 (`xattr -r` does **not** work — macOS 26 removed the `-r` flag.)
@@ -36,7 +36,7 @@ find /Applications/AuraCut.app -print0 | xargs -0 xattr -d com.apple.quarantine
 
 ## Updates
 
-AuraCut checks for updates 8 seconds after launch and every 6 hours after
+Kerf checks for updates 8 seconds after launch and every 6 hours after
 that. Nothing is ever installed behind your back: an update downloads in the
 background, and a **Restart to update** button appears in the title bar. You
 choose when to take it.
@@ -58,7 +58,7 @@ the repository secrets and the same code path starts working with no changes:
 | `APPLE_APP_SPECIFIC_PASSWORD` | app-specific password for that Apple ID |
 | `APPLE_TEAM_ID` | your 10-character Apple team ID |
 
-The release workflow detects `CSC_LINK` and stamps `AURACUT_SIGNED=1` into the
+The release workflow detects `CSC_LINK` and stamps `KERF_SIGNED=1` into the
 build, which is what flips the app from "tell the user" to "just update".
 
 ---
@@ -66,9 +66,9 @@ build, which is what flips the app from "tell the user" to "just update".
 ## The Copilot
 
 The Copilot panel does not implement an agent — it **runs** one. Each turn
-spawns the Claude Code CLI with AuraCut registered as an MCP server, so the
+spawns the Claude Code CLI with Kerf registered as an MCP server, so the
 model gets its whole native toolset (Bash, Read, Write, WebFetch, downloads)
-*alongside* all 44 AuraCut editing tools, and every edit lands in the window
+*alongside* all 44 Kerf editing tools, and every edit lands in the window
 you are looking at.
 
 ```bash
@@ -93,10 +93,10 @@ what is on my timeline right now?
 
 ### Driving it from your own terminal
 
-The same bridge works from outside the app. With AuraCut running:
+The same bridge works from outside the app. With Kerf running:
 
 ```bash
-claude --mcp-config "~/Library/Application Support/auracut/mcp-auracut.json" --strict-mcp-config
+claude --mcp-config "~/Library/Application Support/kerf/mcp-kerf.json" --strict-mcp-config
 ```
 
 Edits appear live in the open window. The config is rewritten each launch

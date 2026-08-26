@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   VFX registry — every effect AuraCut can apply, in one place.
+   VFX registry — every effect Kerf can apply, in one place.
 
    Each entry declares:
      • a typed parameter schema (drives the UI *and* validates AI calls)

@@ -23,7 +23,7 @@ export interface PhaseGroup {
   calls: AgentToolCall[];
 }
 
-/** AuraCut tools that only read. */
+/** Kerf tools that only read. */
 const READ_TOOLS = new Set([
   'describe_timeline', 'list_properties', 'list_effects', 'get_frame_context',
   'check_command_readiness', 'resolve_target', 'describe_layer_at_point',
@@ -52,11 +52,11 @@ export function phaseLabel(kind: PhaseKind): string {
 
 /** Strip the MCP prefix so a name can be matched and shown. */
 export function bareToolName(name: string): string {
-  return name.replace(/^mcp__auracut__/, '');
+  return name.replace(/^mcp__kerf__/, '');
 }
 
 export function isEditorTool(name: string): boolean {
-  return name.startsWith('mcp__auracut__');
+  return name.startsWith('mcp__kerf__');
 }
 
 function classify(name: string, hasEdited: boolean): PhaseKind {

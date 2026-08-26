@@ -191,7 +191,7 @@ export async function transcribeMedia(
     };
   }
 
-  const workDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'auracut-stt-'));
+  const workDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'kerf-stt-'));
   const wavPath = path.join(workDir, 'audio.wav');
 
   const cleanup = () => {
@@ -568,7 +568,7 @@ export async function setupTranscription(model = 'small'): Promise<SetupResult> 
       path the real run will read from.
     */
     const ff = ffmpeg()!;
-    const tmp = path.join(app.getPath('temp'), `auracut-warm-${Date.now()}.wav`);
+    const tmp = path.join(app.getPath('temp'), `kerf-warm-${Date.now()}.wav`);
     await run(ff, ['-y', '-f', 'lavfi', '-i', 'anullsrc=r=16000:cl=mono', '-t', '1', tmp], 60_000);
     const r = await run(whisper()!, [tmp, '--model', model, '--output_format', 'txt',
       '--output_dir', app.getPath('temp'), '--verbose', 'False'], 1_800_000);

@@ -110,12 +110,12 @@ export function startExport(options: StartExportOptions): { sessionId: string } 
     default export at `/Movies/...`, which no user can write to.
   */
   if (!path.isAbsolute(options.outputPath)) {
-    const base = path.basename(options.outputPath) || 'AuraCut_Export.mp4';
+    const base = path.basename(options.outputPath) || 'Kerf_Export.mp4';
     options = { ...options, outputPath: path.join(app.getPath('videos'), base) };
   }
 
   const id = `exp_${Date.now().toString(36)}_${++counter}`;
-  const dir = fs.mkdtempSync(path.join(app.getPath('temp'), 'auracut-export-'));
+  const dir = fs.mkdtempSync(path.join(app.getPath('temp'), 'kerf-export-'));
   const videoPath = path.join(dir, options.codec === 'prores' ? 'video.mov' : 'video.mp4');
 
   const args = [

@@ -20,7 +20,7 @@ export const useMcpStore = create<McpState>((set) => ({
     connectedClientsCount: 2,
     activeAgents: [
       { id: 'agent_antigravity', name: 'Antigravity IDE (Stdio)', connectedAt: Date.now() - 120000 },
-      { id: 'agent_copilot', name: 'AuraCut Internal Copilot (SSE)', connectedAt: Date.now() - 45000 },
+      { id: 'agent_copilot', name: 'Kerf Internal Copilot (SSE)', connectedAt: Date.now() - 45000 },
     ],
     totalToolCalls: 14,
     uptimeSeconds: 320,
@@ -34,7 +34,7 @@ export const useMcpStore = create<McpState>((set) => ({
       status: 'success',
       timestamp: Date.now() - 40000,
       durationMs: 820,
-      agentName: 'AuraCut Copilot',
+      agentName: 'Kerf Copilot',
     },
     {
       id: 'log_init_2',

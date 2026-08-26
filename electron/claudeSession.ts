@@ -3,9 +3,9 @@
 
    The Copilot does not implement an agent — it runs one. Each turn
    spawns the Claude Code CLI in non-interactive streaming mode with
-   AuraCut registered as an MCP server, so the model gets its whole
+   Kerf registered as an MCP server, so the model gets its whole
    native toolset (Bash, Read, Write, WebFetch, downloads) alongside
-   every AuraCut editing tool, and edits land in the live window.
+   every Kerf editing tool, and edits land in the live window.
 
    That is why this exists at all: writing our own loop would have meant
    re-implementing file access, downloads and web fetch by hand, badly,
@@ -200,15 +200,15 @@ export function mcpServerSpec(): { command: string; args: string[]; env: Record<
     args: [shim],
     env: {
       ELECTRON_RUN_AS_NODE: '1',
-      AURACUT_RPC_PORT: String(RPC_PORT),
-      AURACUT_RPC_TOKEN: RPC_TOKEN,
+      KERF_RPC_PORT: String(RPC_PORT),
+      KERF_RPC_TOKEN: RPC_TOKEN,
     },
   };
 }
 
 export function writeMcpConfig(): string {
   const dir = app.getPath('userData');
-  const file = path.join(dir, 'mcp-auracut.json');
+  const file = path.join(dir, 'mcp-kerf.json');
 
   /*
     The shim runs as its own process, so it must be a real file. Inside a
@@ -216,26 +216,26 @@ export function writeMcpConfig(): string {
     from — electron-builder is told to unpack this one file, and the path
     is rewritten to match.
   */
-  const config = { mcpServers: { auracut: mcpServerSpec() } };
+  const config = { mcpServers: { kerf: mcpServerSpec() } };
   fs.writeFileSync(file, JSON.stringify(config, null, 2), 'utf8');
   return file;
 }
 
 const SYSTEM_APPEND = [
-  'You are the editing agent inside AuraCut, a desktop video editor.',
+  'You are the editing agent inside Kerf, a desktop video editor.',
   '',
-  'The AuraCut MCP tools (mcp__auracut__*) act on the project the user is',
+  'The Kerf MCP tools (mcp__kerf__*) act on the project the user is',
   'looking at right now — changes appear immediately in their window. Call',
   'describe_timeline first when you need to know what is loaded.',
   '',
   'You also have your normal tools. Use them: read media off disk, download',
   'a file the user links, inspect a folder. To bring media in, get the file',
-  'onto disk and then call mcp__auracut__import_media_from_path.',
+  'onto disk and then call mcp__kerf__import_media_from_path.',
   '',
-  'When AuraCut cannot do what was asked:',
+  'When Kerf cannot do what was asked:',
   '  1. Say so plainly. Do not quietly substitute something else and call it done.',
-  '  2. Call mcp__auracut__report_capability_gap so the developer sees the request.',
-  '  3. Offer the closest thing AuraCut CAN do, and only build it if the user agrees',
+  '  2. Call mcp__kerf__report_capability_gap so the developer sees the request.',
+  '  3. Offer the closest thing Kerf CAN do, and only build it if the user agrees',
   '     — or, if you did build a workaround, log that too and say what differs.',
   '',
   'Be brief. This is a chat panel beside a video timeline, not a terminal —',
@@ -274,10 +274,10 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
   const cli = findBackendBinary(chosen);
   if (!cli) {
     window.webContents.send('claude:event', {
-      type: 'auracut_error',
+      type: 'kerf_error',
       message:
         `${chosen.label} was not found. Install it with:\n\n  ${chosen.installHint}\n\n` +
-        'then reopen AuraCut — or pick a different agent from the Copilot header.',
+        'then reopen Kerf — or pick a different agent from the Copilot header.',
     });
     return Promise.resolve();
   }
@@ -372,7 +372,7 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
 
   return new Promise<void>((resolve) => {
     child.on('error', (err) => {
-      emit({ type: 'auracut_error', message: `Could not start ${backend.label}: ${err.message}` });
+      emit({ type: 'kerf_error', message: `Could not start ${backend.label}: ${err.message}` });
       active = null;
       resolve();
     });
@@ -380,10 +380,10 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
     child.on('close', (code) => {
       if (code !== 0 && code !== null) {
         emit({
-          type: 'auracut_error',
+          type: 'kerf_error',
           message: stderr.trim() || `${backend.label} exited with code ${code}.`,
         });
-        emit({ type: 'auracut_done' });
+        emit({ type: 'kerf_done' });
         active = null;
         resolve();
         return;
@@ -404,15 +404,15 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
         });
         if (text) {
           emit({
-            type: 'auracut_notice',
+            type: 'kerf_notice',
             message:
-              `AuraCut does not yet parse ${backend.label}'s streamed output, so the ` +
+              `Kerf does not yet parse ${backend.label}'s streamed output, so the ` +
               'per-tool steps are not shown. The answer above is what it returned.',
           });
         }
       }
 
-      emit({ type: 'auracut_done' });
+      emit({ type: 'kerf_done' });
       active = null;
       resolve();
     });

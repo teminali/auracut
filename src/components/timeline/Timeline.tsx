@@ -226,7 +226,7 @@ export const Timeline: React.FC = () => {
     (e: React.DragEvent, trackId: string) => {
       e.preventDefault();
       setDropTargetTrack(null);
-      const raw = e.dataTransfer.getData('application/x-auracut-asset');
+      const raw = e.dataTransfer.getData('application/x-kerf-asset');
       if (!raw) return;
       try {
         const asset = JSON.parse(raw) as MediaAsset;

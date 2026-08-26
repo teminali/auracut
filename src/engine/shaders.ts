@@ -1,5 +1,5 @@
 /**
- * AuraCut GLSL GPU Shaders Engine
+ * Kerf GLSL GPU Shaders Engine
  * Realtime WebGL2 Fragment Shaders for Transitions, Color Grades & VFX
  */
 

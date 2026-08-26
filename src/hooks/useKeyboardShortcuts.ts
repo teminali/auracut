@@ -93,7 +93,7 @@ export function useKeyboardShortcuts(): void {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `${project.project.name.replace(/[^\w\-]+/g, '_')}.auracut.json`;
+            link.download = `${project.project.name.replace(/[^\w\-]+/g, '_')}.kerf.json`;
             link.click();
             URL.revokeObjectURL(url);
             ui.pushToast({ kind: 'success', title: 'Project saved' });

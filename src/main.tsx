@@ -19,13 +19,13 @@ if (import.meta.env.DEV) {
     import('./mcp/toolRegistry'),
     import('./store/claudeAgentStore'),
   ]).then(([timeline, project, chat, ui, mcp, agent]) => {
-    (window as any).__auracut = {
+    (window as any).__kerf = {
       timeline: timeline.useTimelineStore,
       project: project.useProjectStore,
       chat: chat.useAgentChatStore,
       ui: ui.useUiStore,
       executeTool: mcp.executeTool,
-      tools: mcp.AURA_TOOLS,
+      tools: mcp.KERF_TOOLS,
       agent: agent.useClaudeAgentStore,
     };
   });

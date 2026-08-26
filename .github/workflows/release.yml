@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════════
 # Release pipeline.
 #
-# Push a `v*` tag and this builds AuraCut on each target OS and uploads
+# Push a `v*` tag and this builds Kerf on each target OS and uploads
 # the installers — plus the `latest*.yml` manifests electron-updater
 # reads — to a single GitHub release. Cross-compiling is not an option:
 # macOS artifacts must be produced on macOS, Windows on Windows.
@@ -75,7 +75,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Baked into the bundle by esbuild — this is what lets the shipped
           # app know it is allowed to update itself.
-          AURACUT_SIGNED: '1'
+          KERF_SIGNED: '1'
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -87,7 +87,7 @@ jobs:
         run: yarn electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AURACUT_SIGNED: '0'
+          KERF_SIGNED: '0'
           # Stop electron-builder rummaging through the runner keychain for
           # an identity it will not find.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'

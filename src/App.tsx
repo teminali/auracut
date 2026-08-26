@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   AuraCut — application shell.
+   Kerf — application shell.
    Owns the resizable panel layout and mounts the global overlays.
    ═══════════════════════════════════════════════════════════════════ */
 

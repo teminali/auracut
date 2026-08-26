@@ -1,12 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Seed project — the sequence AuraCut opens with.
+   Seed project — the sequence Kerf opens with.
    Every clip is built through `createClip` so it is always complete.
    ═══════════════════════════════════════════════════════════════════ */
 
 import { Track, MediaAsset, ProjectSettings, createClip } from '../types/edl';
 
 export const INITIAL_PROJECT: ProjectSettings = {
-  id: 'proj_default_aura',
+  id: 'proj_default_kerf',
   name: 'DukaBot Commercial · Seq 01',
   aspectRatio: '16:9',
   width: 1920,

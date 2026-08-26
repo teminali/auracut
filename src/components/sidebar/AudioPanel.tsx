@@ -33,7 +33,7 @@ export const AudioPanel: React.FC = () => {
   const makeSfx = async (spec: SfxSpec) => {
     setBusy(spec.kind);
     try {
-      const result = await executeTool('generate_sound_effect', { kind: spec.kind }, 'AuraCut');
+      const result = await executeTool('generate_sound_effect', { kind: spec.kind }, 'Kerf');
       pushToast(
         result.success
           ? { kind: 'success', title: `${spec.label} added`, detail: 'Find it under Music & SFX.' }
@@ -76,7 +76,7 @@ export const AudioPanel: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto">
         {/*
-          Generated, not recorded. AuraCut ships no audio library, and a
+          Generated, not recorded. Kerf ships no audio library, and a
           catalogue of hotlinked files is how the old B-roll "library"
           and the sample music both ended up broken — so these are
           synthesised on demand into real WAV files on disk.

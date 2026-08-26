@@ -1,13 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════════
    MCP stdio bridge.
 
-   Exposes AuraCut's tool surface to an external agent (Claude Code,
+   Exposes Kerf's tool surface to an external agent (Claude Code,
    Antigravity, Codex …) over the Model Context Protocol. The renderer
    holds the actual project state, so this process forwards calls to it
    and relays the result.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { getToolManifest, executeTool, AURA_TOOLS } from './toolRegistry';
+import { getToolManifest, executeTool, KERF_TOOLS } from './toolRegistry';
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -24,7 +24,7 @@ interface JsonRpcResponse {
 }
 
 const SERVER_INFO = {
-  name: 'auracut',
+  name: 'kerf',
   version: '2.0.0',
 };
 
@@ -121,4 +121,4 @@ process.stdin.on('data', (chunk: string) => {
   }
 });
 
-process.stderr.write(`AuraCut MCP server ready — ${AURA_TOOLS.length} tools exposed.\n`);
+process.stderr.write(`Kerf MCP server ready — ${KERF_TOOLS.length} tools exposed.\n`);

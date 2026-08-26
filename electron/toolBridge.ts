@@ -75,7 +75,7 @@ export function initToolBridge(): void {
 function ask<T>(channel: string, payload: unknown, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     if (!targetWindow || targetWindow.isDestroyed()) {
-      reject(new Error('AuraCut is not running — open the app and try again.'));
+      reject(new Error('Kerf is not running — open the app and try again.'));
       return;
     }
 
@@ -108,7 +108,7 @@ export async function captureWindow(): Promise<string | null> {
 /**
  * Evaluate an expression in the renderer, for testing from outside.
  *
- * Gated on AURACUT_DEBUG=1 by the RPC server, because arbitrary
+ * Gated on KERF_DEBUG=1 by the RPC server, because arbitrary
  * evaluation is a real capability and should not exist in a normal
  * launch — but verifying UI behaviour without it means adding and
  * removing this hook on every check, which is its own source of

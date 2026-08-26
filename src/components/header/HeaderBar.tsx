@@ -62,7 +62,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${project.name.replace(/[^\w\-]+/g, '_')}.auracut.json`;
+    link.download = `${project.name.replace(/[^\w\-]+/g, '_')}.kerf.json`;
     link.click();
     URL.revokeObjectURL(url);
     pushToast({ kind: 'success', title: 'Project saved', detail: link.download });
@@ -111,7 +111,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
               <path d="M7 4.5v15l13-7.5z" />
             </svg>
           </div>
-          <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">AuraCut</span>
+          <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">Kerf</span>
         </button>
 
         <Divider />

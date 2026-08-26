@@ -3,7 +3,7 @@
 
    Deliberately NOT CapCut's home, which is a feature launcher: a grid
    of tiles because each of its AI capabilities is a discrete button.
-   AuraCut's capability is not a grid — it is a conversation and a set
+   Kerf's capability is not a grid — it is a conversation and a set
    of skills, so the home screen is organised around INTENT.
 
    One primary action, and it is a sentence: say what you want to make.
@@ -130,7 +130,7 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
             <span className="w-7 h-7 rounded-squircle-sm bg-spectrum-accent/15 border border-spectrum-accentLine flex items-center justify-center">
               <Film className="w-4 h-4 text-spectrum-accent" />
             </span>
-            <span className="text-ui-lg font-semibold text-spectrum-text tracking-tight">AuraCut</span>
+            <span className="text-ui-lg font-semibold text-spectrum-text tracking-tight">Kerf</span>
           </div>
 
           <span
@@ -209,7 +209,7 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
             <RotateCcw className="w-4 h-4 text-spectrum-amber flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-ui-sm font-medium text-spectrum-text">You have unsaved work from last time</p>
-              <p className="text-[10px] text-spectrum-textDim">AuraCut saves a copy every 20 seconds.</p>
+              <p className="text-[10px] text-spectrum-textDim">Kerf saves a copy every 20 seconds.</p>
             </div>
             <button onClick={recover} className="pro-btn-filled h-[26px] px-2.5 text-ui-sm flex-shrink-0">
               Recover

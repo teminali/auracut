@@ -1,4 +1,4 @@
-# AuraCut — handover
+# Kerf — handover
 
 An Electron video editor whose Copilot drives a coding CLI as its agent.
 Read this whole file before touching anything. Several traps below cost
@@ -51,7 +51,7 @@ composited footage in the frames; the compositor draws real pixels;
 `check_command_readiness` is real (one of §3's eight unverified).
 
 **The end-to-end proof:** the Copilot spawned `claude`, which saw all 53
-tools as `mcp__auracut__*`, called `describe_timeline` through the shim
+tools as `mcp__kerf__*`, called `describe_timeline` through the shim
 → RPC → renderer, and answered *"DukaBot Commercial · Seq 01 — 5
 tracks"* correctly, `is_error: false`. The whole architecture works in a
 packaged build.
@@ -165,7 +165,7 @@ else. Order matters: the first item is the one nothing else can do.
 
 ## 1. What this is
 
-- **Repo:** https://github.com/teminali/auracut (public) · `v1.1.0`
+- **Repo:** https://github.com/teminali/kerf (public) · `v1.1.0`
 - **Stack:** Electron 34 + React 19 + TypeScript + Vite + zustand + Tailwind
 - **Renderer** owns the project (zustand stores). **Main** owns the OS.
 - Desktop only, and deliberately — see §6.
@@ -436,7 +436,7 @@ The economics also rule out the usual alternatives:
 What is genuinely recurring, and therefore honest to subscribe:
 
 - **Sellers, not buyers.** Authors get ongoing service — storefront,
-  hosting, verification runs on every AuraCut release, payouts,
+  hosting, verification runs on every Kerf release, payouts,
   analytics. A creator tier is a small paying group receiving continuous
   commercial value. Most marketplaces make their early money this way.
 - **Commercial rights**, where a bundled asset's own licence recurs.
@@ -468,7 +468,7 @@ because they are ruinous to retrofit:
 2. **Asset provenance, enforced at packaging.** The author declares a licence per bundled asset or it cannot be published.
 3. **A verification run.** The skill executes against a fresh project and the artifact is checked. If it does not run, it does not publish. Quality control and the marketing claim in one.
 4. **A declared tool-API version.** Otherwise the next tool change silently breaks skills in the field and you learn about it from refunds.
-5. **The verification fixture stored with the skill**, so every skill in the store can be re-run against a new AuraCut build before shipping. That turns "did I break anyone's skill?" into a test suite.
+5. **The verification fixture stored with the skill**, so every skill in the store can be re-run against a new Kerf build before shipping. That turns "did I break anyone's skill?" into a test suite.
 
 Authoring happens **in the editor** — make an edit, then package it. Most
 of the raw material exists: `mcpStore` already logs every tool execution
@@ -488,7 +488,7 @@ returned to via the mark in the header.
 
 **Deliberately not CapCut's home.** Theirs is a feature launcher — a grid
 of tiles because each of their AI capabilities is a discrete button.
-AuraCut's capability is not a grid; it is a conversation and a set of
+Kerf's capability is not a grid; it is a conversation and a set of
 skills. So the screen is organised around INTENT: one primary action,
 and it is a sentence.
 
@@ -597,10 +597,10 @@ from a VS Code terminal starts as plain Node and exits silently. Always
 `env -u ELECTRON_RUN_AS_NODE npx electron .`. This burned an hour.
 
 **`open` forwards your shell environment, so that trap reaches the packaged
-app too.** `open -n AuraCut.app` from a VS Code terminal launches it as plain
+app too.** `open -n Kerf.app` from a VS Code terminal launches it as plain
 Node: exit 0, no window, no port, no log — indistinguishable from the
 signing failure below, and it will send you hunting the wrong bug. Use
-`env -u ELECTRON_RUN_AS_NODE open -n path/to/AuraCut.app`.
+`env -u ELECTRON_RUN_AS_NODE open -n path/to/Kerf.app`.
 
 **That same forwarding makes `open` a bad Finder simulation.** The app
 inherits your developer PATH, so anything that depends on a minimal
@@ -610,14 +610,14 @@ user. To test the actual condition:
 ```bash
 env -i HOME="$HOME" USER="$USER" SHELL=/bin/zsh TMPDIR="$TMPDIR" \
     PATH=/usr/bin:/bin:/usr/sbin:/sbin \
-    open -n release/mac-arm64/AuraCut.app --args --remote-debugging-port=9333
+    open -n release/mac-arm64/Kerf.app --args --remote-debugging-port=9333
 ```
 
 **Drive the packaged renderer over CDP.** `--remote-debugging-port` plus
 `Runtime.evaluate` is the only way to ask the packaged app a direct question
 (`window.electronAPI`, a font query, `document.visibilityState`). Pick a port
 nothing else holds — Chrome sits on 9222, and reading *its* target list by
-mistake will show you a `localhost:5173` tab titled "AuraCut" and convince
+mistake will show you a `localhost:5173` tab titled "Kerf" and convince
 you the packaged app is loading the dev server. Check the port's owner with
 `lsof` before believing what it tells you.
 
@@ -670,7 +670,7 @@ reported "timed out" while Whisper loaded a 484MB model.
 **`asar extract-file` writes into the CWD.** It silently overwrote
 `package.json` with the stripped copy from the archive.
 
-**Verify installs by version, not by exit code.** A `/Volumes/AuraCut*` glob
+**Verify installs by version, not by exit code.** A `/Volumes/Kerf*` glob
 picked a stale mount and cheerfully "installed" 1.0.0 over 1.0.0, reporting
 success. Read the mount point from `hdiutil` output.
 
@@ -689,24 +689,24 @@ npx electron-builder --mac --dir --publish never   # real package
 **Drive the live editor from a terminal** (the fastest way to test tools):
 
 ```bash
-claude --mcp-config "~/Library/Application Support/auracut/mcp-auracut.json" \
+claude --mcp-config "~/Library/Application Support/kerf/mcp-kerf.json" \
        --strict-mcp-config --permission-mode bypassPermissions \
-       -p "Using the auracut MCP tools, describe the timeline."
+       -p "Using the kerf MCP tools, describe the timeline."
 ```
 
 **Call a tool directly**, no agent, no tokens — best for tight loops:
 
 ```bash
 TOKEN=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser(
-  '~/Library/Application Support/auracut/mcp-auracut.json')))['mcpServers']['auracut']['env']['AURACUT_RPC_TOKEN'])")
-curl -s -X POST http://127.0.0.1:3888/rpc -H "x-auracut-token: $TOKEN" \
+  '~/Library/Application Support/kerf/mcp-kerf.json')))['mcpServers']['kerf']['env']['KERF_RPC_TOKEN'])")
+curl -s -X POST http://127.0.0.1:3888/rpc -H "x-kerf-token: $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"method":"tools/call","params":{"name":"describe_timeline","arguments":{}}}'
 ```
 
 **UI testing in a browser:** `yarn dev`, then a page under `public/` that
 imports `/src/main.tsx` (needs the react-refresh preamble) and mocks
-`window.electronAPI`. Access stores via `window.__auracut` — importing the
+`window.electronAPI`. Access stores via `window.__kerf` — importing the
 module directly gives a *different* instance and will waste your time.
 **Delete `public/` afterwards; it ships otherwise.**
 
@@ -718,7 +718,7 @@ Tag `v*` → GitHub Actions builds macOS/Windows/Linux and publishes installers
 plus the `latest*.yml` manifests the updater reads.
 
 ```bash
-npm version 1.2.0 -m "AuraCut %s"
+npm version 1.2.0 -m "Kerf %s"
 git push origin main --follow-tags
 ```
 
@@ -726,7 +726,7 @@ git push origin main --follow-tags
 detects this and shows "Get \<version\>" instead of failing silently. Adding
 `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`,
 `APPLE_TEAM_ID` to repo secrets flips it on with **no code change** — CI
-already detects `CSC_LINK` and stamps `AURACUT_SIGNED=1`, which esbuild inlines
+already detects `CSC_LINK` and stamps `KERF_SIGNED=1`, which esbuild inlines
 at build time (it is a build-time fact; reading `process.env` at runtime does
 not work).
 

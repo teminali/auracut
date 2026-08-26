@@ -3,7 +3,7 @@
 
    Claude Code (or any MCP client) speaks JSON-RPC to this over stdio.
    It owns no state of its own: every tool call is forwarded to the
-   running AuraCut window through the local RPC bridge, so edits land in
+   running Kerf window through the local RPC bridge, so edits land in
    the project actually on screen.
 
    Runs under Electron's bundled Node via ELECTRON_RUN_AS_NODE=1, so
@@ -13,8 +13,8 @@
    original bridge spoke. Every response is written as a single line.
    ═══════════════════════════════════════════════════════════════════ */
 
-const PORT = Number(process.env.AURACUT_RPC_PORT ?? 3888);
-const TOKEN = process.env.AURACUT_RPC_TOKEN ?? '';
+const PORT = Number(process.env.KERF_RPC_PORT ?? 3888);
+const TOKEN = process.env.KERF_RPC_TOKEN ?? '';
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -23,7 +23,7 @@ interface JsonRpcRequest {
   params?: Record<string, unknown>;
 }
 
-const SERVER_INFO = { name: 'auracut', version: '1.0.0' };
+const SERVER_INFO = { name: 'kerf', version: '1.0.0' };
 
 function respond(body: Record<string, unknown>): void {
   process.stdout.write(`${JSON.stringify({ jsonrpc: '2.0', ...body })}\n`);
@@ -32,7 +32,7 @@ function respond(body: Record<string, unknown>): void {
 async function rpc(method: string, params?: Record<string, unknown>): Promise<unknown> {
   const response = await fetch(`http://127.0.0.1:${PORT}/rpc`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-auracut-token': TOKEN },
+    headers: { 'Content-Type': 'application/json', 'x-kerf-token': TOKEN },
     body: JSON.stringify({ method, params }),
   });
 
@@ -101,7 +101,7 @@ async function handle(request: JsonRpcRequest): Promise<void> {
     if (id === undefined) return;
     /*
       Report tool failures as a tool RESULT rather than a protocol error
-      where we can — an agent can read "AuraCut is not running" and tell
+      where we can — an agent can read "Kerf is not running" and tell
       the user, but a JSON-RPC error code usually just aborts the turn.
     */
     const message = err instanceof Error ? err.message : String(err);
@@ -134,4 +134,4 @@ process.stdin.on('data', (chunk: string) => {
   }
 });
 
-process.stderr.write('AuraCut MCP shim ready — forwarding to the live editor.\n');
+process.stderr.write('Kerf MCP shim ready — forwarding to the live editor.\n');

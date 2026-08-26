@@ -2,7 +2,7 @@
    Agent backends.
 
    The Copilot drives a coding CLI in non-interactive mode and gives it
-   AuraCut's 48 tools over MCP. Several CLIs can do that job, so this is
+   Kerf's 53 tools over MCP. Several CLIs can do that job, so this is
    the adapter layer that lets the user choose one.
 
    MCP is what makes this possible at all. The CLI is a separate OS
@@ -329,7 +329,7 @@ const claude: AgentBackend = {
   prepare: (mcp, sessionDir) => {
     // Claude takes the config as a flag, so nothing global is touched.
     const file = path.join(sessionDir, 'mcp-claude.json');
-    writeJson(file, { mcpServers: { auracut: mcp } });
+    writeJson(file, { mcpServers: { kerf: mcp } });
     return {
       cwd: home,
       extraArgs: ['--mcp-config', file, '--strict-mcp-config'],
@@ -412,7 +412,7 @@ const gemini: AgentBackend = {
     writeJson(path.join(workspace, '.gemini', 'settings.json'), {
       ...userSettings,
       ...(key ? { selectedAuthType: 'gemini-api-key' } : {}),
-      mcpServers: { auracut: mcp },
+      mcpServers: { kerf: mcp },
     });
 
     return {
@@ -428,7 +428,7 @@ const gemini: AgentBackend = {
     '-p', `${systemPrompt}\n\n---\n\n${prompt}`,
     '--output-format', 'stream-json',
     '--approval-mode', 'yolo',
-    '--allowed-mcp-server-names', 'auracut',
+    '--allowed-mcp-server-names', 'kerf',
   ],
 
   translate: (line) => translateGenericStream(line),
@@ -545,18 +545,18 @@ const codex: AgentBackend = {
   },
 };
 
-/** `mcp_servers.auracut={...}` as inline TOML for a `-c` override. */
+/** `mcp_servers.kerf={...}` as inline TOML for a `-c` override. */
 function codexMcpOverride(mcp: McpServerSpec): string {
   const esc = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   const args = mcp.args.map((a) => `"${esc(a)}"`).join(', ');
   const env = Object.entries(mcp.env).map(([k, v]) => `${k}="${esc(v)}"`).join(', ');
-  return `mcp_servers.auracut={command="${esc(mcp.command)}", args=[${args}], env={${env}}}`;
+  return `mcp_servers.kerf={command="${esc(mcp.command)}", args=[${args}], env={${env}}}`;
 }
 
 /**
  * Codex's `exec --json` stream, verified against a real run.
  *
- * Shape confirmed by driving it against AuraCut's own MCP server:
+ * Shape confirmed by driving it against Kerf's own MCP server:
  *   thread.started   carries thread_id, which `exec resume` accepts
  *   item.started     an mcp_tool_call beginning
  *   item.completed   agent_message (text), mcp_tool_call (with result),
@@ -587,7 +587,7 @@ function translateCodex(line: string): AgentEvent[] {
         content: [{
           type: 'tool_use',
           id: String(item.id ?? 'tool'),
-          // Present it the way the AuraCut tools are named everywhere else.
+          // Present it the way the Kerf tools are named everywhere else.
           name: `mcp__${String(item.server ?? 'mcp')}__${String(item.tool ?? '')}`,
           input: (item.arguments ?? {}) as Record<string, unknown>,
         }],
@@ -644,7 +644,7 @@ const cursor: AgentBackend = {
 
   prepare: (mcp, sessionDir) => {
     const workspace = path.join(sessionDir, 'cursor-workspace');
-    writeJson(path.join(workspace, '.cursor', 'mcp.json'), { mcpServers: { auracut: mcp } });
+    writeJson(path.join(workspace, '.cursor', 'mcp.json'), { mcpServers: { kerf: mcp } });
     const key = credentials().CURSOR_API_KEY;
     return { cwd: workspace, extraArgs: [], extraEnv: key ? { CURSOR_API_KEY: key } : {} };
   },

@@ -1,16 +1,16 @@
 {
-  "name": "auracut",
+  "name": "kerf",
   "version": "1.1.0",
-  "description": "AuraCut \u2014 open-source AI video editor with full Model Context Protocol (MCP) integration",
+  "description": "Kerf \u2014 open-source AI video editor with full Model Context Protocol (MCP) integration",
   "author": {
     "name": "teminali",
     "email": "muhasibudigital@gmail.com"
   },
   "license": "MIT",
-  "homepage": "https://github.com/teminali/auracut",
+  "homepage": "https://github.com/teminali/kerf",
   "repository": {
     "type": "git",
-    "url": "https://github.com/teminali/auracut.git"
+    "url": "https://github.com/teminali/kerf.git"
   },
   "type": "module",
   "main": "dist-electron/main.cjs",

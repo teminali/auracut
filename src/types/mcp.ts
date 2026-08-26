@@ -21,8 +21,8 @@ export interface McpServerStatus {
   uptimeSeconds: number;
 }
 
-// Complete Catalog of 50+ AuraCut MCP Tools
-export const AURACUT_MCP_TOOL_NAMES = [
+// Complete Catalog of 50+ Kerf MCP Tools
+export const KERF_MCP_TOOL_NAMES = [
   // 1. Timeline & Track Operations
   'insert_clip',
   'split_clip',
@@ -91,4 +91,4 @@ export const AURACUT_MCP_TOOL_NAMES = [
   'generate_video_proxy',
 ] as const;
 
-export type AuraCutMcpToolName = typeof AURACUT_MCP_TOOL_NAMES[number];
+export type KerfMcpToolName = typeof KERF_MCP_TOOL_NAMES[number];

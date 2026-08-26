@@ -32,7 +32,7 @@ type AutoUpdater = typeof electronUpdater.autoUpdater;
 let cached: AutoUpdater | null = null;
 const updater = (): AutoUpdater => (cached ??= electronUpdater.autoUpdater);
 
-export const RELEASES_URL = 'https://github.com/teminali/auracut/releases/latest';
+export const RELEASES_URL = 'https://github.com/teminali/kerf/releases/latest';
 
 /** Everything the renderer is allowed to know about update state. */
 export type UpdateStatus =
@@ -70,7 +70,7 @@ function canSelfUpdate(): boolean {
   if (process.platform !== 'darwin') return true;
   // On macOS only a Developer ID-signed build can. The release workflow
   // stamps this in at build time, and only when it actually signed.
-  return process.env.AURACUT_SIGNED === '1';
+  return process.env.KERF_SIGNED === '1';
 }
 
 let initialised = false;

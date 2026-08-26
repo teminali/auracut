@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   AuraCut Edit Decision List — canonical project data model.
+   Kerf Edit Decision List — canonical project data model.
    Everything that renders, exports or is mutated by an MCP tool is
    described here. Keep this file free of runtime logic.
    ═══════════════════════════════════════════════════════════════════ */

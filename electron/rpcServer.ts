@@ -50,7 +50,7 @@ export function startRpcServer(): http.Server {
       return;
     }
 
-    if (req.headers['x-auracut-token'] !== RPC_TOKEN) {
+    if (req.headers['x-kerf-token'] !== RPC_TOKEN) {
       send(res, 401, { error: 'Bad or missing token' });
       return;
     }
@@ -62,7 +62,7 @@ export function startRpcServer(): http.Server {
       };
 
       if (!bridge.isReady()) {
-        send(res, 503, { error: 'The AuraCut window is not open.' });
+        send(res, 503, { error: 'The Kerf window is not open.' });
         return;
       }
 
@@ -84,11 +84,11 @@ export function startRpcServer(): http.Server {
 
         /* A screenshot of the real window, for verifying the UI from
            outside the app. */
-        /* Only with AURACUT_DEBUG=1 — arbitrary evaluation is not
+        /* Only with KERF_DEBUG=1 — arbitrary evaluation is not
            something a normal launch should expose, token or not. */
         case 'debug/eval':
-          if (process.env.AURACUT_DEBUG !== '1') {
-            send(res, 403, { error: 'debug/eval requires AURACUT_DEBUG=1' });
+          if (process.env.KERF_DEBUG !== '1') {
+            send(res, 403, { error: 'debug/eval requires KERF_DEBUG=1' });
             return;
           }
           send(res, 200, { result: await debugEval(String(params?.expression ?? '1')) });
@@ -119,7 +119,7 @@ export function startRpcServer(): http.Server {
   server.on('connection', (socket) => socket.setTimeout(0));
 
   server.listen(RPC_PORT, '127.0.0.1', () => {
-    console.log(`[AuraCut] RPC bridge on http://127.0.0.1:${RPC_PORT}/rpc`);
+    console.log(`[Kerf] RPC bridge on http://127.0.0.1:${RPC_PORT}/rpc`);
   });
 
   return server;

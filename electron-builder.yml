@@ -8,9 +8,9 @@
 # repo or the app will never see a new version.
 # ═══════════════════════════════════════════════════════════════════
 
-appId: com.auracut.editor
-productName: AuraCut
-copyright: Copyright © 2026 AuraCut
+appId: com.kerf.editor
+productName: Kerf
+copyright: Copyright © 2026 Kerf
 
 directories:
   output: release
@@ -34,7 +34,7 @@ asarUnpack:
 publish:
   provider: github
   owner: teminali
-  repo: auracut
+  repo: kerf
   # Must stay `release`. This value is copied into app-update.yml, where
   # electron-updater uses it to decide which releases to consider — and
   # `draft` would make the shipped app look for drafts, which needs an
@@ -92,7 +92,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: AuraCut
+  shortcutName: Kerf
 
 # ── Linux (AppImage rides along for free) ──────────────────────────
 linux:

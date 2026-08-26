@@ -103,7 +103,7 @@ function createWindow() {
     renderer, where the window button never reaches.
   */
   mainWindow.on('close', (event) => {
-    console.log(`[AuraCut] close requested while on: ${currentScreen}`);
+    console.log(`[Kerf] close requested while on: ${currentScreen}`);
     if (currentScreen !== 'editor') return;
     event.preventDefault();
     mainWindow?.webContents.send('ui:go-home');
@@ -134,7 +134,7 @@ ipcMain.handle('dialog:openMedia', async () => {
 ipcMain.handle('dialog:saveExport', async (_, defaultName: string) => {
   if (!mainWindow) return null;
   const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: defaultName || 'AuraCut_Render_Master.mp4',
+    defaultPath: defaultName || 'Kerf_Render_Master.mp4',
     filters: [
       { name: 'MP4 Video (H.264 / HEVC)', extensions: ['mp4'] },
       { name: 'Apple ProRes 422', extensions: ['mov'] },
@@ -201,7 +201,7 @@ function registerAgentIpc() {
   ipcMain.handle('media:writeTemp', async (_e, p: { name: string; bytes: Uint8Array }) => {
     const fs = await import('fs');
     const os = await import('os');
-    const dir = path.join(os.tmpdir(), 'auracut-generated');
+    const dir = path.join(os.tmpdir(), 'kerf-generated');
     fs.mkdirSync(dir, { recursive: true });
 
     // Never let a caller-supplied name escape the directory.
@@ -276,7 +276,7 @@ function registerAgentIpc() {
       ]);
       return { ok: true, message: `Opened Terminal running \`${command}\`.` };
     }
-    return { ok: false, message: `Run \`${command}\` in a terminal, then reopen AuraCut.` };
+    return { ok: false, message: `Run \`${command}\` in a terminal, then reopen Kerf.` };
   });
 
   ipcMain.handle('claude:stop', () => { stopSession(); return true; });
@@ -289,7 +289,7 @@ app.whenReady().then(() => {
     a user without it — or with it unauthenticated — got an error on
     their first prompt instead of the agent they do have.
   */
-  void autoSelectBackend().then((id) => console.log(`[AuraCut] Copilot agent: ${id}`));
+  void autoSelectBackend().then((id) => console.log(`[Kerf] Copilot agent: ${id}`));
 
   initToolBridge();
   registerAgentIpc();

@@ -117,7 +117,7 @@ export function toneFilterId(f: ClipFilters): string | null {
   const svg = ensureHost();
   if (!svg) return null;
 
-  const id = `auracut_tone_${++seq}`;
+  const id = `kerf_tone_${++seq}`;
   const filter = document.createElementNS(SVG_NS, 'filter');
   filter.setAttribute('id', id);
   /*

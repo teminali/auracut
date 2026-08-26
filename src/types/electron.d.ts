@@ -31,7 +31,7 @@ export interface AgentBackendStatus {
   streamVerified: boolean;
   /** Supplying this env var would make it usable. */
   needsKey?: string;
-  /** Whether AuraCut already holds a key for it. */
+  /** Whether Kerf already holds a key for it. */
   hasKey?: boolean;
 }
 
@@ -51,7 +51,7 @@ export interface ClaudeEvent {
   [key: string]: unknown;
 }
 
-export interface AuraCutElectronAPI {
+export interface KerfElectronAPI {
   openMediaDialog: () => Promise<string[] | null>;
   saveExportDialog: (defaultName: string) => Promise<string | null>;
   platform: string;
@@ -139,7 +139,7 @@ export interface AuraCutElectronAPI {
 declare global {
   interface Window {
     /** Absent in the browser — always guard before use. */
-    electronAPI?: AuraCutElectronAPI;
+    electronAPI?: KerfElectronAPI;
   }
 }
 

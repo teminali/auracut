@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 
 /* ═══════════════════════════════════════════════════════════════════
-   AuraCut design tokens.
+   Kerf design tokens.
 
    Three rules govern this file:
 

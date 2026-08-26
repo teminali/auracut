@@ -210,7 +210,7 @@ const typeIcon = (type: MediaAsset['type']) =>
   type === 'audio' ? Music : type === 'image' ? ImageIcon : Video;
 
 const dragPayload = (asset: MediaAsset) => (e: React.DragEvent) => {
-  e.dataTransfer.setData('application/x-auracut-asset', JSON.stringify(asset));
+  e.dataTransfer.setData('application/x-kerf-asset', JSON.stringify(asset));
   e.dataTransfer.effectAllowed = 'copy';
 };
 

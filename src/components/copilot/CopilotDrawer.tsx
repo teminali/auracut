@@ -90,7 +90,7 @@ export const CopilotDrawer: React.FC = () => {
   /*
     The Copilot prefers to BE Claude Code rather than imitate it. When the
     CLI is installed we hand the whole turn to it — it brings its own file,
-    shell and web tools alongside AuraCut's, which is the difference
+    shell and web tools alongside Kerf's, which is the difference
     between "understands the phrasings I hardcoded" and "understands you".
     Without it we fall back to the built-in planner.
   */
@@ -371,7 +371,7 @@ export const CopilotDrawer: React.FC = () => {
             <button
               onClick={() => setGapLogOpen(true)}
               className="h-[20px] px-1.5 rounded-[5px] border border-spectrum-amber/35 bg-spectrum-amber/10 text-spectrum-amber text-[10px] font-medium flex items-center gap-1 mr-1"
-              title={`${openGaps} thing${openGaps === 1 ? '' : 's'} asked for that AuraCut cannot do yet`}
+              title={`${openGaps} thing${openGaps === 1 ? '' : 's'} asked for that Kerf cannot do yet`}
             >
               <Lightbulb className="w-2.5 h-2.5" />
               {openGaps}
@@ -731,7 +731,7 @@ const CliMissingNotice: React.FC<{ status: { installed: boolean } | null }> = ({
       <p className="text-ui-sm font-medium text-spectrum-text">Running on the built-in planner</p>
       <p className="text-[10px] text-spectrum-textDim leading-relaxed">
         It understands common editing phrasings, but it cannot hold a conversation or touch
-        your files. Install the Claude Code CLI and reopen AuraCut to get the full agent:
+        your files. Install the Claude Code CLI and reopen Kerf to get the full agent:
       </p>
       <code className="block text-[10px] font-mono text-spectrum-accent bg-black/30 rounded-[3px] px-1.5 py-1">
         npm i -g @anthropic-ai/claude-code

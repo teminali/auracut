@@ -14,7 +14,7 @@
         steps and awaited alongside each call.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { executeTool, AURA_TOOLS, getTool } from '../mcp/toolRegistry';
+import { executeTool, KERF_TOOLS, getTool } from '../mcp/toolRegistry';
 import { useTimelineStore, findClipById } from '../store/timelineStore';
 import { useProjectStore } from '../store/projectStore';
 import { EFFECT_REGISTRY } from './effectsRegistry';
@@ -91,11 +91,11 @@ export function hasModelEndpoint(): boolean {
 /* ── The system prompt the planner works from ───────────────────── */
 
 function buildSystemPrompt(): string {
-  const toolList = AURA_TOOLS.map((t) => `- ${t.name}(${describeArgs(t.name)}) — ${t.description}`).join('\n');
+  const toolList = KERF_TOOLS.map((t) => `- ${t.name}(${describeArgs(t.name)}) — ${t.description}`).join('\n');
   const effectList = EFFECT_REGISTRY.map((e) => `${e.type} (${e.category})`).join(', ');
 
   return [
-    'You are the editing engine inside AuraCut, a non-linear video editor.',
+    'You are the editing engine inside Kerf, a non-linear video editor.',
     'Translate the user instruction into a JSON plan of tool calls.',
     '',
     'Respond with ONLY a JSON object of the form:',
@@ -702,7 +702,7 @@ function planWithIntents(prompt: string): PlannedStep[] {
    ═══════════════════════════════════════════════════════════════════ */
 
 const CHAT_SYSTEM_PROMPT = [
-  'You are the assistant inside AuraCut, a desktop non-linear video editor.',
+  'You are the assistant inside Kerf, a desktop non-linear video editor.',
   'You are talking to the person editing the project described below.',
   '',
   'You can both discuss the edit AND change it. This particular turn is a',

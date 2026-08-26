@@ -33,7 +33,7 @@ const shared = {
       the packaged app, so a correctly signed macOS build would still have
       reported that it cannot update itself.
     */
-    'process.env.AURACUT_SIGNED': JSON.stringify(process.env.AURACUT_SIGNED ?? '0'),
+    'process.env.KERF_SIGNED': JSON.stringify(process.env.KERF_SIGNED ?? '0'),
   },
 };
 

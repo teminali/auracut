@@ -87,7 +87,7 @@ export const useLayoutStore = create<LayoutState>()(
       resetLayout: () => set({ ...DEFAULTS, isSidebarCollapsed: false, isInspectorCollapsed: false }),
     }),
     {
-      name: 'auracut.layout',
+      name: 'kerf.layout',
       // Overlay toggles are per-session; only persist the actual layout.
       partialize: (s) => ({
         sidebarWidth: s.sidebarWidth,

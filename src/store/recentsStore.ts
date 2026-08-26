@@ -34,7 +34,7 @@ interface RecentsState {
   clear: () => void;
 }
 
-const KEY = 'auracut.recents.v1';
+const KEY = 'kerf.recents.v1';
 /* Snapshots hold whole projects; a long list would blow the storage
    quota and take the autosave down with it. */
 const LIMIT = 12;

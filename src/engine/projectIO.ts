@@ -13,7 +13,7 @@ import { Track, TimelineMarker, MediaAsset, ProjectSettings, createClip, Clip } 
 const FORMAT_VERSION = 2;
 
 export interface ProjectFile {
-  format: 'auracut.project';
+  format: 'kerf.project';
   version: number;
   savedAt: number;
   project: ProjectSettings;
@@ -27,7 +27,7 @@ export function serializeProject(): string {
   const project = useProjectStore.getState().project;
 
   const file: ProjectFile = {
-    format: 'auracut.project',
+    format: 'kerf.project',
     version: FORMAT_VERSION,
     savedAt: Date.now(),
     project,
@@ -55,8 +55,8 @@ export function deserializeProject(json: string): LoadResult {
   }
 
   const file = parsed as Partial<ProjectFile>;
-  if (file.format !== 'auracut.project') {
-    return { ok: false, error: 'That is not an AuraCut project file.' };
+  if (file.format !== 'kerf.project') {
+    return { ok: false, error: 'That is not an Kerf project file.' };
   }
   if (!Array.isArray(file.tracks) || !file.project) {
     return { ok: false, error: 'The project file is missing its tracks or settings.' };
@@ -84,7 +84,7 @@ export function deserializeProject(json: string): LoadResult {
 
 /* ── Autosave ───────────────────────────────────────────────────── */
 
-const AUTOSAVE_KEY = 'auracut.autosave';
+const AUTOSAVE_KEY = 'kerf.autosave';
 let autosaveTimer: number | null = null;
 
 /** Debounced autosave to localStorage; returns a stop function. */
