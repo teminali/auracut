@@ -42,6 +42,12 @@ export interface ExportClipAudio {
   fadeInMs: number;
   fadeOutMs: number;
   speed: number;
+  /** Semitones, -24..24. */
+  pitch?: number;
+  voiceEffect?: 'none' | 'deep' | 'high' | 'robot' | 'echo' | 'telephone' | 'stadium';
+  noiseReduction?: boolean;
+  /** Pull this clip down under whatever is NOT ducked — music under voice. */
+  ducking?: boolean;
 }
 
 export interface StartExportOptions {
@@ -211,6 +217,24 @@ function probeSource(ff: string, source: string): Promise<string | null> {
   });
 }
 
+/**
+ * Shift pitch without changing duration.
+ *
+ * Resampling alone moves both. `asetrate` retunes the file (and speeds it
+ * up), then `atempo` puts the duration back. atempo is limited to
+ * 0.5..2.0 per stage, which is +-12 semitones, so a wider shift needs
+ * chaining — a -24 semitone drop is two stages, not one impossible one.
+ */
+function pitchShift(semitones: number): string[] {
+  const ratio = Math.pow(2, semitones / 12);
+  const out = [`asetrate=48000*${ratio.toFixed(6)}`, 'aresample=48000'];
+  let remaining = 1 / ratio;
+  while (remaining > 2) { out.push('atempo=2.0'); remaining /= 2; }
+  while (remaining < 0.5) { out.push('atempo=0.5'); remaining /= 0.5; }
+  out.push(`atempo=${remaining.toFixed(6)}`);
+  return out;
+}
+
 function mixArgsFor(clips: ExportClipAudio[], outPath: string): string[] {
   const inputs: string[] = [];
   const filters: string[] = [];
@@ -248,6 +272,47 @@ function mixArgsFor(clips: ExportClipAudio[], outPath: string): string[] {
     }
 
     chain.push('asetpts=PTS-STARTPTS');
+
+    /*
+      Per-clip processing. All four of these were stored on the clip,
+      offered by `list_properties`, settable by `patch_clip` — and applied
+      by neither playback nor export. `unsupportedAudioSettings` at least
+      said so out loud rather than pretending, which is the only reason
+      this was a known gap rather than a silent one.
+    */
+    if (clip.noiseReduction) {
+      // Spectral denoise. `nf` is the noise floor; -25dB is conservative
+      // enough not to chew the top off speech.
+      chain.push('afftdn=nf=-25');
+    }
+
+    const semitones = clip.pitch ?? 0;
+    if (semitones !== 0) chain.push(...pitchShift(semitones));
+
+    switch (clip.voiceEffect) {
+      case 'deep':
+        chain.push(...pitchShift(-5));
+        break;
+      case 'high':
+        chain.push(...pitchShift(5));
+        break;
+      case 'robot':
+        // Ring modulation via a short flat delay plus heavy vibrato.
+        chain.push('vibrato=f=32:d=0.9', 'aecho=0.8:0.9:5:0.6');
+        break;
+      case 'echo':
+        chain.push('aecho=0.8:0.85:180|340:0.5|0.28');
+        break;
+      case 'telephone':
+        chain.push('highpass=f=400', 'lowpass=f=3200', 'volume=1.4');
+        break;
+      case 'stadium':
+        chain.push('aecho=0.7:0.85:420|780|1200:0.5|0.35|0.22', 'lowpass=f=9000');
+        break;
+      default:
+        break;
+    }
+
     if (clip.volume !== 1) chain.push(`volume=${clip.volume.toFixed(3)}`);
     if (clip.fadeInMs > 0) chain.push(`afade=t=in:st=0:d=${(clip.fadeInMs / 1000).toFixed(3)}`);
     if (clip.fadeOutMs > 0) {
@@ -261,10 +326,40 @@ function mixArgsFor(clips: ExportClipAudio[], outPath: string): string[] {
     filters.push(`[${i}:a]${chain.join(',')}[a${i}]`);
   });
 
-  const mixInputs = clips.map((_, i) => `[a${i}]`).join('');
+  /*
+    Ducking.
+
+    A clip marked `ducking` is the one that should get out of the way —
+    music under a voiceover — so it cannot just be compressed against
+    itself. The mix splits into two buses: everything ducked, and
+    everything not. The un-ducked bus is the key, and it is used twice
+    (once as the sidechain, once in the final mix), which is what the
+    `asplit` is for — a filter output cannot be consumed by two filters.
+
+    With every clip ducked, or none, there is nothing to duck against and
+    it falls back to a plain mix rather than doing something arbitrary.
+  */
+  const ducked = clips.map((c, i) => (c.ducking ? i : -1)).filter((i) => i >= 0);
+  const keys = clips.map((c, i) => (c.ducking ? -1 : i)).filter((i) => i >= 0);
+
   // `normalize=0` keeps a single clip at its own level instead of
   // attenuating everything by the number of inputs.
-  filters.push(`${mixInputs}amix=inputs=${clips.length}:dropout_transition=0:normalize=0[out]`);
+  if (ducked.length > 0 && keys.length > 0) {
+    filters.push(
+      `${ducked.map((i) => `[a${i}]`).join('')}amix=inputs=${ducked.length}:dropout_transition=0:normalize=0[dbus]`
+    );
+    filters.push(
+      `${keys.map((i) => `[a${i}]`).join('')}amix=inputs=${keys.length}:dropout_transition=0:normalize=0[kbus]`
+    );
+    filters.push('[kbus]asplit=2[kmix][kside]');
+    filters.push(
+      '[dbus][kside]sidechaincompress=threshold=0.03:ratio=8:attack=20:release=320:makeup=1[dcomp]'
+    );
+    filters.push('[dcomp][kmix]amix=inputs=2:dropout_transition=0:normalize=0[out]');
+  } else {
+    const mixInputs = clips.map((_, i) => `[a${i}]`).join('');
+    filters.push(`${mixInputs}amix=inputs=${clips.length}:dropout_transition=0:normalize=0[out]`);
+  }
 
   return [
     '-y', '-nostdin', ...inputs,

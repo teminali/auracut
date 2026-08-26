@@ -12,7 +12,7 @@
    indistinguishable after the encoder has had its way with it.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { Track, ProjectSettings } from '../types/edl';
+import { Track, ProjectSettings, Clip } from '../types/edl';
 import { renderTimelineFrame, undecodableSources } from './compositor';
 import { seekVideosForFrame } from './videoEngine';
 
@@ -63,27 +63,38 @@ export interface ExportResult {
 /**
  * Audio settings the render cannot honour.
  *
- * The export filtergraph applies gain, fades and speed. It does not
- * apply ducking, pitch shift, voice effects or noise reduction — those
- * are stored on the clip and silently ignored. Returning them lets the
- * caller say so out loud, because a quiet omission is exactly what an
- * agent will report back to the user as "done".
+ * Pitch, voice effects, noise reduction and ducking are all applied by
+ * the export filtergraph now, so this list is empty in the ordinary case
+ * — but the function stays, because the thing it protects against is a
+ * setting that is stored, offered by `list_properties`, and quietly
+ * dropped. A quiet omission is exactly what an agent reports back to the
+ * user as "done".
+ *
+ * The one that remains: ducking needs something to duck AGAINST. With
+ * every audible clip marked, there is no key bus and the mix is left
+ * alone rather than compressed against itself.
  */
 export function unsupportedAudioSettings(tracks: Track[]): string[] {
   const found = new Set<string>();
 
+  const audible: Clip[] = [];
   for (const track of tracks) {
+    if (track.muted) continue;
     for (const clip of track.clips) {
-      if (!clip.mediaUrl) continue;
-      const a = clip.audio;
-      if (a.ducking) found.add('Audio ducking is set but is not applied to the exported render.');
-      if (a.noiseReduction) found.add('Noise reduction is set but is not applied to the exported render.');
-      if (a.pitch && a.pitch !== 0) found.add('Pitch shift is set but is not applied to the exported render.');
-      if (a.voiceEffect && a.voiceEffect !== 'none') {
-        found.add(`Voice effect "${a.voiceEffect}" is set but is not applied to the exported render.`);
-      }
+      if (!clip.mediaUrl || clip.hidden) continue;
+      if (track.type !== 'audio' && clip.type !== 'video') continue;
+      audible.push(clip);
     }
   }
+
+  const ducked = audible.filter((c) => c.audio.ducking).length;
+  if (ducked > 0 && ducked === audible.length) {
+    found.add(
+      'Every audible clip is set to duck, so there is nothing to duck against — ' +
+      'ducking was not applied. Clear it on whatever should stay at full level.'
+    );
+  }
+
   return [...found];
 }
 
@@ -196,6 +207,10 @@ function collectAudioClips(tracks: Track[]) {
         volume,
         fadeInMs: clip.audio.fadeInMs,
         fadeOutMs: clip.audio.fadeOutMs,
+        pitch: clip.audio.pitch,
+        voiceEffect: clip.audio.voiceEffect,
+        noiseReduction: clip.audio.noiseReduction,
+        ducking: clip.audio.ducking,
         speed: clip.speed?.multiplier ?? 1,
       });
     }
