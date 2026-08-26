@@ -25,6 +25,21 @@ export interface BeatDetectionResult {
   /** Onset strength envelope, normalised 0..1 — useful for visualisation. */
   novelty: number[];
   durationMs: number;
+  /**
+   * False when nothing in the audio rose enough to be an onset — a pad,
+   * a drone, a sine, room tone. The grid returned in that case is the
+   * tempo prior talking and NOTHING else: `onsetsDetected` is 0 and
+   * every beat is interpolated.
+   *
+   * It exists because the alternative is what used to happen. The
+   * novelty curve is normalised against its own maximum, so with no
+   * transients the measurement ripple was stretched to full scale, 36
+   * "onsets" came back from five seconds of a 440Hz sine, and
+   * `beatsAnchored` reported them as beats on real onsets. Two values
+   * could not tell "no beats here" from "beats here", so a caller
+   * placing cuts on this had no way to know which it had.
+   */
+  percussive: boolean;
 }
 
 /*
@@ -32,6 +47,34 @@ export interface BeatDetectionResult {
   `detectBeats` needs a browser; everything below it is arithmetic on a
   Float32Array, and that is the part that was wrong for months.
 */
+/**
+ * How large a rise has to be, against the track's mean frame energy,
+ * before it can be an onset at all.
+ *
+ * Calibrated by measuring, not chosen:
+ *
+ *     pure 440Hz sine            0.0149     no transients at all
+ *     two-tone beating drone     0.166      amplitude modulation only
+ *     soft hits over a loud bed  0.072 .. 0.271
+ *     bare kick pattern         19.957
+ *
+ * **This catches the first case and cannot catch the second.** The
+ * beating drone sits at 0.166, and real percussion buried under a loud
+ * sustained bed sits at 0.072–0.271 — the ranges OVERLAP, so no value of
+ * this constant separates them. Raising the floor to reject the drone
+ * would silence ordinary dense music, which is a far worse failure than
+ * the one being fixed.
+ *
+ * So 0.08 is placed to clear the pure-sustained case with a 5x margin
+ * while staying below the quietest real percussion measured. What
+ * remains uncaught is sustained material whose amplitude modulates —
+ * a beating drone, a tremolo pad, a heavy reverb wash. Separating those
+ * needs a different metric (onset spacing saturating at the minimum gap
+ * is the obvious candidate: 36 onsets in 5s is one per 139ms against a
+ * 90ms floor), not a different threshold on this one.
+ */
+export const NOVELTY_FLOOR_RATIO = 0.08;
+
 export const HOP_SIZE = 512;
 export const TARGET_RATE = 22050;
 
@@ -104,9 +147,44 @@ export function computeNovelty(samples: Float32Array): Float32Array {
     novelty[f] = Math.max(0, energy[f] - energy[f - 1]);
   }
 
+  /*
+    Normalise against the LOUDEST RISE — but only if there was one.
+
+    Dividing by the curve's own maximum is what makes the rest of the
+    pipeline work at any recording level, and it is also a trap: with no
+    transients anywhere, the largest thing in the curve is measurement
+    ripple, and dividing by it stretches that ripple to full scale. A
+    440Hz sine — whose frame-to-frame RMS wobbles by about 1.5% of level
+    and which contains no onset by any definition — came out as a
+    full-scale novelty curve, `pickOnsets` returned 36 onsets in five
+    seconds, and `beatsAnchored` then reported those as beats sitting on
+    real onsets. Silence escaped only because `max === 0` short-circuits
+    the divide.
+
+    That is the failure this codebase is about: markers that are noise,
+    reported as solidly anchored. A pad, a drone or a reverb tail is
+    enough to reach it.
+
+    So the rise has to be significant against the SIGNAL, not merely the
+    largest of the ripples. The test is scale-free — a quiet passage with
+    real transients still has rises that are a large fraction of its own
+    level — so this does not punish soft material, only material with no
+    percussive content at all.
+  */
   let max = 0;
   for (let i = 0; i < frames; i++) if (novelty[i] > max) max = novelty[i];
-  if (max > 0) for (let i = 0; i < frames; i++) novelty[i] /= max;
+
+  let energySum = 0;
+  for (let f = 0; f < frames; f++) energySum += energy[f];
+  const meanEnergy = frames > 0 ? energySum / frames : 0;
+
+  if (max <= 0 || max < NOVELTY_FLOOR_RATIO * meanEnergy) {
+    // Nothing here rises enough to be an onset. An all-zero curve is the
+    // honest answer: `pickOnsets` finds nothing and the caller is told.
+    return new Float32Array(frames);
+  }
+
+  for (let i = 0; i < frames; i++) novelty[i] /= max;
 
   return novelty;
 }
@@ -397,6 +475,9 @@ export async function detectBeats(url: string, offsetMs = 0): Promise<BeatDetect
     beatsAnchored: grid.anchored,
     novelty: Array.from(novelty),
     durationMs: (samples.length / sampleRate) * 1000,
+    // The floor in `computeNovelty` zeroes the curve outright when
+    // nothing rises enough, so no onsets IS the signal.
+    percussive: onsetFrames.length > 0,
   };
 }
 

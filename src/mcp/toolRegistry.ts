@@ -1382,6 +1382,24 @@ defineTool({
       beatsOnRealOnsets: result.beatsAnchored,
       confidence: `${anchoredPct}% of the beats sit on a detected onset; the rest are interpolated at the estimated tempo.`,
       cutsSnapped: snapped,
+      /*
+        Whether anything in this audio rose enough to BE an onset.
+
+        Without it, a track with no percussion returned a grid and a
+        confident-looking BPM with no way to tell it apart from a real
+        one — and before the novelty floor it went further and reported
+        those phantom onsets as beats anchored to real audio.
+      */
+      percussive: result.percussive,
+      ...(result.percussive
+        ? {}
+        : {
+            warning:
+              'Nothing in this audio rises enough to be an onset — it reads as sustained ' +
+              'material (a pad, a drone, room tone) rather than something with a beat. ' +
+              'Every beat returned is the tempo prior talking, not a measurement. Cutting ' +
+              'to this grid will not land on anything audible.',
+          }),
     };
   },
 });

@@ -324,7 +324,7 @@ describe('pickOnsets', () => {
     expect(pickOnsets(computeNovelty(new Float32Array(TARGET_RATE * 5)), FRAME_MS)).toEqual([]);
   });
 
-  it('RECORDED: a steady tone with no transients still yields onsets', () => {
+  it('FIXED: a steady tone with no transients yields no onsets at all', () => {
     /*
       Not an endorsement — a finding, written down so it is not
       rediscovered.
@@ -345,8 +345,16 @@ describe('pickOnsets', () => {
       solidly anchored, which is exactly the shape of "reports success
       and does nothing" this repo keeps finding.
 
-      A fix would be an absolute floor on the pre-normalisation maximum —
-      below it, emit a flat curve and let the caller see zero onsets.
+      FIXED by `NOVELTY_FLOOR_RATIO`: the largest rise must be at least
+      8% of the track's mean frame energy before the curve is normalised
+      at all. Below that the curve is emitted flat and the caller sees
+      zero onsets, and `detectBeats` reports `percussive: false`.
+
+      The check below is kept in the shape it was written in, so the
+      thing that used to be true is visible next to the thing that is
+      true now. The two assertions at the end are inverted; the
+      measurement above them is unchanged and still passes, which is what
+      says the fixture still contains what it always did.
     */
     const tone = new Float32Array(TARGET_RATE * 5);
     for (let i = 0; i < tone.length; i++) tone[i] = Math.sin((i / TARGET_RATE) * 2 * Math.PI * 440);
@@ -366,10 +374,34 @@ describe('pickOnsets', () => {
     for (let f = 1; f < frames; f++) rawMax = Math.max(rawMax, energy[f] - energy[f - 1]);
     expect(rawMax / energy[10]).toBeLessThan(0.02);
 
-    // …and full-scale after it, which is what the onset picker sees.
+    // …and the floor now refuses to stretch it. Flat curve, no onsets.
     const novelty = computeNovelty(tone);
-    expect(Math.max(...novelty)).toBeCloseTo(1, 6);
-    expect(pickOnsets(novelty, FRAME_MS).length).toBeGreaterThan(20);
+    expect(Math.max(...novelty)).toBe(0);
+    expect(pickOnsets(novelty, FRAME_MS)).toHaveLength(0);
+  });
+
+  it('the floor does not silence real percussion, however quiet', () => {
+    /*
+      The negative control, and the reason the floor is a RATIO against
+      the track's own mean energy rather than an absolute amplitude.
+
+      A threshold that only proves "a drone yields nothing" is half a
+      test: setting the floor to infinity would pass it and would break
+      every real track. So the same fixture is measured at full level and
+      at 1/50th of it, and both must still resolve their tempo — a quiet
+      passage with real transients has rises that are a large fraction of
+      ITS level, which is exactly the property being relied on.
+    */
+    const { samples } = synthTrack({ bpm: 120, seconds: 6, phaseMs: 300, bedGain: 0.05 });
+
+    for (const gain of [1, 0.02]) {
+      const scaled = new Float32Array(samples.length);
+      for (let i = 0; i < samples.length; i++) scaled[i] = samples[i] * gain;
+
+      const novelty = computeNovelty(scaled);
+      expect(pickOnsets(novelty, FRAME_MS).length).toBeGreaterThan(8);
+      expect(errPct(estimateBpm(novelty, FRAME_MS), 120)).toBeLessThan(3);
+    }
   });
 
   it('prefers the strong hits over the ghosts it sits between', () => {

@@ -461,15 +461,22 @@ package name rather than by line count before believing it.
 
 ### New findings with no home yet
 
-- **`computeNovelty` has no absolute floor.** It divides by its own
-  maximum, so a steady tone — a pad, a drone, a reverb tail — has its 1.5%
-  RMS ripple stretched to a full-scale novelty curve, and `pickOnsets`
-  returns 36 onsets in 5 seconds of a 440Hz sine. Silence is safe only
-  because `max === 0` short-circuits the divide. The markers would be
-  noise while `beatsAnchored` reported them as solidly anchored, which is
-  the same family as the two beat bugs in §3a. Pinned by a test in
-  `src/engine/beatDetect.test.ts` that records the behaviour rather than
-  asserting it is correct.
+- **`computeNovelty`'s missing floor — fixed for the clear case, and the
+  rest is measured and open.** It divided by its own maximum, so a steady
+  tone had its 1.5% RMS ripple stretched to full scale: 36 onsets from 5
+  seconds of a 440Hz sine, reported by `beatsAnchored` as beats on real
+  onsets. `NOVELTY_FLOOR_RATIO` now requires the largest rise to be 8% of
+  mean frame energy, and `detectBeats` returns `percussive` — with
+  `detect_beats` warning that every beat is the tempo prior talking.
+
+  **What it does NOT catch, with the numbers:** a beating two-tone drone
+  measures 0.166 and still yields 36 onsets. Soft percussion under a loud
+  sustained bed measures 0.072–0.271. **Those ranges overlap, so no value
+  of this constant separates them** — raising the floor to reject the
+  drone silences ordinary dense music, which is the worse failure.
+  Separating them needs a different metric, and the obvious candidate is
+  onset spacing saturating at the minimum gap: 36 onsets in 5s is one per
+  139ms against a 90ms floor. Not attempted.
 - **`computeViewport`'s comment says "Rounded so the canvas lands on
   whole pixels". There is no rounding.** Nothing is broken — the gizmo
   and the compositor both come through it, so they agree — but the
