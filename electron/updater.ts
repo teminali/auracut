@@ -125,6 +125,19 @@ export function initAutoUpdater(window: BrowserWindow) {
   });
 
   autoUpdater.on('error', (err) => {
+    /*
+      A build with no app-update.yml is not a broken build — it is a
+      build that was never configured for updates (a --dir package, or a
+      dev run). Reporting ENOENT as an error put a warning triangle in
+      the title bar on every launch and told the user nothing they could
+      act on.
+    */
+    const message = err?.message ?? String(err);
+    if (/app-update\.yml/i.test(message)) {
+      publish({ state: 'up-to-date', version: app.getVersion() });
+      return;
+    }
+
     publish({ state: 'error', message: err?.message ?? String(err) });
   });
 

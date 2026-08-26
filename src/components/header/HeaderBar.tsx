@@ -18,6 +18,7 @@ import { formatTimecode } from '../../utils/time';
 import { McpStatusModal } from './McpStatusModal';
 import { serializeProject, deserializeProject } from '../../engine/projectIO';
 import { UpdateIndicator } from './UpdateIndicator';
+import { KerfMark } from '../ui/KerfMark';
 import {
   Sparkle, Download, Undo2, Redo2, Command, Save, FolderOpen, Keyboard,
 } from 'lucide-react';
@@ -106,10 +107,8 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
             className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center shadow-raised"
             style={{ background: 'linear-gradient(145deg,#6ba5ff,#3a6ff0)' }}
           >
-            {/* A play triangle reads as "editor" faster than a lettermark. */}
-            <svg viewBox="0 0 24 24" className="w-3 h-3" fill="#fff">
-              <path d="M7 4.5v15l13-7.5z" />
-            </svg>
+            {/* The kerf: two bars and the cut between them. */}
+            <KerfMark className="w-[13px] h-[13px]" />
           </div>
           <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">Kerf</span>
         </button>

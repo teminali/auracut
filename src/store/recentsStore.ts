@@ -25,6 +25,13 @@ export interface RecentProject {
   filePath?: string;
   /** The project itself, so it can be reopened without a file. */
   snapshot?: string;
+  /**
+   * A project the app can rebuild from code rather than reload from a
+   * snapshot. Used for the bundled starter, so a first run has something
+   * real on the wall without shipping a serialized blob that would go
+   * stale the moment the EDL changes.
+   */
+  starter?: string;
 }
 
 interface RecentsState {
@@ -67,14 +74,37 @@ function persist(recents: RecentProject[]): void {
   }
 }
 
+/**
+ * The starter entry, shown when there is nothing else.
+ *
+ * Not persisted and not counted as real work: it is dropped from the
+ * list the moment the user has a project of their own, so it never
+ * competes for space with something they actually made.
+ */
+const STARTER_ENTRY: RecentProject = {
+  id: 'starter:kerf-logo-sting',
+  name: 'Kerf — Logo Sting',
+  durationMs: 3200,
+  aspectRatio: '16:9',
+  clipCount: 4,
+  openedAt: 0,
+  starter: 'kerf-logo-sting',
+};
+
+function withStarter(recents: RecentProject[]): RecentProject[] {
+  const real = recents.filter((r) => !r.starter);
+  return real.length > 0 ? real : [STARTER_ENTRY];
+}
+
 export const useRecentsStore = create<RecentsState>((set, get) => ({
-  recents: load(),
+  recents: withStarter(load()),
 
   remember: (entry) => {
     const next = [
       { ...entry, openedAt: Date.now() },
       // Same project opened again moves to the front rather than duplicating.
-      ...get().recents.filter((r) => r.id !== entry.id),
+      // Real work displaces the starter rather than sitting beside it.
+      ...get().recents.filter((r) => r.id !== entry.id && !r.starter),
     ].slice(0, LIMIT);
 
     persist(next);

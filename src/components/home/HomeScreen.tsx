@@ -26,6 +26,7 @@
 import React from 'react';
 import { useProjectStore } from '../../store/projectStore';
 import { useRecentsStore, RecentProject } from '../../store/recentsStore';
+import { buildStarterProject } from '../../engine/starterProject';
 import { useClaudeAgentStore } from '../../store/claudeAgentStore';
 import { useUiStore } from '../../store/uiStore';
 import { hasAutosave, restoreAutosave, clearAutosave, deserializeProject } from '../../engine/projectIO';
@@ -92,6 +93,18 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
   };
 
   const openRecent = (entry: RecentProject) => {
+    // The starter is rebuilt from code, not reloaded from a snapshot.
+    if (entry.starter) {
+      buildStarterProject();
+      onEnterEditor();
+      pushToast({
+        kind: 'info',
+        title: 'Opened the starter project',
+        detail: 'Kerf\u2019s own logo sting — shapes, text and keyframes. Edit it freely.',
+      });
+      return;
+    }
+
     if (!entry.snapshot) {
       pushToast({
         kind: 'info',
