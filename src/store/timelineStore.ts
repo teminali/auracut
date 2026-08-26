@@ -1929,9 +1929,30 @@ export const useTimelineStore = create<TimelineStore>()(
         if (!track) return;
 
         sortClips(track);
-        for (let i = 1; i < track.clips.length; i++) {
+
+        /*
+          Two shapes of timeline, and this used to handle only one.
+
+          In a MONTAGE the clips butt together, so moving a cut means the
+          clip before it gets longer and this one shorter — the shift has
+          to be absorbed or a gap opens in the middle of the sequence.
+
+          On a track with GAPS there is nothing to absorb: the clip is
+          free-standing and should simply move. The old version absorbed
+          unconditionally, which had two consequences. Free-standing clips
+          were refused whenever the previous one would drop under 200ms —
+          and because each absorption SHRANK that previous clip, one snap
+          made the next one likelier to be refused. Four cuts laid off the
+          beat, all within tolerance, snapped exactly one.
+
+          Starting at i=1 was the other half of it: the first clip on a
+          track has no predecessor to absorb into, so it was never snapped
+          at all, even sitting alone 30ms off the beat.
+        */
+        for (let i = 0; i < track.clips.length; i++) {
           const clip = track.clips[i];
-          const prev = track.clips[i - 1];
+          const prev = i > 0 ? track.clips[i - 1] : null;
+          const next = i + 1 < track.clips.length ? track.clips[i + 1] : null;
 
           // Find the nearest beat to this cut point.
           let nearest = beats[0];
@@ -1940,13 +1961,25 @@ export const useTimelineStore = create<TimelineStore>()(
           }
           const delta = nearest - clip.startTimeMs;
           if (delta === 0 || Math.abs(delta) > toleranceMs) continue;
+          if (nearest < 0) continue;
 
-          // Absorb the shift into the previous clip so no gap opens up.
-          if (prev.durationMs + delta < 200) continue;
-          prev.durationMs += delta;
-          prev.sourceDurationMs = prev.durationMs;
-          clip.startTimeMs = nearest;
-          clip.durationMs = Math.max(200, clip.durationMs - delta);
+          const butted =
+            prev !== null && Math.abs(prev.startTimeMs + prev.durationMs - clip.startTimeMs) <= 2;
+
+          if (butted && prev) {
+            // Absorb the shift so the sequence stays continuous.
+            if (prev.durationMs + delta < 200) continue;
+            if (clip.durationMs - delta < 200) continue;
+            prev.durationMs += delta;
+            prev.sourceDurationMs = prev.durationMs;
+            clip.startTimeMs = nearest;
+            clip.durationMs -= delta;
+          } else {
+            // Free-standing: move it, and keep its length.
+            if (prev && nearest < prev.startTimeMs + prev.durationMs) continue;
+            if (next && nearest + clip.durationMs > next.startTimeMs) continue;
+            clip.startTimeMs = nearest;
+          }
           moved++;
         }
       });
