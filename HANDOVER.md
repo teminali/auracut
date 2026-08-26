@@ -633,7 +633,7 @@ whether they are green or red, so the runner parses their summary lines
 rather than trusting exit codes; a `&&` chain would report success on a
 red run.
 
-`tools/` — ten suites, 219 checks, run against a live Kerf:
+`tools/` — twelve suites, 295 checks, run against a live Kerf:
 
     verify_keyframes.py       28   every animatable property, on pixels
     verify_gpu.py              6   chroma key, despill, displacement
@@ -645,6 +645,8 @@ red run.
     verify_frame_context.py    8   mediaPending, on a race it must win
     verify_montage.py         38   cuts on beats, measured in the exported file
     verify_altitude.py        74   look presets and PiP geometry, on pixels
+    verify_reference_analysis.py 55  cuts, cadence, grade, motion, on constructed truth
+    verify_hardening.py       21   §8's six named regressions
 
 All green in dev **and in the packaged app**. Every check measures the
 artifact — rendered pixels, exported audio, a file on disk — because
@@ -1063,8 +1065,11 @@ set drift back.
 The roadmap in §5 is about capability. This is about being software
 people can rely on, and it is largely unbuilt. Ordered by consequence:
 
-**There are no automated tests. None.** No runner, no test script, no
-test files. Six audit passes found code that lied, every fix was
+**~~There are no automated tests. None.~~ — done.** `npm test` runs 167
+unit tests with no app; `npm run verify` boots its own Kerf and runs 295
+checks across twelve suites, exiting non-zero. All six regressions named
+below are in `tools/verify_hardening.py`. What follows is kept because
+the reasoning is still the right reasoning. Six audit passes found code that lied, every fix was
 verified by hand exactly once, and nothing prevents any of it
 regressing tomorrow. Start with regressions for the findings that are
 already characterised — they are mostly mechanical to write because the

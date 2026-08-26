@@ -117,6 +117,9 @@ SUITES = [
     'verify_montage',
     'verify_altitude',
     'verify_reference_analysis',
+    # HANDOVER §8's six named regressions, asserted on purpose rather
+    # than incidentally by suites written for other reasons.
+    'verify_hardening',
 ]
 
 # Suites that shell out to ffmpeg/ffprobe themselves. Named so that a
@@ -124,7 +127,8 @@ SUITES = [
 # of four opaque tracebacks.
 NEEDS_FFMPEG = {'verify_audio', 'verify_ffmpeg_bridge',
                 'verify_playback_audio', 'verify_frame_context',
-                'verify_montage', 'verify_reference_analysis'}
+                'verify_montage', 'verify_reference_analysis',
+                'verify_hardening'}
 
 SUMMARY_RE = re.compile(r'^\s*(\d+)\s*/\s*(\d+)\s')
 BAD_LINE_RE = re.compile(r'^\s*(FAIL\b|ERROR\b|failing:)')

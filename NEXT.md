@@ -161,7 +161,7 @@ Note also that Vite HMR full-reloads the page on some edits, which resets
 ### Verifying
 
 ```bash
-npm run verify          # all ten suites, 219 checks, ~29s, own Kerf, exits non-zero
+npm run verify          # all twelve suites, 295 checks, own Kerf, exits non-zero
 npm test                # 166 unit tests, no app needed
 ```
 
@@ -171,7 +171,7 @@ To drive one suite by hand against an instance you already have running:
 KERF_RPC_PORT=<port> python3 tools/verify_keyframes.py
 ```
 
-219 checks across ten suites. All are green in dev **and in the packaged app**, in any
+295 checks across twelve suites. All are green in dev **and in the packaged app**, in any
 order, and green again if you run the whole set a second time against the
 same running app. Run them before you start and after you finish; if one
 is red before you have touched anything, that is the finding.
@@ -363,10 +363,26 @@ excluded, `workflow_dispatch` only. **It has never been run.** It dumps
 `verify_gpu` a WebGL2 context, instead of someone guessing. Make it a gate
 once you have watched it finish.
 
-### Still open here
+### Done here too — HANDOVER §8's six named regressions
 
-- **Regressions for the six findings in HANDOVER §8.** This was Stage 1
-  item 2 originally and is still not done — §5's other two parts are.
+`tools/verify_hardening.py`, 21 checks. Four of the six were already
+covered incidentally, by suites written for other reasons, which is not
+the same as covered on purpose: narrow `verify_keyframes` and `shadows`
+stops being checked with nobody the wiser. Each of the six is now
+asserted in §8's own words, against the artifact.
+
+**A lock means different things depending on which tool you reach for.**
+`split_clip`, `delete_clip`, `move_clip` and `trim_clip` refuse a locked
+clip. `add_effect` and `patch_clip` write straight through it. This is
+NOT the §8 no-op bug — those tools bailed silently and returned void,
+and these two really do apply the edit — it is a consistency defect,
+found while writing that suite and pinned there as RECORDED rather than
+asserted, so `npm run verify` stays honest about it.
+
+Fixing it is not free: `batch_apply`'s `includeLocked` option calls
+`patch_clip` expecting it to write through, so making the lock uniform
+means giving that option another way in. Worth doing, not worth doing
+blind.
 
 ## 6. Still not started, from the original plan
 
