@@ -1,0 +1,124 @@
+# ═══════════════════════════════════════════════════════════════════
+# The eight verification suites, in CI.
+#
+# 107 checks, every one of them measured on an artifact — rendered
+# pixels, an exported waveform, a file on disk — by driving a real
+# running Kerf over its local RPC. `tools/run_all_suites.py` boots the
+# app on a free port, waits for the RPC to answer, runs all eight, kills
+# it, and exits non-zero if anything failed or could not run.
+#
+# ─── READ THIS BEFORE TRUSTING A GREEN TICK ───────────────────────
+#
+# **This workflow has never been executed on a GitHub runner.** It was
+# written and its runner was proven on an Apple-silicon laptop (107/107,
+# 22s). Two things about a macOS runner are genuinely unknown, and both
+# are stated rather than papered over:
+#
+#   1. **A window.** Kerf is an Electron GUI app. Every pixel check goes
+#      through the compositor in a real renderer process. GitHub's macOS
+#      runners do have a window server, and Electron apps are routinely
+#      tested on them — but this app has never been one of them.
+#
+#   2. **WebGL, for `verify_gpu`.** `src/engine/gpuStage.ts` needs a
+#      WebGL2 context. macOS runners are virtual machines; Chromium may
+#      use ANGLE over Apple's paravirtualised Metal device, or fall back
+#      to SwiftShader, or blocklist the GPU entirely. The first two are
+#      fine — the checks assert what the picture looks like, not how
+#      fast it arrived. The third is not. The `gpu info` step below
+#      exists to answer this on the first run instead of guessing.
+#
+# `verify_audio`, `verify_ffmpeg_bridge`, `verify_playback_audio` and
+# `verify_frame_context` shell out to ffmpeg, which is NOT preinstalled;
+# it is installed below. No audio *device* is needed — every measurement
+# is an offline render, either through ffmpeg or through an
+# OfflineAudioContext.
+#
+# **Nothing here is excluded.** If a suite cannot run on this machine
+# the runner reports it as a FAILURE and the job goes red, which is the
+# point: a CI job that quietly drops the checks that matter is worse
+# than no CI job. If `verify_gpu` turns out to be impossible on a
+# runner, the honest fix is to say so here in writing, not to delete it
+# from the list.
+#
+# Trigger is `workflow_dispatch` on purpose: run it by hand once, and if
+# it is green, add
+#
+#     pull_request:
+#     push: { branches: [main] }
+#
+# to the triggers. Do not gate PRs on a job nobody has watched finish.
+# ═══════════════════════════════════════════════════════════════════
+
+name: Verify (live app)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: yarn install --frozen-lockfile
+
+      # Four suites shell out to it, and the main process resolves it
+      # from /opt/homebrew/bin or /usr/local/bin explicitly (see
+      # `findBinary` in electron/transcribe.ts), so both runner
+      # architectures are covered.
+      - name: Install ffmpeg
+        run: |
+          brew install ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      - name: Install python deps
+        run: python3 -m pip install --upgrade numpy pillow
+
+      # Builds the renderer into dist/ and the main process into
+      # dist-electron/. The runner is pointed at dist/ with --built, so
+      # no Vite dev server has to be kept alive alongside it — and there
+      # is no HMR client, which on a developer machine reloads the window
+      # mid-suite and hangs the run.
+      - name: Build
+        run: yarn build
+
+      # Diagnostic, not a gate. It answers uncertainty (2) above on the
+      # first run: what GL backend Electron actually gets here.
+      - name: gpu info
+        continue-on-error: true
+        run: |
+          cat > /tmp/gpuinfo.cjs <<'EOF'
+          const { app } = require('electron');
+          app.whenReady().then(async () => {
+            console.log(JSON.stringify(app.getGPUFeatureStatus(), null, 2));
+            try { console.log(JSON.stringify(await app.getGPUInfo('complete')).slice(0, 2000)); }
+            catch (e) { console.log('getGPUInfo failed:', e.message); }
+            app.quit();
+          });
+          EOF
+          npx electron /tmp/gpuinfo.cjs || echo 'electron could not start at all — that is finding (1)'
+
+      # The whole point: one command, all eight suites, non-zero on any
+      # failure or on any suite that could not run.
+      - name: Run the eight suites
+        run: python3 tools/run_all_suites.py --built --log-dir "$RUNNER_TEMP/kerf-verify"
+
+      - name: Upload suite logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-logs
+          path: ${{ runner.temp }}/kerf-verify
+          if-no-files-found: warn

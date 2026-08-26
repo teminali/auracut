@@ -32,6 +32,12 @@ export const RPC_PORT = Number(process.env.KERF_RPC_PORT ?? 3888);
 /** Regenerated every launch, so a stale config cannot talk to a new session. */
 export const RPC_TOKEN = crypto.randomBytes(24).toString('hex');
 
+/** Whether this instance actually holds the port. */
+let listening = false;
+export function rpcBridgeListening(): boolean {
+  return listening;
+}
+
 function send(res: http.ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
@@ -58,7 +64,7 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   });
 }
 
-export function startRpcServer(): http.Server {
+export function startRpcServer(onReady?: () => void): http.Server {
   const server = http.createServer(async (req, res) => {
     if (req.method !== 'POST' || req.url !== '/rpc') {
       send(res, 404, { error: 'Not found' });
@@ -133,8 +139,45 @@ export function startRpcServer(): http.Server {
   server.keepAliveTimeout = 0;
   server.on('connection', (socket) => socket.setTimeout(0));
 
+  /*
+    An occupied port used to take the whole app down.
+
+    `listen` emits 'error' rather than throwing, and with no handler an
+    EADDRINUSE became an unhandled 'error' event — main dies, and the
+    window with it. Harmless while the port was a hardcoded 3888 that
+    only ever had one claimant; now that KERF_RPC_PORT selects it, asking
+    for a busy port is an ordinary mistake and should not be fatal.
+
+    Kerf stays up without its RPC bridge. The editor is still an editor
+    with no agent attached, which is a far better outcome than exiting,
+    and the message says exactly what to do.
+  */
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    listening = false;
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `[Kerf] port ${RPC_PORT} is already in use, so there is no RPC bridge in this ` +
+        'instance. Another Kerf is probably running. Relaunch with a different ' +
+        'KERF_RPC_PORT to run both at once.'
+      );
+      return;
+    }
+    console.error('[Kerf] RPC bridge failed to start:', err.message);
+  });
+
   server.listen(RPC_PORT, '127.0.0.1', () => {
+    listening = true;
     console.log(`[Kerf] RPC bridge on http://127.0.0.1:${RPC_PORT}/rpc`);
+    /*
+      The token file is written HERE and nowhere else on startup, because
+      it may only ever describe an instance that actually owns the port.
+      It used to be written unconditionally right after this call — and
+      `listen` is asynchronous, so a second instance asking for a port it
+      could not have still overwrote the first one's credentials before
+      failing. The first instance kept serving and answering 401 to every
+      call, which is trap 4 wearing a different hat.
+    */
+    onReady?.();
   });
 
   return server;

@@ -18,7 +18,7 @@ import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
-import { RPC_PORT, RPC_TOKEN } from './rpcServer';
+import { RPC_PORT, RPC_TOKEN, rpcBridgeListening } from './rpcServer';
 import {
   BackendId, AgentBackend, getBackend, findBackendBinary, surveyBackends, BackendStatus,
   getModel, getPreferredBackend, setPreferredBackend, agentPath,
@@ -226,6 +226,13 @@ export function mcpConfigPath(): string {
 
 export function writeMcpConfig(): string {
   const file = mcpConfigPath();
+
+  /*
+    Never overwrite another instance's credentials. If this Kerf does not
+    hold the port, the file on disk belongs to the one that does, and the
+    token in it is the only one that will be accepted.
+  */
+  if (!rpcBridgeListening()) return file;
 
   /*
     The shim runs as its own process, so it must be a real file. Inside a

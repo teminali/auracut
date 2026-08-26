@@ -403,8 +403,8 @@ app.whenReady().then(() => {
 
   initToolBridge();
   registerAgentIpc();
-  startRpcServer();
-  writeMcpConfig();
+  // Only once the port is actually ours — see rpcServer's listen callback.
+  startRpcServer(() => writeMcpConfig());
   createWindow();
 
   app.on('activate', () => {
