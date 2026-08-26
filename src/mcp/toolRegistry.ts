@@ -2422,6 +2422,51 @@ defineTool({
 });
 
 defineTool({
+  name: 'resolve_capability_gap',
+  category: 'discovery',
+  description:
+    'Mark a logged capability gap as resolved, once the thing it describes actually works. ' +
+    'Gaps could be recorded and never closed, so the log accumulated entries for things that had ' +
+    'since been built — and the next person to read it cannot tell those apart from the real ' +
+    'backlog. Only close one you have verified.',
+  schema: z.object({
+    gapId: z.string().optional().describe('Gap id from list_capability_gaps'),
+    match: z.string().optional().describe('Substring of the request or reason, when the id is not to hand'),
+    note: z.string().optional().describe('What fixed it'),
+  }),
+  handler: ({ gapId, match, note }) => {
+    const store = useGapStore.getState();
+    const needle = (match ?? '').toLowerCase();
+    const target = gapId
+      ? store.gaps.find((g) => g.id === gapId)
+      : store.gaps.find(
+          (g) =>
+            !g.resolved &&
+            needle.length > 0 &&
+            (g.request.toLowerCase().includes(needle) || g.reason.toLowerCase().includes(needle))
+        );
+
+    if (!target) {
+      throw new Error(
+        gapId
+          ? `No capability gap with id "${gapId}".`
+          : `No unresolved capability gap matching "${match ?? ''}". Call list_capability_gaps.`
+      );
+    }
+    if (target.resolved) return { gapId: target.id, alreadyResolved: true, request: target.request };
+
+    store.toggleResolved(target.id);
+    return {
+      gapId: target.id,
+      request: target.request,
+      resolved: true,
+      ...(note ? { note } : {}),
+      remainingOpen: useGapStore.getState().gaps.filter((g) => !g.resolved).length,
+    };
+  },
+});
+
+defineTool({
   name: 'list_capability_gaps',
   category: 'discovery',
   description: 'List everything previously recorded as missing from Kerf.',
