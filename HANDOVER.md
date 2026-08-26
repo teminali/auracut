@@ -16,12 +16,12 @@ observation:
 | **Video** | Real decode via `videoEngine.ts`. Frame-accurate seeking, verified against burned-in timecode. |
 | **Export** | Real file. Renderer composites → main drives ffmpeg. h264/hevc/prores + AAC, aspect-correct, 720p/1080p/**2K**/4K. |
 | **Grading** | `highlights`, `shadows`, `sharpen` now render (SVG tone curves). Measured on real frames. |
-| **Beats** | Anchored to detected onsets, not a synthesised grid. 119.8 BPM on a 120 BPM source, zero drift. |
+| **Beats** | Anchored to detected onsets, not a synthesised grid. Tempo and grid both rebuilt — see §3a. 13/13 on a tempo bench, mean marker error 9.0ms. |
 | **Silence** | Measured with ffmpeg `silencedetect`, with a `dryRun`. |
 | **Copilot** | Multi-backend picker: Claude Code, Codex CLI, Gemini CLI, Cursor Agent. Claude + Codex verified end to end. |
 | **Assets** | 183 system fonts, 12 synthesised SFX, search on every panel, 14 transitions, 23 effects, 10 looks. |
 
-**53 tools**, 4 agent backends. Both the renderer and the main process
+**55 tools**, 4 agent backends. Both the renderer and the main process
 typecheck (`npm run typecheck`).
 
 ---
@@ -175,7 +175,7 @@ src/
   components/   UI by region (header, sidebar, preview, timeline, inspector, copilot)
   engine/       compositor, video, audio, effects, export, fonts, SFX, tone curves
   store/        zustand — the single source of truth
-  mcp/          toolRegistry.ts — the 53 tools the agent drives
+  mcp/          toolRegistry.ts — the 55 tools the agent drives
 electron/
   main.ts            app lifecycle, IPC
   agentBackends.ts   one adapter per CLI: detection, MCP config, flags, stream
@@ -209,7 +209,7 @@ against a fresh empty store and edited a project nobody could see.
 
 **Why MCP when the CLI is right there:** the CLI is a separate OS
 process and cannot touch the renderer's stores. MCP is the channel, and
-because all four CLIs speak it, the 53 tools are written once and every
+because all four CLIs speak it, the 55 tools are written once and every
 backend inherits them. Swapping backends is config, not a rewrite. The
 CLI's *own* tools (Bash, Read, WebFetch) are the other half — MCP for
 the editor, its own tools for the computer.
@@ -320,6 +320,162 @@ Then the five patterns that actually found things:
 the picker claimed backends were ready before probing them, then it did
 it again in the code written to fix it. Any status with a loading state
 needs three values, not two, and nothing may act on the unknown.
+
+---
+
+## 3a. The seventh pass — building the brand film
+
+The starter project was rebuilt as a real 11.5s brand film, reverse
+engineered from a reference piece. Doing it as a user would — driving the
+55 tools over RPC rather than writing the EDL by hand — found five things,
+and the pattern held: **everything found was something that looked like it
+worked.**
+
+### Beat detection was wrong in two independent places
+
+The previous handover said "119.8 BPM on a 120 BPM source, zero drift".
+That was true of the input it was tested on and of nothing else. Verified
+against a click track — onsets **only** on the beat — which is precisely
+the one signal that cannot expose either bug.
+
+**Tempo locked onto the subdivision.** `estimateBpm` autocorrelated the
+onset *train* and scored a period by `score / Math.sqrt(period)`. The
+comment said this stopped slow tempos being unfairly favoured; it does the
+exact opposite. A period half as long gets roughly twice as many chances
+to match while its divisor grows by only 1.41, so the shorter period wins
+on arithmetic alone. Any track with a hat or a ghost note between the
+beats resolved to the subdivision — the brand-film bed, which is exactly
+120 BPM, measured **186.1**. A plain 120 BPM click measured 125.4, so the
+"zero drift" claim did not survive re-testing either.
+
+Replaced with autocorrelation of the **novelty curve** — continuous, so a
+beat landing a frame late still contributes — weighted by a log-normal
+tempo prior centred at 125 BPM, plus parabolic interpolation of the peak
+for sub-frame resolution. Benched on click tracks at 90/100/120/128/140/
+174 BPM, each plain and with a hat-and-ghost pattern, plus the film bed:
+
+    tempo within 3%      4/13  ->  13/13
+    mean marker error   87.5ms ->   9.0ms      (2.5 frames -> a quarter of one)
+
+**And the grid was hung off the wrong things.** Three separate faults, each
+worth more than a frame:
+
+- *Phase came from the first onset.* One stray transient in an intro
+  offset the entire film. The bed opens with 209ms of riser noise and every
+  beat inherited that 209ms. Phase is now whichever offset collects the
+  most onset energy across the whole track — a measurement, not a guess
+  from one sample.
+- *It snapped to the NEAREST onset.* Nearest is not right: a ghost note
+  90ms off the beat is nearer than nothing, so beats were dragged onto
+  hats. It now takes the **strongest** onset in the window.
+- *Any onset within a quarter-beat could win* — 125ms at 120 BPM, wide
+  enough to reach the surrounding 16ths. Halved, and gated: an onset must
+  be at least 0.6x the typical on-grid onset to override the grid. Where
+  the detector missed a beat outright, the grid position is kept.
+
+### `transform.scaleX` / `scaleY` did nothing to text
+
+Settable, keyframeable, listed by `list_properties`, reported back on read
+— and never read by the renderer. `renderTextClip` draws from font metrics
+and was never handed the layout box, so the transform gizmo grew a box
+around glyphs that did not move. **The previous starter animated its
+wordmark 0.92 -> 1 on both axes and rendered identical frames**, which is
+what commit `d281790` describes as "the wordmark blooms in oversized and
+settles". Measured before the fix: a 160px "KERF" keyframed 1 -> 2
+rendered 264x79px of ink at both ends. After: 273x81 -> 527x156.
+
+### Bundled audio never reached the encoder
+
+`import bedUrl from '../assets/bed.wav'` gives a **root-relative** path in
+dev. Fine for an `<audio>` tag in the renderer, meaningless to ffmpeg,
+which runs in main and resolves it against the filesystem root. Fixed at
+both ends: the starter uses `new URL(..., import.meta.url)`, and
+`collectAudioClips` now absolutises any scheme-less URL against
+`document.baseURI` before it crosses the bridge — the renderer is the only
+side that knows what the URL is relative to.
+
+**The export pipeline came out of this well.** It reported
+`0 of 1 audio sources made it into the render` and named the file and the
+ffmpeg error, rather than shipping a silent video. That is §3's discipline
+paying for itself.
+
+### Two tools an agent could not do without
+
+`reset_project` (clear to an empty timeline, optionally set the canvas)
+and `open_starter_project`. There was no way for an agent to start from a
+known state — every build landed on top of whatever was already open — and
+the bundled example could only be opened by clicking the home screen,
+which meant it was never exercised by anything that could check it.
+
+### Logged, not fixed
+
+- **`transform.anchorX` / `anchorY` are read by nothing.** Exposed in
+  `propertyPath.ts` with a 0..1 UI range and listed by `list_properties`;
+  the render path always pivots on the clip centre. In the gap log.
+- **`add_text_layer` defaults to caption styling** — a 6px black outline
+  and an 18px drop shadow. Correct over footage, wrong on a clean ground,
+  and at 30px the outline thickens Inter until it reads as a slab face.
+  Left as the default because captions depend on it; the tool description
+  now says so.
+- **`src/assets/kerf_sting.wav` was dead.** 695KB, committed by
+  `d281790`, imported by nothing — the audio in that commit was only ever
+  used to render the demo, never wired into the app. Replaced by
+  `kerf_film_bed.wav`, which is wired in and verified in the render.
+
+### How to check a frame
+
+`get_frame_context({ atMs, includeImage: true })` returns a composited
+960x540 JPEG at **`frame.imageDataUrl`** in ~25ms. That is the instrument
+for iterating on composition — roughly a hundred times cheaper than
+rendering a segment and reading it back with ffmpeg.
+
+It is not a substitute for the render. It proves what the compositor
+draws; only the file proves the file, which is the whole lesson of §3.
+Both were used here: the frame tool for every composition decision, a real
+export plus an independent ffmpeg pass for the result.
+
+### Verified in dev. NOT yet verified packaged.
+
+Everything above was measured against the dev build. This file's own
+lesson is that dev parity is not evidence, and two of these changes are
+squarely in the at-risk class:
+
+- **`new URL('../assets/kerf_film_bed.wav', import.meta.url)`** resolves
+  to `http://localhost:…` in dev and `file://…` when packaged. ffmpeg
+  should open both; only the first has been seen to work.
+- **`absoluteMediaUrl`** resolves against `document.baseURI`, which is the
+  dev server in dev and a `file://` path when packaged.
+
+Both are on the audio path, which is precisely where a packaged-only
+failure would show up as a silent film rather than an error. Re-run
+`npm run build && npx electron-builder --mac --dir --publish never`,
+open the starter, export, and check `hasAudio` before believing any of it.
+
+### What the film is, and why it is shaped that way
+
+`src/engine/starterProject.ts`. Read its header before editing it — the
+two rules that carry the piece are measurements, not taste:
+
+- **Four seconds of runway with no cut at all.** The old sting fired at
+  0.9s, which is exactly why it read cheap. Nothing lands if nothing
+  preceded it.
+- **A luminance zig-zag across the montage** — no two adjacent shots near
+  each other in brightness, extremes at the first cut and at two-thirds
+  through. Every cut is a luminance jolt, which is what reads as
+  percussive before a note is heard. Edit a shot and its neighbours have
+  to stay far apart or the cut between them disappears.
+
+The cuts sit on the grid `detect_beats` returned for the bundled bed, not
+on a 0.5s interval anybody typed, and the grid is dropped on the timeline
+as markers so that claim is visible rather than trusted. Re-running
+`detect_beats` on the bed reproduces `BEATS_MS` exactly — 118.9 BPM, 22
+beats.
+
+Verified on the rendered file, with the same ffmpeg analysis used on the
+reference: 1920x1080, 30fps, 345 frames, 11.500s, h264 + aac stereo;
+13 cuts from 4.000s to 10.000s; audio climbing -25.9 -> -12.3 dB across
+the runway with the impact at 4.0s measuring -8.3 dB, the loudest beat in
+the film.
 
 ---
 

@@ -147,6 +147,24 @@ function audioSummary(
 }
 
 /** Every clip that contributes sound, described for ffmpeg. */
+/*
+  ffmpeg runs in the MAIN process; these URLs are resolved in the
+  RENDERER. A page-relative one (`/src/assets/bed.wav` from a bundled
+  import, or anything relative a project file carries) means nothing on
+  the other side of the bridge — main hands it to ffmpeg, which resolves
+  it against the filesystem root and reports "No such file or directory".
+  The renderer is the only side that knows what the URL is relative TO,
+  so it is the side that has to make it absolute.
+*/
+function absoluteMediaUrl(url: string): string {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(url)) return url;   // already has a scheme
+  try {
+    return new URL(url, document.baseURI).href;
+  } catch {
+    return url;
+  }
+}
+
 function collectAudioClips(tracks: Track[]) {
   const anySolo = tracks.some((t) => t.type === 'audio' && t.solo);
   const out = [];
@@ -163,7 +181,7 @@ function collectAudioClips(tracks: Track[]) {
       if (volume <= 0) continue;
 
       out.push({
-        mediaUrl: clip.mediaUrl!,
+        mediaUrl: absoluteMediaUrl(clip.mediaUrl!),
         startTimeMs: clip.startTimeMs,
         durationMs: clip.durationMs,
         sourceStartMs: clip.sourceStartMs,

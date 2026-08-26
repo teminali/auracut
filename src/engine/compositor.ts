@@ -1091,7 +1091,22 @@ function renderClipPass(
   if (clip.type === 'shape') {
     renderShapeClip(ctx, clip, box);
   } else if (clip.type === 'text') {
+    /*
+      Text is drawn from its own font metrics, so unlike a shape or a
+      media clip it does not get sized by the layout box — which meant
+      `transform.scaleX` / `scaleY` did nothing at all to it. They were
+      settable, keyframeable, listed by `list_properties` and reported
+      back on read, and the transform gizmo drew a box that grew around
+      glyphs that never moved. The bundled starter animated its wordmark
+      from 0.92 to 1 on both axes and rendered identical frames.
+
+      Measured before the fix: a 160px "KERF" keyframed 1 -> 2 rendered
+      264x79 px of ink at both ends.
+    */
+    ctx.save();
+    if (box.scaleX !== 1 || box.scaleY !== 1) ctx.scale(box.scaleX, box.scaleY);
     renderTextClip(ctx, clip, offsetMs);
+    ctx.restore();
   } else if (clip.type === 'adjustment') {
     // Adjustment layers tint the frame rather than drawing media.
     ctx.fillStyle = 'rgba(0,0,0,0)';

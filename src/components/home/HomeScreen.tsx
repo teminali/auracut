@@ -101,7 +101,7 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
       pushToast({
         kind: 'info',
         title: 'Opened the starter project',
-        detail: 'Kerf\u2019s own logo sting — shapes, text and keyframes. Edit it freely.',
+        detail: 'Kerf\u2019s own brand film — 11.5s, thirteen cuts on detected beats. Edit it freely.',
       });
       return;
     }

@@ -11,6 +11,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { create } from 'zustand';
+import { STARTER_ID, STARTER_NAME, STARTER_DURATION_MS } from '../engine/starterProject';
 
 export interface RecentProject {
   id: string;
@@ -82,13 +83,13 @@ function persist(recents: RecentProject[]): void {
  * competes for space with something they actually made.
  */
 const STARTER_ENTRY: RecentProject = {
-  id: 'starter:kerf-logo-sting',
-  name: 'Kerf — Logo Sting',
-  durationMs: 3200,
+  id: STARTER_ID,
+  name: STARTER_NAME,
+  durationMs: STARTER_DURATION_MS,
   aspectRatio: '16:9',
-  clipCount: 4,
+  clipCount: 88,
   openedAt: 0,
-  starter: 'kerf-logo-sting',
+  starter: 'kerf-brand-film',
 };
 
 function withStarter(recents: RecentProject[]): RecentProject[] {

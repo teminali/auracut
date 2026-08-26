@@ -36,6 +36,7 @@ import { analyzeTranscriptForBroll } from '../engine/brollEngine';
 import { loadFonts, isFontAvailable, fontsAreEnumerated } from '../engine/systemFonts';
 import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
 import { followToolCall } from '../engine/agentPresence';
+import { buildStarterProject, STARTER_NAME } from '../engine/starterProject';
 
 /* ── Tool definition ────────────────────────────────────────────── */
 
@@ -658,7 +659,12 @@ defineTool({
 defineTool({
   name: 'add_text_layer',
   category: 'graphics',
-  description: 'Create an animated text layer. Style it afterwards with patch_clip using textStyle.* paths.',
+  description:
+    'Create an animated text layer. Style it afterwards with patch_clip using textStyle.* paths. '
+    + 'NOTE: a new layer defaults to CAPTION styling — a 6px black outline (textStyle.strokeWidth) '
+    + 'and an 18px drop shadow — because that is what keeps burned-in text legible over footage. On a '
+    + 'clean background it is wrong, and at small sizes the outline thickens the letterforms enough to '
+    + 'look like a different typeface. Set strokeWidth and shadowBlur to 0 for titles and brand type.',
   schema: z.object({
     text: z.string(),
     trackId: z.string().optional(),
@@ -1600,6 +1606,89 @@ defineTool({
     const ids = (clipIds ?? []).map((r) => resolveClipId(r));
     state.selectClips(ids);
     return { selected: ids.length, clipIds: ids };
+  },
+});
+
+defineTool({
+  name: 'reset_project',
+  category: 'project',
+  description:
+    'Clear the timeline back to an empty project — every track, clip and marker — and ' +
+    'optionally set the canvas in the same call. Use before building a sequence from scratch, ' +
+    'so an agent starts from a known state rather than on top of whatever was already open. ' +
+    'This is destructive and is NOT undoable past the commit it makes; ask first unless the ' +
+    'user asked for a new project.',
+  schema: z.object({
+    name: z.string().optional(),
+    aspectRatio: z.string().optional(),
+    fps: z.number().optional(),
+    backgroundColor: z.string().optional(),
+    durationMs: z.number().optional(),
+  }),
+  handler: ({ name, aspectRatio, fps, backgroundColor, durationMs }) => {
+    const before = timeline();
+    const clearedTracks = before.tracks.length;
+    const clearedClips = before.tracks.reduce((n, t) => n + t.clips.length, 0);
+
+    before.loadProject([], []);
+
+    const proj = project();
+    if (name) proj.setProjectName(name);
+    if (aspectRatio) {
+      proj.setAspectRatio(
+        oneOf(aspectRatio, Object.keys(ASPECT_DIMENSIONS) as AspectRatio[], 'aspect ratio')
+      );
+    }
+    if (fps !== undefined) {
+      if (!(FPS_VALUES as readonly number[]).includes(fps)) {
+        throw new Error(`Kerf renders at ${FPS_VALUES.join(', ')} fps. "${fps}" is not one of them.`);
+      }
+      proj.setFps(fps as (typeof FPS_VALUES)[number]);
+    }
+    if (backgroundColor) proj.setBackgroundColor(backgroundColor);
+    if (durationMs !== undefined) proj.setDurationMs(Math.max(100, durationMs));
+
+    timeline().setPlayheadMs(0);
+    timeline().commit('Reset project');
+
+    const p = project().project;
+    return {
+      clearedTracks,
+      clearedClips,
+      project: {
+        name: p.name,
+        aspectRatio: p.aspectRatio,
+        width: p.width,
+        height: p.height,
+        fps: p.fps,
+        backgroundColor: p.backgroundColor,
+        durationMs: p.durationMs,
+      },
+    };
+  },
+});
+
+defineTool({
+  name: 'open_starter_project',
+  category: 'project',
+  description:
+    "Build Kerf's bundled starter project — the brand film — into the timeline, replacing " +
+    'whatever is open. It is constructed in code from ordinary shapes, text and keyframes, so ' +
+    'it is also a worked example to read and edit. Destructive to the current project.',
+  schema: z.object({}),
+  handler: () => {
+    buildStarterProject();
+    const t = timeline();
+    const p = project().project;
+    return {
+      name: STARTER_NAME,
+      tracks: t.tracks.length,
+      clips: t.tracks.reduce((n, tr) => n + tr.clips.length, 0),
+      durationMs: p.durationMs,
+      width: p.width,
+      height: p.height,
+      fps: p.fps,
+    };
   },
 });
 
