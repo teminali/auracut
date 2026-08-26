@@ -15,7 +15,7 @@ last frame through the compositor, and measure something that must change.
 A property that reports success and renders two identical frames is the
 exact failure this is here to catch.
 """
-import sys, base64, io, json, os
+import sys, base64, io, json, os, tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kerf_rpc import call, ok
 import numpy as np
@@ -66,19 +66,98 @@ def hue(a):
     r, g, b = a[:,:,0].mean(), a[:,:,1].mean(), a[:,:,2].mean()
     return float(np.arctan2(np.sqrt(3)*(g-b), 2*r-g-b))
 
+# ── the probe chart ─────────────────────────────────────────────────
+TMP = tempfile.mkdtemp(prefix='kerf-kf-')
+
+def build_probe_chart(path, w=1920, h=1080, seed=7):
+    """The still the filter checks run against — built here, not fetched.
+
+    It is a chart rather than a photograph, and every part of it is load
+    bearing. A filter that has nothing to act on measures as a no-op even
+    when it works, so the image has to supply, deliberately:
+
+      · a smooth low-frequency colour field, so the frame MEAN is well off
+        neutral — `hue` takes an angle from the three channel means, and a
+        frame that averages to grey has no stable angle to move;
+      · hard block edges at three scales, for `sharpen` to enhance and
+        `blur` to destroy;
+      · blocks from near-black to near-white, so `contrast`, `highlights`
+        and `shadows` have real ends to pull on, and `brightness` and
+        `exposure` have room to move without clipping;
+      · saturated colour across the wheel, so `saturation` can go both up
+        and down, and `temperature` and `tint` have red, green and blue
+        to push against;
+      · content all the way into the corners, since `vignette` is measured
+        as corner-versus-centre and unlit corners cannot darken;
+      · only light fine texture, so added `grain` is what the high-
+        frequency metric sees.
+
+    Fixed seed: the thresholds below are calibrated against this exact
+    image, and `--selftest` re-checks that they still separate a real
+    change from a no-op.
+    """
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float64)
+    u, v = xx / w, yy / h
+
+    r = 120 + 70*np.sin(2.1*np.pi*u + 0.6) + 35*np.cos(1.3*np.pi*v)
+    g = 105 + 45*np.sin(1.7*np.pi*v + 1.9) + 30*np.sin(2.9*np.pi*u*v + 0.3)
+    b = 135 + 65*np.cos(1.9*np.pi*v + 0.2) - 40*np.sin(2.3*np.pi*u)
+    img = np.stack([r, g, b], axis=2)
+
+    for scale, n in ((6, 14), (14, 40), (34, 90)):
+        bh, bw = h // scale, w // scale
+        for _ in range(n):
+            y0 = int(rng.integers(0, h - bh)); x0 = int(rng.integers(0, w - bw))
+            img[y0:y0+bh, x0:x0+bw] += rng.uniform(-90, 95) + rng.uniform(-45, 45, 3)
+
+    img += rng.normal(0, 2.2, (h, w, 3))
+    Image.fromarray(np.clip(img, 0, 255).astype(np.uint8)).save(path)
+    return path
+
+CHART = build_probe_chart(os.path.join(TMP, 'kf_probe_chart.png'))
+_chart_asset = None
+
+def chart_asset():
+    """Import the chart, and re-import it if the media pool has been emptied.
+
+    This used to insert `media_cyber_city`, one of the app's seeded sample
+    assets, and that was wrong twice over. It is an Unsplash URL, so the
+    suite quietly needed the network; and it is ambient state that another
+    suite destroys. `verify_project_format` opens files whose `mediaPool`
+    is `[]`, and `projectIO` replaces the pool wholesale rather than
+    merging, so the pool stays empty for the life of the app — after which
+    all thirteen filter checks here reported ERROR, on a build where every
+    one of them actually worked.
+
+    That made the six suites order-dependent and non-idempotent: green in
+    the documented order on a freshly launched Kerf, thirteen red the
+    second time round. Owning the asset removes the coupling; re-importing
+    when it goes missing means nothing else can reintroduce it.
+    """
+    global _chart_asset
+    if _chart_asset is not None:
+        pool = ok(call('list_media_pool', {}), 'pool')['assets']
+        if any(a['id'] == _chart_asset for a in pool):
+            return _chart_asset
+    _chart_asset = ok(call('import_media_from_path',
+                           {'path': CHART, 'name': 'kf_probe_chart.png'}), 'imp')['assetId']
+    return _chart_asset
+
 # ── scenes ──────────────────────────────────────────────────────────
 def scene_photo():
-    """Real photographic content, full frame.
+    """The probe chart, full frame — see `build_probe_chart`.
 
     A flat colour block has no detail, so contrast, sharpen and blur have
     nothing to act on and measure as no-ops even when they work. And a
     small block moves a whole-frame mean by almost nothing whatever you do
     to it — the first version of this harness keyframed a 2%-of-frame
-    square and reported ten false failures."""
+    square and reported ten false failures. Hence full frame, `fitMode`
+    cover, and an image built to give every filter something to bite on."""
     ok(call('reset_project', {'name': 'kfprobe', 'aspectRatio': '16:9', 'fps': 30,
                               'backgroundColor': '#000000', 'durationMs': DUR}), 'reset')
     t = ok(call('add_track', {'type': 'video', 'name': 'P'}), 't')['trackId']
-    c = ok(call('insert_clip', {'assetId': 'media_cyber_city', 'trackId': t,
+    c = ok(call('insert_clip', {'assetId': chart_asset(), 'trackId': t,
                                 'startTimeMs': 0}), 'ins')['clipId']
     ok(call('patch_clip', {'clipId': c, 'properties': {
         'durationMs': DUR, 'fitMode': 'cover'}}), 'p')
@@ -194,31 +273,49 @@ def settle(ms, tries=25):
         prev = cur
         time.sleep(0.12)
 
-def run_one(name, scene, a, b, metric, need):
+def run_one(name, scene, a, b, metric, need, selftest=False):
+    """Keyframe a -> b and measure. With selftest, keyframe a -> a instead.
+
+    A threshold nobody has tried to fail is not a threshold. `--selftest`
+    reruns every row holding the property STILL, and demands the same
+    metric now move by LESS than `need` — so a row only counts as evidence
+    if the number it keys on is actually driven by the property, and not
+    by frame timing, encode noise or a scene that drifts on its own."""
     target, _ = scene() if scene is not scene_shape else scene()
+    end = a if selftest else b
     ok(call('add_keyframes', {'clipId': target, 'property': name, 'keyframes': [
         {'timeOffsetMs': 0, 'value': a, 'easing': 'linear'},
-        {'timeOffsetMs': DUR, 'value': b, 'easing': 'linear'}]}), f'kf {name}')
+        {'timeOffsetMs': DUR, 'value': end, 'easing': 'linear'}]}), f'kf {name}')
     settle(5)
     f0, f1 = frame(5), frame(DUR - 20)
     m0, m1 = metric(f0), metric(f1)
     delta = abs(m1 - m0)
-    good = delta >= need
-    print(f"  {'PASS' if good else 'FAIL'}  {name:26s} {m0:10.3f} -> {m1:10.3f}   Δ{delta:8.3f}  (need {need})")
+    good = delta < need if selftest else delta >= need
+    want = f'want <{need}' if selftest else f'need {need}'
+    print(f"  {'PASS' if good else 'FAIL'}  {name:26s} {m0:10.3f} -> {m1:10.3f}   Δ{delta:8.3f}  ({want})")
     return good
 
 if __name__ == '__main__':
-    only = sys.argv[1] if len(sys.argv) > 1 else None
+    argv = [x for x in sys.argv[1:] if x != '--selftest']
+    selftest = '--selftest' in sys.argv
+    only = argv[0] if argv else None
+    if selftest:
+        print('holding each property STILL — every row must now move LESS than its threshold')
     print('property                        start        end        change')
     results = []
     for name, scene, a, b, metric, need in TESTS:
         if only and only not in name: continue
         try:
-            results.append((name, run_one(name, scene, a, b, metric, need)))
+            results.append((name, run_one(name, scene, a, b, metric, need, selftest)))
         except Exception as e:
             print(f"  ERROR {name}: {e}")
             results.append((name, False))
     n = sum(1 for _, g in results if g)
-    print(f"\n{n}/{len(results)} animatable properties verified on pixels")
-    bad = [x for x, g in results if not g]
-    if bad: print('failing:', ', '.join(bad))
+    if selftest:
+        print(f"\n{n}/{len(results)} thresholds discriminate — a still property stays under them")
+        bad = [x for x, g in results if not g]
+        if bad: print('threshold does NOT discriminate:', ', '.join(bad))
+    else:
+        print(f"\n{n}/{len(results)} animatable properties verified on pixels")
+        bad = [x for x, g in results if not g]
+        if bad: print('failing:', ', '.join(bad))

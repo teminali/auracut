@@ -630,6 +630,33 @@ All green in dev **and in the packaged app**. Every check measures the
 artifact — rendered pixels, exported audio, a file on disk — because
 asserting against the store would have passed on nearly everything above.
 
+**The set was order-dependent, and green only on a fresh app.** The six
+were run as a loop and reported 73/73; run the same loop again without
+restarting Kerf and `verify_keyframes` reported thirteen ERRORs. Nothing
+was wrong with the filters. `verify_keyframes` inserted
+`media_cyber_city` — a seeded sample asset, ambient state it did not own —
+and `verify_project_format` opens constructed files carrying
+`'mediaPool': []`, which `projectIO` **replaces** the live pool with
+rather than merging. One suite silently emptied the pool another depended
+on, permanently, for the life of the process. Proven by running the one
+check either side of it: PASS, then `verify_project_format`, then FAIL,
+same app, same code.
+
+It also meant the suite needed the network, since those samples are
+Unsplash URLs — a fact nothing recorded. `verify_keyframes` now builds a
+probe chart itself (`build_probe_chart`, fixed seed, with a comment on
+what each part of the image is for and which filter would measure as a
+no-op without it), imports it, and re-imports if the pool is emptied
+under it. 73/73 twice in a row on one running app.
+
+That fix also earned the suite a control it never had. Thresholds were
+tuned by hand and nobody had checked one could still fail:
+`verify_keyframes.py --selftest` reruns every row holding the property
+still and demands the metric move by LESS than its threshold. 28/28, every
+row at exactly Δ0.000, while the forward run moves them by roughly ten
+times their thresholds — so the rows are measuring the property and not
+the weather.
+
 **Two of the failures these suites reported were the suites' own**, and
 both are worth knowing:
 

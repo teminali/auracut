@@ -69,13 +69,35 @@ for f in verify_keyframes verify_gpu verify_audio \
 done
 ```
 
-73 checks. All six were green in dev **and in the packaged app** as of the
-last session. Run them before you start and after you finish; if one is
-red before you have touched anything, that is the finding.
+73 checks. All six are green in dev **and in the packaged app**, in any
+order, and green again if you run the whole set a second time against the
+same running app. Run them before you start and after you finish; if one
+is red before you have touched anything, that is the finding.
 
 Every check measures an artifact — rendered pixels, exported audio, a file
 on disk. Asserting against the store would have passed on nearly
 everything these suites were written to catch.
+
+**They were not always idempotent, and it cost a session's opening hour.**
+`verify_keyframes` inserted `media_cyber_city`, one of the app's seeded
+sample assets; `verify_project_format` opens constructed files whose
+`mediaPool` is `[]`, and `projectIO` **replaces** the pool rather than
+merging, so it stays empty for the life of the app. Run the documented
+loop twice and the second pass reported thirteen filter ERRORs on a build
+where all thirteen filters worked — a red that says nothing about the
+code is worse than no check. `verify_keyframes` now builds its own probe
+chart, imports it, and re-imports it if the pool is emptied under it. It
+also no longer needs the network, which that Unsplash-hosted sample
+quietly did.
+
+```bash
+python3 tools/verify_keyframes.py --selftest
+```
+
+Holds every property STILL and requires each row to move **less** than its
+threshold. A threshold nobody has tried to fail is not a threshold; this
+is what says the number a row keys on is driven by the property and not by
+frame timing or encode noise. 28/28, every row at Δ0.000.
 
 ---
 
@@ -241,11 +263,36 @@ comments so the reasoning survives.
 
 ## 8. Housekeeping
 
-**`yarn.lock` has an uncommitted 2,059-line change that nobody in these
-sessions made.** Registry URLs rewritten from `yarnpkg.com` to
-`npmjs.org`, and packages added. It has been deliberately kept out of
-every commit. Decide what it is before it rides along with something —
-and note that adding vitest (§5.2) will touch it.
+**`yarn.lock` has an uncommitted 2,059-line change. It is an abandoned
+start on §5.2, and it must not be committed as it stands.** Settled by
+diffing it block by block against `HEAD`:
+
+- **What it is.** `vitest@3.2.7`, `jsdom@30.0.1` and `chai@5.3.3` are in
+  the lock and installed in `node_modules`, marked `dev` in npm's own
+  `node_modules/.package-lock.json` (written 18:06). `package.json`
+  mentions none of them, there is no root `package-lock.json`, no
+  `vitest.config.*` and no test file. So: `npm i -D vitest jsdom` ran,
+  `package.json` was put back and the npm lockfile deleted, and the
+  regenerated `yarn.lock` plus `node_modules` were left behind.
+- **It is not tampering.** Of the 493 package blocks in both versions,
+  **0 changed version and 0 changed integrity at the same version**. All
+  493 differ only in the `resolved` host — `registry.yarnpkg.com` and
+  `registry.npmjs.org` are the same registry. 74 names added are the
+  vitest/jsdom tree.
+- **But committing it would break the Windows and Linux builds.** It
+  drops **50 platform-specific optional binaries** — every
+  `@esbuild/linux-*`, `@esbuild/win32-*`, `@esbuild/android-*`,
+  `@rollup/rollup-linux-*`, `@rollup/rollup-win32-*` — because it was
+  regenerated on darwin-arm64 and only recorded this platform's
+  optionalDependencies. §6 already notes CI builds Windows and Linux and
+  nobody has run either; this is how they would start failing, on a commit
+  that looks like noise in a lockfile.
+
+Left uncommitted, as before. `git checkout yarn.lock` reverts it safely —
+`node_modules` is not touched by that, so vitest stays installed until
+someone actually installs. When §5.2 is done for real, add vitest to
+`package.json` properly and regenerate the lock somewhere that keeps every
+platform's binaries.
 
 ---
 
