@@ -22,6 +22,8 @@ interface LayoutState {
    * it is looking at. Nothing is simulated; every movement is a real
    * consequence of a tool that really ran.
    */
+  /** The home screen, shown before a project is being worked on. */
+  showHome: boolean;
   followAgent: boolean;
   showSafeAreas: boolean;
   showRuleOfThirds: boolean;
@@ -35,6 +37,7 @@ interface LayoutState {
   setActiveTab: (tab: SidebarTab) => void;
   toggleSidebar: () => void;
   toggleInspector: () => void;
+  setShowHome: (show: boolean) => void;
   toggleFollowAgent: () => void;
   toggleSafeAreas: () => void;
   toggleRuleOfThirds: () => void;
@@ -58,6 +61,7 @@ export const useLayoutStore = create<LayoutState>()(
       isInspectorCollapsed: false,
       activeTab: 'media',
 
+      showHome: true,
       followAgent: true,
 
       showSafeAreas: false,
@@ -73,6 +77,7 @@ export const useLayoutStore = create<LayoutState>()(
 
       toggleSidebar: () => set((s) => ({ isSidebarCollapsed: !s.isSidebarCollapsed })),
       toggleInspector: () => set((s) => ({ isInspectorCollapsed: !s.isInspectorCollapsed })),
+      setShowHome: (showHome) => set({ showHome }),
       toggleFollowAgent: () => set((st) => ({ followAgent: !st.followAgent })),
       toggleSafeAreas: () => set((s) => ({ showSafeAreas: !s.showSafeAreas })),
       toggleRuleOfThirds: () => set((s) => ({ showRuleOfThirds: !s.showRuleOfThirds })),

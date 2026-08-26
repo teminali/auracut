@@ -25,7 +25,7 @@ import {
 /** A hairline rule between control clusters. */
 const Divider: React.FC = () => <div className="w-px h-4 bg-line flex-shrink-0" />;
 
-export const HeaderBar: React.FC = () => {
+export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => {
   const playheadMs = useTimelineStore((s) => s.playheadMs);
   const historyIndex = useTimelineStore((s) => s.historyIndex);
   const historyLength = useTimelineStore((s) => s.history.length);
@@ -93,7 +93,15 @@ export const HeaderBar: React.FC = () => {
 
       {/* ── Identity ── */}
       <div className="flex items-center gap-2.5 min-w-0">
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* The mark is the way back to home, which is where projects and
+            skills live. Nothing else in the header should compete with it. */}
+        <button
+          onClick={onGoHome}
+          disabled={!onGoHome}
+          title={onGoHome ? 'Back to home' : undefined}
+          className="flex items-center gap-2 flex-shrink-0 rounded-[6px] px-1 -mx-1 py-0.5
+                     hover:bg-white/[0.05] transition-colors disabled:hover:bg-transparent"
+        >
           <div
             className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center shadow-raised"
             style={{ background: 'linear-gradient(145deg,#6ba5ff,#3a6ff0)' }}
@@ -104,7 +112,7 @@ export const HeaderBar: React.FC = () => {
             </svg>
           </div>
           <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">AuraCut</span>
-        </div>
+        </button>
 
         <Divider />
 

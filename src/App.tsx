@@ -5,6 +5,7 @@
 
 import React, { useCallback, useEffect } from 'react';
 import { HeaderBar } from './components/header/HeaderBar';
+import { HomeScreen } from './components/home/HomeScreen';
 import { SidebarNav } from './components/sidebar/SidebarNav';
 import { MediaPanel } from './components/sidebar/MediaPanel';
 import { AudioPanel } from './components/sidebar/AudioPanel';
@@ -25,7 +26,11 @@ import { ShortcutsOverlay } from './components/ui/ShortcutsOverlay';
 import { Toasts } from './components/ui/Toasts';
 import { useLayoutStore } from './store/layoutStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { startAutosave } from './engine/projectIO';
+import { startAutosave, serializeProject } from './engine/projectIO';
+import { captureCurrentFrame } from './engine/contextProtocol';
+import { useProjectStore } from './store/projectStore';
+import { useTimelineStore, getContentEndMs } from './store/timelineStore';
+import { useRecentsStore } from './store/recentsStore';
 import { PanelLeftClose, PanelRightClose } from 'lucide-react';
 
 const PANELS = {
@@ -46,12 +51,41 @@ export const App: React.FC = () => {
     timelineHeight, setTimelineHeight,
     isSidebarCollapsed, isInspectorCollapsed,
     toggleSidebar, toggleInspector,
-    activeTab,
+    activeTab, showHome, setShowHome,
   } = useLayoutStore();
 
   useKeyboardShortcuts();
 
   useEffect(() => startAutosave(), []);
+
+  /*
+    Remember the project whenever you leave it for home, with a real
+    frame rendered from the edit. A recents wall of grey rectangles is a
+    file dialog with extra steps — the poster is the whole point.
+  */
+  const goHome = useCallback(() => {
+    try {
+      const proj = useProjectStore.getState().project;
+      const timeline = useTimelineStore.getState();
+      const clipCount = timeline.tracks.reduce((n, t) => n + t.clips.length, 0);
+
+      if (clipCount > 0) {
+        const frame = captureCurrentFrame();
+        useRecentsStore.getState().remember({
+          id: proj.id,
+          name: proj.name,
+          posterUrl: frame.unavailableReason ? undefined : frame.dataUrl,
+          durationMs: getContentEndMs(timeline.tracks),
+          aspectRatio: proj.aspectRatio,
+          clipCount,
+          snapshot: serializeProject(),
+        });
+      }
+    } catch {
+      /* Never let bookkeeping stop someone leaving the editor. */
+    }
+    setShowHome(true);
+  }, [setShowHome]);
 
   /** Generic splitter drag. `sign` flips the direction for right/bottom edges. */
   const dragSplitter = useCallback(
@@ -80,9 +114,24 @@ export const App: React.FC = () => {
 
   const ActivePanel = PANELS[activeTab] ?? MediaPanel;
 
+  /*
+    Home replaces the whole editor rather than sitting beside it. The
+    editor's own chrome — timeline, inspector, transport — is meaningless
+    without a project in front of you, and showing it greyed out behind a
+    launcher is how an app feels heavy before you have done anything.
+  */
+  if (showHome) {
+    return (
+      <div className="h-screen w-screen bg-spectrum-bg text-spectrum-text overflow-hidden font-sans">
+        <HomeScreen onEnterEditor={() => setShowHome(false)} />
+        <Toasts />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen bg-spectrum-bg text-spectrum-text overflow-hidden font-sans select-none">
-      <HeaderBar />
+      <HeaderBar onGoHome={goHome} />
 
       {/* Workspace */}
       <div className="flex-1 flex overflow-hidden relative min-h-0">

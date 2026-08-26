@@ -55,6 +55,84 @@ finds the CLIs.
 
 ---
 
+## 0. The plan to a complete product
+
+Five stages, sequenced so each one is only worth doing once the last is
+true. Everything in stages 1–2 is *finishing what exists*; the product
+only becomes differentiated in stage 3.
+
+### Stage 1 — Prove it ships  *(days)*
+
+Nothing else matters until this is true.
+
+1. **Package and verify** — see Priority Zero. Build a real `.app`,
+   drive it, re-check video, export, fonts, SFX and the agent picker.
+2. **A test suite**, starting with regressions for the six findings
+   (§8). This is also the skill-verification harness — build it once.
+3. **Crash and error reporting**, so you stop learning about failures by
+   looking for them.
+4. **Project migration** — `version` is written and never read.
+
+### Stage 2 — Make it trustworthy  *(1–2 weeks)*
+
+5. Finish the audit: the eight tools listed in §3.
+6. Run Windows and Linux. CI builds them; nobody has.
+7. A performance pass — long timelines, many clips, 4K, memory over a
+   long session. All currently unmeasured.
+
+### Stage 3 — Make it differentiated  *(2–4 weeks)*
+
+This is where it stops being a worse CapCut and starts being something
+else. Order matters: the first item is the one nothing else can do.
+
+8. **`analyze_reference_video`** — the flagship. The agent has ffmpeg
+   and eyes: extract frames and look at them, detect cuts, measure
+   cadence against the beat, sample the grade, read text placement.
+   Improvised it is 20+ calls and different every run; as a tool it is
+   two calls and deterministic. Also the natural first skill.
+9. **The altitude tools** — `create_picture_in_picture`,
+   `apply_look_preset`, `auto_montage_to_beats`, `batch_apply`,
+   `assemble_from_folder`. Each is a permanent win in tokens, latency
+   and reliability, and each is a cheaper skill later.
+10. **The ffmpeg bridge** (`ffmpeg_process`) — stabilise, interpolate,
+    denoise, custom filtergraph, rendered to temp and auto-imported.
+    Buys a large slice of "impossible" cheaply.
+
+### Stage 4 — Make it a platform  *(1–2 months)*
+
+11. **The skill format** — tools + assets + template + verification,
+    with slots, provenance and a declared tool-API version (§6). Build
+    two skills by hand first and let the format fall out of what they
+    needed.
+12. **Authoring inside the editor** — `mcpStore` already logs every tool
+    call and the timeline keeps commit labels; that trail is the recipe
+    and it is being thrown away.
+13. **The store** — accounts, payments, hosting, distribution, updates,
+    licence enforcement. A second product; scope it as one.
+
+### Stage 5 — Raise the ceiling  *(open-ended)*
+
+14. **The GPU stage** — WebGL2/WebGPU in `compositor.ts`, wiring the
+    dead `shaders.ts`. Chroma key, warps, displacement, real motion
+    blur. Keep the 2D path as fallback.
+15. **Per-clip audio** — `pitch`, `voiceEffect`, `noiseReduction`,
+    `ducking` on both the playback graph and the export filtergraph.
+
+### What NOT to do
+
+- **Do not chase CapCut's feature list.** That is a race against
+  ByteDance's headcount and it is lost by definition. The question that
+  decides this product is: *for the edit someone actually wants, is
+  describing it faster than doing it?*
+- **Do not ship mobile** (§6). It is where CapCut is strongest and where
+  this product is weakest.
+- **Do not add a control that does not work.** This codebase has had two
+  model pickers and five colour sliders that did nothing. A control that
+  lies is worse than a missing feature, because the agent believes it
+  and so does the user.
+
+---
+
 ## 1. What this is
 
 - **Repo:** https://github.com/teminali/auracut (public) · `v1.1.0`
@@ -187,6 +265,7 @@ Every one was the same shape — something that looked like it worked:
 - **Five colour controls rendered nothing** while appearing as live sliders and being set by three built-in presets.
 - **Ten tools reported success on no-ops** — the store bailed silently on a locked clip or unknown effect and returned void.
 - **The main process had no typecheck**, which hid a permission handler that denied every permission and an ffmpeg path that could be null.
+- **Crash recovery wrote and nothing read.** `startAutosave` had been serialising the project to localStorage every 20 seconds since the app was built; `hasAutosave`, `restoreAutosave` and `clearAutosave` were called from nowhere. A user whose app crashed had their work sitting right there and was never offered it. The home screen now offers it.
 
 ### The method
 
@@ -372,7 +451,89 @@ flow. Then the store.
 
 ---
 
-## 7. Traps that cost real time. Read these.
+## 7. The home screen
+
+`src/components/home/HomeScreen.tsx`, shown before a project is open and
+returned to via the mark in the header.
+
+**Deliberately not CapCut's home.** Theirs is a feature launcher — a grid
+of tiles because each of their AI capabilities is a discrete button.
+AuraCut's capability is not a grid; it is a conversation and a set of
+skills. So the screen is organised around INTENT: one primary action,
+and it is a sentence.
+
+Order, by how often it is actually needed: say what you want → unsaved
+work, if any → recent projects → skills.
+
+Three rules it is held to. These are what "better than CapCut" means
+concretely, and they are worth defending against future additions:
+
+1. **Real content over chrome.** Every recent tile is a frame rendered
+   from that project, captured on the way out of the editor. A wall of
+   grey rectangles is a file dialog with extra steps — and CapCut's own
+   home is full of them.
+2. **One unmistakable primary action.** CapCut's home has roughly
+   twenty-five clickable things above the fold, three of which are
+   advertisements. This has one, and it is the thing nothing else on the
+   market can do: describe the edit and have it start.
+3. **No upsell in the workspace. Ever.**
+
+Recents live in `src/store/recentsStore.ts` — localStorage, capped at 12
+because each entry carries a project snapshot and an unbounded list
+would exhaust the quota and take the autosave down with it. Quota
+failure drops snapshots and keeps the list, which is what the screen
+actually needs.
+
+The Skills section says it does not exist yet, on purpose. An empty
+store dressed as a full one is exactly the theatre the rest of this
+codebase has had removed.
+
+---
+
+## 8. Product hardening — mostly not started
+
+The roadmap in §5 is about capability. This is about being software
+people can rely on, and it is largely unbuilt. Ordered by consequence:
+
+**There are no automated tests. None.** No runner, no test script, no
+test files. Six audit passes found code that lied, every fix was
+verified by hand exactly once, and nothing prevents any of it
+regressing tomorrow. Start with regressions for the findings that are
+already characterised — they are mostly mechanical to write because the
+manual verification is recorded in the commit messages:
+
+- export produces a file with a video AND an audio stream
+- a video clip renders footage, not the placeholder gradient
+- a 120 BPM source measures ~120 with no drift
+- `shadows` moves measured luminance; `sharpen` moves edge energy
+- the ten no-op tools throw instead of reporting success
+- a 9:16 project exports portrait and undistorted
+
+This also **is** the skill-verification harness (§6). Build it once.
+
+**No crash or error reporting.** You have no way to learn what breaks
+for users. Everything found this session was found by looking.
+
+**Project format has no migration.** `projectIO.ts` writes
+`version: FORMAT_VERSION` and never reads it back. The schema already
+changed once (the `lut` fields were removed). Old projects will drift
+silently.
+
+**Windows and Linux are unexercised.** CI builds them. Nobody has run
+them.
+
+**No performance work.** Long timelines, many clips, 4K playback,
+memory over a long session — all unmeasured.
+
+**No onboarding.** First-run for someone who has never edited.
+
+**None of the commercial layer exists** — accounts, payments, skill
+hosting, distribution, updates, licence enforcement, storefront. That is
+a second product and it is not scoped.
+
+---
+
+## 9. Traps that cost real time. Read these.
 
 **`ELECTRON_RUN_AS_NODE=1` is inherited from VS Code.** Every Electron launch
 from a VS Code terminal starts as plain Node and exits silently. Always
@@ -426,7 +587,7 @@ success. Read the mount point from `hdiutil` output.
 
 ---
 
-## 8. How to run and verify
+## 10. How to run and verify
 
 ```bash
 yarn install
@@ -462,7 +623,7 @@ module directly gives a *different* instance and will waste your time.
 
 ---
 
-## 9. Release
+## 11. Release
 
 Tag `v*` → GitHub Actions builds macOS/Windows/Linux and publishes installers
 plus the `latest*.yml` manifests the updater reads.
@@ -482,7 +643,7 @@ not work).
 
 ---
 
-## 10. Working agreement
+## 12. Working agreement
 
 The maintainer values being told the truth about what does not work over
 being told things are fine. Several times this session the useful move was
