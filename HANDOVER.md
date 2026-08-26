@@ -4,6 +4,11 @@ An Electron video editor whose Copilot drives a coding CLI as its agent.
 Read this whole file before touching anything. Several traps below cost
 hours and are invisible from the code.
 
+**Looking for what to work on? [`NEXT.md`](NEXT.md) is the queue** — the
+open items with entry points, how to verify each, and the four traps in
+getting a dev loop running at all. This file is the architecture and the
+trust record; that one is the work.
+
 ## Where it stands
 
 Yesterday this was, in its own former words, "a very good previewer". It
@@ -24,7 +29,7 @@ observation:
 | **GPU** | `shaders.ts` is wired. Chroma key and displacement are real; 2D stays the fallback. |
 | **Tests** | Six suites in `tools/`, 73 checks, all measuring rendered pixels / written files. Green in dev AND packaged. |
 
-**57 tools**, 4 agent backends. Both the renderer and the main process
+**58 tools**, 4 agent backends. Both the renderer and the main process
 typecheck (`npm run typecheck`).
 
 ---
@@ -185,7 +190,7 @@ src/
   components/   UI by region (header, sidebar, preview, timeline, inspector, copilot)
   engine/       compositor, video, audio, effects, export, fonts, SFX, tone curves
   store/        zustand — the single source of truth
-  mcp/          toolRegistry.ts — the 57 tools the agent drives
+  mcp/          toolRegistry.ts — the 58 tools the agent drives
 electron/
   main.ts            app lifecycle, IPC
   agentBackends.ts   one adapter per CLI: detection, MCP config, flags, stream
@@ -219,7 +224,7 @@ against a fresh empty store and edited a project nobody could see.
 
 **Why MCP when the CLI is right there:** the CLI is a separate OS
 process and cannot touch the renderer's stores. MCP is the channel, and
-because all four CLIs speak it, the 57 tools are written once and every
+because all four CLIs speak it, the 58 tools are written once and every
 backend inherits them. Swapping backends is config, not a rewrite. The
 CLI's *own* tools (Bash, Read, WebFetch) are the other half — MCP for
 the editor, its own tools for the computer.
