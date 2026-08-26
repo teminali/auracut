@@ -31,6 +31,7 @@ import {
   runPreflight, resolveTarget, resolveAnnotationTargets,
 } from '../engine/contextProtocol';
 import { detectBeats } from '../engine/beatDetect';
+import { analyzeReferenceVideo } from '../engine/referenceAnalysis';
 import { getClipBaseSize } from '../engine/geometry';
 import { getNaturalSize } from '../engine/compositor';
 import { runHardwareExport, unsupportedAudioSettings } from '../engine/exportPipeline';
@@ -3397,6 +3398,81 @@ defineTool({
         'per frame. Same threshold and ratio, coarser envelope',
       ],
     };
+  },
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   REFERENCE UNDERSTANDING
+   ═══════════════════════════════════════════════════════════════════ */
+
+defineTool({
+  name: 'analyze_reference_video',
+  category: 'ai',
+  description:
+    'Measure HOW a reference video is edited and return it as numbers: where every cut is, how ' +
+    'those cuts sit against the music\'s beat grid and at what subdivision, the grade (luminance, ' +
+    'contrast, saturation, black point, colour temperature, dominant hues), how much the frame ' +
+    'moves in each shot, any burnt-in overlay regions, and the format. Every figure is measured ' +
+    'off extracted frames — the cut list comes from comparing pixels, not from container ' +
+    'metadata, and the beat grid comes from the same detector detect_beats uses. Use this before ' +
+    'trying to match a reference: it replaces a dozen improvised ffmpeg calls with one ' +
+    'deterministic answer. It reads no text: overlay regions are reported as regions that hold ' +
+    'still, never as words. Takes a few seconds per ten seconds of source.',
+  schema: z.object({
+    source: z.string().optional()
+      .describe('Absolute path to a video file, or a clip id / media asset name already in the project. Defaults to the selected clip.'),
+    cutSensitivity: z.number().optional()
+      .describe('0..100; higher finds more (and weaker) cuts. Default 50.'),
+    analysisFps: z.number().optional()
+      .describe('Force the sampling rate. Leave unset to measure the source rate and use it.'),
+    maxFrames: z.number().optional()
+      .describe('Ceiling on analysed frames; the rate is reduced to fit. Default 3600.'),
+    includeGrade: z.boolean().optional(),
+    includeMotion: z.boolean().optional(),
+    includeOverlays: z.boolean().optional(),
+    includeCadence: z.boolean().optional().describe('Extract the audio and measure the cuts against its beat grid. Default true.'),
+  }),
+  handler: async ({ source, cutSensitivity, analysisFps, maxFrames, includeGrade, includeMotion, includeOverlays, includeCadence }) => {
+    const api = (window as any).electronAPI;
+    if (!api?.ffmpeg?.process) {
+      throw new Error('Analysing a reference needs the desktop app — it extracts frames with ffmpeg.');
+    }
+
+    /* Same resolution order as ffmpeg_process, so "the clip I am looking
+       at" and "a file I just downloaded" both work without the caller
+       having to know which one this is. */
+    const state = timeline();
+    let url: string | null = null;
+    let name = 'reference';
+
+    if (source && /^(\/|file:|https?:)/.test(source)) {
+      url = source;
+      name = decodeURIComponent(source.split('/').pop() ?? 'reference');
+    } else {
+      const clip = source
+        ? findClipById(state.tracks, resolveClipId(source))
+        : findClipById(state.tracks, resolveClipId(undefined));
+      if (clip?.mediaUrl) { url = clip.mediaUrl; name = clip.name; }
+      else if (source) {
+        const asset = state.mediaPool.find((a) => a.id === source)
+          ?? state.mediaPool.find((a) => a.name.toLowerCase().includes(source.toLowerCase()));
+        if (asset) { url = asset.url; name = asset.name; }
+      }
+    }
+    if (!url) {
+      throw new Error('No video to analyse. Pass an absolute path, a clip id, or a media asset name.');
+    }
+
+    return await analyzeReferenceVideo(
+      {
+        url, name, cutSensitivity, analysisFps, maxFrames,
+        includeGrade, includeMotion, includeOverlays, includeCadence,
+      },
+      {
+        ffmpegProcess: (opts) => api.ffmpeg.process(opts),
+        detectBeats,
+      }
+    );
   },
 });
 
