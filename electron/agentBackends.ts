@@ -84,6 +84,9 @@ const AUTH_FAILURE = [
   /not logged in/i,
   /please (run )?(login|sign in)/i,
   /set an Auth method/i,
+  /authentication required/i,
+  /run '?[\w -]*login'?/i,
+  /(CURSOR|OPENAI|GEMINI|GOOGLE|ANTHROPIC)_API_KEY/,
   /API key (is )?(not set|missing|invalid)/i,
   /invalid[_ ]api[_ ]key/i,
   /authentication (failed|error)/i,
@@ -665,9 +668,31 @@ async function probeTurn(
   if (failure) {
     return { ready: false, reason: failure, fix, needsKey: keyVar };
   }
-  if (!result.ok && !result.text.trim()) {
-    return { ready: false, reason: 'The CLI exited without output.', fix };
+
+  /*
+    The EXIT CODE is the primary signal, not the message.
+
+    This used to read "failed AND printed nothing" as the not-ready
+    case, so a CLI that exited non-zero while explaining itself was
+    called ready — which is how `cursor-agent` was offered as usable
+    while it exited 1 saying "Authentication required. Please run 'agent
+    login' first". The pattern list above only exists to produce a
+    better message and to know which key would fix it; it will never be
+    exhaustive, and readiness must not depend on it being so.
+  */
+  if (!result.ok) {
+    const line = result.text
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l.length > 0);
+    return {
+      ready: false,
+      reason: line?.slice(0, 220) ?? 'The CLI exited with an error.',
+      fix,
+      needsKey: keyVar,
+    };
   }
+
   return { ready: true };
 }
 
@@ -935,6 +960,19 @@ function prefs(): Record<string, string> {
   } catch {
     return {};
   }
+}
+
+/** The backend the user last chose, so a restart does not forget it. */
+export function getPreferredBackend(): BackendId | null {
+  const value = prefs()['backend'];
+  return value && getBackend(value as BackendId) ? (value as BackendId) : null;
+}
+
+export function setPreferredBackend(id: BackendId): void {
+  const current = prefs();
+  current.backend = id;
+  fs.mkdirSync(path.dirname(prefsPath()), { recursive: true });
+  fs.writeFileSync(prefsPath(), JSON.stringify(current, null, 2), 'utf8');
 }
 
 export function getModel(id: BackendId): string {

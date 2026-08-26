@@ -21,7 +21,7 @@ import fs from 'fs';
 import { RPC_PORT, RPC_TOKEN } from './rpcServer';
 import {
   BackendId, AgentBackend, getBackend, findBackendBinary, surveyBackends, BackendStatus,
-  getModel,
+  getModel, getPreferredBackend, setPreferredBackend,
 } from './agentBackends';
 
 export interface ClaudeEvent {
@@ -46,6 +46,19 @@ let selectedBackendId: BackendId = 'claude';
  */
 export async function autoSelectBackend(): Promise<BackendId> {
   const surveyed = await surveyBackends(true);
+
+  /*
+    Honour the user's last choice, but only if it still works. A stored
+    preference that has since lost its authentication would otherwise
+    come back every launch and fail on the first prompt — which is
+    exactly what happened with Cursor Agent.
+  */
+  const preferred = getPreferredBackend();
+  if (preferred && surveyed.find((b) => b.id === preferred)?.ready) {
+    selectedBackendId = preferred;
+    return preferred;
+  }
+
   const order: BackendId[] = ['claude', 'codex', 'cursor', 'gemini'];
 
   for (const id of order) {
@@ -62,6 +75,7 @@ export async function autoSelectBackend(): Promise<BackendId> {
 export function setBackend(id: BackendId): void {
   if (getBackend(id)) {
     selectedBackendId = id;
+    setPreferredBackend(id);
     lastSessionId = null; // a session id belongs to the CLI that made it
   }
 }
