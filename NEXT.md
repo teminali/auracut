@@ -93,12 +93,13 @@ Note also that Vite HMR full-reloads the page on some edits, which resets
 
 ```bash
 for f in verify_keyframes verify_gpu verify_audio verify_project_format \
-         verify_tools verify_ffmpeg_bridge verify_playback_audio; do
+         verify_tools verify_ffmpeg_bridge verify_playback_audio \
+         verify_frame_context; do
   echo -n "$f: "; python3 tools/$f.py | tail -1
 done
 ```
 
-99 checks across seven suites. All are green in dev **and in the packaged app**, in any
+107 checks across eight suites. All are green in dev **and in the packaged app**, in any
 order, and green again if you run the whole set a second time against the
 same running app. Run them before you start and after you finish; if one
 is red before you have touched anything, that is the finding.
@@ -190,24 +191,32 @@ signature or sandbox may affect it.
 
 ---
 
-## 3. `get_frame_context` returns undecoded frames silently
+## 3. Done — `get_frame_context` now reports undecoded frames
 
-The compositor draws a placeholder while media is still decoding.
-`get_frame_context` hands that back with no indication, and it reads as a
-legitimately dark frame. Measuring straight after an insert measures
-nothing — this produced ten false failures while writing
-`tools/verify_keyframes.py`, and the harness now polls until the frame
-stops changing.
+The compositor draws a dark gradient for media that has not decoded, the
+frame went back with no indication, and a dark gradient reads as a
+legitimately dark shot. The frame now carries `mediaPending` (a count),
+plus `mediaPendingClipIds` and a note saying not to measure it.
 
-**Fix:** the frame payload should carry something like
-`mediaPending: number` (how many visible layers have not decoded), so an
-agent can wait rather than measure a placeholder.
+Counted during the draw, in `compositor.ts`, rather than re-derived after
+it — a second pass asking "would this decode now?" can answer differently
+from what was actually painted, and the report would then describe a frame
+nobody was given.
 
-**Entry point:** `get_frame_context` in `src/mcp/toolRegistry.ts`;
-`resolveClipSource` / `videoFailed` in `src/engine/compositor.ts` and
-`videoEngine.ts` already know the decode state.
+`tools/verify_frame_context.py` (8 checks) is built to fail if it ever
+stops racing: it writes a fresh clip to a new mkdtemp each run so the URL
+is one the media cache has never seen, and if it never observes a pending
+frame it reports that as a FAILURE rather than passing. It measured the
+placeholder at luma 28.0 against 97.8 decoded, so the flag is attached to
+a real difference in the picture.
 
----
+**It also paid for itself in `verify_keyframes`.** `settle()` used to poll
+until the picture stopped changing — a guess, in the caller, about
+something only the renderer knows, and wrong in both directions: it gave
+up early on a frame that held still for one poll, and waited out its full
+3-second timeout on every shape-and-text scene where nothing was ever
+decoding. It waits on `mediaPending` now, and the suite runs in **2
+seconds instead of about 90**.
 
 ## 4. The GPU stage — what is still out of reach
 
@@ -237,13 +246,13 @@ passes a single-frame check.
 
 ## 5. The test suite needs a runner that does not need the app up
 
-Seven suites, 99 checks, all driving a live Kerf over RPC. That is the right
+Eight suites, 107 checks, all driving a live Kerf over RPC. That is the right
 way to test this system — the bugs it catches live in the render path, not
 in pure functions — but it means there is no `npm test`, nothing runs in
 CI, and a contributor without the app running gets nothing.
 
 **Options, roughly in order of value:**
-1. A script that boots Electron headless, runs all seven, and exits non-zero
+1. A script that boots Electron headless, runs all eight, and exits non-zero
    on failure. Closest to what exists and would work in CI.
 2. Vitest for the genuinely pure parts — `keyframeMath`, `geometry`,
    `beatDetect`'s tempo estimator, `projectIO`'s migration ladder. Cheap,

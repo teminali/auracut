@@ -49,6 +49,16 @@ export interface CapturedFrame {
   frameNumber: number;
   /** Set when the canvas could not be read (cross-origin media). */
   unavailableReason?: string;
+  /**
+   * Visible layers whose media had NOT decoded when this frame was drawn,
+   * and which therefore show the compositor's placeholder gradient.
+   *
+   * Zero means the frame is what the timeline says it is. Anything else
+   * means part of the picture is a dark gradient that looks exactly like
+   * a legitimately dark shot — measure it and you measure nothing. Poll
+   * until this is empty, or wait and ask again.
+   */
+  mediaPending: string[];
 }
 
 /* ── What is on screen at the playhead ──────────────────────────── */

@@ -145,6 +145,29 @@ export function isMediaReady(url?: string): boolean {
    fails to decode, fall through to the other cache rather than paint a
    placeholder forever.                                               */
 
+/* ── Which clips got a placeholder instead of their media ───────────
+
+   `get_frame_context` handed back frames whose media had not finished
+   decoding and said nothing about it. The compositor draws a dark
+   gradient in that case, which reads as a legitimately dark frame — so
+   measuring straight after an insert measured the placeholder. It
+   produced ten false failures while `verify_keyframes.py` was being
+   written, and the harness there now polls until the frame stops
+   changing, which is a workaround in the caller for something only the
+   renderer knows.
+
+   Counted during the draw rather than re-derived afterwards: a separate
+   pass asking "would this decode now?" can answer differently from what
+   was actually painted, and then the report would be about a frame that
+   was never returned.                                                  */
+
+let pendingClipIds: string[] = [];
+
+/** Clips that fell through to the placeholder in the last frame drawn. */
+export function lastFramePendingMedia(): string[] {
+  return [...pendingClipIds];
+}
+
 /** The drawable source for a clip's media, or null while it decodes. */
 function resolveClipSource(clip: Clip): CanvasImageSource | null {
   const url = clip.mediaUrl;
@@ -1451,7 +1474,9 @@ function renderClipPass(
       }
       ctx.drawImage(img, -halfW, -halfH, box.width, box.height);
     } else {
-      // Placeholder while the media decodes.
+      // Placeholder while the media decodes — and say which clip, so the
+      // frame can report that it is not showing what was asked for.
+      pendingClipIds.push(clip.id);
       const grad = ctx.createLinearGradient(-halfW, -halfH, halfW, halfH);
       grad.addColorStop(0, '#14161c');
       grad.addColorStop(1, '#1d222b');
@@ -1555,6 +1580,10 @@ export function renderTimelineFrame(
   canvasWidth: number,
   canvasHeight: number
 ): void {
+  // Reset before the draw, so `lastFramePendingMedia()` always describes
+  // the frame that was just rendered and never the one before it.
+  pendingClipIds = [];
+
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;

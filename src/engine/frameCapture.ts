@@ -9,7 +9,7 @@
 
 import { Track, ProjectSettings } from '../types/edl';
 import { Annotation, CapturedFrame } from '../types/context';
-import { renderTimelineFrame, hasTaintedMedia } from './compositor';
+import { renderTimelineFrame, hasTaintedMedia, lastFramePendingMedia } from './compositor';
 import { formatTimecode } from '../utils/time';
 
 /** Longest edge of a captured frame. Big enough to read, small enough to send. */
@@ -56,6 +56,8 @@ export function captureFrame(
     atMs: Math.round(atMs),
     timecode: formatTimecode(atMs, project.fps),
     frameNumber,
+    // Filled in after the draw — nothing has been rendered yet.
+    mediaPending: [],
   };
 
   fullCanvas = sizedCanvas(fullCanvas, project.width, project.height);
@@ -65,6 +67,14 @@ export function captureFrame(
   }
 
   renderTimelineFrame(fullCtx, tracks, project, atMs, project.width, project.height);
+  /*
+    Read immediately after the draw and before anything else can render.
+    The compositor also paints the on-screen monitor every animation
+    frame, and that would overwrite the record with ITS frame — which is
+    at the playhead, not at `atMs`, and is exactly the sort of difference
+    that turns a decode warning into a lie.
+  */
+  base.mediaPending = lastFramePendingMedia();
 
   exportCanvas = sizedCanvas(exportCanvas, width, height);
   const ctx = exportCanvas.getContext('2d');

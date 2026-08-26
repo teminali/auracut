@@ -617,7 +617,7 @@ one. Now four of four, worst distance 251ms → 0ms.
 
 ### The test suite
 
-`tools/` — seven suites, 99 checks, run against a live Kerf:
+`tools/` — eight suites, 107 checks, run against a live Kerf:
 
     verify_keyframes.py       28   every animatable property, on pixels
     verify_gpu.py              6   chroma key, despill, displacement
@@ -626,6 +626,7 @@ one. Now four of four, worst distance 251ms → 0ms.
     verify_tools.py           10   the previously unaudited seven
     verify_ffmpeg_bridge.py   12   every operation, against written files
     verify_playback_audio.py  26   preview vs render, both measured (§3c)
+    verify_frame_context.py    8   mediaPending, on a race it must win
 
 All green in dev **and in the packaged app**. Every check measures the
 artifact — rendered pixels, exported audio, a file on disk — because
@@ -788,6 +789,33 @@ The window still has to be frontmost for a live frame, and it stops being
 frontmost the moment a shell command runs — so activate and capture inside
 one script. That, and the fact that Vite HMR full-reloads the page and
 drops you back to the home screen mid-run, are in `NEXT.md`.
+
+---
+
+### The frame that was not the frame you asked for
+
+`get_frame_context` handed back frames whose media had not decoded and
+said nothing. The compositor's placeholder is a dark gradient, so the
+result reads as a legitimately dark shot — and §3b already records that
+this produced ten false failures while `verify_keyframes.py` was written.
+
+The frame carries `mediaPending` now, counted **during the draw** in
+`compositor.ts` rather than re-derived after it: a separate pass asking
+"would this decode now?" can answer differently from what was painted, and
+the warning would then describe a frame nobody was given.
+
+The suite that proves it has to win a race, so it is built to fail when it
+does not: fresh clip, fresh mkdtemp so the URL is new to the media cache,
+and no pending frame observed is a FAILURE rather than a pass. Placeholder
+luma 28.0 against 97.8 decoded — the flag marks a real difference in the
+picture, not a bookkeeping distinction.
+
+**And it removed a workaround.** `settle()` in `verify_keyframes.py` used
+to poll until the picture stopped changing. That is a guess in the caller
+about something only the renderer knows, and it was wrong in both
+directions — it gave up early on a frame that held still for one poll, and
+waited out its whole 3-second timeout on every shape-and-text scene where
+nothing was decoding. The suite now runs in 2 seconds rather than ~90.
 
 ---
 

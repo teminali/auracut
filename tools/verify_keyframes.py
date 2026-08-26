@@ -23,8 +23,11 @@ from PIL import Image
 
 DUR = 1000
 
+def raw_frame(ms):
+    return ok(call('get_frame_context', {'atMs': int(ms), 'includeImage': True}), 'frame')['frame']
+
 def frame(ms):
-    f = ok(call('get_frame_context', {'atMs': int(ms), 'includeImage': True}), 'frame')['frame']
+    f = raw_frame(ms)
     b = base64.b64decode(f['imageDataUrl'].split(',', 1)[1])
     return np.array(Image.open(io.BytesIO(b)).convert('RGB')).astype(float)
 
@@ -257,21 +260,27 @@ TESTS = [
     ('anchorY',                scene_anchor,      0.5, 0.0, ink_cy, 40),
 ]
 
-def settle(ms, tries=25):
-    """Wait for media to finish decoding.
+def settle(ms, tries=40):
+    """Wait for media to finish decoding — on the frame's own word.
 
-    `get_frame_context` will hand back a frame whose media has not decoded
-    yet and say nothing about it — the compositor draws a placeholder and
-    the result looks like a legitimately dark frame. Measuring straight
-    after an insert reported ten false failures the first time round."""
+    `get_frame_context` used to hand back a frame whose media had not
+    decoded and say nothing about it: the compositor draws a placeholder,
+    which reads as a legitimately dark frame. Measuring straight after an
+    insert reported ten false failures the first time round.
+
+    This waited for the PICTURE to stop changing instead, which is a guess
+    in the caller about something only the renderer knows — and it is
+    wrong in both directions. It gives up early on a frame that happens to
+    hold still for one poll, and it waits out the full 3 seconds on every
+    scene made of shapes and text, where nothing was ever decoding.
+
+    The frame now reports `mediaPending`, so this waits on a fact.
+    `verify_frame_context.py` is what says that number is real."""
     import time
-    prev = None
     for _ in range(tries):
-        cur = float(luma(frame(ms)).mean())
-        if prev is not None and abs(cur - prev) < 0.01:
+        if raw_frame(ms).get('mediaPending', 0) == 0:
             return
-        prev = cur
-        time.sleep(0.12)
+        time.sleep(0.08)
 
 def run_one(name, scene, a, b, metric, need, selftest=False):
     """Keyframe a -> b and measure. With selftest, keyframe a -> a instead.

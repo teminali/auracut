@@ -304,6 +304,24 @@ defineTool({
             atMs: envelope.frame.atMs,
             imageDataUrl: includeImage === false ? undefined : envelope.frame.dataUrl,
             unavailableReason: envelope.frame.unavailableReason,
+            /*
+              How much of this frame is a placeholder.
+
+              The compositor draws a dark gradient for media that has not
+              decoded yet, and that reads as a legitimately dark shot. An
+              agent measuring a frame right after an insert was measuring
+              nothing and could not have known.
+            */
+            mediaPending: envelope.frame.mediaPending.length,
+            ...(envelope.frame.mediaPending.length > 0
+              ? {
+                  mediaPendingClipIds: envelope.frame.mediaPending,
+                  mediaPendingNote:
+                    `${envelope.frame.mediaPending.length} visible layer(s) had not finished ` +
+                    'decoding, so this frame shows the placeholder gradient for them, not their ' +
+                    'media. Do not measure it. Call again until mediaPending is 0.',
+                }
+              : {}),
           }
         : null,
       readable: serializeEnvelope(envelope, 'query'),
