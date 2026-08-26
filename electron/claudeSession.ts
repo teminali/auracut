@@ -13,7 +13,7 @@
    bills against the user's existing subscription.
    ═══════════════════════════════════════════════════════════════════ */
 
-import { spawn, ChildProcessWithoutNullStreams, execFile } from 'child_process';
+import { spawn, ChildProcess, execFile } from 'child_process';
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import os from 'os';
@@ -21,6 +21,7 @@ import fs from 'fs';
 import { RPC_PORT, RPC_TOKEN } from './rpcServer';
 import {
   BackendId, AgentBackend, getBackend, findBackendBinary, surveyBackends, BackendStatus,
+  getModel,
 } from './agentBackends';
 
 export interface ClaudeEvent {
@@ -28,10 +29,35 @@ export interface ClaudeEvent {
   [key: string]: unknown;
 }
 
-let active: ChildProcessWithoutNullStreams | null = null;
+// `stdio: ['ignore', ...]` means stdin is null, so this is not a
+// ChildProcessWithoutNullStreams however much the old type claimed it was.
+let active: ChildProcess | null = null;
 
 /** Which CLI drives the Copilot. Claude Code is the verified default. */
 let selectedBackendId: BackendId = 'claude';
+
+/**
+ * Pick the first backend that can actually answer.
+ *
+ * Preference order puts Claude first because its adapter is the verified
+ * one, but the deciding fact is the readiness probe — landing the user
+ * on a backend that cannot authenticate is how the Copilot ends up
+ * showing a 401 instead of an edit.
+ */
+export async function autoSelectBackend(): Promise<BackendId> {
+  const surveyed = await surveyBackends(true);
+  const order: BackendId[] = ['claude', 'codex', 'cursor', 'gemini'];
+
+  for (const id of order) {
+    if (surveyed.find((b) => b.id === id)?.ready) {
+      selectedBackendId = id;
+      return id;
+    }
+  }
+  // Nothing is usable; leave it on Claude so the error names the default.
+  selectedBackendId = 'claude';
+  return selectedBackendId;
+}
 
 export function setBackend(id: BackendId): void {
   if (getBackend(id)) {
@@ -258,12 +284,17 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
   */
   const prepared = backend.prepare(mcpServerSpec(), dir);
 
+  /* A chosen model, if the user picked one. Empty means the CLI's own
+     default, which is the right behaviour for "I do not care". */
+  const model = getModel(selectedBackendId);
+
   const args = [
     ...backend.buildArgs(options.prompt, {
       systemPrompt: SYSTEM_APPEND,
       resumeId: options.resume ? lastSessionId : null,
       extraDirs: [...mediaDirs, ...(options.extraDirs ?? [])],
     }),
+    ...(model ? backend.modelArgs(model) : []),
     ...prepared.extraArgs,
   ];
 

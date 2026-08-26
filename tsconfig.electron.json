@@ -1,0 +1,26 @@
+{
+  /*
+    The main process had NO typecheck at all: the root tsconfig includes
+    only `src`, so `npm run build` type-checked the renderer and left
+    electron/ to esbuild, which resolves imports and ignores types.
+
+    Turning this on immediately found four real defects, including a
+    permission handler that compared against a value Electron never
+    sends and therefore denied every permission the renderer asked for,
+    and an ffmpeg path that could be null at a call site expecting a
+    string.
+  */
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true
+  },
+  "include": ["electron"]
+}

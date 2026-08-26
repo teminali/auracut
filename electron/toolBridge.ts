@@ -105,6 +105,24 @@ export async function captureWindow(): Promise<string | null> {
   return image.toPNG().toString('base64');
 }
 
+/**
+ * Evaluate an expression in the renderer, for testing from outside.
+ *
+ * Gated on AURACUT_DEBUG=1 by the RPC server, because arbitrary
+ * evaluation is a real capability and should not exist in a normal
+ * launch — but verifying UI behaviour without it means adding and
+ * removing this hook on every check, which is its own source of
+ * mistakes.
+ */
+export async function debugEval(expression: string): Promise<unknown> {
+  if (!targetWindow || targetWindow.isDestroyed()) return '<no window>';
+  try {
+    return await targetWindow.webContents.executeJavaScript(expression, true);
+  } catch (err) {
+    return `EVAL ERROR: ${(err as Error).message}`;
+  }
+}
+
 export const bridge = {
   /** The tool manifest, read from the live registry rather than a copy. */
   listTools: () => ask<unknown[]>('bridge:list-tools', {}),

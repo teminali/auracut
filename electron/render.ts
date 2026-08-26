@@ -418,10 +418,14 @@ export async function finishExport(
     nothing.
   */
   const videoSeconds = session.framesWritten / session.options.fps;
-  const muxed = await new Promise<boolean>((resolve) => {
+  // `ff` is `string | null`; without this the mux threw on a machine
+  // with no ffmpeg instead of falling back to the silent copy above.
+  const ffPath: string | null = ff;
+  const audioPath: string | null = mix.path;
+  const muxed = ffPath === null || audioPath === null ? false : await new Promise<boolean>((resolve) => {
     execFile(
-      ff,
-      ['-y', '-i', session.videoPath, '-i', mix.path,
+      ffPath,
+      ['-y', '-i', session.videoPath, '-i', audioPath,
        '-c', 'copy', '-map', '0:v:0', '-map', '1:a:0',
        '-t', videoSeconds.toFixed(6), session.outputPath],
       { timeout: 600_000 },

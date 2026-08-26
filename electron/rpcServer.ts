@@ -10,7 +10,7 @@
 
 import http from 'http';
 import crypto from 'crypto';
-import { bridge, captureWindow } from './toolBridge';
+import { bridge, captureWindow, debugEval } from './toolBridge';
 
 export const RPC_PORT = 3888;
 
@@ -84,6 +84,16 @@ export function startRpcServer(): http.Server {
 
         /* A screenshot of the real window, for verifying the UI from
            outside the app. */
+        /* Only with AURACUT_DEBUG=1 — arbitrary evaluation is not
+           something a normal launch should expose, token or not. */
+        case 'debug/eval':
+          if (process.env.AURACUT_DEBUG !== '1') {
+            send(res, 403, { error: 'debug/eval requires AURACUT_DEBUG=1' });
+            return;
+          }
+          send(res, 200, { result: await debugEval(String(params?.expression ?? '1')) });
+          return;
+
         case 'debug/capture':
           send(res, 200, { result: { pngBase64: await captureWindow() } });
           return;

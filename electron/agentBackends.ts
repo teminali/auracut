@@ -31,6 +31,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { execFile, execFileSync } from 'child_process';
+import { app } from 'electron';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -61,6 +62,44 @@ export interface BackendReadiness {
   reason?: string;
   /** What they should do about it. */
   fix?: string;
+  /** An env var the user could supply to fix it, if that is the answer. */
+  needsKey?: string;
+}
+
+/*
+  Failure signatures, in the CLIs' own words.
+
+  Checking `--version` proves the binary runs and nothing else. Both
+  Gemini and Codex reported ready that way and then failed on the first
+  real turn — Gemini with `IneligibleTierError` after Google retired
+  personal OAuth for it, Codex with a 401. A readiness check that cannot
+  see those is worse than none, because the picker uses it to promise.
+*/
+const AUTH_FAILURE = [
+  /IneligibleTierError/i,
+  /no longer supported/i,
+  /401 Unauthorized/i,
+  /Missing bearer/i,
+  /not authenticated/i,
+  /not logged in/i,
+  /please (run )?(login|sign in)/i,
+  /set an Auth method/i,
+  /API key (is )?(not set|missing|invalid)/i,
+  /invalid[_ ]api[_ ]key/i,
+  /authentication (failed|error)/i,
+  /Unauthorized/i,
+];
+
+function authFailureIn(text: string): string | null {
+  for (const pattern of AUTH_FAILURE) {
+    const hit = pattern.exec(text);
+    if (hit) {
+      // Give back the CLI's own sentence — it is more accurate than ours.
+      const line = text.split('\n').find((l) => pattern.test(l)) ?? hit[0];
+      return line.trim().slice(0, 220);
+    }
+  }
+  return null;
 }
 
 export interface AgentBackend {
@@ -86,6 +125,99 @@ export interface AgentBackend {
   translate: (line: string) => AgentEvent[];
   /** Beyond "the binary exists" — is it actually usable? */
   readiness: (binPath: string) => Promise<BackendReadiness>;
+  /** How this CLI takes a model name. */
+  modelArgs: (model: string) => string[];
+  /**
+   * Find the models this CLI will accept.
+   *
+   * Asked of the CLI wherever it can answer, because a list written
+   * here goes stale fast and a stale list presented as complete is a
+   * control that lies. The first version of this hardcoded
+   * `gpt-5-codex, gpt-5, o3` for Codex; the machine's actual models
+   * were `gpt-5.6-sol`, `gpt-5.6-terra` and six others, and not one of
+   * the three guesses existed.
+   *
+   * `suggested` means we could not ask. The picker takes free text
+   * either way.
+   */
+  discoverModels: (binPath: string) => Promise<{ models: string[]; source: 'queried' | 'suggested' }>;
+}
+
+/* ── Credentials ────────────────────────────────────────────────── */
+
+/*
+  API keys live in the user's shell profile, and a GUI app launched from
+  Finder never sees them — the same minimal-environment problem that
+  makes bare binary names unresolvable. So they are read once through a
+  login shell, exactly as the binaries are.
+*/
+const KEY_VARS = [
+  'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY',
+  'ANTHROPIC_API_KEY', 'CURSOR_API_KEY',
+] as const;
+
+let shellEnv: Record<string, string> | null = null;
+
+function loginShellEnv(): Record<string, string> {
+  if (shellEnv) return shellEnv;
+  shellEnv = {};
+
+  // Anything already in our own environment wins; it is the more direct source.
+  for (const key of KEY_VARS) {
+    const value = process.env[key];
+    if (value) shellEnv[key] = value;
+  }
+
+  try {
+    const shell = process.env.SHELL || '/bin/zsh';
+    const script = KEY_VARS.map((k) => `printf '%s=%s\\n' ${k} "$${k}"`).join('; ');
+    const out = execFileSync(shell, ['-lic', script], {
+      encoding: 'utf8',
+      timeout: 8000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    for (const line of out.split('\n')) {
+      const eq = line.indexOf('=');
+      if (eq <= 0) continue;
+      const key = line.slice(0, eq).trim();
+      const value = line.slice(eq + 1).trim();
+      if (value && (KEY_VARS as readonly string[]).includes(key) && !shellEnv[key]) {
+        shellEnv[key] = value;
+      }
+    }
+  } catch {
+    /* no login shell available — whatever we already have stands */
+  }
+  return shellEnv;
+}
+
+/** Keys the user pasted into the picker, kept out of their shell profile. */
+function keyStorePath(): string {
+  return path.join(app.getPath('userData'), 'agent-keys.json');
+}
+
+function storedKeys(): Record<string, string> {
+  try {
+    return JSON.parse(fs.readFileSync(keyStorePath(), 'utf8')) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+export function setStoredKey(variable: string, value: string): void {
+  const keys = storedKeys();
+  if (value.trim()) keys[variable] = value.trim();
+  else delete keys[variable];
+
+  fs.mkdirSync(path.dirname(keyStorePath()), { recursive: true });
+  fs.writeFileSync(keyStorePath(), JSON.stringify(keys, null, 2), { encoding: 'utf8', mode: 0o600 });
+  // A new key changes the answer to "is this ready".
+  readinessCache.clear();
+}
+
+/** Every credential we can offer a child process, stored ones winning. */
+export function credentials(): Record<string, string> {
+  return { ...loginShellEnv(), ...storedKeys() };
 }
 
 /* ── Shared helpers ─────────────────────────────────────────────── */
@@ -169,7 +301,21 @@ const claude: AgentBackend = {
     }
   },
 
-  readiness: async () => ({ ready: true }),
+  readiness: (binPath) => probeTurn(binPath, ['-p', 'ok', '--output-format', 'text'], 'ANTHROPIC_API_KEY',
+    'Run `claude` once in a terminal and sign in.'),
+  modelArgs: (model) => ['--model', model],
+  discoverModels: async (binPath) => {
+    /* `claude --help` documents the aliases inline: "Provide an alias
+       for the latest model (e.g. 'fable', 'opus', or 'sonnet')". Reading
+       them from the binary keeps this correct across updates. */
+    const probe = await run(binPath, ['--help'], 8000);
+    const section = /--model[^]*?(?=\n\s*--\w)/.exec(probe.stdout)?.[0] ?? '';
+    const aliases = [...section.matchAll(/'([a-z][a-z0-9.\-]{2,})'/g)].map((m) => m[1]);
+    const unique = [...new Set(aliases)];
+    return unique.length > 0
+      ? { models: unique, source: 'queried' as const }
+      : { models: ['opus', 'sonnet'], source: 'suggested' as const };
+  },
 };
 
 /* ── Gemini CLI ─────────────────────────────────────────────────── */
@@ -196,11 +342,25 @@ const gemini: AgentBackend = {
     */
     const workspace = path.join(sessionDir, 'gemini-workspace');
     const userSettings = readJsonIfPresent(path.join(home, '.gemini', 'settings.json'));
+    const key = credentials().GEMINI_API_KEY;
+
+    /*
+      An API key is now the only route for individual accounts — Google
+      retired personal OAuth for this CLI. When we have one, say so in
+      the settings as well as the environment, or the CLI keeps trying
+      the sign-in it can no longer use.
+    */
     writeJson(path.join(workspace, '.gemini', 'settings.json'), {
       ...userSettings,
+      ...(key ? { selectedAuthType: 'gemini-api-key' } : {}),
       mcpServers: { auracut: mcp },
     });
-    return { cwd: workspace, extraArgs: [], extraEnv: {} };
+
+    return {
+      cwd: workspace,
+      extraArgs: [],
+      extraEnv: key ? { GEMINI_API_KEY: key } : {},
+    };
   },
 
   buildArgs: (prompt, { systemPrompt }) => [
@@ -215,23 +375,41 @@ const gemini: AgentBackend = {
   translate: (line) => translateGenericStream(line),
 
   readiness: async (binPath) => {
+    const keys = credentials();
+    const env: Record<string, string> = keys.GEMINI_API_KEY
+      ? { GEMINI_API_KEY: keys.GEMINI_API_KEY }
+      : {};
+    const result = await probeTurn(
+      binPath,
+      ['-p', 'ok', '--output-format', 'text'],
+      'GEMINI_API_KEY',
+      'Paste a Gemini API key from aistudio.google.com/apikey, or run `gemini` and sign in.',
+      env
+    );
+
     /*
-      Installed is not ready. This machine had gemini installed and
-      authenticated, and every run still failed: the settings file was
-      written under an older schema than the installed CLI reads.
-      Checking for the binary alone would have called it ready.
+      Google retired personal OAuth for gemini-cli — the CLI now answers
+      `IneligibleTierError` and points at Antigravity, which is an IDE
+      and cannot be driven headlessly. An API key is the supported route
+      from here, so say that rather than "sign in again".
     */
-    const probe = await run(binPath, ['-p', 'ok'], 20000);
-    const text = `${probe.stdout}${probe.stderr}`;
-    if (/set an Auth method|GEMINI_API_KEY|not authenticated|login/i.test(text)) {
+    if (!result.ready && /IneligibleTierError|no longer supported/i.test(result.reason ?? '')) {
       return {
         ready: false,
-        reason: 'Gemini CLI is installed but not signed in.',
-        fix: 'Run `gemini` once in a terminal and complete sign-in, then reopen AuraCut.',
+        reason: 'Google no longer supports personal sign-in for Gemini CLI.',
+        fix: 'Paste a Gemini API key from aistudio.google.com/apikey.',
+        needsKey: 'GEMINI_API_KEY',
       };
     }
-    return { ready: probe.ok || text.trim().length > 0 };
+    return result;
   },
+  modelArgs: (model) => ['-m', model],
+  // Gemini CLI exposes no list and caches nothing locally, so these are
+  // genuinely suggestions and the picker labels them that way.
+  discoverModels: async () => ({
+    models: ['gemini-2.5-pro', 'gemini-2.5-flash'],
+    source: 'suggested' as const,
+  }),
 };
 
 /* ── Codex CLI ──────────────────────────────────────────────────── */
@@ -243,30 +421,28 @@ const codex: AgentBackend = {
   bin: 'codex',
   candidates: () => bins('codex'),
   installHint: 'npm i -g @openai/codex',
-  streamVerified: false,
+  // Confirmed against a real run: it called describe_timeline over MCP
+  // and answered from the live project.
+  streamVerified: true,
 
-  prepare: (mcp, sessionDir) => {
+  prepare: (mcp) => {
     /*
-      Codex reads MCP servers from TOML. `CODEX_HOME` moves the whole
-      config directory, which keeps a per-run server out of the user's
-      own configuration entirely.
+      The MCP server goes in as a command-line config override, NOT by
+      moving CODEX_HOME.
+
+      Moving it was the obvious way to keep our server out of the user's
+      own config, and it silently broke authentication: CODEX_HOME
+      relocates the WHOLE config directory, `auth.json` included, so
+      Codex started every run signed out and failed with 401. It looked
+      like an expired key for two rounds of debugging. `-c` adds the one
+      key we need and leaves everything else where it is.
     */
-    const codexHome = path.join(sessionDir, 'codex-home');
-    fs.mkdirSync(codexHome, { recursive: true });
-
-    const escape = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-    const toml = [
-      '[mcp_servers.auracut]',
-      `command = "${escape(mcp.command)}"`,
-      `args = [${mcp.args.map((a) => `"${escape(a)}"`).join(', ')}]`,
-      'env = { ' +
-        Object.entries(mcp.env).map(([k, v]) => `${k} = "${escape(v)}"`).join(', ') +
-        ' }',
-      '',
-    ].join('\n');
-    fs.writeFileSync(path.join(codexHome, 'config.toml'), toml, 'utf8');
-
-    return { cwd: home, extraArgs: [], extraEnv: { CODEX_HOME: codexHome } };
+    const key = credentials().OPENAI_API_KEY;
+    return {
+      cwd: home,
+      extraArgs: ['-c', codexMcpOverride(mcp)],
+      extraEnv: key ? { OPENAI_API_KEY: key } : {},
+    };
   },
 
   buildArgs: (prompt, { systemPrompt }) => [
@@ -278,21 +454,123 @@ const codex: AgentBackend = {
     `${systemPrompt}\n\n---\n\n${prompt}`,
   ],
 
-  translate: (line) => translateGenericStream(line),
+  translate: translateCodex,
 
-  readiness: async (binPath) => {
-    const probe = await run(binPath, ['--version'], 15000);
-    const text = `${probe.stdout}${probe.stderr}`;
-    if (/not logged in|login|OPENAI_API_KEY/i.test(text)) {
-      return {
-        ready: false,
-        reason: 'Codex CLI is installed but not signed in.',
-        fix: 'Run `codex login` in a terminal, then reopen AuraCut.',
-      };
+  readiness: (binPath) => {
+    const keys = credentials();
+    return probeTurn(
+      binPath,
+      ['exec', '--json', '--dangerously-bypass-approvals-and-sandbox', 'ok'],
+      'OPENAI_API_KEY',
+      'Run `codex login` in a terminal, or paste an OpenAI API key.',
+      keys.OPENAI_API_KEY ? { OPENAI_API_KEY: keys.OPENAI_API_KEY } : {}
+    );
+  },
+  modelArgs: (model) => ['-m', model],
+  discoverModels: async () => {
+    /* Codex keeps the authoritative list it fetched from the service in
+       `~/.codex/models_cache.json`. Reading it is exact and free. */
+    try {
+      const cache = JSON.parse(
+        fs.readFileSync(path.join(home, '.codex', 'models_cache.json'), 'utf8')
+      ) as { models?: { slug?: string; visibility?: string }[] };
+
+      const slugs = (cache.models ?? [])
+        .filter((m) => m.slug && m.visibility !== 'hidden')
+        .map((m) => m.slug!);
+      if (slugs.length > 0) return { models: slugs, source: 'queried' as const };
+    } catch {
+      /* no cache yet — fall through */
     }
-    return { ready: probe.ok };
+    return { models: [], source: 'suggested' as const };
   },
 };
+
+/** `mcp_servers.auracut={...}` as inline TOML for a `-c` override. */
+function codexMcpOverride(mcp: McpServerSpec): string {
+  const esc = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const args = mcp.args.map((a) => `"${esc(a)}"`).join(', ');
+  const env = Object.entries(mcp.env).map(([k, v]) => `${k}="${esc(v)}"`).join(', ');
+  return `mcp_servers.auracut={command="${esc(mcp.command)}", args=[${args}], env={${env}}}`;
+}
+
+/**
+ * Codex's `exec --json` stream, verified against a real run.
+ *
+ * Shape confirmed by driving it against AuraCut's own MCP server:
+ *   thread.started   carries thread_id, which `exec resume` accepts
+ *   item.started     an mcp_tool_call beginning
+ *   item.completed   agent_message (text), mcp_tool_call (with result),
+ *                    or error
+ *   turn.completed   usage totals
+ *   turn.failed      error.message
+ */
+function translateCodex(line: string): AgentEvent[] {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(line) as Record<string, unknown>;
+  } catch {
+    return [];
+  }
+
+  const type = String(parsed.type ?? '');
+  const item = (parsed.item ?? {}) as Record<string, unknown>;
+  const itemType = String(item.type ?? '');
+
+  if (type === 'thread.started' && typeof parsed.thread_id === 'string') {
+    return [{ type: 'system', subtype: 'init', session_id: parsed.thread_id }];
+  }
+
+  if (type === 'item.started' && itemType === 'mcp_tool_call') {
+    return [{
+      type: 'assistant',
+      message: {
+        content: [{
+          type: 'tool_use',
+          id: String(item.id ?? 'tool'),
+          // Present it the way the AuraCut tools are named everywhere else.
+          name: `mcp__${String(item.server ?? 'mcp')}__${String(item.tool ?? '')}`,
+          input: (item.arguments ?? {}) as Record<string, unknown>,
+        }],
+      },
+    }];
+  }
+
+  if (type === 'item.completed' && itemType === 'mcp_tool_call') {
+    const result = (item.result ?? {}) as { content?: { type: string; text?: string }[] };
+    const text = result.content?.find((c) => c.type === 'text')?.text ?? '';
+    return [{
+      type: 'user',
+      message: {
+        content: [{
+          type: 'tool_result',
+          tool_use_id: String(item.id ?? 'tool'),
+          is_error: Boolean((item as { error?: unknown }).error),
+          content: text,
+        }],
+      },
+    }];
+  }
+
+  if (type === 'item.completed' && itemType === 'agent_message' && typeof item.text === 'string') {
+    return [{ type: 'assistant', message: { content: [{ type: 'text', text: item.text }] } }];
+  }
+
+  if (type === 'item.completed' && itemType === 'error') {
+    return [{ type: 'assistant', message: { content: [{ type: 'text', text: String(item.message ?? '') }] } }];
+  }
+
+  if (type === 'turn.completed') {
+    return [{ type: 'result', result: '', is_error: false }];
+  }
+
+  if (type === 'turn.failed') {
+    const error = (parsed.error ?? {}) as { message?: string };
+    return [{ type: 'result', result: error.message ?? 'The turn failed.', is_error: true }];
+  }
+
+  return [];
+}
 
 /* ── Cursor Agent ───────────────────────────────────────────────── */
 
@@ -308,7 +586,8 @@ const cursor: AgentBackend = {
   prepare: (mcp, sessionDir) => {
     const workspace = path.join(sessionDir, 'cursor-workspace');
     writeJson(path.join(workspace, '.cursor', 'mcp.json'), { mcpServers: { auracut: mcp } });
-    return { cwd: workspace, extraArgs: [], extraEnv: {} };
+    const key = credentials().CURSOR_API_KEY;
+    return { cwd: workspace, extraArgs: [], extraEnv: key ? { CURSOR_API_KEY: key } : {} };
   },
 
   buildArgs: (prompt, { systemPrompt }) => [
@@ -319,19 +598,78 @@ const cursor: AgentBackend = {
 
   translate: (line) => translateGenericStream(line),
 
-  readiness: async (binPath) => {
-    const probe = await run(binPath, ['--version'], 15000);
-    const text = `${probe.stdout}${probe.stderr}`;
-    if (/not logged in|login|CURSOR_API_KEY/i.test(text)) {
-      return {
-        ready: false,
-        reason: 'Cursor Agent is installed but not signed in.',
-        fix: 'Run `cursor-agent login` in a terminal, then reopen AuraCut.',
-      };
-    }
-    return { ready: probe.ok };
+  readiness: (binPath) => {
+    const keys = credentials();
+    return probeTurn(
+      binPath,
+      ['-p', 'ok', '--output-format', 'text'],
+      'CURSOR_API_KEY',
+      'Run `cursor-agent login` in a terminal, or paste a Cursor API key.',
+      keys.CURSOR_API_KEY ? { CURSOR_API_KEY: keys.CURSOR_API_KEY } : {}
+    );
+  },
+  modelArgs: (model) => ['--model', model],
+  discoverModels: async (binPath) => {
+    const probe = await run(binPath, ['--list-models'], 25000);
+    const models = probe.stdout
+      // The loader draws ANSI escapes before the list arrives.
+      .replace(/\u001b\[[0-9;]*[A-Za-z]/g, '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l && !/\s/.test(l) && l.length < 60);
+    return models.length > 0
+      ? { models, source: 'queried' as const }
+      : { models: [], source: 'suggested' as const };
   },
 };
+
+/* ── The readiness probe ────────────────────────────────────────── */
+
+const readinessCache = new Map<BackendId, BackendReadiness>();
+
+/**
+ * Ask the CLI to do the smallest possible real turn.
+ *
+ * Nothing short of this is trustworthy. `--version` runs the binary and
+ * tells you nothing about whether it can reach a model: on this machine
+ * both Gemini and Codex passed a version check and then failed the
+ * first real request, one with `IneligibleTierError` and one with a 401.
+ * A one-token prompt costs a fraction of a cent and is the only answer
+ * that means anything.
+ *
+ * `stdin` is closed deliberately — `codex exec` blocks reading it
+ * otherwise and the probe never returns.
+ */
+async function probeTurn(
+  binPath: string,
+  args: string[],
+  keyVar: string,
+  fix: string,
+  extraEnv: Record<string, string> = {}
+): Promise<BackendReadiness> {
+  const result = await new Promise<{ ok: boolean; text: string }>((resolve) => {
+    const child = execFile(
+      binPath,
+      args,
+      {
+        timeout: 45_000,
+        maxBuffer: 1024 * 1024 * 4,
+        env: { ...process.env, ...extraEnv, ELECTRON_RUN_AS_NODE: undefined } as NodeJS.ProcessEnv,
+      },
+      (err, stdout, stderr) => resolve({ ok: !err, text: `${stdout}\n${stderr}` })
+    );
+    child.stdin?.end();
+  });
+
+  const failure = authFailureIn(result.text);
+  if (failure) {
+    return { ready: false, reason: failure, fix, needsKey: keyVar };
+  }
+  if (!result.ok && !result.text.trim()) {
+    return { ready: false, reason: 'The CLI exited without output.', fix };
+  }
+  return { ready: true };
+}
 
 /* ── Translating the other CLIs' output ─────────────────────────── */
 
@@ -498,11 +836,22 @@ export interface BackendStatus {
   installed: boolean;
   path: string | null;
   version: string | null;
+  /**
+   * Whether the readiness probe has RUN. The quick pass cannot know, and
+   * reporting `ready: true` from "the binary exists" is how the picker
+   * offered Gemini and Codex as usable while one was answering
+   * IneligibleTierError and the other 401.
+   */
+  checked: boolean;
   ready: boolean;
   reason?: string;
   fix?: string;
   installHint: string;
   streamVerified: boolean;
+  /** Set when supplying this env var would make it usable. */
+  needsKey?: string;
+  /** Whether a key is already held for it. */
+  hasKey?: boolean;
 }
 
 const versionCache = new Map<BackendId, string | null>();
@@ -534,19 +883,31 @@ export async function surveyBackends(deep = false): Promise<BackendStatus[]> {
         installed: Boolean(binPath),
         path: binPath,
         version: null,
-        ready: Boolean(binPath),
+        // Nothing has been probed yet, so nothing is claimed yet.
+        checked: false,
+        ready: false,
         installHint: backend.installHint,
         streamVerified: backend.streamVerified,
       };
       if (!binPath) {
-        return { ...base, ready: false, reason: `${backend.label} is not installed.`, fix: backend.installHint };
+        // Missing IS a finished answer — no probe can change it.
+        return {
+          ...base, checked: true, ready: false,
+          reason: `${backend.label} is not installed.`, fix: backend.installHint,
+        };
       }
 
       base.version = await versionOf(backend, binPath);
       if (!deep) return base;
 
-      const readiness = await backend.readiness(binPath);
-      return { ...base, ...readiness };
+      // The probe runs a real turn, so it is cached until something that
+      // could change the answer — a new key, an install — clears it.
+      const cached = readinessCache.get(backend.id);
+      const readiness = cached ?? (await backend.readiness(binPath));
+      readinessCache.set(backend.id, readiness);
+
+      const held = readiness.needsKey ? Boolean(credentials()[readiness.needsKey]) : undefined;
+      return { ...base, ...readiness, checked: true, hasKey: held };
     })
   );
 }
@@ -561,6 +922,65 @@ export async function surveyBackends(deep = false): Promise<BackendStatus[]> {
  * that a GUI app can actually find — the same minimal-PATH problem the
  * binaries have — so the command runs through a login shell.
  */
+/* ── Models ─────────────────────────────────────────────────────── */
+
+/** The chosen model per backend, persisted alongside the keys. */
+function prefsPath(): string {
+  return path.join(app.getPath('userData'), 'agent-prefs.json');
+}
+
+function prefs(): Record<string, string> {
+  try {
+    return JSON.parse(fs.readFileSync(prefsPath(), 'utf8')) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+export function getModel(id: BackendId): string {
+  return prefs()[`model:${id}`] ?? '';
+}
+
+export function setModel(id: BackendId, model: string): void {
+  const current = prefs();
+  if (model.trim()) current[`model:${id}`] = model.trim();
+  else delete current[`model:${id}`];
+  fs.mkdirSync(path.dirname(prefsPath()), { recursive: true });
+  fs.writeFileSync(prefsPath(), JSON.stringify(current, null, 2), 'utf8');
+}
+
+export interface ModelOptions {
+  models: string[];
+  /** Whether the CLI told us, or these are just suggestions. */
+  source: 'queried' | 'suggested';
+  selected: string;
+}
+
+/**
+ * Which models this backend will accept.
+ *
+ * `cursor-agent --list-models` is the only one that answers, so its list
+ * is real and the others are labelled as suggestions. The picker takes
+ * free text regardless — model names move faster than a release cycle.
+ */
+export async function modelsFor(id: BackendId): Promise<ModelOptions> {
+  const backend = getBackend(id);
+  if (!backend) return { models: [], source: 'suggested', selected: '' };
+
+  const selected = getModel(id);
+  const binPath = findBackendBinary(backend);
+  if (!binPath) return { models: [], source: 'suggested', selected };
+
+  const discovered = await backend.discoverModels(binPath);
+  return { ...discovered, selected };
+}
+
+/** Forget probe results — used after installing or storing a key. */
+export function clearReadinessCache(): void {
+  readinessCache.clear();
+  shellEnv = null;
+}
+
 export async function installBackend(
   id: BackendId,
   onProgress: (line: string) => void
@@ -585,6 +1005,7 @@ export async function installBackend(
   // Detection is cached, and the whole point is that it just changed.
   pathCache.delete(id);
   versionCache.delete(id);
+  readinessCache.delete(id);
 
   const found = findBackendBinary(backend);
   if (!found) {

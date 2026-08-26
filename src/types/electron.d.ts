@@ -20,6 +20,8 @@ export interface AgentBackendStatus {
   installed: boolean;
   path: string | null;
   version: string | null;
+  /** Whether the readiness probe has run. False means "not known yet". */
+  checked: boolean;
   /** Installed AND usable — a CLI can be present but not signed in. */
   ready: boolean;
   reason?: string;
@@ -27,6 +29,10 @@ export interface AgentBackendStatus {
   installHint: string;
   /** Whether this adapter's stream format has been verified on a real run. */
   streamVerified: boolean;
+  /** Supplying this env var would make it usable. */
+  needsKey?: string;
+  /** Whether AuraCut already holds a key for it. */
+  hasKey?: boolean;
 }
 
 export interface ClaudeStatus {
@@ -99,6 +105,11 @@ export interface AuraCutElectronAPI {
     list: (deep?: boolean) => Promise<{ selected: string; backends: AgentBackendStatus[] }>;
     select: (id: string) => Promise<string>;
     install: (id: string) => Promise<{ ok: boolean; message: string }>;
+    setKey: (variable: string, value: string) => Promise<boolean>;
+    recheck: () => Promise<boolean>;
+    /** `source` is 'queried' when the CLI told us, 'suggested' otherwise. */
+    models: (id: string) => Promise<{ models: string[]; source: 'queried' | 'suggested'; selected: string }>;
+    setModel: (id: string, model: string) => Promise<boolean>;
     signIn: (id: string) => Promise<{ ok: boolean; message: string }>;
     onInstallProgress: (cb: (p: { id: string; line: string }) => void) => () => void;
   };

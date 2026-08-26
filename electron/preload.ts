@@ -57,6 +57,10 @@ export interface ElectronAPI {
     list: (deep?: boolean) => Promise<{ selected: string; backends: unknown[] }>;
     select: (id: string) => Promise<string>;
     install: (id: string) => Promise<{ ok: boolean; message: string }>;
+    setKey: (variable: string, value: string) => Promise<boolean>;
+    recheck: () => Promise<boolean>;
+    models: (id: string) => Promise<{ models: string[]; source: string; selected: string }>;
+    setModel: (id: string, model: string) => Promise<boolean>;
     signIn: (id: string) => Promise<{ ok: boolean; message: string }>;
     onInstallProgress: (cb: (p: { id: string; line: string }) => void) => () => void;
   };
@@ -131,6 +135,10 @@ const api: ElectronAPI = {
     list: (deep) => ipcRenderer.invoke('agents:list', { deep }),
     select: (id) => ipcRenderer.invoke('agents:select', { id }),
     install: (id) => ipcRenderer.invoke('agents:install', { id }),
+    setKey: (variable, value) => ipcRenderer.invoke('agents:setKey', { variable, value }),
+    recheck: () => ipcRenderer.invoke('agents:recheck'),
+    models: (id) => ipcRenderer.invoke('agents:models', { id }),
+    setModel: (id, model) => ipcRenderer.invoke('agents:setModel', { id, model }),
     signIn: (id) => ipcRenderer.invoke('agents:signIn', { id }),
     onInstallProgress: (cb) => {
       const handler = (_e: unknown, p: { id: string; line: string }) => cb(p);

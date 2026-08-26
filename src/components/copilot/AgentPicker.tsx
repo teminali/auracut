@@ -38,6 +38,10 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [progress, setProgress] = React.useState<string>('');
   const [loading, setLoading] = React.useState(true);
+  const [keyDraft, setKeyDraft] = React.useState<Record<string, string>>({});
+  const [models, setModels] = React.useState<
+    Record<string, { models: string[]; source: 'queried' | 'suggested'; selected: string }>
+  >({});
   const pushToast = useUiStore((s) => s.pushToast);
 
   const refresh = React.useCallback(async (deep: boolean) => {
@@ -55,6 +59,27 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
     void refresh(false).then(() => refresh(true));
     return window.electronAPI?.agents.onInstallProgress((p) => setProgress(p.line));
   }, [refresh]);
+
+  /* Model options are loaded per backend, and only for ones that can
+     actually run — asking a CLI that cannot authenticate is wasted time. */
+  React.useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.agents) return;
+    for (const backend of backends) {
+      if (!backend.ready || models[backend.id]) continue;
+      void api.agents.models(backend.id).then((m) =>
+        setModels((prev) => ({ ...prev, [backend.id]: m }))
+      );
+    }
+  }, [backends, models]);
+
+  const pickModel = async (backend: AgentBackendStatus, model: string) => {
+    await window.electronAPI!.agents.setModel(backend.id, model);
+    setModels((prev) => ({
+      ...prev,
+      [backend.id]: { ...prev[backend.id], selected: model },
+    }));
+  };
 
   const choose = async (backend: AgentBackendStatus) => {
     if (!backend.ready) return;
@@ -77,6 +102,27 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
     } finally {
       setBusy(null);
       setProgress('');
+    }
+  };
+
+  /**
+   * Store a pasted key and re-probe.
+   *
+   * Kept in AuraCut's own data directory rather than the user's shell
+   * profile: a GUI app launched from Finder cannot see that profile
+   * anyway, which is why keys set there are invisible here.
+   */
+  const saveKey = async (backend: AgentBackendStatus) => {
+    const variable = backend.needsKey!;
+    const value = keyDraft[backend.id] ?? '';
+    setBusy(backend.id);
+    try {
+      await window.electronAPI!.agents.setKey(variable, value);
+      await window.electronAPI!.agents.recheck();
+      setKeyDraft((d) => ({ ...d, [backend.id]: '' }));
+      await refresh(true);
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -126,7 +172,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => choose(backend)}
-                    disabled={!backend.ready}
+                    disabled={!backend.checked || !backend.ready}
                     className="flex-1 min-w-0 text-left disabled:cursor-not-allowed"
                   >
                     <span className="flex items-center gap-1.5">
@@ -134,16 +180,21 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                         {backend.label}
                       </span>
                       <span className="text-[9px] text-spectrum-textFaint">{backend.vendor}</span>
+                      {!backend.checked && (
+                        <Loader2 className="w-2.5 h-2.5 animate-spin text-spectrum-textFaint flex-shrink-0" />
+                      )}
                       {isSelected && <Check className="w-3 h-3 text-spectrum-accent flex-shrink-0" />}
                     </span>
                     <span className="block text-[9px] font-mono text-spectrum-textFaint truncate mt-0.5">
-                      {backend.ready
-                        ? backend.version ?? backend.path ?? 'ready'
-                        : backend.reason ?? 'not available'}
+                      {!backend.checked
+                        ? 'checking…'
+                        : backend.ready
+                          ? backend.version ?? backend.path ?? 'ready'
+                          : backend.reason ?? 'not available'}
                     </span>
                   </button>
 
-                  {!backend.installed && (
+                  {backend.checked && !backend.installed && (
                     <button
                       onClick={() => install(backend)}
                       disabled={working}
@@ -157,7 +208,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                     </button>
                   )}
 
-                  {backend.installed && !backend.ready && (
+                  {backend.checked && backend.installed && !backend.ready && (
                     <button
                       onClick={() => signIn(backend)}
                       className="pro-btn-filled h-[24px] px-2 gap-1 text-[10px] flex-shrink-0"
@@ -167,6 +218,38 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                     </button>
                   )}
                 </div>
+
+                {/*
+                  Model choice. Free text as well as the list, because
+                  only cursor-agent can actually enumerate its models —
+                  everything else here is a suggestion, and a fixed list
+                  presented as complete goes stale and starts lying.
+                */}
+                {backend.ready && models[backend.id] && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className="text-[9px] text-spectrum-textFaint flex-shrink-0 w-[34px]">Model</span>
+                    <input
+                      list={`models-${backend.id}`}
+                      value={models[backend.id].selected}
+                      onChange={(e) => pickModel(backend, e.target.value)}
+                      placeholder={`${backend.label} default`}
+                      className="pro-input flex-1 h-[22px] px-1.5 text-[10px] font-mono min-w-0"
+                    />
+                    <datalist id={`models-${backend.id}`}>
+                      {models[backend.id].models.map((m) => <option key={m} value={m} />)}
+                    </datalist>
+                    <span
+                      className="text-[9px] text-spectrum-textFaint flex-shrink-0"
+                      title={
+                        models[backend.id].source === 'queried'
+                          ? 'This list came from the CLI itself.'
+                          : 'Suggestions — any model name this CLI accepts will work.'
+                      }
+                    >
+                      {models[backend.id].source === 'queried' ? 'listed' : 'suggested'}
+                    </span>
+                  </div>
+                )}
 
                 {backend.ready && !backend.streamVerified && (
                   /* Say it up front rather than let the panel look broken
@@ -178,8 +261,31 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                   </p>
                 )}
 
-                {!backend.ready && backend.fix && (
+                {backend.checked && !backend.ready && backend.fix && (
                   <p className="mt-1.5 text-[9px] text-spectrum-textDim leading-snug">{backend.fix}</p>
+                )}
+
+                {/* When a key is what it needs, take one here rather than
+                    sending the user off to edit a shell profile the app
+                    cannot read anyway. */}
+                {backend.checked && !backend.ready && backend.needsKey && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <input
+                      type="password"
+                      value={keyDraft[backend.id] ?? ''}
+                      onChange={(e) => setKeyDraft((d) => ({ ...d, [backend.id]: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') void saveKey(backend); }}
+                      placeholder={backend.hasKey ? `${backend.needsKey} stored — paste to replace` : backend.needsKey}
+                      className="pro-input flex-1 h-[24px] px-1.5 text-[10px] font-mono min-w-0"
+                    />
+                    <button
+                      onClick={() => saveKey(backend)}
+                      disabled={busy === backend.id || !(keyDraft[backend.id] ?? '').trim()}
+                      className="pro-btn-filled h-[24px] px-2 text-[10px] flex-shrink-0"
+                    >
+                      {busy === backend.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                    </button>
+                  </div>
                 )}
               </div>
             );

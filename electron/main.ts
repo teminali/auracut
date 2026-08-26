@@ -8,9 +8,12 @@ import { startExport, writeFrame, finishExport, cancelExport, ExportClipAudio, S
 import { startRpcServer } from './rpcServer';
 import {
   startSession, stopSession, resetSession, isRunning, findClaudeCli, getCliVersion,
-  writeMcpConfig, setBackend, getBackendId, listBackends,
+  writeMcpConfig, setBackend, getBackendId, listBackends, autoSelectBackend,
 } from './claudeSession';
-import { installBackend, signInCommand, BackendId } from './agentBackends';
+import {
+  installBackend, signInCommand, BackendId, setStoredKey, clearReadinessCache,
+  modelsFor, setModel,
+} from './agentBackends';
 
 /*
   This file is bundled to CommonJS (`main.cjs`), so `__dirname` is native
@@ -44,13 +47,19 @@ function createWindow() {
   });
 
   /*
-    `queryLocalFonts()` is gated behind a permission that has no UI in
-    Electron, so without this it is denied by default and the font
-    picker silently falls back to probing a candidate list. Local fonts
-    are exactly as sensitive as the fonts already readable through CSS.
+    This used to be `callback(permission === 'local-fonts')`, which was
+    wrong twice over: 'local-fonts' is not one of the permissions
+    Electron routes through this handler, so the comparison could never
+    be true — and because it could never be true, the handler DENIED
+    every permission the renderer will ever ask for. Font enumeration
+    worked anyway, which is what hid it.
+
+    Only the renderer's own code runs here, so the honest default is to
+    allow, and to say so rather than leave a handler that silently means
+    "no to everything".
   */
-  mainWindow.webContents.session.setPermissionRequestHandler((_wc, permission, callback) => {
-    callback(permission === 'local-fonts');
+  mainWindow.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => {
+    callback(true);
   });
 
   // Painting into a hidden window and revealing it once ready avoids the
@@ -201,6 +210,20 @@ function registerAgentIpc() {
     return getBackendId();
   });
 
+  /* Store a key the user pasted, out of their shell profile. */
+  ipcMain.handle('agents:setKey', (_e, p: { variable: string; value: string }) => {
+    setStoredKey(p.variable, p.value);
+    return true;
+  });
+
+  ipcMain.handle('agents:recheck', () => { clearReadinessCache(); return true; });
+
+  ipcMain.handle('agents:models', (_e, p: { id: BackendId }) => modelsFor(p.id));
+  ipcMain.handle('agents:setModel', (_e, p: { id: BackendId; model: string }) => {
+    setModel(p.id, p.model);
+    return true;
+  });
+
   ipcMain.handle('agents:install', async (_e, p: { id: BackendId }) =>
     installBackend(p.id, (line) => {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -235,6 +258,13 @@ function registerAgentIpc() {
 }
 
 app.whenReady().then(() => {
+  /*
+    Land on a backend that can answer. Defaulting blindly to Claude meant
+    a user without it — or with it unauthenticated — got an error on
+    their first prompt instead of the agent they do have.
+  */
+  void autoSelectBackend().then((id) => console.log(`[AuraCut] Copilot agent: ${id}`));
+
   initToolBridge();
   registerAgentIpc();
   startRpcServer();
