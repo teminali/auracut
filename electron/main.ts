@@ -67,6 +67,18 @@ function createWindow() {
     backgroundColor: '#060709',
     show: false,
     webPreferences: {
+      /*
+        macOS throttles a background window's timers and rendering. Kerf
+        runs long exports that a user will reasonably switch away from,
+        and an export that slows down because you looked at your email is
+        a bad property for a video editor to have.
+
+        Stated honestly: this is hardening on the documented behaviour,
+        not a proven fix for the export stall in NEXT.md's trap 6b. That
+        stall tracks machine load, and a single instance exports at full
+        speed while occluded — see the trap for what is actually known.
+      */
+      backgroundThrottling: false,
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,

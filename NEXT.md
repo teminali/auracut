@@ -68,21 +68,44 @@ pgrep -f 'auracut-lane1/node_modules/.bin/electron'
 lsof -nP -iTCP:<port> -sTCP:LISTEN        # or just ask who holds the port
 ```
 
-Hit independently by two people in one session. It is the same family as
-traps 3 and 4, and since the EADDRINUSE fix the survivor is a *silent
-half-dead app*: it logs "port N is already in use, so there is no RPC
-bridge in this instance" and then sits there looking fine.
+**And it cuts both ways, which is the dangerous half.** A pattern that
+looks lane-scoped matches nothing and silently leaves instances running.
+A pattern that looks generic — `pkill -f auracut/node_modules/electron` —
+matches **every lane at once** and kills all of them. I did exactly that
+while cleaning up my own instances, took out another lane's Kerf and its
+Vite server mid-session, and only found out because that lane noticed the
+SIGKILL and worked out where it came from.
 
-**Trap 6b — `render_export` stalls when the window is fully occluded.**
-Reported by the reference-analysis lane: `npm run verify` hung four times
-at `verify_audio`/`verify_playback_audio` with two ffmpeg processes idle
-on `pipe:0`, **under `--built` too**, so it is not trap 5. One `osascript`
-bringing the window frontmost finished the stalled suite in 18.1s. With
-several lanes' windows stacked this is easy to hit and reads exactly like
-trap 5. It is the sibling of the `debug/capture` occlusion bug in
-HANDOVER §3c, and it is NOT yet fixed — `MacWebContentsOcclusion` is
-disabled for the main window, so why the export path still stalls is
-open.
+Hit independently three times in one session. It is the same family as
+traps 3 and 4, and since the EADDRINUSE fix the survivor of the first
+direction is a *silent half-dead app*: it logs "port N is already in use,
+so there is no RPC bridge in this instance" and then sits there looking
+fine. Kill by PORT or by launcher parent. Never by the electron path.
+
+**Trap 6b — `render_export` can stall by ~90x, and occlusion is NOT the
+cause.** `npm run verify` took **1195s instead of 29**, with
+`verify_audio` alone at **602.9s against its usual 7**, ffmpeg processes
+idle on `pipe:0`. It happens under `--built`, so it is not trap 5 either.
+
+The first diagnosis — including in the commit that recorded it — was
+"the window is occluded". **That is wrong, and the test that shows it is
+one call:** with a single instance, window behind the terminal and
+`document.visibilityState === 'hidden'`, an export runs at 7.7ms/frame,
+full speed. `--disable-features=MacWebContentsOcclusion` is confirmed
+present in the process, so occlusion detection is off anyway.
+
+What it actually tracks is **machine load**. The 1195s run happened at
+load average 13.3 with another lane's agent driving its own Electron
+instances; the fast run was at 5.5. That also explains why bringing the
+window frontmost unstuck it — macOS raises a foreground app's scheduling
+QoS, which matters enormously when the machine is saturated, and nothing
+to do with what is painted.
+
+**So: do not run several lanes' suites at once and believe the timings.**
+`backgroundThrottling: false` is set on the window as hardening for the
+ordinary case of a user switching away mid-export, but it is NOT a proven
+fix for this and is not claimed as one. The root cause is contention, and
+the fix is scheduling, not code.
 
 **Trap 5 — editing `src/**` while suites run hangs them for 30 minutes.**
 Vite HMR pushes a FULL PAGE RELOAD to every connected client. The
