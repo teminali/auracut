@@ -11,7 +11,7 @@ been reconciled rather than left listing finished work.
 
 ---
 
-## Getting a working loop (do this first, it has six traps)
+## Getting a working loop (do this first, it has eight traps)
 
 ```bash
 # 1. Vite dev server. It picks the next free port if 5173 is taken, so
@@ -54,6 +54,35 @@ encoding variation.
 check `ps -o lstart` against when the build finished before believing a
 packaged result. Port 3888 answering is not evidence that the thing
 answering is the thing you just built.
+
+**Trap 7 — a lane's Electron cannot be found by its worktree path.**
+Parallel work uses git worktrees whose `node_modules` is a SYMLINK to the
+main repo's, so every lane's Electron main process reports its binary as
+`…/auracut/node_modules/electron/…` — the MAIN path, not its own.
+`pgrep -f auracut-lane1/node_modules/electron` matches nothing, a cleanup
+that relies on it silently leaves instances running, and the next launch
+finds the port taken. Find them through the launcher parent instead:
+
+```bash
+pgrep -f 'auracut-lane1/node_modules/.bin/electron'
+lsof -nP -iTCP:<port> -sTCP:LISTEN        # or just ask who holds the port
+```
+
+Hit independently by two people in one session. It is the same family as
+traps 3 and 4, and since the EADDRINUSE fix the survivor is a *silent
+half-dead app*: it logs "port N is already in use, so there is no RPC
+bridge in this instance" and then sits there looking fine.
+
+**Trap 6b — `render_export` stalls when the window is fully occluded.**
+Reported by the reference-analysis lane: `npm run verify` hung four times
+at `verify_audio`/`verify_playback_audio` with two ffmpeg processes idle
+on `pipe:0`, **under `--built` too**, so it is not trap 5. One `osascript`
+bringing the window frontmost finished the stalled suite in 18.1s. With
+several lanes' windows stacked this is easy to hit and reads exactly like
+trap 5. It is the sibling of the `debug/capture` occlusion bug in
+HANDOVER §3c, and it is NOT yet fixed — `MacWebContentsOcclusion` is
+disabled for the main window, so why the export path still stalls is
+open.
 
 **Trap 5 — editing `src/**` while suites run hangs them for 30 minutes.**
 Vite HMR pushes a FULL PAGE RELOAD to every connected client. The
