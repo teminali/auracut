@@ -309,29 +309,61 @@ up early on a frame that held still for one poll, and waited out its full
 decoding. It waits on `mediaPending` now, and the suite runs in **2
 seconds instead of about 90**.
 
-## 4. The GPU stage — what is still out of reach
+## 4. The GPU stage — the mesh path, and what is still out of reach
 
-`src/engine/gpuStage.ts` runs a fragment shader over a clip rendered into
-an isolated layer, and composites the result back. Chroma key and
-displacement go through it. Still not possible:
+`src/engine/gpuStage.ts` runs a shader over a clip rendered into an
+isolated layer, and composites the result back. It draws a **subdivided
+grid**, not one quad, so a vertex program can move the geometry — flat
+keys draw that grid at one subdivision and are the old full-screen pass
+exactly. Chroma key, displacement, `page_curl`, `flag_wave` and `ripple`
+go through it, with a depth buffer so a fold can cover what it folded
+over. `verify_gpu.py` is 26 checks now, plus `--selftest`.
 
-- **mesh warps and page curl** — need geometry, not just a fragment
-  program. The current stage draws one full-screen quad; this needs a
-  subdivided mesh with per-vertex displacement.
-- **transitions on the GPU** — all 14 are 2D canvas today. They work, so
-  this is quality and speed, not capability.
+**Two of the fourteen transitions are on the GPU: `whip_pan` and
+`glitch`.** The other twelve were measured and left alone, and the
+measurement is the useful part — see §7, "do not redo these".
+
+Still not possible:
+
 - **real depth of field** — needs a depth source. Not reachable without
   either a depth map input or segmentation.
+- **a paired A→B transition of any kind.** A `ClipTransition` belongs to
+  ONE clip; there is no "from" and "to" texture, which is why
+  `SHADER_WHIP_PAN_FS` — which takes `u_from` and `u_to` — could never
+  have run. A real cross-dissolve on the GPU needs the transition model
+  changed first, not a shader written.
+
+### Open here
+
+- **The GPU pass costs about 5 ms per clip per frame at 1080p**, because
+  it uploads the whole canvas as a texture and reads it back. That is
+  fine for one keyed clip and wrong for a stack. A pass that could stay
+  on the GPU across several clips, or render to an FBO instead of a
+  canvas, would change which effects are worth putting there at all.
+- **`SHADER_RGB_GLITCH_FS` and `SHADER_FILM_GRAIN_FS` are still
+  unreferenced**, and `rgb_glitch` is a `ShaderKey` no effect names.
 
 **Add a shader by:** putting the source in `src/engine/shaders.ts`, adding
 its key to `ShaderKey` in `gpuStage.ts`, and — for an effect — setting
-`gpu: '<key>'` on its `EffectDefinition`. The registry stays the single
-catalogue; `list_effects` needs no special case.
+`gpu: '<key>'` on its `EffectDefinition`. A mesh warp also needs an entry
+in `MESH_VERTEX_SOURCES` and `MESH_SUBDIVISIONS`; nothing else changes,
+and `runShader` picks the path from the key so a call site cannot ask for
+a curl and get a flat pass.
 
-**Verify with:** `tools/verify_gpu.py`. Follow its shape — assert the
-picture changed the way the feature claims, and for anything animated
-assert it MOVES, since a static distortion pretending to be a field
-passes a single-frame check.
+The registry stays the single catalogue; `list_effects` needs no special
+case.
+
+**Verify with:** `tools/verify_gpu.py`, and `--selftest`. Follow its
+shape — assert the picture changed the way the feature claims, and for
+anything animated assert it MOVES, since a static distortion pretending
+to be a field passes a single-frame check. Its ground truth is a straight
+white bar and the spread of the ink's centre of mass down each column: a
+line that is still straight has not been warped, whatever else changed.
+
+**`set_gpu_stage {enabled:false}`** forces every GPU path to take the
+same return a machine with no WebGL takes, which is how the fallback is
+now proved on pixels rather than asserted. Five effects, each measured as
+pixel-identical to the clip with no effect on it at all.
 
 ---
 
@@ -449,6 +481,37 @@ comments so the reasoning survives.
 - **Lowering JPEG quality to speed up export.** 0.95 → 0.80 moved the
   encode from 13,435ms to 13,235ms. The cost is the readback, not the
   compression.
+- **Transitions on the GPU, beyond the two that are there.** All 14
+  already worked, and `NEXT.md` called the job "quality and speed". The
+  speed half goes the other way. Six stacked full-frame 1080p clips, 45
+  frames, interleaved, three exports of each condition — composite time
+  per frame, GPU stage on vs off:
+
+        none            0.30 / 0.36      crossfade       0.32 / 0.29
+        blur_dissolve   0.24 / 0.33      whip_pan        3.14 / 0.31
+        glitch          1.78 / 0.33      zoom_in         2.99 / 0.25
+
+  A GPU pass uploads the whole canvas and reads it back: ~5 ms per clip
+  per frame at 1080p, against 0.05 ms for the affine transform and alpha
+  that ten of the fourteen actually are. `whip_pan` and `glitch` are on
+  the GPU for quality the 2D canvas cannot reach — a directional streak
+  instead of a gaussian (2.45x more detail survives perpendicular to the
+  pan, against the gaussian's 0.84x), and a real channel split instead of
+  `sepia(1) hue-rotate(...) saturate(6)`, which also fixed a glitch
+  transition that rendered NO glitch on text and shape clips because the
+  2D split sits inside the `clip.mediaUrl` branch.
+
+  **`zoom_in`/`zoom_out` were built on the GPU and taken off again.** A
+  radial streak looked good, but the 2D zoom had no blur at all, so there
+  was nothing worse being replaced and no control to falsify the claim
+  against — at +6.4 ms per clip per frame. The shader comment says how to
+  put it back if someone can write the test.
+
+- **A GPU gaussian for `blur_dissolve`.** Not attempted, and the reason
+  is above: the 2D `blur(24px)` costs 0.055 ms per clip per frame,
+  Skia already runs it on the GPU, and a separable two-pass shader would
+  need an FBO ping-pong to cost more.
+
 - **Embedding Remotion as the compositor.** It renders DOM; getting DOM
   pixels into the export needs `webContents.capturePage()` on a hidden
   window — a separate frame-production path, slower per frame, and it
@@ -480,6 +543,39 @@ package name rather than by line count before believing it.
 
 ### New findings with no home yet
 
+- **Window visibility costs about 20%, and `backgroundThrottling: false`
+  removes it.** The GPU lane reported this as **26x** — 1020 ms/frame
+  hidden against 11.9 raised — and that does not reproduce. Tested
+  directly, interleaved, on the full 345-frame 1080p starter export:
+
+        backgroundThrottling: true    raised 16.4, 15.5   minimised 19.1, 18.8
+        backgroundThrottling: false   raised 16.9, 15.4   minimised 18.5, 15.1
+
+  With throttling on, both minimised runs are slower than both raised
+  ones — a consistent ~20%. With it off there is no ordered gap; the
+  differences sit inside the spread. `canvasToJpeg` waits on a `toBlob`
+  callback, so it is the one number a throttled task queue can stretch,
+  and `compositeMs` is a synchronous `performance.now()` pair and is
+  unaffected either way.
+
+  n=2 per cell, so treat 20% as an order of magnitude, not a figure. What
+  is solid: **it is not 26x, and it is not the explanation for a stalled
+  suite.** That was contention — see trap 6b. Three separate diagnoses
+  this session blamed visibility after one intervention with no control,
+  and all three were wrong in the same way.
+- **A GPU pass is timed in the wrong place.** `drawElements` returns
+  before the GPU has done anything; the stall lands where the result is
+  first read back, which on the export path is inside the JPEG encode.
+  So `compositeMs` alone UNDER-reports a shader by roughly ten to one —
+  the whip pan measured +0.47 ms per clip per frame in `compositeMs` and
+  +5.4 ms in composite-plus-encode. Quote both or quote the second.
+- **`debug/eval` cannot reach the app's modules.** `import('/src/...')`
+  from an evaluated expression gets a SECOND instance of the module —
+  Vite hands the app its imports with an HMR `?t=` suffix once anything
+  in the session has been edited, so the store you read is a freshly
+  constructed one holding the starter project while the real timeline
+  has your scene in it. It looks like the app ignoring your calls. Drive
+  the app through its tools, not through its modules.
 - **`computeNovelty`'s missing floor — fixed for the clear case, and the
   rest is measured and open.** It divided by its own maximum, so a steady
   tone had its 1.5% RMS ripple stretched to full scale: 36 onsets from 5

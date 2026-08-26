@@ -73,10 +73,15 @@ function createWindow() {
         and an export that slows down because you looked at your email is
         a bad property for a video editor to have.
 
-        Stated honestly: this is hardening on the documented behaviour,
-        not a proven fix for the export stall in NEXT.md's trap 6b. That
-        stall tracks machine load, and a single instance exports at full
-        speed while occluded — see the trap for what is actually known.
+        Measured, interleaved, on the 345-frame 1080p starter export:
+        with throttling ON both minimised runs were slower than both
+        raised ones (19.1/18.8 against 16.4/15.5, ~20%); with it OFF
+        there is no ordered gap. n=2 per cell, so 20% is an order of
+        magnitude rather than a figure.
+
+        This is NOT the fix for the stalled suites in trap 6b — that was
+        machine load, and it was misdiagnosed as visibility three
+        separate times this session.
       */
       backgroundThrottling: false,
       preload: path.join(__dirname, 'preload.cjs'),

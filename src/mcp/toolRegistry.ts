@@ -33,7 +33,8 @@ import {
 import { detectBeats } from '../engine/beatDetect';
 import { analyzeReferenceVideo } from '../engine/referenceAnalysis';
 import { getClipBaseSize } from '../engine/geometry';
-import { getNaturalSize } from '../engine/compositor';
+import { getNaturalSize, gpuTransitionTypes } from '../engine/compositor';
+import { gpuAvailable, gpuStageEnabled, setGpuStageEnabled } from '../engine/gpuStage';
 import { runHardwareExport, unsupportedAudioSettings } from '../engine/exportPipeline';
 import { unpreviewableAudio, measureChain } from '../engine/audioEffects';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
@@ -1566,6 +1567,47 @@ defineTool({
 /* ═══════════════════════════════════════════════════════════════════
    PROJECT
    ═══════════════════════════════════════════════════════════════════ */
+
+defineTool({
+  name: 'set_gpu_stage',
+  category: 'project',
+  description:
+    'Turn the GPU stage on or off, and report what it is doing. Off renders every shader ' +
+    'effect and every GPU transition through the 2D fallback instead — the same path a ' +
+    'machine with no WebGL takes. Use it to see exactly what such a machine sees, and to ' +
+    'prove the fallback still produces a frame rather than a crash. Called with no argument ' +
+    'it only reports.',
+  schema: z.object({
+    enabled: z.boolean().optional().describe('Omit to report without changing anything'),
+  }),
+  handler: ({ enabled }) => {
+    if (enabled !== undefined) setGpuStageEnabled(enabled);
+
+    /*
+      `webglAvailable` deliberately answers about the HARDWARE and not
+      about the switch. Conflating them would make a forced fallback
+      indistinguishable from a real one, and the whole point of the
+      switch is to tell you which of the two you are looking at.
+    */
+    const webglAvailable = gpuAvailable();
+    const on = gpuStageEnabled();
+    const effects = EFFECT_REGISTRY.filter((e) => e.gpu).map((e) => e.type);
+
+    return {
+      enabled: on,
+      webglAvailable,
+      gpuEffects: effects,
+      /* Probed, not listed — see gpuTransitionTypes. Empty while off. */
+      gpuTransitions: gpuTransitionTypes(),
+      note: !webglAvailable
+        ? 'This machine has no WebGL context. Every GPU path already falls back to 2D; the switch changes nothing here.'
+        : on
+          ? 'The GPU stage is running. Chroma key, the shader effects and the GPU transitions are on the GPU.'
+          : 'The GPU stage is forced off. Every clip renders through the 2D fallback: no key, no mesh warp, ' +
+            'and the transitions listed above fall back to their 2D forms.',
+    };
+  },
+});
 
 defineTool({
   name: 'set_canvas',
