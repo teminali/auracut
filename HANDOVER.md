@@ -19,9 +19,12 @@ observation:
 | **Beats** | Anchored to detected onsets, not a synthesised grid. Tempo and grid both rebuilt — see §3a. 13/13 on a tempo bench, mean marker error 9.0ms. |
 | **Silence** | Measured with ffmpeg `silencedetect`, with a `dryRun`. |
 | **Copilot** | Multi-backend picker: Claude Code, Codex CLI, Gemini CLI, Cursor Agent. Claude + Codex verified end to end. |
-| **Assets** | 183 system fonts, 12 synthesised SFX, search on every panel, 14 transitions, 23 effects, 10 looks. |
+| **Assets** | 183 system fonts, 12 synthesised SFX, search on every panel, 14 transitions, 24 effects, 10 looks. |
+| **Keyframes** | 35 animatable properties — filters, masks, text and shape style, not just transforms. 28/28 verified on pixels (§3b). |
+| **GPU** | `shaders.ts` is wired. Chroma key and displacement are real; 2D stays the fallback. |
+| **Tests** | Six suites in `tools/`, 73 checks, all measuring rendered pixels / written files. Green in dev AND packaged. |
 
-**55 tools**, 4 agent backends. Both the renderer and the main process
+**57 tools**, 4 agent backends. Both the renderer and the main process
 typecheck (`npm run typecheck`).
 
 ---
@@ -97,18 +100,24 @@ Nothing else matters until this is true.
 
 1. ~~**Package and verify**~~ — **done.** It found two packaged-only
    bugs, both now fixed. Re-do this on every release; it pays each time.
-2. **A test suite**, starting with regressions for the six findings
-   (§8). This is also the skill-verification harness — build it once.
+2. **A test suite** — **started** (§3b): six suites in `tools/`, 73
+   checks, green in dev and packaged. They run against a live Kerf over
+   RPC and measure artifacts. What is still missing is a runner that
+   does not need the app up, and regressions for the §8 findings.
 3. **Crash and error reporting**, so you stop learning about failures by
    looking for them.
-4. **Project migration** — `version` is written and never read.
+4. ~~**Project migration** — `version` is written and never read.~~ —
+   **done** (§3b). Refuses a newer format, migrates an older one.
 
 ### Stage 2 — Make it trustworthy  *(1–2 weeks)*
 
-5. Finish the audit: the seven tools listed in §3.
+5. ~~Finish the audit: the seven tools listed in §3.~~ — **done** (§3b).
+   All real; `snapCutsToBeats` needed a fix.
 6. Run Windows and Linux. CI builds them; nobody has.
-7. A performance pass — long timelines, many clips, 4K, memory over a
-   long session. All currently unmeasured.
+7. A performance pass — **started** (§3b): `render_export` reports a
+   timing breakdown and the export is 2.4x faster. Still unmeasured:
+   long timelines, memory over a long session, and why packaged encodes
+   ~1.6x slower than dev.
 
 ### Stage 3 — Make it differentiated  *(2–4 weeks)*
 
@@ -124,9 +133,9 @@ else. Order matters: the first item is the one nothing else can do.
    `apply_look_preset`, `auto_montage_to_beats`, `batch_apply`,
    `assemble_from_folder`. Each is a permanent win in tokens, latency
    and reliability, and each is a cheaper skill later.
-10. **The ffmpeg bridge** (`ffmpeg_process`) — stabilise, interpolate,
-    denoise, custom filtergraph, rendered to temp and auto-imported.
-    Buys a large slice of "impossible" cheaply.
+10. ~~**The ffmpeg bridge** (`ffmpeg_process`)~~ — **done** (§3b).
+    Stabilise, interpolate, denoise, sharpen, deflicker, reverse, speed,
+    lut3d, extract audio, custom filtergraph.
 
 ### Stage 4 — Make it a platform  *(1–2 months)*
 
@@ -142,11 +151,12 @@ else. Order matters: the first item is the one nothing else can do.
 
 ### Stage 5 — Raise the ceiling  *(open-ended)*
 
-14. **The GPU stage** — WebGL2/WebGPU in `compositor.ts`, wiring the
-    dead `shaders.ts`. Chroma key, warps, displacement, real motion
-    blur. Keep the 2D path as fallback.
-15. **Per-clip audio** — `pitch`, `voiceEffect`, `noiseReduction`,
-    `ducking` on both the playback graph and the export filtergraph.
+14. **The GPU stage** — **started** (§3b). `shaders.ts` is wired, chroma
+    key and displacement are real, 2D is the fallback. Still open: mesh
+    warps, page curl, and moving transitions onto the GPU.
+15. **Per-clip audio** — **half done** (§3b). All four are in the EXPORT
+    filtergraph and verified on the waveform. The PLAYBACK graph still
+    ignores them, so the preview does not match the render.
 
 ### What NOT to do
 
@@ -175,7 +185,7 @@ src/
   components/   UI by region (header, sidebar, preview, timeline, inspector, copilot)
   engine/       compositor, video, audio, effects, export, fonts, SFX, tone curves
   store/        zustand — the single source of truth
-  mcp/          toolRegistry.ts — the 55 tools the agent drives
+  mcp/          toolRegistry.ts — the 57 tools the agent drives
 electron/
   main.ts            app lifecycle, IPC
   agentBackends.ts   one adapter per CLI: detection, MCP config, flags, stream
@@ -209,7 +219,7 @@ against a fresh empty store and edited a project nobody could see.
 
 **Why MCP when the CLI is right there:** the CLI is a separate OS
 process and cannot touch the renderer's stores. MCP is the channel, and
-because all four CLIs speak it, the 55 tools are written once and every
+because all four CLIs speak it, the 57 tools are written once and every
 backend inherits them. Swapping backends is config, not a rewrite. The
 CLI's *own* tools (Bash, Read, WebFetch) are the other half — MCP for
 the editor, its own tools for the computer.
@@ -278,7 +288,7 @@ SFX generation, the Claude and Codex backends, `check_command_readiness`.
 
 | Item | Shape |
 |---|---|
-| `shaders.ts` | 90 lines of WebGL2 GLSL that **nothing imports**. The ceiling on VFX. |
+| `shaders.ts` | Wired (§3b). Chroma key and displacement run on the GPU; mesh warps and page curl are still out of reach. |
 | Per-clip audio | `pitch`, `voiceEffect`, `noiseReduction`, `ducking` are stored and applied by neither playback nor export. `render_export` now REPORTS them as not applied, so it is visible rather than silent — still a gap. |
 | No music library | The SFX are synthesised (`sfxEngine.ts` — read its header for why a hotlinked catalogue was rejected). There is no music, and that is a licensing decision. |
 | Gemini / Cursor streams | Adapters written from documented flags, never seen on a real run. |
@@ -498,6 +508,157 @@ reference: 1920x1080, 30fps, 345 frames, 11.500s, h264 + aac stereo;
 13 cuts from 4.000s to 10.000s; audio climbing -25.9 -> -12.3 dB across
 the runway with the impact at 4.0s measuring -8.3 dB, the loudest beat in
 the film.
+
+---
+
+## 3b. Closing the gap to Remotion
+
+The question was what makes Kerf weaker than Remotion, and whether to
+build it or embed it. The answer, after measuring: **most of the gap was
+not the renderer.**
+
+Read this section before deciding to adopt anything. Three of the four
+things that made the compositor feel limited were missing keyframes and
+one wrong flag.
+
+### Seventeen properties said they were animatable and were not
+
+`propertyPath.ts` advertised twenty-four properties as `animatable: true`.
+`add_keyframes` accepted seven. An agent was told it could keyframe a
+filter, and the next call refused the name.
+
+`AnimatableProperty` is 35 entries now, and `ANIMATABLE_PROPERTIES` is the
+single list the type, the tool validation and the property schema all
+derive from — the flag used to be hand-written per row, which is exactly
+how it drifted. `transform.x` and `positionX` are reconciled by an alias
+table rather than by picking a winner, since both are already in use.
+
+Three of them rendered nothing at all: **`transform.anchorX/anchorY`**
+(every clip pivoted on its own centre, invisible at the 0.5,0.5 default),
+**`mask.rotation`** (every mask sat axis-aligned), and **`mask.featherPx`**
+(impossible as written — `ctx.clip()` is binary, so a soft edge needs the
+clip drawn into an isolated layer and the mask outline filled through a
+blur as a `destination-in` source).
+
+### The GPU stage exists
+
+`shaders.ts` is no longer imported by nothing. `gpuStage.ts` renders a
+clip into an isolated layer, hands that layer to a fragment shader, and
+composites the result back — so no layout, transform or ordering logic
+moves onto the GPU, and the export path never learns a shader ran.
+
+`chromaKey` was five EDL properties, five `propertyPath` rows and **zero**
+references in the compositor. It works now. Its despill could not have
+worked as written: it desaturated by how CLOSE a pixel was to the key
+colour, which only touches pixels already made transparent. Spill is the
+opposite problem — the screen bouncing onto the subject, in the pixels
+that SURVIVE the key.
+
+Displacement is new, and `EffectDefinition.gpu` names a shader rather
+than implementing one, so the registry stays the single catalogue.
+
+Every entry point returns null without WebGL and falls back to 2D. A
+machine with no GPU gets a film without a key, not a crash.
+
+### The export was 2.4x slower for a flag that reads as an optimisation
+
+`render_export` now returns a timing breakdown. The first profile:
+
+    seek 3ms · composite 63ms · JPEG encode 13,435ms · write 384ms
+
+Compositing an 87-clip 1080p project is **0.18ms a frame**. The renderer
+was never the slow part. The cause was
+`getContext('2d', { willReadFrequently: true })`, commented "every frame
+is read back for JPEG encoding, so keep the surface on the CPU" —
+reasonable, and backwards. Removing it: 22.5 → 55 fps at 1080p in dev.
+
+**Packaged is slower than dev** — 24.6 ms/frame against 15.7. The 55 fps
+number is a dev number; packaged is ~36 fps. Nobody has looked into why.
+
+A ring of canvases with the encodes issued together was built and
+deleted: 6277 / 6210 / 6318 ms at ring sizes 1, 4 and 8. `toBlob`
+serialises inside Chromium however many are in flight. The numbers are in
+the comment because the next person to read that profile will have the
+same idea. Real parallel encoding needs OffscreenCanvas in workers or
+WebCodecs.
+
+### Per-clip audio, the project format, and the ffmpeg bridge
+
+**Audio** — pitch, voiceEffect, noiseReduction and ducking were stored,
+listed, settable, and applied by neither playback nor export. All four
+are in the filtergraph now. Ducking cannot be a per-clip filter (it needs
+something to duck AGAINST), so the mix splits into a ducked bus and a key
+bus and sidechains one against the other.
+
+**Project format** — `version` was written into every file and read by
+nothing. An old file loaded as though current; a file from a NEWER Kerf
+also loaded, silently, and would be saved back with whatever it did not
+understand dropped. Refuses the future, migrates the past, says which.
+
+**`ffmpeg_process`** — stabilise, interpolate, denoise, sharpen,
+deflicker, reverse, speed, **lut3d against a real .cube**, extract audio,
+or a raw filtergraph. The renderer supplies a filter string and named
+options, never argv; the command is built in main so a caller cannot
+reach an output path. This is also the sane answer to "should we embed
+Remotion" — take its output as material, not its authoring model.
+
+### The seven unaudited tools
+
+All real. `snapCutsToBeats` was weak: it always absorbed the shift into
+the previous clip, which is right for a butted-together montage and wrong
+on a track with gaps — and each absorption shrank that clip, so one snap
+made the next likelier to be refused. Four cuts laid off the beat snapped
+one. Now four of four, worst distance 251ms → 0ms.
+
+### The test suite
+
+`tools/` — six suites, 73 checks, run against a live Kerf:
+
+    verify_keyframes.py       28   every animatable property, on pixels
+    verify_gpu.py              6   chroma key, despill, displacement
+    verify_audio.py           11   pitch/voice/denoise/ducking, on the waveform
+    verify_project_format.py   6   migration and version refusal
+    verify_tools.py           10   the previously unaudited seven
+    verify_ffmpeg_bridge.py   12   every operation, against written files
+
+All green in dev **and in the packaged app**. Every check measures the
+artifact — rendered pixels, exported audio, a file on disk — because
+asserting against the store would have passed on nearly everything above.
+
+**Two of the failures these suites reported were the suites' own**, and
+both are worth knowing:
+
+- Keyframing a filter on a block covering 2% of the frame and reading a
+  whole-frame mean reports ten false failures.
+- **`get_frame_context` returns a frame whose media has not finished
+  decoding and says nothing about it.** The compositor draws a
+  placeholder, which reads as a legitimately dark frame. Measure after an
+  insert and you are measuring nothing. The harness now waits for the
+  frame to stop changing; the tool should probably say so itself.
+
+### Things to know before changing any of this
+
+- **`electron/*.ts` compiles to `dist-electron` and HMR does not touch
+  it.** A main-process change needs `npm run build:electron` and a
+  restart. The per-clip audio suite scored 2/11 against a stale main, and
+  one of those two "passes" was noise reduction apparently working at 2x
+  — which was AAC encoding variation. A weak pass on a stale build looks
+  exactly like a real one.
+- **`pkill` does not reliably kill Electron.** After a repackage, check
+  `ps -o lstart` against the build time before believing a packaged
+  result. Port 3888 answering is not evidence that the thing answering is
+  the thing you just built.
+- **`ELECTRON_RUN_AS_NODE=1`** is set in some shells (VS Code's, among
+  others), and makes `electron .` run as plain node — `ipcMain` comes
+  back undefined and main dies on the first `.handle`. Launch with
+  `env -u ELECTRON_RUN_AS_NODE`.
+- **deshake's `rx`/`ry` must be multiples of 16.** ffmpeg's help says
+  "from 0 to 64" and nothing about the step; a value of 50 is accepted
+  and then fails with "Not yet implemented in FFmpeg, patches welcome",
+  naming neither the filter nor the parameter.
+- **`set_motion_path` takes ABSOLUTE canvas coordinates** while
+  `transform.x/y` are offsets from the centre. Both are documented. It is
+  still the kind of difference that costs an afternoon.
 
 ---
 
