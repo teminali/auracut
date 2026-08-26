@@ -95,7 +95,7 @@ export function startRpcServer(): http.Server {
           return;
 
         case 'debug/capture':
-          send(res, 200, { result: { pngBase64: await captureWindow() } });
+          send(res, 200, { result: await captureWindow() });
           return;
 
         default:

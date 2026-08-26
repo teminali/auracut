@@ -617,7 +617,7 @@ one. Now four of four, worst distance 251ms → 0ms.
 
 ### The test suite
 
-`tools/` — six suites, 73 checks, run against a live Kerf:
+`tools/` — seven suites, 99 checks, run against a live Kerf:
 
     verify_keyframes.py       28   every animatable property, on pixels
     verify_gpu.py              6   chroma key, despill, displacement
@@ -625,6 +625,7 @@ one. Now four of four, worst distance 251ms → 0ms.
     verify_project_format.py   6   migration and version refusal
     verify_tools.py           10   the previously unaudited seven
     verify_ffmpeg_bridge.py   12   every operation, against written files
+    verify_playback_audio.py  26   preview vs render, both measured (§3c)
 
 All green in dev **and in the packaged app**. Every check measures the
 artifact — rendered pixels, exported audio, a file on disk — because
@@ -691,6 +692,102 @@ both are worth knowing:
 - **`set_motion_path` takes ABSOLUTE canvas coordinates** while
   `transform.x/y` are offsets from the centre. Both are documented. It is
   still the kind of difference that costs an afternoon.
+
+---
+
+## 3c. The preview that disagreed with the render
+
+§3b closed the audio gap in the EXPORT: pitch, voice effects, noise
+reduction and ducking all reach the file, proved on the exported waveform.
+Playback applied none of them. That is a worse state than the one it
+replaced — before, neither side applied them and the export said so out
+loud; after, the render applied them and the preview quietly differed. You
+would cut against a telephone voice you could not hear.
+
+### The instrument came first, and it decided the design
+
+The export can be checked by reading the file it writes. Playback writes
+nothing, which is why this had no test and why §3b left it open.
+
+So the chain is a module (`src/engine/audioEffects.ts`) that builds on any
+`BaseAudioContext`, not on the playback context. A
+`MediaElementAudioSourceNode` cannot be rendered offline; a graph that
+only knows about nodes can. `describe_audio_preview` renders that same
+graph through an `OfflineAudioContext` over probe signals and returns
+band gains and impulse taps — so "the preview applies telephone" is a
+measurement, not a sentence in a tool description.
+
+`tools/verify_playback_audio.py` then measures BOTH engines and compares
+them, which is the only form of this claim worth making:
+
+    echo      taps at 0 / 180 / 340 ms        in the rendered file AND the preview
+    stadium   taps at 0 / 420 / 780 / 1200 ms in both
+    telephone transfer functions agree to 0.41 dB from 100 Hz to 12 kHz
+
+Four settings match the render. `robot` and `ducking` are approximations
+and are listed as approximations — ffmpeg sweeps its own delay line, and
+`sidechaincompress` works per sample where the preview measures the key
+bus once a frame. `pitch`, `deep`, `high` and `noiseReduction` are
+DECLARED: the preview measures transparent, the render measurably differs,
+and both the tool and an amber panel in the Audio inspector say so. A
+control that lies is worse than a missing feature, and a preview is a
+control.
+
+### Comparing against the render found a bug that looked correct
+
+WebAudio defines `BiquadFilterNode.Q` for `lowpass` and `highpass` as a
+resonance in **decibels**. ffmpeg's `width` at `width_type=q` is a linear
+quality factor. So:
+
+```ts
+hp.Q.value = Math.SQRT1_2;   // reads as 0.7071 dB -> linear Q 1.0854
+```
+
+asks for a filter with a resonant lift around the corner, and it looks
+exactly like the line that asks for Butterworth. It measured **3.6 dB**
+off the render at 3 kHz. Confirmed by computing the analytic RBJ response
+at a linear Q of 1.0854, which reproduced the broken preview to **0.00 dB**
+— and ffmpeg's own output matched the Q=0.7071 response to 0.03 dB, so
+there was no doubt which side was wrong. The constant is
+`BUTTERWORTH_Q_DB` now, and it is `-3.0103`.
+
+A check asserting "telephone attenuates 100 Hz" would have passed on the
+wrong filter. Comparing two engines against each other is what caught it.
+
+**And one of the two bugs was in the test.** The first version of the band
+metric summed energy over bands defined as a ratio around a centre. Those
+bands get wider as the centre rises, white noise fills them in proportion
+to width, and the metric therefore reported 3 kHz as LOUDER than 1 kHz
+through a 3200 Hz lowpass — which no lowpass can do — and blamed the
+preview for a 10 dB disagreement. Replaced with a ratio of mean power
+spectral densities, where bandwidth and source spectrum both cancel. Worth
+saying plainly: the first failure this suite reported was its own, and
+noticing that is what made the real one credible.
+
+### `debug/capture` was showing the wrong frame, silently
+
+§10 offers `debug/capture` for "does the panel look right". It returned
+the LAST FRAME THE WINDOW PAINTED. macOS occlusion detection stops a
+covered window compositing, `webContents.capturePage()` reports no error
+in that state, and every screenshot taken while the terminal was in front
+showed the home screen for an app that had been in the editor for ten
+minutes.
+
+Caught with a control rather than by suspicion: set
+`document.body.style.background = '#ff0000'`, capture, and compare. The
+PNG was byte-identical. Fixed in two parts, because either alone leaves it
+able to lie:
+
+- `main.ts` disables `MacWebContentsOcclusion`, so the window keeps
+  painting when it is covered;
+- `captureWindow()` returns `{pngBase64, visibility, stale, note}` — the
+  page's own `visibilityState`, and a refusal to imply a stale frame is
+  live. Unknown is not the same as absent; three values, not two.
+
+The window still has to be frontmost for a live frame, and it stops being
+frontmost the moment a shell command runs — so activate and capture inside
+one script. That, and the fact that Vite HMR full-reloads the page and
+drops you back to the home screen mid-run, are in `NEXT.md`.
 
 ---
 

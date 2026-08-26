@@ -2,7 +2,8 @@ import React from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, VoiceEffect } from '../../types/edl';
 import { Section, SliderRow, ToggleRow, SegmentedControl, NumberField } from '../ui/Controls';
-import { Volume2, Waves, Mic, Sparkle } from 'lucide-react';
+import { unpreviewableAudio } from '../../engine/audioEffects';
+import { Volume2, Waves, Mic, Sparkle, EarOff } from 'lucide-react';
 
 const VOICE_EFFECTS: { value: VoiceEffect; label: string }[] = [
   { value: 'none', label: 'Natural' },
@@ -24,6 +25,21 @@ export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
   const a = clip.audio;
   const set = (patch: Partial<typeof a>) => updateClipAudio(clip.id, patch);
   const maxFade = Math.floor(clip.durationMs / 2);
+
+  /*
+    What the EXPORT will do that PLAYBACK will not.
+
+    These controls all reach the rendered file — the filtergraph in
+    `electron/render.ts` applies every one of them. Playback runs a
+    WebAudio graph, which can do the filters and the delays but cannot
+    move pitch without moving speed, and has no afftdn.
+
+    So the preview is quietly different from the render for exactly these
+    settings, and it says so here rather than letting someone cut against
+    a voice they are not hearing. Silence would be the older, worse bug:
+    a control that reports success and changes nothing you can check.
+  */
+  const notPreviewed = unpreviewableAudio(a);
 
   return (
     <div>
@@ -98,6 +114,28 @@ export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           onChange={(v) => { set({ ducking: v }); commit('Toggle ducking'); }}
         />
       </Section>
+
+      {notPreviewed.length > 0 && (
+        <div className="mx-3 mb-3 rounded-md border border-spectrum-amber/30 bg-spectrum-amber/10 p-2">
+          <div className="flex items-center gap-1.5 mb-1">
+            <EarOff className="w-3 h-3 text-spectrum-amber flex-shrink-0" />
+            <span className="text-[10px] font-semibold text-spectrum-amber">
+              Not in the preview
+            </span>
+          </div>
+          <ul className="space-y-1">
+            {notPreviewed.map((u) => (
+              <li key={u.setting} className="text-[10px] leading-snug text-spectrum-textMuted">
+                {u.short}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1.5 text-[10px] leading-snug text-spectrum-textFaint">
+            The export applies {notPreviewed.length === 1 ? 'it' : 'them'}. Render a test
+            clip before judging this by ear.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

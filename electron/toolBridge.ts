@@ -99,10 +99,57 @@ function ask<T>(channel: string, payload: unknown, timeoutMs = DEFAULT_TIMEOUT_M
  * the panel look right", which is a question worth being able to ask
  * from outside the app.
  */
-export async function captureWindow(): Promise<string | null> {
-  if (!targetWindow || targetWindow.isDestroyed()) return null;
+export interface WindowCapture {
+  pngBase64: string | null;
+  /** What the PAGE thinks it is: 'visible', 'hidden', or unknown. */
+  visibility: string;
+  /**
+   * True when the frame cannot be trusted to be current.
+   *
+   * `capturePage()` returns the last painted frame for a window that has
+   * stopped compositing, and reports no error doing it. A hidden or
+   * occluded page is exactly that case, so a caller checking a UI change
+   * would be handed the screen from before the change and believe it.
+   *
+   * `MacWebContentsOcclusion` is disabled in `main.ts` so this should not
+   * normally happen — but a minimised window still stops painting, and
+   * unknown is not the same as absent. Three values, not two.
+   */
+  stale: boolean;
+  note?: string;
+}
+
+export async function captureWindow(): Promise<WindowCapture> {
+  if (!targetWindow || targetWindow.isDestroyed()) {
+    return { pngBase64: null, visibility: 'no-window', stale: true, note: 'Kerf is not running.' };
+  }
+
+  // A fixed expression, not caller input — this is not `debug/eval`.
+  let visibility = 'unknown';
+  try {
+    visibility = String(
+      await targetWindow.webContents.executeJavaScript('document.visibilityState')
+    );
+  } catch {
+    /* the page may be mid-navigation; 'unknown' is the honest answer */
+  }
+
   const image = await targetWindow.webContents.capturePage();
-  return image.toPNG().toString('base64');
+  const stale = visibility !== 'visible';
+
+  return {
+    pngBase64: image.toPNG().toString('base64'),
+    visibility,
+    stale,
+    ...(stale
+      ? {
+          note:
+            `The page reports visibilityState="${visibility}", so it has stopped painting and ` +
+            'this PNG is the last frame it drew — probably NOT what the window shows now. ' +
+            'Bring the Kerf window to the front and capture again.',
+        }
+      : {}),
+  };
 }
 
 /**

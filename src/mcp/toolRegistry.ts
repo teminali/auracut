@@ -17,6 +17,7 @@ import { useMcpStore } from '../store/mcpStore';
 import { useGapStore } from '../store/gapStore';
 import {
   AspectRatio, TransitionType, ShapeKind, SpeedCurvePreset, MediaAsset, ClipType, AnimatableProperty,
+  Clip, Track,
   ANIMATABLE_PROPERTIES, KEYFRAME_PATH_ALIASES,
   TRANSITION_TYPES, SHAPE_KINDS, SPEED_CURVE_PRESETS, ASPECT_DIMENSIONS,
   EASINGS, FPS_VALUES, CLIP_TYPES,
@@ -33,6 +34,7 @@ import { detectBeats } from '../engine/beatDetect';
 import { getClipBaseSize } from '../engine/geometry';
 import { getNaturalSize } from '../engine/compositor';
 import { runHardwareExport, unsupportedAudioSettings } from '../engine/exportPipeline';
+import { unpreviewableAudio, measureChain } from '../engine/audioEffects';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
 import { loadFonts, isFontAvailable, fontsAreEnumerated } from '../engine/systemFonts';
 import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
@@ -2692,6 +2694,106 @@ defineTool({
       })),
       silentPercent: Math.round(result.silentFraction * 100),
       notes: result.notes,
+    };
+  },
+});
+
+defineTool({
+  name: 'describe_audio_preview',
+  category: 'audio',
+  description:
+    'Say which per-clip audio settings PLAYBACK reproduces and which it cannot, so the preview ' +
+    'is never quietly different from the render. pitch, voice effects, noise reduction and ' +
+    'ducking are all applied by render_export; playback runs a WebAudio graph and cannot do ' +
+    'all of them. Call before telling a user their edit sounds right — what you hear in the ' +
+    'app is not automatically what the file will contain. Returns a MEASURED fingerprint of ' +
+    'the preview chain (band gains and echo taps, rendered offline) rather than a claim.',
+  schema: z.object({
+    clipId: z.string().optional().describe('Just this clip; defaults to every audible clip'),
+    measure: z.boolean().optional().describe('Render and measure the chain; default true'),
+  }),
+  handler: async ({ clipId, measure }) => {
+    const state = timeline();
+
+    const audible: { clip: Clip; track: Track }[] = [];
+    for (const track of state.tracks) {
+      for (const clip of track.clips) {
+        if (!clip.mediaUrl || clip.hidden) continue;
+        if (track.type !== 'audio' && clip.type !== 'video') continue;
+        audible.push({ clip, track });
+      }
+    }
+
+    const wanted = clipId ? resolveClipId(clipId) : null;
+    const chosen = wanted ? audible.filter((x) => x.clip.id === wanted) : audible;
+    if (wanted && chosen.length === 0) throw new Error(`Clip "${clipId}" has no audio.`);
+
+    /*
+      Ducking is a property of the MIX, not of a clip: it needs something
+      to duck against. Both the export filtergraph and the preview fall
+      back to a plain mix when every audible clip is marked, so saying
+      "ducking: applied" per clip would be wrong in exactly the case that
+      matters.
+    */
+    const duckedCount = audible.filter((x) => x.clip.audio.ducking).length;
+    const duckingActive = duckedCount > 0 && duckedCount < audible.length;
+
+    const clips = [];
+    for (const { clip, track } of chosen) {
+      const a = clip.audio;
+      const notPreviewed = unpreviewableAudio(a).map((u) => `${u.short} ${u.why}`);
+      const applied: string[] = [];
+      if (a.voiceEffect && a.voiceEffect !== 'none' && a.voiceEffect !== 'deep' && a.voiceEffect !== 'high') {
+        applied.push(a.voiceEffect);
+      }
+      if (a.ducking && duckingActive) applied.push('ducking');
+      if (a.ducking && !duckingActive) {
+        notPreviewed.push(
+          duckedCount === audible.length
+            ? 'ducking — every audible clip is set to duck, so there is nothing to duck ' +
+              'against. The export does the same thing: a plain mix'
+            : 'ducking — no other audible clip to key it from'
+        );
+      }
+
+      clips.push({
+        clipId: clip.id,
+        name: clip.name,
+        track: track.name,
+        settings: {
+          pitch: a.pitch,
+          voiceEffect: a.voiceEffect,
+          noiseReduction: a.noiseReduction,
+          ducking: a.ducking,
+        },
+        previewApplies: applied,
+        previewCannotApply: notPreviewed,
+        previewMatchesRender: notPreviewed.length === 0,
+        ...(measure === false
+          ? {}
+          : { measured: (await measureChain(a)) ?? 'no OfflineAudioContext in this environment' }),
+      });
+    }
+
+    const differing = clips.filter((c) => !c.previewMatchesRender);
+
+    return {
+      clips,
+      previewMatchesRender: differing.length === 0,
+      summary:
+        differing.length === 0
+          ? 'Playback reproduces every audio setting on the timeline; the preview matches the render.'
+          : `${differing.length} of ${clips.length} clip(s) will sound different in the preview than ` +
+            'in the exported file. Render a test export before judging those by ear.',
+      /* The approximations are named too. They ARE previewed, so they do
+         not belong in previewCannotApply, but "matches" would be too
+         strong a word for either of them. */
+      approximations: [
+        'robot — the render uses ffmpeg vibrato; the preview sweeps a delay line. Same rate ' +
+        'and depth, not the same samples',
+        'ducking — the render sidechains per sample; the preview measures the key bus once ' +
+        'per frame. Same threshold and ratio, coarser envelope',
+      ],
     };
   },
 });

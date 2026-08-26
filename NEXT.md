@@ -60,16 +60,45 @@ build fight over it; the loser rewrites `mcp-kerf.json` with a token the
 listener rejects, and every call returns "Bad or missing token".
 `tools/kerf_rpc.py` re-reads the token per call, so it survives this.
 
+### Looking at the UI
+
+```bash
+# needs KERF_DEBUG=1 for debug/eval; debug/capture needs no flag
+env -u ELECTRON_RUN_AS_NODE KERF_DEBUG=1 \
+  VITE_DEV_SERVER_URL=http://localhost:5173 npx electron .
+```
+
+`debug/capture` returns `{pngBase64, visibility, stale, note}`. **Check
+`stale` before believing the picture.** `capturePage()` hands back the
+last frame a window painted, and macOS stops a covered window painting —
+so every screenshot taken while the terminal was in front showed the home
+screen for an app that had been in the editor for ten minutes, with no
+error. Occlusion pausing is now disabled in `main.ts`, and the result says
+which of the three it is rather than implying it is live.
+
+The window must be frontmost for a live frame, and it stops being
+frontmost the moment a shell command runs — so activate it and capture
+inside ONE script, not across two:
+
+```python
+subprocess.run(['osascript','-e', f'tell application "System Events" to '
+  f'tell (first process whose unix id is {pid}) to set frontmost to true'])
+time.sleep(2); res = rpc('debug/capture', {})
+```
+
+Note also that Vite HMR full-reloads the page on some edits, which resets
+`showHome` and drops you back to the home screen mid-script.
+
 ### Verifying
 
 ```bash
-for f in verify_keyframes verify_gpu verify_audio \
-         verify_project_format verify_tools verify_ffmpeg_bridge; do
+for f in verify_keyframes verify_gpu verify_audio verify_project_format \
+         verify_tools verify_ffmpeg_bridge verify_playback_audio; do
   echo -n "$f: "; python3 tools/$f.py | tail -1
 done
 ```
 
-73 checks. All six are green in dev **and in the packaged app**, in any
+99 checks across seven suites. All are green in dev **and in the packaged app**, in any
 order, and green again if you run the whole set a second time against the
 same running app. Run them before you start and after you finish; if one
 is red before you have touched anything, that is the finding.
@@ -101,40 +130,44 @@ frame timing or encode noise. 28/28, every row at Δ0.000.
 
 ---
 
-## 1. Per-clip audio in PLAYBACK  *(the preview lies)*
+## 1. Pitch in playback needs a different playback architecture
 
-**The state.** `pitch`, `voiceEffect`, `noiseReduction` and `ducking` are
-applied on EXPORT and verified on the waveform (`tools/verify_audio.py`,
-11/11). **Playback ignores all four.** So the preview does not match the
-render, which is a worse failure than the original gap: before, nothing
-applied them and the export said so; now the export applies them and the
-preview quietly disagrees.
+**What was done.** Playback ignored `pitch`, `voiceEffect`,
+`noiseReduction` and `ducking` while the export applied all four, so the
+preview quietly disagreed with the render. Four of those now match, one is
+a labelled approximation, and the rest are declared rather than faked:
 
-**Entry point.** `src/engine/audioEngine.ts` (262 lines). It routes an
-`<audio>` element per clip through a `GainNode` into a master gain.
-
-**What is achievable in WebAudio, and what is not:**
-
-| setting | how | difficulty |
+| setting | playback | evidence |
 |---|---|---|
-| `telephone` | two `BiquadFilterNode`s, 400Hz HP + 3200Hz LP | easy |
-| `echo`, `stadium` | `DelayNode` + feedback gain | easy |
-| `robot` | ring modulation — oscillator × `GainNode`, or a `WaveShaperNode` | moderate |
-| `ducking` | WebAudio has NO sidechain. An `AnalyserNode` on the key bus driving the ducked bus's gain per animation frame is the standard workaround | moderate |
-| `pitch`, `deep`, `high` | **not possible with `<audio>` elements.** `playbackRate` moves pitch AND speed together. Needs `AudioBufferSourceNode.detune`, which means decoding to buffers — a change to the playback architecture, not an addition | hard |
-| `noiseReduction` | no `afftdn` equivalent. A noise gate plus a high-shelf approximates it and will not match the render | hard |
+| `telephone` | matches the render | transfer functions agree to **0.41dB**, 100Hz–12kHz |
+| `echo` | matches the render | taps at 0/180/340ms in the rendered file AND the preview |
+| `stadium` | matches the render | taps at 0/420/780/1200ms in both |
+| `robot` | approximation, said so | ffmpeg sweeps its own delay line; this sweeps a `DelayNode` |
+| `ducking` | approximation, said so | same threshold/ratio, key bus measured per frame not per sample |
+| `pitch`, `deep`, `high` | **declared, not faked** | preview measures transparent; the render measurably differs |
+| `noiseReduction` | **declared, not faked** | same |
 
-**The honest option, and probably the right first move:** make the
-preview *say* what it is not previewing rather than silently differing.
-This codebase's rule is that a control which lies is worse than a missing
-feature. A "preview does not include: pitch, noise reduction" line costs
-an hour; matching the render costs a rewrite of the playback graph.
+`src/engine/audioEffects.ts`, `describe_audio_preview`, an amber panel in
+the Audio inspector, and `tools/verify_playback_audio.py` (26 checks,
+which measure BOTH engines and compare them).
 
-**Verify with:** extend `tools/verify_audio.py`. It currently renders and
-measures; a playback check needs the WebAudio graph tapped, which is why
-this has no test yet.
+**What is left, and it is the hard part that was always hard.** `pitch`
+and the `deep`/`high` effects need pitch moved without moving speed. A
+voice is a `MediaElementAudioSourceNode` around an `<audio>` element,
+whose only pitch control is `playbackRate`, which moves both. Doing it
+properly means `AudioBufferSourceNode.detune`, i.e. decoding clips to
+buffers — ~100MB for a ten-minute track, which is exactly why playback
+streams from elements. That is a change to the playback architecture, not
+an addition to it, and it should not be started without deciding what
+happens to memory on a long timeline.
 
----
+`noiseReduction` has no WebAudio equivalent at all. A gate and a shelf
+would produce something that is not what `afftdn` produces, which is the
+failure this work ended rather than a smaller version of it.
+
+**If you do take it on:** `buildVoiceChain` already takes any
+`BaseAudioContext`, which is what makes the chain measurable offline. Keep
+that. It is the only reason there is a test at all.
 
 ## 2. Packaged encodes ~1.6x slower than dev  *(uninvestigated)*
 
@@ -204,13 +237,13 @@ passes a single-frame check.
 
 ## 5. The test suite needs a runner that does not need the app up
 
-Six suites, 73 checks, all driving a live Kerf over RPC. That is the right
+Seven suites, 99 checks, all driving a live Kerf over RPC. That is the right
 way to test this system — the bugs it catches live in the render path, not
 in pure functions — but it means there is no `npm test`, nothing runs in
 CI, and a contributor without the app running gets nothing.
 
 **Options, roughly in order of value:**
-1. A script that boots Electron headless, runs all six, and exits non-zero
+1. A script that boots Electron headless, runs all seven, and exits non-zero
    on failure. Closest to what exists and would work in CI.
 2. Vitest for the genuinely pure parts — `keyframeMath`, `geometry`,
    `beatDetect`'s tempo estimator, `projectIO`'s migration ladder. Cheap,

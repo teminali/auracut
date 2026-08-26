@@ -20,12 +20,27 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { Track, Clip } from '../types/edl';
+import {
+  VoiceChain,
+  buildVoiceChain,
+  chainSignature,
+  disposeChain,
+  duckGainFor,
+  DUCK_ATTACK_S,
+  DUCK_RELEASE_S,
+} from './audioEffects';
 
 interface Voice {
   el: HTMLAudioElement;
   source: MediaElementAudioSourceNode;
+  /** Per-clip effects. Rebuilt when `sig` stops matching the clip. */
+  chain: VoiceChain;
   gain: GainNode;
   clipId: string;
+  /** What `chain` was built for, so a changed voiceEffect is noticed. */
+  sig: string;
+  /** Which bus `gain` feeds — the ducked one, or the key one. */
+  ducked: boolean;
 }
 
 /** Beyond this drift we re-seek rather than let the element free-run. */
@@ -37,6 +52,16 @@ class AudioPlaybackEngine {
   private analyserL: AnalyserNode | null = null;
   private analyserR: AnalyserNode | null = null;
   private splitter: ChannelSplitterNode | null = null;
+
+  /* The mix splits the same way the render's filtergraph does: clips
+     marked `ducking` on one bus, everything else on the key bus, so the
+     key bus can be measured and used to pull the ducked one down. With no
+     clip on one side or the other there is nothing to duck against, and
+     the ducked bus is left at unity — same fallback as the export. */
+  private duckedBus: GainNode | null = null;
+  private keyBus: GainNode | null = null;
+  private keyAnalyser: AnalyserNode | null = null;
+  private duckBuffer = new Float32Array(1024);
 
   private voices = new Map<string, Voice>();
   private levelBuffer = new Float32Array(1024);
@@ -68,6 +93,19 @@ class AudioPlaybackEngine {
     this.splitter.connect(this.analyserL, 0);
     this.splitter.connect(this.analyserR, 1);
     this.master.connect(this.ctx.destination);
+
+    this.duckedBus = this.ctx.createGain();
+    this.keyBus = this.ctx.createGain();
+    this.duckedBus.gain.value = 1;
+    this.keyBus.gain.value = 1;
+    this.duckedBus.connect(this.master);
+    this.keyBus.connect(this.master);
+
+    // A tap on the key bus, not in line with it: this is the sidechain.
+    this.keyAnalyser = this.ctx.createAnalyser();
+    this.keyAnalyser.fftSize = 2048;
+    this.keyAnalyser.smoothingTimeConstant = 0;
+    this.keyBus.connect(this.keyAnalyser);
 
     return this.ctx;
   }
@@ -113,12 +151,55 @@ class AudioPlaybackEngine {
 
     const gain = ctx.createGain();
     gain.gain.value = 0;
-    source.connect(gain);
-    gain.connect(this.master);
 
-    const voice: Voice = { el, source, gain, clipId: clip.id };
+    const chain = buildVoiceChain(ctx, clip.audio);
+    source.connect(chain.input);
+    chain.output.connect(gain);
+
+    const ducked = Boolean(clip.audio.ducking);
+    gain.connect(ducked ? this.duckedBus! : this.keyBus!);
+
+    const voice: Voice = {
+      el, source, chain, gain, clipId: clip.id,
+      sig: chainSignature(clip.audio), ducked,
+    };
     this.voices.set(clip.id, voice);
     return voice;
+  }
+
+  /**
+   * Re-patch a live voice whose audio settings changed.
+   *
+   * Voices persist across frames and normally only their gain is written,
+   * so switching a clip to `telephone` mid-session would otherwise do
+   * nothing until the voice happened to be released for some other
+   * reason. The element and its `MediaElementAudioSourceNode` are kept —
+   * `createMediaElementSource` may only ever be called once per element,
+   * and rebuilding them would restart the audio — so only the effects
+   * between the source and the bus are replaced.
+   */
+  private repatch(voice: Voice, clip: Clip): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+
+    const sig = chainSignature(clip.audio);
+    const ducked = Boolean(clip.audio.ducking);
+    if (sig === voice.sig && ducked === voice.ducked) return;
+
+    if (sig !== voice.sig) {
+      try { voice.source.disconnect(); } catch { /* already detached */ }
+      disposeChain(voice.chain);
+      voice.chain = buildVoiceChain(ctx, clip.audio);
+      voice.source.connect(voice.chain.input);
+      voice.chain.output.connect(voice.gain);
+      voice.sig = sig;
+    }
+
+    if (ducked !== voice.ducked) {
+      try { voice.gain.disconnect(); } catch { /* already detached */ }
+      voice.gain.connect(ducked ? this.duckedBus! : this.keyBus!);
+      voice.ducked = ducked;
+    }
   }
 
   private release(clipId: string): void {
@@ -128,6 +209,7 @@ class AudioPlaybackEngine {
       voice.el.pause();
       voice.gain.disconnect();
       voice.source.disconnect();
+      disposeChain(voice.chain);
       voice.el.removeAttribute('src');
       voice.el.load();
     } catch {
@@ -166,6 +248,8 @@ class AudioPlaybackEngine {
 
     const anySolo = tracks.some((t) => t.type === 'audio' && t.solo);
     const live = new Set<string>();
+    let duckedLive = 0;
+    let keyLive = 0;
 
     for (const track of tracks) {
       for (const clip of track.clips) {
@@ -181,6 +265,9 @@ class AudioPlaybackEngine {
 
         const voice = this.acquire(clip);
         if (!voice) continue;
+        this.repatch(voice, clip);
+
+        if (clip.audio.ducking) duckedLive++; else keyLive++;
 
         const gain = this.gainFor(clip, track, offsetMs, anySolo);
         // A short ramp instead of a jump: stepping gain per frame clicks.
@@ -220,6 +307,50 @@ class AudioPlaybackEngine {
       if (!voice.el.paused) voice.el.pause();
       voice.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.01);
     }
+
+    this.applyDucking(ctx, duckedLive > 0 && keyLive > 0, isPlaying);
+  }
+
+  /**
+   * Pull the ducked bus down by how loud the key bus is.
+   *
+   * The render does this with `sidechaincompress`, which WebAudio has no
+   * equivalent of — `DynamicsCompressorNode` can only compress against
+   * its own input. So the key bus is measured through an analyser once
+   * per frame and the reduction is written to the ducked bus's gain, with
+   * the same threshold and ratio the filtergraph uses.
+   *
+   * Per frame is ~16ms against ffmpeg's per-sample envelope. The attack
+   * and release that matter are 20ms and 320ms, so the audible result
+   * lands in the same place, and `setTargetAtTime` smooths between frames
+   * rather than stepping. It is close, not identical, and
+   * `describe_audio_preview` says so.
+   */
+  private applyDucking(ctx: AudioContext, active: boolean, isPlaying: boolean): void {
+    const bus = this.duckedBus;
+    const analyser = this.keyAnalyser;
+    if (!bus || !analyser) return;
+
+    if (!active) {
+      // Nothing to duck against — the export falls back to a plain mix
+      // rather than compressing the track against itself, and so does this.
+      bus.gain.setTargetAtTime(1, ctx.currentTime, DUCK_ATTACK_S);
+      return;
+    }
+
+    let keyRms = 0;
+    if (isPlaying) {
+      analyser.getFloatTimeDomainData(this.duckBuffer);
+      let sum = 0;
+      for (let i = 0; i < this.duckBuffer.length; i++) sum += this.duckBuffer[i] * this.duckBuffer[i];
+      keyRms = Math.sqrt(sum / this.duckBuffer.length);
+    }
+
+    const target = duckGainFor(keyRms);
+    // Ducking fast and recovering slowly is the whole point of a ducker;
+    // one time constant for both would either pump or arrive late.
+    const tau = target < bus.gain.value ? DUCK_ATTACK_S : DUCK_RELEASE_S;
+    bus.gain.setTargetAtTime(target, ctx.currentTime, tau);
   }
 
   /** Stop everything and drop every element. */

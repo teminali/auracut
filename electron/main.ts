@@ -24,6 +24,23 @@ import {
   process exits 0 having printed nothing, which is an awful thing to debug.
 */
 
+/*
+  Keep painting when another window covers Kerf.
+
+  macOS occlusion detection pauses frame production for a covered window.
+  Nothing about the app needs those frames — but `debug/capture` does, and
+  `webContents.capturePage()` on a window that has stopped compositing
+  returns the LAST FRAME IT PAINTED, with no error and no indication. So
+  the endpoint HANDOVER offers for "does the panel look right" answered
+  with the screen from before the change, which is the most expensive kind
+  of wrong answer: it looks like a real screenshot.
+
+  Found by capturing after setting `document.body.style.background = red`
+  and getting a byte-identical PNG back — the app had navigated from the
+  home screen to the editor and every capture still showed home.
+*/
+app.commandLine.appendSwitch('disable-features', 'MacWebContentsOcclusion');
+
 let mainWindow: BrowserWindow | null = null;
 
 /*
