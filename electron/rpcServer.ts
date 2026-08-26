@@ -12,7 +12,22 @@ import http from 'http';
 import crypto from 'crypto';
 import { bridge, captureWindow, debugEval } from './toolBridge';
 
-export const RPC_PORT = 3888;
+/*
+  One Kerf per port, so more than one can run at a time.
+
+  This was a bare 3888, and it made the whole verification apparatus
+  serial: all 107 checks in `tools/` drive a live app over this port, so
+  two of anything — two agents, two suites, a packaged build and a dev
+  build — fought over it. The loser's `writeMcpConfig` overwrote the
+  winner's token file and every call came back "Bad or missing token",
+  which is trap 4 in NEXT.md and cost real time more than once.
+
+  `mcpStdio.ts` already read `KERF_RPC_PORT`; it was only the server that
+  could not be told. With this, N instances coexist on N ports and their
+  suites can run in parallel — and it is also what a headless CI runner
+  needs, since it cannot assume the port is free.
+*/
+export const RPC_PORT = Number(process.env.KERF_RPC_PORT ?? 3888);
 
 /** Regenerated every launch, so a stale config cannot talk to a new session. */
 export const RPC_TOKEN = crypto.randomBytes(24).toString('hex');

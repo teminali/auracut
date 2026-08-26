@@ -206,9 +206,26 @@ export function mcpServerSpec(): { command: string; args: string[]; env: Record<
   };
 }
 
-export function writeMcpConfig(): string {
+/**
+ * Where this instance's MCP config lives.
+ *
+ * Named after the port when it is not the default, because the file
+ * carries the RPC token and two instances writing one path is exactly how
+ * "Bad or missing token" happens — the second launch rewrites the first
+ * one's credentials and every call it was serving starts failing. The
+ * default port keeps the original name so nothing that already points at
+ * `mcp-kerf.json` has to change.
+ */
+export function mcpConfigPath(): string {
   const dir = app.getPath('userData');
-  const file = path.join(dir, 'mcp-kerf.json');
+  return path.join(
+    dir,
+    RPC_PORT === 3888 ? 'mcp-kerf.json' : `mcp-kerf-${RPC_PORT}.json`
+  );
+}
+
+export function writeMcpConfig(): string {
+  const file = mcpConfigPath();
 
   /*
     The shim runs as its own process, so it must be a real file. Inside a

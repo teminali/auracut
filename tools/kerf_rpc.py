@@ -1,21 +1,40 @@
 """
 Talk to a running Kerf over its local RPC.
 
-The token is rewritten by whichever instance currently holds port 3888,
-so it is read fresh on every call rather than cached — a stale one is the
-usual cause of "Bad or missing token", and only one Kerf can hold the
-port, so a dev build and an installed one will fight over it.
+The token is read fresh on every call rather than cached: it is
+regenerated per launch, and a stale one is the usual cause of "Bad or
+missing token".
+
+**Set `KERF_RPC_PORT` to talk to a particular instance.** Kerf used to be
+pinned to 3888, which made every one of these suites serial — two of
+anything fought over the port, and the loser's config overwrote the
+winner's token. Launch each instance with its own `KERF_RPC_PORT` and
+point this at the same value, and their suites can run at the same time:
+
+    KERF_RPC_PORT=3901 python3 tools/verify_gpu.py
+
+Each instance writes its own token file, named after the port. The
+default port keeps the original filename so nothing already pointing at
+`mcp-kerf.json` has to change.
 """
 import json
 import os
 import urllib.request
 
-CONFIG = os.path.expanduser('~/Library/Application Support/kerf/mcp-kerf.json')
-ENDPOINT = 'http://127.0.0.1:3888/rpc'
+PORT = int(os.environ.get('KERF_RPC_PORT', '3888'))
+_NAME = 'mcp-kerf.json' if PORT == 3888 else f'mcp-kerf-{PORT}.json'
+CONFIG = os.path.expanduser(f'~/Library/Application Support/kerf/{_NAME}')
+ENDPOINT = f'http://127.0.0.1:{PORT}/rpc'
 
 
 def token() -> str:
-    servers = json.load(open(CONFIG))['mcpServers']
+    try:
+        servers = json.load(open(CONFIG))['mcpServers']
+    except FileNotFoundError:
+        raise RuntimeError(
+            f'No Kerf token file at {CONFIG}. Is an instance running on port {PORT}? '
+            f'Launch one with KERF_RPC_PORT={PORT}, or unset KERF_RPC_PORT for the default.'
+        ) from None
     return servers[next(iter(servers))]['env']['KERF_RPC_TOKEN']
 
 
