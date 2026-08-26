@@ -87,6 +87,19 @@ const PROPERTY_SCHEMA_BASE: PropertySchema[] = [
   { path: 'mask.sizeY', label: 'Mask height', type: 'number', min: 1, max: 200, unit: '%' },
   { path: 'mask.offsetX', label: 'Mask offset X', type: 'number', min: -100, max: 100, unit: '%' },
   { path: 'mask.offsetY', label: 'Mask offset Y', type: 'number', min: -100, max: 100, unit: '%' },
+  /*
+    `mask.rotation` was in ANIMATABLE_PROPERTIES, resolved every frame by
+    `resolvedMask`, drawn by `traceMaskPath`, and keyframeable — and it
+    had no row HERE, so `list_properties` never mentioned it and
+    `patch_clip` answered `Unknown property path "mask.rotation"`. The
+    compositor's own comment says it was "listed by list_properties with
+    a -180..180 range", which was not true of any build in this tree.
+    Animatable but not settable is the mirror image of the usual bug and
+    just as invisible: `verify_keyframes` patches it in `scene_masked`,
+    gets a warning nobody reads, then keyframes it through the OTHER
+    vocabulary and passes.
+  */
+  { path: 'mask.rotation', label: 'Mask rotation', type: 'number', min: -180, max: 180, unit: '°' },
   { path: 'mask.roundness', label: 'Mask roundness', type: 'number', min: 0, max: 400 },
   { path: 'mask.featherPx', label: 'Mask feather', type: 'number', min: 0, max: 200, unit: 'px' },
   { path: 'mask.inverted', label: 'Mask inverted', type: 'boolean' },

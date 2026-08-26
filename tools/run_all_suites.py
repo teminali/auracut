@@ -111,13 +111,19 @@ SUITES = [
     'verify_ffmpeg_bridge',
     'verify_playback_audio',
     'verify_frame_context',
+    # The altitude tools. Added when three lanes merged — each lane was
+    # kept out of this file so the branches could merge, so registering
+    # them is deliberately one edit here rather than three there.
+    'verify_montage',
+    'verify_altitude',
 ]
 
 # Suites that shell out to ffmpeg/ffprobe themselves. Named so that a
 # machine without ffmpeg gets told which four will fail and why, instead
 # of four opaque tracebacks.
 NEEDS_FFMPEG = {'verify_audio', 'verify_ffmpeg_bridge',
-                'verify_playback_audio', 'verify_frame_context'}
+                'verify_playback_audio', 'verify_frame_context',
+                'verify_montage'}
 
 SUMMARY_RE = re.compile(r'^\s*(\d+)\s*/\s*(\d+)\s')
 BAD_LINE_RE = re.compile(r'^\s*(FAIL\b|ERROR\b|failing:)')
