@@ -21,7 +21,7 @@ import fs from 'fs';
 import { RPC_PORT, RPC_TOKEN } from './rpcServer';
 import {
   BackendId, AgentBackend, getBackend, findBackendBinary, surveyBackends, BackendStatus,
-  getModel, getPreferredBackend, setPreferredBackend,
+  getModel, getPreferredBackend, setPreferredBackend, agentPath,
 } from './agentBackends';
 
 export interface ClaudeEvent {
@@ -316,6 +316,9 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
     cwd: prepared.cwd,
     env: {
       ...process.env,
+      // A Finder-launched app's PATH has no node, and `codex` and
+      // `gemini` are `#!/usr/bin/env node` scripts that need one.
+      PATH: agentPath(),
       // Never let a nested-session guard or a stray key from our own
       // environment leak into the user's session.
       ELECTRON_RUN_AS_NODE: undefined,

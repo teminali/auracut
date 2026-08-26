@@ -33,7 +33,7 @@ import { getClipBaseSize } from '../engine/geometry';
 import { getNaturalSize } from '../engine/compositor';
 import { runHardwareExport, unsupportedAudioSettings } from '../engine/exportPipeline';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
-import { loadFonts, isFontAvailable } from '../engine/systemFonts';
+import { loadFonts, isFontAvailable, fontsAreEnumerated } from '../engine/systemFonts';
 import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
 import { followToolCall } from '../engine/agentPresence';
 
@@ -1954,6 +1954,8 @@ defineTool({
     const needle = filter?.trim().toLowerCase();
     const shown = needle ? fonts.filter((f) => f.family.toLowerCase().includes(needle)) : fonts;
 
+    const complete = fontsAreEnumerated();
+
     return {
       count: shown.length,
       total: fonts.length,
@@ -1961,6 +1963,17 @@ defineTool({
          system ones are whatever this computer happens to have. */
       bundled: shown.filter((f) => f.source === 'bundled').map((f) => f.family),
       system: shown.filter((f) => f.source === 'system').map((f) => f.family),
+      /* Say which list this is. A probed list is a common-family subset,
+         so absence from it is not evidence the machine lacks the font —
+         reporting it as the whole truth is how the agent ends up certain
+         about a font that is actually installed. */
+      source: complete ? 'enumerated' : 'probed',
+      ...(complete ? {} : {
+        note:
+          'This is a probed fallback, not the full system list — the machine almost ' +
+          'certainly has more. A family missing here may still exist; check it with a ' +
+          'later call once the window has been shown.',
+      }),
     };
   },
 });

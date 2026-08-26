@@ -120,20 +120,70 @@ interface LocalFontData {
   family: string;
 }
 
+/*
+  Local Font Access throws `SecurityError: Page needs to be visible.`
+  while the window is hidden, and an Electron window is hidden for the
+  whole of its startup: it is created with `show: false` and revealed on
+  `ready-to-show`. A packaged build loads its renderer from a local file
+  fast enough to ask before the reveal, lose, and fall back — while a
+  dev build's slower dev-server round-trip means the window is already
+  up. That is the whole of the difference, and it cost this session a
+  packaged app that offered 33 families on a machine with 183.
+
+  macOS occlusion counts as hidden too, so backgrounding the window at
+  the wrong moment reproduces it in either build.
+*/
+const VISIBILITY_WAIT_MS = 10_000;
+
+async function whenVisible(): Promise<void> {
+  if (typeof document === 'undefined') return;
+  if (document.visibilityState === 'visible') return;
+
+  await new Promise<void>((resolve) => {
+    let timer = 0;
+    const done = () => {
+      document.removeEventListener('visibilitychange', onChange);
+      clearTimeout(timer);
+      resolve();
+    };
+    const onChange = () => {
+      if (document.visibilityState === 'visible') done();
+    };
+    document.addEventListener('visibilitychange', onChange);
+    // Never block the font list forever on a window nobody shows.
+    timer = window.setTimeout(done, VISIBILITY_WAIT_MS);
+  });
+}
+
+interface LocalQuery {
+  /** The real system list, or null when we could not get it. */
+  families: string[] | null;
+  /** Null because of something that could pass — so do not cache it. */
+  retryable: boolean;
+}
+
 /** The full system list, when the browser will give it to us. */
-async function queryLocal(): Promise<string[] | null> {
+async function queryLocal(): Promise<LocalQuery> {
   const query = (window as unknown as {
     queryLocalFonts?: () => Promise<LocalFontData[]>;
   }).queryLocalFonts;
 
-  if (typeof query !== 'function') return null;
+  // Not this browser. That answer will not change.
+  if (typeof query !== 'function') return { families: null, retryable: false };
+
+  await whenVisible();
 
   try {
     const fonts = await query();
-    return [...new Set(fonts.map((f) => f.family))];
+    return { families: [...new Set(fonts.map((f) => f.family))], retryable: false };
   } catch {
-    // Denied, or unavailable in this context — fall back rather than fail.
-    return null;
+    /*
+      Denied is permanent; hidden is not. Distinguishing them is the
+      difference between a fallback and a fallback burned into the cache
+      for the rest of the session.
+    */
+    const hidden = typeof document !== 'undefined' && document.visibilityState !== 'visible';
+    return { families: null, retryable: hidden };
   }
 }
 
@@ -151,19 +201,42 @@ export async function loadFonts(): Promise<FontOption[]> {
     const bundled: FontOption[] = BUNDLED.map((family) => ({ family, source: 'bundled' as const }));
 
     const local = await queryLocal();
-    enumerated = local !== null;
-    const systemFamilies = local ?? CANDIDATES.filter(isFontAvailable);
+    enumerated = local.families !== null;
+    const systemFamilies = local.families ?? CANDIDATES.filter(isFontAvailable);
 
     const system: FontOption[] = systemFamilies
       .filter((family) => !BUNDLED.includes(family))
       .sort((a, b) => a.localeCompare(b))
       .map((family) => ({ family, source: 'system' as const }));
 
-    cache = [...bundled, ...system];
+    const list = [...bundled, ...system];
+
+    /*
+      A probed list stood in for one we could still get. Hand it back so
+      the caller has something, but leave the cache empty so the next ask
+      tries again rather than serving 33 fonts until the app restarts.
+    */
+    if (local.families === null && local.retryable) {
+      loading = null;
+      return list;
+    }
+
+    cache = list;
     return cache;
   })();
 
   return loading;
+}
+
+/**
+ * Whether the loaded list is the machine's real one or a probed stand-in.
+ *
+ * The difference matters to anyone acting on it: a probed list is a
+ * fixed set of common families that happen to exist here, so a name
+ * missing from it is not evidence the machine lacks that font.
+ */
+export function fontsAreEnumerated(): boolean {
+  return enumerated;
 }
 
 /** What has been loaded so far, for a synchronous first render. */

@@ -227,14 +227,70 @@ export function credentials(): Record<string, string> {
 
 const home = os.homedir();
 
+/*
+  Every directory a CLI might live in. `bins` turns them into candidate
+  paths for FINDING a binary; `agentPath` hands them to the binary once
+  found — a different problem with the same cause.
+*/
+const BIN_DIRS = [
+  '/opt/homebrew/bin',
+  '/usr/local/bin',
+  path.join(home, '.local', 'bin'),
+  path.join(home, '.bun', 'bin'),
+  path.join(home, '.cargo', 'bin'),
+];
+
 function bins(name: string): string[] {
-  return [
-    `/opt/homebrew/bin/${name}`,
-    `/usr/local/bin/${name}`,
-    path.join(home, '.local', 'bin', name),
-    path.join(home, '.bun', 'bin', name),
-    path.join(home, '.cargo', 'bin', name),
-  ];
+  return BIN_DIRS.map((dir) => path.join(dir, name));
+}
+
+let agentPathCache: string | null = null;
+
+/**
+ * The PATH a spawned CLI needs, which is not the one we were given.
+ *
+ * Finding the binary is only half of it. `codex` and `gemini` are npm
+ * scripts whose shebang is `#!/usr/bin/env node`, so on execution they
+ * go looking for `node` on their OWN PATH. A Finder-launched app hands
+ * them `/usr/bin:/bin:/usr/sbin:/sbin`, where Homebrew's node is not,
+ * and both die with `env: node: No such file or directory` while still
+ * reporting as installed. `claude` survives only because it ships a
+ * native binary rather than a script.
+ *
+ * This is invisible in development: launched from a terminal the app
+ * inherits a developer PATH and all four backends work.
+ *
+ * PATH is deliberately NOT a KEY_VAR. `loginShellEnv` lets our own
+ * value win, which is right for a credential and wrong here — ours is
+ * precisely the impoverished PATH we are trying to escape.
+ */
+export function agentPath(): string {
+  if (agentPathCache) return agentPathCache;
+
+  const sources: string[] = [];
+
+  try {
+    const shell = process.env.SHELL || '/bin/zsh';
+    const out = execFileSync(shell, ['-lic', 'printf %s "$PATH"'], {
+      encoding: 'utf8',
+      timeout: 8000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    if (out.trim()) sources.push(out.trim());
+  } catch {
+    /* no login shell available — the known directories below still stand */
+  }
+
+  sources.push(BIN_DIRS.join(path.delimiter));
+  if (process.env.PATH) sources.push(process.env.PATH);
+
+  const seen = new Set<string>();
+  const dirs = sources
+    .flatMap((source) => source.split(path.delimiter))
+    .filter((dir) => dir && !seen.has(dir) && (seen.add(dir), true));
+
+  agentPathCache = dirs.join(path.delimiter);
+  return agentPathCache;
 }
 
 function writeJson(file: string, value: unknown): void {
@@ -657,7 +713,12 @@ async function probeTurn(
       {
         timeout: 45_000,
         maxBuffer: 1024 * 1024 * 4,
-        env: { ...process.env, ...extraEnv, ELECTRON_RUN_AS_NODE: undefined } as NodeJS.ProcessEnv,
+        env: {
+          ...process.env,
+          PATH: agentPath(),
+          ...extraEnv,
+          ELECTRON_RUN_AS_NODE: undefined,
+        } as NodeJS.ProcessEnv,
       },
       (err, stdout, stderr) => resolve({ ok: !err, text: `${stdout}\n${stderr}` })
     );
@@ -799,7 +860,8 @@ function run(
   timeout: number
 ): Promise<{ ok: boolean; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    execFile(bin, args, { timeout, maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+    const env = { ...process.env, PATH: agentPath() } as NodeJS.ProcessEnv;
+    execFile(bin, args, { timeout, maxBuffer: 1024 * 1024, env }, (err, stdout, stderr) => {
       resolve({ ok: !err, stdout: stdout ?? '', stderr: stderr ?? '' });
     });
   });

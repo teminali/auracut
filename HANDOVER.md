@@ -26,32 +26,62 @@ typecheck (`npm run typecheck`).
 
 ---
 
-## ⚠ PRIORITY ZERO: none of this has been packaged
+## Packaged and verified — and it found two real bugs
 
-`/Applications/AuraCut.app` predates every commit described here. All of
-the above was verified against the **dev build only**, and this project's
-own hardest-won lesson is that dev parity is not evidence — three
-separate bugs previously worked in dev and failed only when packaged.
-
-The changes most at risk, and why:
-
-| Change | Risk when packaged |
-|---|---|
-| SVG tone filters | grading depends on `<filter>` elements injected into the document |
-| `queryLocalFonts` | permission behaviour differs outside dev |
-| Generated SFX | writes to `app.getPath('temp')` |
-| **Agent backends** | spawn CLIs from a Finder-launched app: minimal PATH, no shell profile, no API keys |
-| MCP shim | must resolve out of `app.asar.unpacked`, not `app.asar` |
-
-Do this before anything else:
+Priority Zero is discharged. A real `.app` was built, launched under
+Finder conditions (minimal PATH, LaunchServices) and driven end to end.
+**Dev parity was not evidence, again:** two of the five at-risk changes
+were broken only when packaged, and both looked fine in dev.
 
 ```bash
 npm run build && npx electron-builder --mac --dir --publish never
 ```
 
-then drive the packaged app and re-verify: video renders, export writes a
-file with audio, fonts enumerate, an SFX generates, the agent picker
-finds the CLIs.
+| At-risk change | Packaged result |
+|---|---|
+| SVG tone filters | **works.** `shadows` +90 moved mean luma 145.2 → 167.5; `sharpen` 90 moved edge energy 4.89 → 5.33 and left luma alone; revert returned both exactly. |
+| `queryLocalFonts` | **was broken.** Fixed — see below. |
+| Generated SFX | **works.** Real WAV in temp: 96KB, pcm_s16le 48kHz, exactly 1.000s. |
+| **Agent backends** | **were broken.** Fixed — see below. |
+| MCP shim | **works.** Config resolves to `app.asar.unpacked`; a full agent turn round-tripped through it. |
+
+Also verified packaged: 53 tools over RPC; export writes h264+aac,
+1280×720, exactly 16.000s, audio with real signal (max −6.0 dB) and
+composited footage in the frames; the compositor draws real pixels;
+`check_command_readiness` is real (one of §3's eight unverified).
+
+**The end-to-end proof:** the Copilot spawned `claude`, which saw all 53
+tools as `mcp__auracut__*`, called `describe_timeline` through the shim
+→ RPC → renderer, and answered *"DukaBot Commercial · Seq 01 — 5
+tracks"* correctly, `is_error: false`. The whole architecture works in a
+packaged build.
+
+### The two packaged-only bugs
+
+**Fonts fell back to 33 and cached it forever.** `queryLocalFonts()`
+throws `SecurityError: Page needs to be visible.` while the window is
+hidden — and the window is hidden for all of startup, because it is
+created with `show: false` and revealed on `ready-to-show`. Packaged, a
+`file://` renderer loads fast enough to ask before the reveal and lose;
+dev's slower dev-server round-trip means the window is already up. The
+failure was then cached for the session, so 183 families became 33 with
+no indication. Fixed: wait for visibility, and never cache a fallback
+that was only taken for a recoverable reason. `list_fonts` now reports
+`source: enumerated | probed`, because a probed list is a common-family
+subset and absence from it is not evidence.
+
+**Codex and Gemini could not start at all.** Both are npm scripts with a
+`#!/usr/bin/env node` shebang, so on execution they look for `node` on
+their *own* PATH — and a Finder-launched app hands them
+`/usr/bin:/bin:/usr/sbin:/sbin`. Both died with `env: node: No such file
+or directory` while the picker still showed them installed. Claude
+survived only because it ships a native binary. Fixed with
+`agentPath()`, used at all three spawn sites. Codex now probes ready;
+Gemini now reaches its real blocker (no personal sign-in) instead of a
+missing interpreter.
+
+Finding the binary was solved; giving the binary a usable environment
+was not. They are different problems with the same cause.
 
 ---
 
@@ -65,8 +95,8 @@ only becomes differentiated in stage 3.
 
 Nothing else matters until this is true.
 
-1. **Package and verify** — see Priority Zero. Build a real `.app`,
-   drive it, re-check video, export, fonts, SFX and the agent picker.
+1. ~~**Package and verify**~~ — **done.** It found two packaged-only
+   bugs, both now fixed. Re-do this on every release; it pays each time.
 2. **A test suite**, starting with regressions for the six findings
    (§8). This is also the skill-verification harness — build it once.
 3. **Crash and error reporting**, so you stop learning about failures by
@@ -75,7 +105,7 @@ Nothing else matters until this is true.
 
 ### Stage 2 — Make it trustworthy  *(1–2 weeks)*
 
-5. Finish the audit: the eight tools listed in §3.
+5. Finish the audit: the seven tools listed in §3.
 6. Run Windows and Linux. CI builds them; nobody has.
 7. A performance pass — long timelines, many clips, 4K, memory over a
    long session. All currently unmeasured.
@@ -238,9 +268,9 @@ transitions, 23 effects, 10 colour looks, 9 kinetic text animations,
 caption import/export (SRT round-trips exactly), keyframe interpolation
 (measured on rendered frames), masks, `create_grid_layout`, beat
 detection, silence removal, `analyze_audio`, video decode, export, fonts,
-SFX generation, the Claude and Codex backends.
+SFX generation, the Claude and Codex backends, `check_command_readiness`.
 
-**Not yet re-verified:** `check_command_readiness`, `resolve_target`,
+**Not yet re-verified:** `resolve_target`,
 `describe_layer_at_point`, `copy_effects`, `set_motion_path`,
 `set_motion_blur`, `undo` depth, `snapCutsToBeats`.
 
@@ -565,6 +595,38 @@ a second product and it is not scoped.
 **`ELECTRON_RUN_AS_NODE=1` is inherited from VS Code.** Every Electron launch
 from a VS Code terminal starts as plain Node and exits silently. Always
 `env -u ELECTRON_RUN_AS_NODE npx electron .`. This burned an hour.
+
+**`open` forwards your shell environment, so that trap reaches the packaged
+app too.** `open -n AuraCut.app` from a VS Code terminal launches it as plain
+Node: exit 0, no window, no port, no log — indistinguishable from the
+signing failure below, and it will send you hunting the wrong bug. Use
+`env -u ELECTRON_RUN_AS_NODE open -n path/to/AuraCut.app`.
+
+**That same forwarding makes `open` a bad Finder simulation.** The app
+inherits your developer PATH, so anything that depends on a minimal
+environment — every agent backend — passes when it would fail for a real
+user. To test the actual condition:
+
+```bash
+env -i HOME="$HOME" USER="$USER" SHELL=/bin/zsh TMPDIR="$TMPDIR" \
+    PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+    open -n release/mac-arm64/AuraCut.app --args --remote-debugging-port=9333
+```
+
+**Drive the packaged renderer over CDP.** `--remote-debugging-port` plus
+`Runtime.evaluate` is the only way to ask the packaged app a direct question
+(`window.electronAPI`, a font query, `document.visibilityState`). Pick a port
+nothing else holds — Chrome sits on 9222, and reading *its* target list by
+mistake will show you a `localhost:5173` tab titled "AuraCut" and convince
+you the packaged app is loading the dev server. Check the port's owner with
+`lsof` before believing what it tells you.
+
+**A hidden window is not a working one.** Chromium reports
+`visibilityState: 'hidden'` for a window that is merely occluded by another
+app, and some APIs refuse outright — `queryLocalFonts()` throws
+`SecurityError: Page needs to be visible.` Anything asked during startup, or
+while the window is in the background, may get an answer it would not get
+otherwise. Never cache such an answer.
 
 **Dev parity is not evidence.** Three separate bugs worked perfectly in dev
 and failed only when packaged. Package a real `.app` and test against it
