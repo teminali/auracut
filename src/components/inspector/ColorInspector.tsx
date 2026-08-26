@@ -2,7 +2,7 @@ import React from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, DEFAULT_FILTERS } from '../../types/edl';
 import { Section, SliderRow, SegmentedControl } from '../ui/Controls';
-import { Sun, Palette, Contrast, Sparkles, RotateCcw, Copy } from 'lucide-react';
+import { Sun, Palette, Contrast, Sparkle, RotateCcw, Copy } from 'lucide-react';
 
 /** One-click grades. Each is just a set of filter values. */
 const LOOKS: { id: string; label: string; swatch: string; filters: Partial<Clip['filters']> }[] = [
@@ -43,7 +43,7 @@ export const ColorInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
 
   return (
     <div>
-      <Section title="Looks" icon={Sparkles}>
+      <Section title="Looks" icon={Sparkle}>
         <div className="grid grid-cols-4 gap-1.5">
           {LOOKS.map((look) => (
             <button
@@ -117,7 +117,7 @@ export const ColorInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           value={f.vignette} onChange={(v) => set({ vignette: v })} onCommit={() => done('Set vignette')} />
       </Section>
 
-      <Section title="Chroma key" icon={Sparkles} defaultOpen={clip.chromaKey.enabled}
+      <Section title="Chroma key" icon={Sparkle} defaultOpen={clip.chromaKey.enabled}
         action={
           <input
             type="checkbox"

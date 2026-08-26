@@ -488,6 +488,30 @@ The Skills section says it does not exist yet, on purpose. An empty
 store dressed as a full one is exactly the theatre the rest of this
 codebase has had removed.
 
+### Navigation
+
+Closing the **editor** returns to home; closing **home** quits. The
+window's close button cannot be reached from React, so the intercept
+lives in main (`mainWindow.on('close')`), and the renderer reports which
+screen it is showing via `ui:setScreen` on every change. `app.quit()`
+now runs on every platform including macOS, because a close can only
+originate from home — the editor intercepts it — so it is an explicit
+"I am done" rather than the usual accidental window close.
+
+**Not yet verified by a real click.** Renderer-initiated
+`window.close()` does not emit the BrowserWindow `close` event in this
+configuration, so the test path never exercised the handler. Click the
+traffic light in a packaged build before trusting it.
+
+### Iconography
+
+**One AI mark across the whole platform: lucide `Sparkle`** — the single
+four-point shine. It replaced `Sparkles` (the multi-star, which is on
+every AI product shipped in the last two years) and `Wand2`, so there is
+one symbol for "the agent did this" rather than three. If a place ever
+genuinely needs its own mark, give it one deliberately; do not let the
+set drift back.
+
 ---
 
 ## 8. Product hardening — mostly not started
@@ -526,6 +550,9 @@ them.
 memory over a long session — all unmeasured.
 
 **No onboarding.** First-run for someone who has never edited.
+
+**The editor-close intercept is unverified** — see §7. It is standard
+Electron, but the test path did not exercise it.
 
 **None of the commercial layer exists** — accounts, payments, skill
 hosting, distribution, updates, licence enforcement, storefront. That is

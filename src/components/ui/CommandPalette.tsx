@@ -10,9 +10,7 @@ import { executeTool } from '../../mcp/toolRegistry';
 import { MOTION_PRESET_LABELS } from '../../store/timelineStore';
 import { ASPECT_DIMENSIONS, AspectRatio } from '../../types/edl';
 import {
-  Search, Scissors, Copy, Trash2, Flag, Sparkles, Play, Undo2, Redo2,
-  Layers, Snowflake, RotateCcw, Unlink, Music4, Subtitles, Download,
-  Smartphone, Magnet, Wand2, Command as CommandIcon,
+  Search, Scissors, Copy, Trash2, Flag, Sparkle, Play, Undo2, Redo2, Layers, Snowflake, RotateCcw, Unlink, Music4, Subtitles, Download, Smartphone, Magnet, Command as CommandIcon,
 } from 'lucide-react';
 
 interface CommandItem {
@@ -66,17 +64,17 @@ export const CommandPalette: React.FC = () => {
       } },
 
       /* Create */
-      { id: 'text', label: 'Add text layer', group: 'Create', icon: Wand2, run: () => {
+      { id: 'text', label: 'Add text layer', group: 'Create', icon: Sparkle, run: () => {
         const tracks = t().tracks;
         const textTrack = tracks.find((x) => x.type === 'text') ?? tracks[0];
         t().addTextLayer(textTrack.id, 'Your text here', t().playheadMs);
       } },
-      { id: 'rect', label: 'Add rectangle', group: 'Create', icon: Wand2, run: () => {
+      { id: 'rect', label: 'Add rectangle', group: 'Create', icon: Sparkle, run: () => {
         const tracks = t().tracks;
         const overlay = tracks.find((x) => x.type === 'overlay') ?? tracks[0];
         t().addShapeLayer(overlay.id, 'rectangle', t().playheadMs);
       } },
-      { id: 'circle', label: 'Add ellipse', group: 'Create', icon: Wand2, run: () => {
+      { id: 'circle', label: 'Add ellipse', group: 'Create', icon: Sparkle, run: () => {
         const tracks = t().tracks;
         const overlay = tracks.find((x) => x.type === 'overlay') ?? tracks[0];
         t().addShapeLayer(overlay.id, 'ellipse', t().playheadMs);
@@ -90,7 +88,7 @@ export const CommandPalette: React.FC = () => {
         const r = await executeTool('generate_auto_captions', { language: 'sw' }, 'Command palette');
         pushToast(r.success ? { kind: 'success', title: 'Captions generated' } : { kind: 'error', title: 'Failed', detail: r.error });
       } },
-      { id: 'copilot', label: 'Open the AI copilot', group: 'AI', icon: Sparkles, shortcut: '⌘J', run: () => p().setCopilotOpen(true) },
+      { id: 'copilot', label: 'Open the AI copilot', group: 'AI', icon: Sparkle, shortcut: '⌘J', run: () => p().setCopilotOpen(true) },
 
       /* Project */
       { id: 'export', label: 'Export video', group: 'Project', icon: Download, shortcut: '⌘E', run: () => p().setExportModalOpen(true) },
@@ -115,7 +113,7 @@ export const CommandPalette: React.FC = () => {
         id: `fx-${effect.type}`,
         label: `Add effect · ${effect.label}`,
         group: 'Effects',
-        icon: Sparkles,
+        icon: Sparkle,
         keywords: `${effect.type} ${effect.category} ${effect.description}`,
         run: () => {
           const ids = t().selectedClipIds;
@@ -134,7 +132,7 @@ export const CommandPalette: React.FC = () => {
         id: `motion-${preset.id}`,
         label: `Animate · ${preset.label}`,
         group: 'Motion',
-        icon: Wand2,
+        icon: Sparkle,
         keywords: preset.hint,
         run: () => {
           const id = selected();

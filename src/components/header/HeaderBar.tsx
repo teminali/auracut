@@ -19,7 +19,7 @@ import { McpStatusModal } from './McpStatusModal';
 import { serializeProject, deserializeProject } from '../../engine/projectIO';
 import { UpdateIndicator } from './UpdateIndicator';
 import {
-  Sparkles, Download, Undo2, Redo2, Command, Save, FolderOpen, Keyboard,
+  Sparkle, Download, Undo2, Redo2, Command, Save, FolderOpen, Keyboard,
 } from 'lucide-react';
 
 /** A hairline rule between control clusters. */
@@ -242,7 +242,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           }`}
           title="AI Copilot (⌘J)"
         >
-          <Sparkles className="w-[15px] h-[15px]" />
+          <Sparkle className="w-[15px] h-[15px]" />
           Copilot
         </button>
 

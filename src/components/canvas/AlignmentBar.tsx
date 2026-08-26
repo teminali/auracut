@@ -8,18 +8,7 @@ import { alignToCanvas, AlignAction } from '../../engine/snapping';
 import { getNaturalSize } from '../../engine/compositor';
 import { Clip } from '../../types/edl';
 import {
-  AlignHorizontalJustifyStart,
-  AlignHorizontalJustifyCenter,
-  AlignHorizontalJustifyEnd,
-  AlignVerticalJustifyStart,
-  AlignVerticalJustifyCenter,
-  AlignVerticalJustifyEnd,
-  AlignHorizontalSpaceAround,
-  AlignVerticalSpaceAround,
-  Maximize,
-  RotateCcw,
-  FlipHorizontal2,
-  FlipVertical2,
+  AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Maximize, RotateCcw, FlipHorizontal2, FlipVertical2,
 } from 'lucide-react';
 
 const ALIGN_BUTTONS: { action: AlignAction; icon: React.ElementType; label: string }[] = [

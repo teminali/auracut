@@ -10,7 +10,7 @@
 import React from 'react';
 import { useLayoutStore, SidebarTab } from '../../store/layoutStore';
 import {
-  FolderOpen, Music, Type, Subtitles, Layers, Sparkles, Sliders, Wand2,
+  FolderOpen, Music, Type, Subtitles, Layers, Sparkle, Sliders,
 } from 'lucide-react';
 
 interface TabItem {
@@ -26,9 +26,9 @@ const TABS: TabItem[] = [
   { id: 'text', label: 'Text', icon: Type, hotkey: '3' },
   { id: 'captions', label: 'Captions', icon: Subtitles, hotkey: '4' },
   { id: 'transitions', label: 'Trans', icon: Layers, hotkey: '5' },
-  { id: 'effects', label: 'VFX', icon: Sparkles, hotkey: '6' },
+  { id: 'effects', label: 'VFX', icon: Sparkle, hotkey: '6' },
   { id: 'filters', label: 'Colour', icon: Sliders, hotkey: '7' },
-  { id: 'ai', label: 'AI', icon: Wand2, hotkey: '8' },
+  { id: 'ai', label: 'AI', icon: Sparkle, hotkey: '8' },
 ];
 
 export const SidebarNav: React.FC = () => {

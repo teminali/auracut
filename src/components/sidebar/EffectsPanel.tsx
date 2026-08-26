@@ -4,7 +4,9 @@ import React, { useMemo, useState } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import { EFFECT_REGISTRY, EFFECT_CATEGORIES } from '../../engine/effectsRegistry';
-import { Search, Sparkles, Plus, Layers } from 'lucide-react';
+import {
+  Search, Sparkle, Plus, Layers,
+} from 'lucide-react';
 
 export const EffectsPanel: React.FC = () => {
   const selectedClipIds = useTimelineStore((s) => s.selectedClipIds);

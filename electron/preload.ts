@@ -52,6 +52,12 @@ export interface ElectronAPI {
     writeTemp: (name: string, bytes: Uint8Array) => Promise<string>;
   };
 
+  /** Screen state, so the window close button can mean the right thing. */
+  ui: {
+    setScreen: (screen: 'home' | 'editor') => Promise<boolean>;
+    onGoHome: (cb: () => void) => () => void;
+  };
+
   /** Which CLI backend drives the Copilot, and getting one installed. */
   agents: {
     list: (deep?: boolean) => Promise<{ selected: string; backends: unknown[] }>;
@@ -129,6 +135,15 @@ const api: ElectronAPI = {
 
   media: {
     writeTemp: (name, bytes) => ipcRenderer.invoke('media:writeTemp', { name, bytes }),
+  },
+
+  ui: {
+    setScreen: (screen) => ipcRenderer.invoke('ui:setScreen', { screen }),
+    onGoHome: (cb) => {
+      const handler = () => cb();
+      ipcRenderer.on('ui:go-home', handler);
+      return () => ipcRenderer.removeListener('ui:go-home', handler);
+    },
   },
 
   agents: {

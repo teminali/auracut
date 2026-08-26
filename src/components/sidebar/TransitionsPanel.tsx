@@ -3,7 +3,9 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import { TransitionType } from '../../types/edl';
 import { SliderRow, SegmentedControl, Section } from '../ui/Controls';
-import { Layers, ArrowLeftRight } from 'lucide-react';
+import {
+  Layers, ArrowLeftRight,
+} from 'lucide-react';
 import { PanelSearch, matchesQuery } from './PanelSearch';
 
 const TRANSITIONS: { id: TransitionType; label: string; glyph: string; hint: string }[] = [

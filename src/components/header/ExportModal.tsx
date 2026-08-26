@@ -5,7 +5,9 @@ import { useUiStore } from '../../store/uiStore';
 import { runHardwareExport, ExportResolution } from '../../engine/exportPipeline';
 import { formatDuration } from '../../utils/time';
 import { SegmentedControl, ToggleRow, Section } from '../ui/Controls';
-import { X, Download, Check, Film, Loader2 } from 'lucide-react';
+import {
+  X, Download, Check, Film, Loader2,
+} from 'lucide-react';
 
 /* The short edge — the long edge follows the project's aspect ratio. */
 const RESOLUTIONS = [

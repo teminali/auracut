@@ -1,6 +1,8 @@
 import React from 'react';
 import { useUiStore } from '../../store/uiStore';
-import { X, Keyboard } from 'lucide-react';
+import {
+  X, Keyboard,
+} from 'lucide-react';
 
 const GROUPS: { title: string; items: [string, string][] }[] = [
   {

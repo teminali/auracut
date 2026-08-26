@@ -14,8 +14,7 @@ import {
 } from '../../engine/effectsRegistry';
 import { SliderRow, Section, ColorField, ToggleRow, EmptyState } from '../ui/Controls';
 import {
-  Sparkles, Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff,
-  Search, X, Copy, Timer, Diamond,
+  Sparkle, Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Search, X, Copy, Timer, Diamond,
 } from 'lucide-react';
 
 export const EffectStackInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
@@ -69,7 +68,7 @@ export const EffectStackInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
 
       {clip.effects.length === 0 ? (
         <EmptyState
-          icon={Sparkles}
+          icon={Sparkle}
           title="No effects on this layer"
           detail="The VFX library has glow, grain, particles, light leaks, glitch, shake and more — all keyframable."
           action={
@@ -348,7 +347,7 @@ const EffectBrowser: React.FC<{
       >
         <div className="panel-header">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-3.5 h-3.5 text-spectrum-accent" />
+            <Sparkle className="w-3.5 h-3.5 text-spectrum-accent" />
             <span className="text-[12px] font-semibold text-spectrum-text">VFX Library</span>
             <span className="chip">{results.length}</span>
           </div>

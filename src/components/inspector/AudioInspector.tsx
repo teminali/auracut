@@ -2,7 +2,7 @@ import React from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, VoiceEffect } from '../../types/edl';
 import { Section, SliderRow, ToggleRow, SegmentedControl, NumberField } from '../ui/Controls';
-import { Volume2, Waves, Mic, Sparkles } from 'lucide-react';
+import { Volume2, Waves, Mic, Sparkle } from 'lucide-react';
 
 const VOICE_EFFECTS: { value: VoiceEffect; label: string }[] = [
   { value: 'none', label: 'Natural' },
@@ -84,7 +84,7 @@ export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         </div>
       </Section>
 
-      <Section title="Processing" icon={Sparkles}>
+      <Section title="Processing" icon={Sparkle}>
         <ToggleRow
           label="Noise reduction"
           hint="Suppress hiss and room tone"

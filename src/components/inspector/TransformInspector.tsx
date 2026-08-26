@@ -5,8 +5,7 @@ import { Clip, AnimatableProperty } from '../../types/edl';
 import { interpolateKeyframes, keyframeAt } from '../../engine/keyframeMath';
 import { Section, NumberField, SliderRow, SegmentedControl, ToggleRow } from '../ui/Controls';
 import {
-  Move3d, Crop, Layers2, Wind, Square, Circle, Columns2, Star, Heart, Film,
-  FlipHorizontal2, FlipVertical2, RotateCcw, Route,
+  Move3d, Crop, Layers2, Wind, Square, Circle, Columns2, Star, Heart, Film, FlipHorizontal2, FlipVertical2, RotateCcw, Route,
 } from 'lucide-react';
 
 const BLEND_MODES = [

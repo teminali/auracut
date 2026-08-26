@@ -5,7 +5,9 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import React, { useCallback, useRef, useState, useEffect } from 'react';
-import { ChevronRight, RotateCcw, Timer } from 'lucide-react';
+import {
+  ChevronRight, RotateCcw, Timer,
+} from 'lucide-react';
 
 /* ── Scrub behaviour ────────────────────────────────────────────── */
 

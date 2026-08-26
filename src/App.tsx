@@ -31,7 +31,9 @@ import { captureCurrentFrame } from './engine/contextProtocol';
 import { useProjectStore } from './store/projectStore';
 import { useTimelineStore, getContentEndMs } from './store/timelineStore';
 import { useRecentsStore } from './store/recentsStore';
-import { PanelLeftClose, PanelRightClose } from 'lucide-react';
+import {
+  PanelLeftClose, PanelRightClose,
+} from 'lucide-react';
 
 const PANELS = {
   media: MediaPanel,
@@ -57,6 +59,15 @@ export const App: React.FC = () => {
   useKeyboardShortcuts();
 
   useEffect(() => startAutosave(), []);
+
+  /*
+    Tell main which screen is showing, so the window's close button can
+    mean "back to home" in the editor and "quit" on home. And listen for
+    main's request to go home, which is what it sends instead of closing.
+  */
+  useEffect(() => {
+    void window.electronAPI?.ui.setScreen(showHome ? 'home' : 'editor');
+  }, [showHome]);
 
   /*
     Remember the project whenever you leave it for home, with a real
@@ -86,6 +97,8 @@ export const App: React.FC = () => {
     }
     setShowHome(true);
   }, [setShowHome]);
+
+  useEffect(() => window.electronAPI?.ui.onGoHome(() => goHome()), [goHome]);
 
   /** Generic splitter drag. `sign` flips the direction for right/bottom edges. */
   const dragSplitter = useCallback(

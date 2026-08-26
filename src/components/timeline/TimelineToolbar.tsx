@@ -4,8 +4,7 @@ import { useProjectStore } from '../../store/projectStore';
 import { useUiStore } from '../../store/uiStore';
 import { detectBeats } from '../../engine/beatDetect';
 import {
-  Scissors, Trash2, Copy, Magnet, ZoomIn, ZoomOut, Plus, ArrowLeftRight,
-  Snowflake, RotateCcw, Unlink, Flag, Layers, Music4, Maximize,
+  Scissors, Trash2, Copy, Magnet, ZoomIn, ZoomOut, Plus, ArrowLeftRight, Snowflake, RotateCcw, Unlink, Flag, Layers, Music4, Maximize,
 } from 'lucide-react';
 
 interface TimelineToolbarProps {

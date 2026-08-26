@@ -101,6 +101,11 @@ export interface AuraCutElectronAPI {
     writeTemp: (name: string, bytes: Uint8Array) => Promise<string>;
   };
 
+  ui: {
+    setScreen: (screen: 'home' | 'editor') => Promise<boolean>;
+    onGoHome: (cb: () => void) => () => void;
+  };
+
   agents: {
     list: (deep?: boolean) => Promise<{ selected: string; backends: AgentBackendStatus[] }>;
     select: (id: string) => Promise<string>;

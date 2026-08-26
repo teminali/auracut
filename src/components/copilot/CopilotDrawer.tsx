@@ -29,8 +29,7 @@ import { AgentPicker } from './AgentPicker';
 import { GapLog } from './GapLog';
 import { useGapStore } from '../../store/gapStore';
 import {
-  Sparkles, X, ArrowUp, Cpu, ChevronDown, ChevronRight, Terminal,
-  Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair, Lightbulb, Eye, EyeOff,
+  Sparkle, X, ArrowUp, Cpu, ChevronDown, ChevronRight, Terminal, Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair, Lightbulb, Eye, EyeOff,
 } from 'lucide-react';
 
 /** A keycap, so the hint line reads as keys rather than as punctuation. */
@@ -341,7 +340,7 @@ export const CopilotDrawer: React.FC = () => {
       {/* Header */}
       <div className="panel-header">
         <div className="flex items-center gap-2 min-w-0">
-          <Sparkles className="w-3.5 h-3.5 text-spectrum-accent flex-shrink-0" />
+          <Sparkle className="w-3.5 h-3.5 text-spectrum-accent flex-shrink-0" />
           <span className="text-ui font-semibold text-spectrum-text flex-shrink-0">Copilot</span>
           <button
             onClick={() => setPickerOpen(true)}

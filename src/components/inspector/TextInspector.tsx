@@ -4,8 +4,7 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, KineticAnimation } from '../../types/edl';
 import { Section, SliderRow, ColorField, ToggleRow, SegmentedControl, NumberField } from '../ui/Controls';
 import {
-  Type, Sparkles, PaintBucket, AlignLeft, AlignCenter, AlignRight,
-  Bold, Italic, CaseUpper,
+  Type, Sparkle, PaintBucket, AlignLeft, AlignCenter, AlignRight, Bold, Italic, CaseUpper,
 } from 'lucide-react';
 
 /*
@@ -119,7 +118,7 @@ export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         />
       </Section>
 
-      <Section title="Presets" icon={Sparkles}>
+      <Section title="Presets" icon={Sparkle}>
         <div className="grid grid-cols-3 gap-1.5">
           {TEXT_PRESETS.map((preset) => (
             <button
@@ -208,7 +207,7 @@ export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         )}
       </Section>
 
-      <Section title="Animation" icon={Sparkles}>
+      <Section title="Animation" icon={Sparkle}>
         <SegmentedControl
           value={style.kineticAnimation}
           columns={2}

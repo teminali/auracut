@@ -3,8 +3,7 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import { Track } from '../../types/edl';
 import {
-  Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Headphones,
-  ChevronUp, ChevronDown, Trash2,
+  Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Headphones, ChevronUp, ChevronDown, Trash2,
 } from 'lucide-react';
 
 const TYPE_STYLE: Record<Track['type'], { badge: string; color: string; ring: string }> = {

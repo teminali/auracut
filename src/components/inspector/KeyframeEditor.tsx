@@ -15,8 +15,7 @@ import { interpolateKeyframes, keyframesFor, applyEasing } from '../../engine/ke
 import { MOTION_PRESET_LABELS } from '../../store/timelineStore';
 import { Section, SegmentedControl, EmptyState } from '../ui/Controls';
 import {
-  Diamond, Trash2, ChevronLeft, ChevronRight, Plus, LineChart, Rows3,
-  Sparkles, Timer, Wand2,
+  Diamond, Trash2, ChevronLeft, ChevronRight, Plus, LineChart, Rows3, Sparkle, Timer,
 } from 'lucide-react';
 
 interface KeyframeEditorProps {
@@ -264,7 +263,7 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
           title="No keyframes yet"
           detail="Turn on a stopwatch in the Transform tab, or drop in a motion preset below."
         />
-        <Section title="Motion presets" icon={Wand2}>
+        <Section title="Motion presets" icon={Sparkle}>
           <div className="grid grid-cols-2 gap-1">
             {MOTION_PRESET_LABELS.map((preset) => (
               <button
@@ -511,7 +510,7 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
       )}
 
       {/* ── Presets ── */}
-      <Section title="Motion presets" icon={Sparkles} defaultOpen={false}>
+      <Section title="Motion presets" icon={Sparkle} defaultOpen={false}>
         <div className="grid grid-cols-2 gap-1">
           {MOTION_PRESET_LABELS.map((preset) => (
             <button

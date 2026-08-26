@@ -8,8 +8,7 @@ import { executeTool } from '../../mcp/toolRegistry';
 import { analyzeTranscriptForBroll, BrollSuggestion } from '../../engine/brollEngine';
 import { Section } from '../ui/Controls';
 import {
-  Wand2, Scissors, Music4, Sparkles, Film, Plus, Subtitles,
-  Smartphone, Palette, Layers, MessageSquare,
+  Sparkle, Scissors, Music4, Film, Plus, Subtitles, Smartphone, Palette, Layers, MessageSquare,
 } from 'lucide-react';
 
 interface Recipe {
@@ -101,7 +100,7 @@ export const AiToolsPanel: React.FC = () => {
       id: 'punch',
       label: 'Add energy',
       hint: 'Beat zoom pulse, subtle shake and a punchier grade',
-      icon: Sparkles,
+      icon: Sparkle,
       tone: 'text-spectrum-red',
       run: async () => {
         const state = useTimelineStore.getState();
@@ -152,7 +151,7 @@ export const AiToolsPanel: React.FC = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <Section title="One-click recipes" icon={Wand2}>
+        <Section title="One-click recipes" icon={Sparkle}>
           <div className="space-y-1.5">
             {RECIPES.map((recipe) => {
               const Icon = recipe.icon;
@@ -221,7 +220,7 @@ export const AiToolsPanel: React.FC = () => {
             }, 'Background keyed out')}
             className="pro-btn-filled w-full h-7 gap-1.5 text-[11px]"
           >
-            <Sparkles className="w-3 h-3" /> Isolate subject
+            <Sparkle className="w-3 h-3" /> Isolate subject
           </button>
         </Section>
       </div>

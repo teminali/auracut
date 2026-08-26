@@ -34,7 +34,9 @@ import {
 } from '../../engine/geometry';
 import { resolveSnap, AlignmentGuide, SpacingIndicator, SnapContext } from '../../engine/snapping';
 import { Clip } from '../../types/edl';
-import { Lock } from 'lucide-react';
+import {
+  Lock,
+} from 'lucide-react';
 
 interface TransformGizmoProps {
   viewport: Viewport;

@@ -24,6 +24,14 @@ import {
 
 let mainWindow: BrowserWindow | null = null;
 
+/*
+  Which screen the renderer is showing, so the window's close button can
+  mean different things in each — closing the editor goes back to home,
+  and closing home quits. Main cannot see React state, so the renderer
+  reports it on every change.
+*/
+let currentScreen: 'home' | 'editor' = 'home';
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -88,11 +96,29 @@ function createWindow() {
   initAutoUpdater(mainWindow);
   setBridgeWindow(mainWindow);
 
+  /*
+    Closing the editor returns to home rather than quitting. Only home
+    closes the app. This is the one place the two screens are more than
+    a React branch, so the intercept lives here rather than in the
+    renderer, where the window button never reaches.
+  */
+  mainWindow.on('close', (event) => {
+    console.log(`[AuraCut] close requested while on: ${currentScreen}`);
+    if (currentScreen !== 'editor') return;
+    event.preventDefault();
+    mainWindow?.webContents.send('ui:go-home');
+  });
+
   mainWindow.on('closed', () => {
     setBridgeWindow(null);
     mainWindow = null;
   });
 }
+
+ipcMain.handle('ui:setScreen', (_e, p: { screen: 'home' | 'editor' }) => {
+  currentScreen = p.screen;
+  return true;
+});
 
 ipcMain.handle('dialog:openMedia', async () => {
   if (!mainWindow) return null;
@@ -276,6 +302,10 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
-});
+/*
+  Quit on every platform, macOS included. The usual macOS convention is
+  to keep the app alive with no windows, but here closing the window can
+  only happen FROM HOME — the editor intercepts it — so a close is an
+  explicit "I am done", not an accident.
+*/
+app.on('window-all-closed', () => app.quit());

@@ -13,8 +13,7 @@ import {
 } from '../../engine/captions';
 import { Section, SliderRow, ToggleRow, SegmentedControl, ColorField } from '../ui/Controls';
 import {
-  Subtitles, Upload, Download, Globe, Sparkles, FileText, Check,
-  AlertTriangle, Wand2, Clock, Type,
+  Subtitles, Upload, Download, Globe, Sparkle, FileText, Check, AlertTriangle, Clock, Type,
 } from 'lucide-react';
 
 const LANGUAGES = [
@@ -168,7 +167,7 @@ export const CaptionsPanel: React.FC = () => {
         <span className="panel-title">Captions{captionCount > 0 ? ` · ${captionCount}` : ''}</span>
         {captionCount > 0 && (
           <button onClick={restyleAll} className="pro-btn-filled h-6 px-2 gap-1 text-[10px]" title="Apply the selected style to every caption">
-            <Wand2 className="w-3 h-3" /> Restyle all
+            <Sparkle className="w-3 h-3" /> Restyle all
           </button>
         )}
       </div>
@@ -298,7 +297,7 @@ export const CaptionsPanel: React.FC = () => {
         </Section>
 
         {/* ── Generate ── */}
-        <Section title="Speech to text" icon={Sparkles}>
+        <Section title="Speech to text" icon={Sparkle}>
           <div className="space-y-1">
             <span className="text-[11px] text-spectrum-textMuted flex items-center gap-1.5">
               <Globe className="w-3 h-3 text-spectrum-accent" /> Language

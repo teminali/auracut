@@ -1,6 +1,8 @@
 import React from 'react';
 import { useUiStore } from '../../store/uiStore';
-import { Check, AlertCircle, Info, X, Loader2 } from 'lucide-react';
+import {
+  Check, AlertCircle, Info, X, Loader2,
+} from 'lucide-react';
 
 const ICONS = {
   success: Check,

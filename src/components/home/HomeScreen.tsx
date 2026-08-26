@@ -31,7 +31,7 @@ import { useUiStore } from '../../store/uiStore';
 import { hasAutosave, restoreAutosave, clearAutosave, deserializeProject } from '../../engine/projectIO';
 import { formatDuration } from '../../utils/time';
 import {
-  Sparkles, Plus, FolderOpen, ArrowUp, Clock, RotateCcw, X, Blocks, Film,
+  Sparkle, Plus, FolderOpen, ArrowUp, Clock, RotateCcw, X, Blocks, Film,
 } from 'lucide-react';
 
 /* ── What you can ask for, when you have no idea what to ask for ──── */
@@ -149,7 +149,7 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
           </h1>
 
           <div className="pro-input flex items-end gap-2 p-2.5">
-            <Sparkles className="w-4 h-4 text-spectrum-accent flex-shrink-0 mb-1" />
+            <Sparkle className="w-4 h-4 text-spectrum-accent flex-shrink-0 mb-1" />
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}

@@ -13,8 +13,7 @@ import { resolveAnnotationTargets } from '../../engine/contextProtocol';
 import { useProjectStore } from '../../store/projectStore';
 import { useMeasure } from '../../hooks/useMeasure';
 import {
-  X, MousePointer2, ArrowUpRight, Square, Circle, Pencil, Type,
-  Undo2, Trash2, Check, MapPin,
+  X, MousePointer2, ArrowUpRight, Square, Circle, Pencil, Type, Undo2, Trash2, Check, MapPin,
 } from 'lucide-react';
 
 interface FrameAnnotatorProps {

@@ -10,8 +10,7 @@ import { TextInspector } from './TextInspector';
 import { ShapeInspector } from './ShapeInspector';
 import { EmptyState } from '../ui/Controls';
 import {
-  MousePointerSquareDashed, Move3d, Palette, Sparkles, Gauge,
-  Diamond, Volume2, Type, Shapes, Lock,
+  MousePointerSquareDashed, Move3d, Palette, Sparkle, Gauge, Diamond, Volume2, Type, Shapes, Lock,
 } from 'lucide-react';
 
 type TabId = 'transform' | 'color' | 'effects' | 'speed' | 'keys' | 'audio' | 'text' | 'shape';
@@ -47,7 +46,7 @@ export const InspectorPanel: React.FC = () => {
     if (clip.type === 'shape') list.push({ id: 'shape', label: 'Shape', icon: Shapes });
     if (clip.type !== 'audio') {
       list.push({ id: 'transform', label: 'Transform', icon: Move3d });
-      list.push({ id: 'effects', label: 'VFX', icon: Sparkles });
+      list.push({ id: 'effects', label: 'VFX', icon: Sparkle });
     }
     if (clip.type === 'video' || clip.type === 'image' || clip.type === 'adjustment') {
       list.push({ id: 'color', label: 'Colour', icon: Palette });

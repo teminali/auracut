@@ -5,7 +5,9 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, SpeedCurvePreset, SpeedCurvePoint } from '../../types/edl';
 import { resolveSpeedPoints, getSpeedCurveMultiplier } from '../../engine/keyframeMath';
 import { Section, SliderRow, ToggleRow, SegmentedControl } from '../ui/Controls';
-import { Gauge, Rewind, Waves, RotateCcw, Plus } from 'lucide-react';
+import {
+  Gauge, Rewind, Waves, RotateCcw, Plus,
+} from 'lucide-react';
 
 const PRESETS: { value: SpeedCurvePreset; label: string; hint: string }[] = [
   { value: 'linear', label: 'Normal', hint: 'Constant rate' },

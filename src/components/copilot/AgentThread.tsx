@@ -29,14 +29,14 @@ import {
   isEditorTool,
 } from './agentPhases';
 import {
-  Check, X, Loader2, ChevronRight, Eye, Wand2, ScanEye, Film, TerminalSquare, Lightbulb,
+  Check, X, Loader2, ChevronRight, Eye, Sparkle, ScanEye, Film, TerminalSquare, Lightbulb,
 } from 'lucide-react';
 
 /* ── Phase identity ─────────────────────────────────────────────── */
 
 const PHASE_ICON: Record<PhaseKind, React.ComponentType<{ className?: string }>> = {
   understand: Eye,
-  edit: Wand2,
+  edit: Sparkle,
   verify: ScanEye,
   render: Film,
   shell: TerminalSquare,

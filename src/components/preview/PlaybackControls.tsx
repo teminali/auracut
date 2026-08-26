@@ -3,8 +3,7 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { useProjectStore } from '../../store/projectStore';
 import { formatTimecode } from '../../utils/time';
 import {
-  Play, Pause, SkipBack, SkipForward, ChevronLeft, ChevronRight,
-  Repeat, Flag, ScissorsLineDashed,
+  Play, Pause, SkipBack, SkipForward, ChevronLeft, ChevronRight, Repeat, Flag, ScissorsLineDashed,
 } from 'lucide-react';
 
 const RATES = [0.25, 0.5, 1, 1.5, 2];

@@ -5,8 +5,7 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { ShapeKind } from '../../types/edl';
 import { Section } from '../ui/Controls';
 import {
-  Type, Plus, Square, Circle, Triangle, Star, Minus, MoveRight,
-  Heart, Hexagon, Spline, Layers,
+  Type, Plus, Square, Circle, Triangle, Star, Minus, MoveRight, Heart, Hexagon, Spline, Layers,
 } from 'lucide-react';
 import { PanelSearch, matchesQuery } from './PanelSearch';
 

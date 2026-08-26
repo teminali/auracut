@@ -11,8 +11,7 @@ import { AudioWaveform } from './AudioWaveform';
 import { extractPeaks } from '../../engine/audioPeakExtractor';
 import { formatCompactDuration } from '../../utils/time';
 import {
-  Type, Film, Music, Image as ImageIcon, Lock, Diamond, Gauge, Layers,
-  Copy, Trash2, Scissors, Split, Snowflake, RotateCcw, Unlink,
+  Type, Film, Music, Image as ImageIcon, Lock, Diamond, Gauge, Layers, Copy, Trash2, Scissors, Split, Snowflake, RotateCcw, Unlink,
 } from 'lucide-react';
 
 interface ClipBlockProps {

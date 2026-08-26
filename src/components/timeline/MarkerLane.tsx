@@ -1,7 +1,9 @@
 import React from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
-import { Trash2, Flag } from 'lucide-react';
+import {
+  Trash2, Flag,
+} from 'lucide-react';
 
 interface MarkerLaneProps {
   pxPerMs: number;

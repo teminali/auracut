@@ -5,7 +5,9 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import { DEFAULT_FILTERS, Clip } from '../../types/edl';
 import { Section } from '../ui/Controls';
-import { Sliders, Layers, Check } from 'lucide-react';
+import {
+  Sliders, Layers, Check,
+} from 'lucide-react';
 import { PanelSearch, matchesQuery } from './PanelSearch';
 
 const LOOKS: { id: string; label: string; swatch: string; hint: string; filters: Partial<Clip['filters']> }[] = [
