@@ -19,6 +19,9 @@ import path from 'path';
 import os from 'os';
 import fs from 'fs';
 import { RPC_PORT, RPC_TOKEN } from './rpcServer';
+import {
+  BackendId, AgentBackend, getBackend, findBackendBinary, surveyBackends, BackendStatus,
+} from './agentBackends';
 
 export interface ClaudeEvent {
   type: string;
@@ -26,6 +29,31 @@ export interface ClaudeEvent {
 }
 
 let active: ChildProcessWithoutNullStreams | null = null;
+
+/** Which CLI drives the Copilot. Claude Code is the verified default. */
+let selectedBackendId: BackendId = 'claude';
+
+export function setBackend(id: BackendId): void {
+  if (getBackend(id)) {
+    selectedBackendId = id;
+    lastSessionId = null; // a session id belongs to the CLI that made it
+  }
+}
+
+export function getBackendId(): BackendId {
+  return selectedBackendId;
+}
+
+export function listBackends(deep = false): Promise<BackendStatus[]> {
+  return surveyBackends(deep);
+}
+
+/** Scratch space for per-run config files, cleaned up with the app. */
+function sessionDir(): string {
+  const dir = path.join(app.getPath('userData'), 'agent-session');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
 let lastSessionId: string | null = null;
 
 /* ── Locating the CLI ─────────────────────────────────────────────
@@ -44,6 +72,7 @@ const CANDIDATE_PATHS = [
 
 let cachedCliPath: string | null | undefined;
 
+/** Claude specifically — kept for the status IPC and the default path. */
 export function findClaudeCli(): string | null {
   if (cachedCliPath !== undefined) return cachedCliPath;
 
@@ -113,10 +142,8 @@ export function getCliVersion(cliPath: string): Promise<string | null> {
 /* ── MCP config ───────────────────────────────────────────────────
    Written fresh per launch because it carries the session token.      */
 
-export function writeMcpConfig(): string {
-  const dir = app.getPath('userData');
-  const file = path.join(dir, 'mcp-auracut.json');
-
+/** The one server spec, in a form each backend can render its own way. */
+export function mcpServerSpec(): { command: string; args: string[]; env: Record<string, string> } {
   /*
     The shim runs as its own process, so it must be a real file. Inside a
     packaged app __dirname points into app.asar, which nothing can spawn
@@ -127,21 +154,29 @@ export function writeMcpConfig(): string {
     .join(__dirname, 'mcpStdio.cjs')
     .replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 
-  const config = {
-    mcpServers: {
-      auracut: {
-        // Electron's own binary, run as plain Node — no separate install.
-        command: process.execPath,
-        args: [shim],
-        env: {
-          ELECTRON_RUN_AS_NODE: '1',
-          AURACUT_RPC_PORT: String(RPC_PORT),
-          AURACUT_RPC_TOKEN: RPC_TOKEN,
-        },
-      },
+  return {
+    // Electron's own binary, run as plain Node — no separate install.
+    command: process.execPath,
+    args: [shim],
+    env: {
+      ELECTRON_RUN_AS_NODE: '1',
+      AURACUT_RPC_PORT: String(RPC_PORT),
+      AURACUT_RPC_TOKEN: RPC_TOKEN,
     },
   };
+}
 
+export function writeMcpConfig(): string {
+  const dir = app.getPath('userData');
+  const file = path.join(dir, 'mcp-auracut.json');
+
+  /*
+    The shim runs as its own process, so it must be a real file. Inside a
+    packaged app __dirname points into app.asar, which nothing can spawn
+    from — electron-builder is told to unpack this one file, and the path
+    is rewritten to match.
+  */
+  const config = { mcpServers: { auracut: mcpServerSpec() } };
   fs.writeFileSync(file, JSON.stringify(config, null, 2), 'utf8');
   return file;
 }
@@ -195,12 +230,14 @@ export function resetSession(): void {
  * settles when the CLI exits.
  */
 export function startSession(window: BrowserWindow, options: StartOptions): Promise<void> {
-  const cli = findClaudeCli();
+  const chosen = getBackend(selectedBackendId)!;
+  const cli = findBackendBinary(chosen);
   if (!cli) {
     window.webContents.send('claude:event', {
       type: 'auracut_error',
       message:
-        'The Claude Code CLI was not found. Install it with:\n\n  npm i -g @anthropic-ai/claude-code\n\nthen reopen AuraCut.',
+        `${chosen.label} was not found. Install it with:\n\n  ${chosen.installHint}\n\n` +
+        'then reopen AuraCut — or pick a different agent from the Copilot header.',
     });
     return Promise.resolve();
   }
@@ -211,38 +248,33 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
     .map((d) => path.join(os.homedir(), d))
     .filter((d) => fs.existsSync(d));
 
+  const backend = getBackend(selectedBackendId)!;
+  const dir = sessionDir();
+
+  /*
+    Each CLI reaches our MCP server a different way — a flag for Claude,
+    a workspace settings file for Gemini, a TOML config directory for
+    Codex. The adapter writes whatever it needs and tells us where to run.
+  */
+  const prepared = backend.prepare(mcpServerSpec(), dir);
+
   const args = [
-    '-p',
-    options.prompt,
-    '--output-format', 'stream-json',
-    '--verbose',
-    '--mcp-config', writeMcpConfig(),
-    // Only our server: the user's other MCP servers and plugins would add
-    // startup latency and a much larger system prompt for no benefit here.
-    '--strict-mcp-config',
-    // There is no TTY to approve anything on, so a prompt would simply
-    // hang the turn. The surface is bounded by --allowedTools instead.
-    '--permission-mode', 'bypassPermissions',
-    '--append-system-prompt', SYSTEM_APPEND,
+    ...backend.buildArgs(options.prompt, {
+      systemPrompt: SYSTEM_APPEND,
+      resumeId: options.resume ? lastSessionId : null,
+      extraDirs: [...mediaDirs, ...(options.extraDirs ?? [])],
+    }),
+    ...prepared.extraArgs,
   ];
 
-  for (const dir of [...mediaDirs, ...(options.extraDirs ?? [])]) {
-    args.push('--add-dir', dir);
-  }
-
-  if (options.resume && lastSessionId) {
-    args.push('--resume', lastSessionId);
-  }
-
   const child = spawn(cli, args, {
-    cwd: os.homedir(),
+    cwd: prepared.cwd,
     env: {
       ...process.env,
       // Never let a nested-session guard or a stray key from our own
       // environment leak into the user's session.
-      CLAUDECODE: undefined,
-      CLAUDE_CODE_SSE_PORT: undefined,
       ELECTRON_RUN_AS_NODE: undefined,
+      ...prepared.extraEnv,
     } as NodeJS.ProcessEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -254,21 +286,32 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
   };
 
   let buffer = '';
+  /*
+    Everything stdout produced, and whether anything was recognised.
+
+    Only the Claude adapter's stream shape has been verified against a
+    real run. If another CLI emits something this build does not
+    understand, the panel would otherwise sit empty while the turn
+    succeeded — so the raw output becomes the answer instead. Losing the
+    per-tool timeline is a fair degradation; a blank panel is not.
+  */
+  let rawOutput = '';
+  let recognisedAnything = false;
+
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk: string) => {
+    rawOutput += chunk;
     buffer += chunk;
     let newline = buffer.indexOf('\n');
     while (newline !== -1) {
       const line = buffer.slice(0, newline).trim();
       buffer = buffer.slice(newline + 1);
       if (line) {
-        try {
-          const event = JSON.parse(line) as ClaudeEvent;
+        for (const event of backend.translate(line)) {
+          recognisedAnything = true;
           // Remember the session so the next turn can continue it.
-          if (typeof event.session_id === 'string') lastSessionId = event.session_id;
-          emit(event);
-        } catch {
-          /* a non-JSON line is diagnostic noise — ignore it */
+          if (typeof event.session_id === 'string') lastSessionId = event.session_id as string;
+          emit(event as ClaudeEvent);
         }
       }
       newline = buffer.indexOf('\n');
@@ -281,7 +324,7 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
 
   return new Promise<void>((resolve) => {
     child.on('error', (err) => {
-      emit({ type: 'auracut_error', message: `Could not start Claude Code: ${err.message}` });
+      emit({ type: 'auracut_error', message: `Could not start ${backend.label}: ${err.message}` });
       active = null;
       resolve();
     });
@@ -290,12 +333,64 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
       if (code !== 0 && code !== null) {
         emit({
           type: 'auracut_error',
-          message: stderr.trim() || `Claude Code exited with code ${code}.`,
+          message: stderr.trim() || `${backend.label} exited with code ${code}.`,
         });
+        emit({ type: 'auracut_done' });
+        active = null;
+        resolve();
+        return;
       }
+
+      /*
+        The turn succeeded but nothing in its output was recognised —
+        this adapter's stream shape is not the one the CLI produced.
+        Hand over what it said rather than showing an empty panel, and
+        say why the step-by-step is missing.
+      */
+      if (!recognisedAnything) {
+        const text = plainTextFrom(rawOutput);
+        emit({
+          type: 'result',
+          result: text || `${backend.label} finished without producing readable output.`,
+          is_error: false,
+        });
+        if (text) {
+          emit({
+            type: 'auracut_notice',
+            message:
+              `AuraCut does not yet parse ${backend.label}'s streamed output, so the ` +
+              'per-tool steps are not shown. The answer above is what it returned.',
+          });
+        }
+      }
+
       emit({ type: 'auracut_done' });
       active = null;
       resolve();
     });
   });
+}
+
+/**
+ * Salvage readable text from output we could not structure.
+ *
+ * Takes any `text`-ish field out of JSON lines, and otherwise keeps the
+ * line as-is, so a plain-text CLI and a JSON one both survive.
+ */
+function plainTextFrom(raw: string): string {
+  const parts: string[] = [];
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      for (const key of ['result', 'text', 'content', 'message', 'response']) {
+        const value = parsed[key];
+        if (typeof value === 'string' && value.trim()) { parts.push(value.trim()); break; }
+      }
+    } catch {
+      parts.push(trimmed);
+    }
+  }
+  return parts.join('\n').trim().slice(0, 8000);
 }

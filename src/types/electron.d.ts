@@ -12,11 +12,31 @@ export type UpdateStatus =
   | { state: 'manual-only'; version: string; url: string }
   | { state: 'error'; message: string };
 
+/** One selectable agent CLI, as main sees it. */
+export interface AgentBackendStatus {
+  id: 'claude' | 'gemini' | 'codex' | 'cursor';
+  label: string;
+  vendor: string;
+  installed: boolean;
+  path: string | null;
+  version: string | null;
+  /** Installed AND usable — a CLI can be present but not signed in. */
+  ready: boolean;
+  reason?: string;
+  fix?: string;
+  installHint: string;
+  /** Whether this adapter's stream format has been verified on a real run. */
+  streamVerified: boolean;
+}
+
 export interface ClaudeStatus {
   installed: boolean;
   path: string | null;
   version: string | null;
   running: boolean;
+  /** The selected backend, so the header can name what is really driving. */
+  label?: string;
+  backendId?: string;
 }
 
 /** One line of Claude Code's stream-json output. */
@@ -73,6 +93,14 @@ export interface AuraCutElectronAPI {
   media: {
     /** Writes bytes to a temp file and returns its absolute path. */
     writeTemp: (name: string, bytes: Uint8Array) => Promise<string>;
+  };
+
+  agents: {
+    list: (deep?: boolean) => Promise<{ selected: string; backends: AgentBackendStatus[] }>;
+    select: (id: string) => Promise<string>;
+    install: (id: string) => Promise<{ ok: boolean; message: string }>;
+    signIn: (id: string) => Promise<{ ok: boolean; message: string }>;
+    onInstallProgress: (cb: (p: { id: string; line: string }) => void) => () => void;
   };
 
   claude: {

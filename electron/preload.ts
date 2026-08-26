@@ -52,6 +52,15 @@ export interface ElectronAPI {
     writeTemp: (name: string, bytes: Uint8Array) => Promise<string>;
   };
 
+  /** Which CLI backend drives the Copilot, and getting one installed. */
+  agents: {
+    list: (deep?: boolean) => Promise<{ selected: string; backends: unknown[] }>;
+    select: (id: string) => Promise<string>;
+    install: (id: string) => Promise<{ ok: boolean; message: string }>;
+    signIn: (id: string) => Promise<{ ok: boolean; message: string }>;
+    onInstallProgress: (cb: (p: { id: string; line: string }) => void) => () => void;
+  };
+
   /** The Claude Code session that powers the Copilot. */
   claude: {
     status: () => Promise<ClaudeStatus>;
@@ -116,6 +125,18 @@ const api: ElectronAPI = {
 
   media: {
     writeTemp: (name, bytes) => ipcRenderer.invoke('media:writeTemp', { name, bytes }),
+  },
+
+  agents: {
+    list: (deep) => ipcRenderer.invoke('agents:list', { deep }),
+    select: (id) => ipcRenderer.invoke('agents:select', { id }),
+    install: (id) => ipcRenderer.invoke('agents:install', { id }),
+    signIn: (id) => ipcRenderer.invoke('agents:signIn', { id }),
+    onInstallProgress: (cb) => {
+      const handler = (_e: unknown, p: { id: string; line: string }) => cb(p);
+      ipcRenderer.on('agents:install-progress', handler);
+      return () => ipcRenderer.removeListener('agents:install-progress', handler);
+    },
   },
 
   claude: {

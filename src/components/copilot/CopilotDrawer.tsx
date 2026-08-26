@@ -25,6 +25,7 @@ import { FrameAnnotator } from './FrameAnnotator';
 import { RichText } from './RichText';
 import { AgentThread } from './AgentThread';
 import { RunStatus } from './RunStatus';
+import { AgentPicker } from './AgentPicker';
 import { GapLog } from './GapLog';
 import { useGapStore } from '../../store/gapStore';
 import {
@@ -33,6 +34,14 @@ import {
 } from 'lucide-react';
 
 /** A keycap, so the hint line reads as keys rather than as punctuation. */
+/** Display names for the selectable backends. */
+const AGENT_LABELS: Record<string, string> = {
+  claude: 'Claude Code',
+  gemini: 'Gemini CLI',
+  codex: 'Codex CLI',
+  cursor: 'Cursor Agent',
+};
+
 const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <kbd className="px-1 h-[14px] inline-flex items-center rounded-[3px] border border-line bg-spectrum-sunken font-mono text-[9px] text-spectrum-textDim">
     {children}
@@ -68,6 +77,7 @@ export const CopilotDrawer: React.FC = () => {
   const [preflightOpen, setPreflightOpen] = useState(false);
   const [gapLogOpen, setGapLogOpen] = useState(false);
   const [showMcpLog, setShowMcpLog] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   /*
     A prompt typed while the agent is still working.
 
@@ -92,7 +102,10 @@ export const CopilotDrawer: React.FC = () => {
     the CLI was missing during startup AND route the first prompt to the
     fallback planner. Unknown is not the same as absent.
   */
+  const [agentLabel, setAgentLabel] = useState('Claude Code');
   const agentChecked = agent.status !== null;
+  // Main reports which backend is selected; trust that over local state.
+  const reportedLabel = agent.status?.label ?? agentLabel;
   const agentReady = Boolean(agent.status?.installed);
 
   useEffect(() => {
@@ -330,8 +343,9 @@ export const CopilotDrawer: React.FC = () => {
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles className="w-3.5 h-3.5 text-spectrum-accent flex-shrink-0" />
           <span className="text-ui font-semibold text-spectrum-text flex-shrink-0">Copilot</span>
-          <span
-            className="flex items-center gap-1 flex-shrink-0 min-w-0"
+          <button
+            onClick={() => setPickerOpen(true)}
+            className="flex items-center gap-1 flex-shrink-0 min-w-0 rounded-[4px] px-1 -mx-1 hover:bg-white/[0.05] transition-colors"
             title={
               !agentChecked
                 ? 'Looking for the Claude Code CLI…'
@@ -348,9 +362,10 @@ export const CopilotDrawer: React.FC = () => {
               }`}
             />
             <span className="text-[9px] font-mono text-spectrum-textFaint truncate">
-              {!agentChecked ? 'checking…' : agentReady ? 'Claude Code' : 'built-in'}
+              {!agentChecked ? 'checking…' : agentReady ? reportedLabel : 'built-in'}
             </span>
-          </span>
+            <ChevronDown className="w-2.5 h-2.5 text-spectrum-textFaint flex-shrink-0" />
+          </button>
         </div>
         <div className="flex items-center gap-0.5 flex-shrink-0">
           {openGaps > 0 && (
@@ -634,6 +649,21 @@ export const CopilotDrawer: React.FC = () => {
           )}
         </div>
       </div>
+
+      {pickerOpen && (
+        <AgentPicker
+          onClose={() => setPickerOpen(false)}
+          onSelected={(id) => {
+            setAgentLabel(AGENT_LABELS[id] ?? id);
+            void agent.refreshStatus();
+            // A session id belongs to the CLI that made it, so the next
+            // turn starts fresh rather than trying to resume someone
+            // else's conversation.
+            agent.clear();
+            setPickerOpen(false);
+          }}
+        />
+      )}
 
       {gapLogOpen && <GapLog onClose={() => setGapLogOpen(false)} />}
 

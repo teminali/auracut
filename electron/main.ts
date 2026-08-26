@@ -8,8 +8,9 @@ import { startExport, writeFrame, finishExport, cancelExport, ExportClipAudio, S
 import { startRpcServer } from './rpcServer';
 import {
   startSession, stopSession, resetSession, isRunning, findClaudeCli, getCliVersion,
-  writeMcpConfig,
+  writeMcpConfig, setBackend, getBackendId, listBackends,
 } from './claudeSession';
+import { installBackend, signInCommand, BackendId } from './agentBackends';
 
 /*
   This file is bundled to CommonJS (`main.cjs`), so `__dirname` is native
@@ -111,21 +112,19 @@ ipcMain.handle('dialog:saveExport', async (_, defaultName: string) => {
 
 function registerAgentIpc() {
   ipcMain.handle('claude:status', async () => {
-    const cli = findClaudeCli();
     /*
-      `installed` must not wait on the version. It used to: this handler
-      awaited `claude --version`, which spawns the binary and takes about
-      0.6s cold — and for that whole window the drawer showed "built-in",
-      told the user there was no model, and routed anything they typed to
-      the fallback planner. Whether the binary exists is a file check;
-      the version is decoration and is now cached and time-boxed.
+      Reports the SELECTED backend, not Claude specifically. The header
+      badge reads this, and it would otherwise show Claude's readiness
+      while a different CLI was actually driving the Copilot.
     */
-    if (!cli) return { installed: false, path: null, version: null, running: isRunning() };
-
+    const id = getBackendId();
+    const surveyed = (await listBackends(false)).find((b) => b.id === id);
     return {
-      installed: true,
-      path: cli,
-      version: await getCliVersion(cli),
+      installed: Boolean(surveyed?.installed),
+      path: surveyed?.path ?? null,
+      version: surveyed?.version ?? null,
+      label: surveyed?.label ?? 'Claude Code',
+      backendId: id,
       running: isRunning(),
     };
   });
@@ -189,6 +188,47 @@ function registerAgentIpc() {
   ipcMain.handle('export:finish', (_e, p: { sessionId: string; audioClips: ExportClipAudio[] }) =>
     finishExport(p.sessionId, p.audioClips));
   ipcMain.handle('export:cancel', (_e, p: { sessionId: string }) => { cancelExport(p.sessionId); return true; });
+
+  /* ── Which CLI drives the Copilot ── */
+
+  ipcMain.handle('agents:list', async (_e, p: { deep?: boolean }) => ({
+    selected: getBackendId(),
+    backends: await listBackends(p?.deep ?? false),
+  }));
+
+  ipcMain.handle('agents:select', (_e, p: { id: BackendId }) => {
+    setBackend(p.id);
+    return getBackendId();
+  });
+
+  ipcMain.handle('agents:install', async (_e, p: { id: BackendId }) =>
+    installBackend(p.id, (line) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('agents:install-progress', { id: p.id, line });
+      }
+    }));
+
+  /*
+    Sign-in is an OAuth flow with a browser round trip and a prompt. It
+    cannot run inside a headless child process, so the honest version of
+    a button is a real terminal already running the right command.
+  */
+  ipcMain.handle('agents:signIn', async (_e, p: { id: BackendId }) => {
+    const command = signInCommand(p.id);
+    if (!command) return { ok: false, message: 'No sign-in command for that agent.' };
+
+    if (process.platform === 'darwin') {
+      const { execFile } = await import('child_process');
+      execFile('osascript', [
+        '-e',
+        `tell application "Terminal" to do script "${command}"`,
+        '-e',
+        'tell application "Terminal" to activate',
+      ]);
+      return { ok: true, message: `Opened Terminal running \`${command}\`.` };
+    }
+    return { ok: false, message: `Run \`${command}\` in a terminal, then reopen AuraCut.` };
+  });
 
   ipcMain.handle('claude:stop', () => { stopSession(); return true; });
   ipcMain.handle('claude:reset', () => { resetSession(); return true; });
