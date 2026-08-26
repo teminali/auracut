@@ -1,76 +1,88 @@
 # AuraCut — handover
 
-You are picking up an Electron video editor whose Copilot **runs Claude Code
-as its agent**.
+An Electron video editor whose Copilot drives a coding CLI as its agent.
+Read this whole file before touching anything. Several traps below cost
+hours and are invisible from the code.
 
-## What changed last session
+## Where it stands
 
-**The editor could not display video.** Every clip was drawn through
-`getCachedImage()` → `new Image()`. An `<img>` cannot decode an MP4, so real
-footage rendered as the compositor's grey placeholder gradient. Forever. It
-was invisible because the seed project's "footage" was Unsplash **JPEGs**
-typed `video`, named `A001_C001_NeonCity_4K.mov` and labelled
-`ProRes 422 HQ` at `18.4 MB`. Stills draw fine through an `<img>`.
-`src/engine/videoEngine.ts` now decodes video; the seed data no longer lies
-about itself.
+Yesterday this was, in its own former words, "a very good previewer". It
+could not display video, exported nothing, and several features measured
+nothing while reporting success. Those are fixed and verified by
+observation:
 
-**Export encoded nothing** (the previous Priority Zero). Fixed: the renderer
-composites each frame and streams it to main, which drives ffmpeg to a real
-file. Verified from the artifact — h264 + 48kHz stereo AAC, real signal.
+| | |
+|---|---|
+| **Video** | Real decode via `videoEngine.ts`. Frame-accurate seeking, verified against burned-in timecode. |
+| **Export** | Real file. Renderer composites → main drives ffmpeg. h264/hevc/prores + AAC, aspect-correct, 720p/1080p/**2K**/4K. |
+| **Grading** | `highlights`, `shadows`, `sharpen` now render (SVG tone curves). Measured on real frames. |
+| **Beats** | Anchored to detected onsets, not a synthesised grid. 119.8 BPM on a 120 BPM source, zero drift. |
+| **Silence** | Measured with ffmpeg `silencedetect`, with a `dryRun`. |
+| **Copilot** | Multi-backend picker: Claude Code, Codex CLI, Gemini CLI, Cursor Agent. Claude + Codex verified end to end. |
+| **Assets** | 183 system fonts, 12 synthesised SFX, search on every panel, 14 transitions, 23 effects, 10 looks. |
 
-Both are done. The current state is honest: picture and sound go in, a real
-file comes out.
+**53 tools**, 4 agent backends. Both the renderer and the main process
+typecheck (`npm run typecheck`).
 
 ---
 
-## ⚠ Where the audit stands
+## ⚠ PRIORITY ZERO: none of this has been packaged
 
-Five passes done. Every one found working-looking code that did nothing,
-including two files a previous handover had marked "verified genuinely
-real, do not re-audit".
+`/Applications/AuraCut.app` predates every commit described here. All of
+the above was verified against the **dev build only**, and this project's
+own hardest-won lesson is that dev parity is not evidence — three
+separate bugs previously worked in dev and failed only when packaged.
 
-**Audited against the RUNNING APP and confirmed real:** all 14
-transitions, 23 effects, 10 colour looks, caption import/export (SRT
-round-trips exactly), keyframe interpolation (measured on rendered
-frames), masks, `create_grid_layout`, `analyze_audio`, video decode,
-export.
+The changes most at risk, and why:
 
-**Not yet re-verified:** the context-protocol tools
-(`check_command_readiness`, `resolve_target`, `describe_layer_at_point`),
-`copy_effects`, `set_motion_path`, `set_motion_blur`, `import_media_from_path`
-edge cases, `undo` depth, `snapCutsToBeats`.
+| Change | Risk when packaged |
+|---|---|
+| SVG tone filters | grading depends on `<filter>` elements injected into the document |
+| `queryLocalFonts` | permission behaviour differs outside dev |
+| Generated SFX | writes to `app.getPath('temp')` |
+| **Agent backends** | spawn CLIs from a Finder-launched app: minimal PATH, no shell profile, no API keys |
+| MCP shim | must resolve out of `app.asar.unpacked`, not `app.asar` |
 
-Read this whole file before touching anything. Several of the traps below
-cost hours to find and are invisible from the code.
+Do this before anything else:
+
+```bash
+npm run build && npx electron-builder --mac --dir --publish never
+```
+
+then drive the packaged app and re-verify: video renders, export writes a
+file with audio, fonts enumerate, an SFX generates, the agent picker
+finds the CLIs.
 
 ---
 
 ## 1. What this is
 
-- **Repo:** https://github.com/teminali/auracut (public) · currently `v1.1.0`
+- **Repo:** https://github.com/teminali/auracut (public) · `v1.1.0`
 - **Stack:** Electron 34 + React 19 + TypeScript + Vite + zustand + Tailwind
 - **Renderer** owns the project (zustand stores). **Main** owns the OS.
-- Installed at `/Applications/AuraCut.app` on the maintainer's Mac (arm64).
+- Desktop only, and deliberately — see §6.
 
 ```
 src/
   components/   UI by region (header, sidebar, preview, timeline, inspector, copilot)
-  engine/       compositor, effects, geometry, captions, snapping, export
+  engine/       compositor, video, audio, effects, export, fonts, SFX, tone curves
   store/        zustand — the single source of truth
-  mcp/          toolRegistry.ts — the 48 tools the agent drives
+  mcp/          toolRegistry.ts — the 53 tools the agent drives
 electron/
-  main.ts           app lifecycle, IPC
-  toolBridge.ts     main → renderer tool execution
-  rpcServer.ts      127.0.0.1:3888, token-guarded
-  mcpStdio.ts       MCP shim Claude Code spawns
-  claudeSession.ts  spawns + streams the CLI
-  transcribe.ts     ffmpeg + Whisper speech-to-text
+  main.ts            app lifecycle, IPC
+  agentBackends.ts   one adapter per CLI: detection, MCP config, flags, stream
+  claudeSession.ts   spawns the selected backend, streams its output
+  render.ts          ffmpeg encode + audio mix + mux
+  toolBridge.ts      main → renderer tool execution
+  rpcServer.ts       127.0.0.1:3888, token-guarded
+  mcpStdio.ts        MCP shim the CLI spawns
+  transcribe.ts      ffmpeg + Whisper speech-to-text
 ```
 
 ### The Copilot architecture (non-obvious, do not redesign casually)
 
 ```
-Copilot drawer ──IPC──> main ──spawn──> claude CLI
+Copilot drawer ──IPC──> main ──spawn──> claude | codex | gemini | cursor
                                             │ MCP (stdio)
                                             ▼
                                       mcpStdio.cjs
@@ -82,219 +94,285 @@ Copilot drawer ──IPC──> main ──spawn──> claude CLI
                                              toolRegistry (owns project)
 ```
 
-The last hop is the whole point. Editing tools operate on zustand stores in
-the renderer, so an external process **cannot** call them directly — it must
-ask the window. An earlier version ran tools in its own process against a
-fresh empty store and edited a project nobody could see.
+The last hop is the whole point. Editing tools operate on zustand stores
+in the renderer, so an external process **cannot** call them directly —
+it must ask the window. An earlier version ran tools in its own process
+against a fresh empty store and edited a project nobody could see.
 
-Claude Code brings its **own** tools (Bash, Read, Write, WebFetch, downloads)
-alongside AuraCut's 48. It authenticates with the user's existing Claude
-subscription — no API key. `npm i -g @anthropic-ai/claude-code` is the only
-requirement; without it the Copilot falls back to a regex planner and says so.
+**Why MCP when the CLI is right there:** the CLI is a separate OS
+process and cannot touch the renderer's stores. MCP is the channel, and
+because all four CLIs speak it, the 53 tools are written once and every
+backend inherits them. Swapping backends is config, not a rewrite. The
+CLI's *own* tools (Bash, Read, WebFetch) are the other half — MCP for
+the editor, its own tools for the computer.
+
+### Agent backends
+
+`electron/agentBackends.ts` is one adapter per CLI. Each supplies: where
+the binary lives, how MCP servers are configured, the flags for one
+non-interactive turn with tools approved, and how to read its stream.
+
+| | State | Stream verified |
+|---|---|---|
+| Claude Code | default; preferred whenever connected | yes |
+| Codex CLI | works | yes |
+| Gemini CLI | needs an API key — Google retired personal OAuth for it | no |
+| Cursor Agent | needs `cursor-agent login` or a key | no |
+
+Unverified adapters still work: the session falls back to presenting the
+CLI's raw output as the answer, and the picker says so before you choose.
+
+**Antigravity is not a backend.** It is an IDE; the `antigravity-ide`
+binary it ships is Visual Studio Code's file-opening launcher, still
+carrying Microsoft's copyright header. There is no agent to drive. It
+was checked rather than assumed, because listing it would have rebuilt
+the dropdown-that-selects-nothing this project already deleted twice.
 
 ---
 
-## 2. Answer to "can we reach 100%?"
+## 2. Can it reach 100%?
 
 **Not literally.** Nuke + Resolve + After Effects parity is hundreds of
-person-years and is not the goal. Say so plainly to the maintainer if asked.
+person-years and is not the goal. Say so plainly if asked.
 
-**But ~95% of real editing work is genuinely reachable**, because two
-multipliers compound:
+**~95% of real editing work is reachable**, because two multipliers
+compound: the agent has a full computer (anything pre-renderable with
+ffmpeg already works), and tool altitude collapses cost — a 2×2 grid was
+~22 improvised calls plus a render and a visual check; as a purpose-built
+tool it is 3 calls, 13.1s, $0.25.
 
-1. **The agent has a full computer.** ffmpeg is installed. Anything that can
-   be *pre-rendered externally and imported* already works — stabilization,
-   exotic transitions, frame interpolation, advanced encodes. The editor does
-   not have to implement these to offer them.
-2. **Tool altitude collapses cost.** Measured on one real request
-   ("2×2 grid collage"): composed from primitives = ~22 tool calls plus a
-   render and a visual inspection; as a purpose-built tool = **3 calls,
-   13.1s, $0.25**. Every capability moved from "agent improvises" to "one
-   deterministic tool" is a permanent win in tokens, latency and reliability.
-
-**The hard ceiling is the compositor.** It is a 2D canvas renderer with a
-per-frame effect descriptor (offset, rotation, scale, alpha, blur, rgbSplit).
-There is **no GPU stage**: `src/engine/shaders.ts` contains 90 lines of WebGL2
-GLSL that *nothing imports*. Until a real shader pipeline exists, an entire
-class of work is impossible in-app no matter how good the agent is:
-
-| Needs a renderer, not a tool | Reachable as a tool today |
-|---|---|
-| Page curl, corner pin, mesh warp | Grids, PiP, split-screen |
-| True 3D, camera moves in Z | Batch grades, look presets |
-| Particle simulation | Auto-montage to beats |
-| Per-pixel chroma key (GLSL is dead code) | Anything ffmpeg can pre-render |
-| Motion blur from real vectors | Multi-clip retiming |
-
-So the honest roadmap is: **audit → altitude → ffmpeg bridge → GPU stage.**
+**The remaining hard ceiling is the compositor.** It is 2D canvas with
+zero WebGL calls; `src/engine/shaders.ts` is still 90 lines of dead
+GLSL. Until a real shader pipeline exists, chroma key, mesh warps, page
+curl, displacement and true motion blur are impossible in-app no matter
+how good the agent is.
 
 ---
 
-## 3. Do this first: the trust audit
+## 3. The trust audit
 
-**This session found four separate pieces of capability theatre.** This is
-the single highest-value work available, because the agent believes every
-tool it calls, and a lying tool makes it confidently wrong.
+Six passes done. Every one found working-looking code that did nothing,
+including two files a previous handover had marked "verified genuinely
+real, do not re-audit".
 
-Found and fixed:
+**Audited against the RUNNING APP and confirmed real:** all 14
+transitions, 23 effects, 10 colour looks, 9 kinetic text animations,
+caption import/export (SRT round-trips exactly), keyframe interpolation
+(measured on rendered frames), masks, `create_grid_layout`, beat
+detection, silence removal, `analyze_audio`, video decode, export, fonts,
+SFX generation, the Claude and Codex backends.
 
-| Bug | Shape |
-|---|---|
-| `apply_transition` | Took `z.string()`, blind-cast to `TransitionType`. `page_curl` returned **`success: true`** and wrote garbage into the clip. Five sites now validate via `oneOf()`. |
-| `generate_auto_captions` | Entirely fake. Slept 1200ms, returned one hardcoded Kiswahili sentence, ignored its `audioUrl`. Every project got identical captions. Now real (ffmpeg + Whisper). |
-| **No audio playback at all** | `audioEngine.ts` was a class whose only method played a 440Hz beep, imported by nothing. Play moved the picture in silence while `Math.random()` level meters bounced convincingly. Now a real Web Audio engine. |
-| **Waveforms were fiction** | `audioPeakExtractor.ts` (real code) imported by nothing, so every waveform came from a hash of the clip id. Looked like audio, correlated with nothing. Now wired. |
-| Copilot model dropdown | `configureModelEndpoint` was never called anywhere. Purely decorative. Replaced by the Claude Code session. |
+**Not yet re-verified:** `check_command_readiness`, `resolve_target`,
+`describe_layer_at_point`, `copy_effects`, `set_motion_path`,
+`set_motion_blur`, `undo` depth, `snapCutsToBeats`.
 
-Still outstanding:
+### Still outstanding
 
 | Item | Shape |
 |---|---|
-| `shaders.ts` | 90 lines of WebGL2 GLSL that **nothing imports**, headed "GPU Shaders Engine". The compositor is pure 2D canvas — zero WebGL calls. This is the ceiling on VFX (Phase 4). |
-| Per-clip audio processing | `pitch`, `voiceEffect`, `noiseReduction`, `ducking` are stored and applied by neither playback nor export. `render_export` now REPORTS them as not applied, so the gap is visible rather than silent — but it is still a gap. |
-| No recorded audio | The SFX library is **synthesised** (`sfxEngine.ts`), deliberately — see its header for why a hotlinked catalogue was rejected. There is still no music library, and that is a licensing decision rather than an engineering one. |
-| The rest of the 48 | Passes 1–3 covered effects, timeline structure, silence, B-roll, captions and export. Captions import/export, beat detection, keyframes, masks, `create_grid_layout` and the context-protocol tools have **not** been re-verified against the running app. |
+| `shaders.ts` | 90 lines of WebGL2 GLSL that **nothing imports**. The ceiling on VFX. |
+| Per-clip audio | `pitch`, `voiceEffect`, `noiseReduction`, `ducking` are stored and applied by neither playback nor export. `render_export` now REPORTS them as not applied, so it is visible rather than silent — still a gap. |
+| No music library | The SFX are synthesised (`sfxEngine.ts` — read its header for why a hotlinked catalogue was rejected). There is no music, and that is a licensing decision. |
+| Gemini / Cursor streams | Adapters written from documented flags, never seen on a real run. |
 
-Found and fixed in the later passes — all verified against the live app:
+### What the six passes found
 
-| Bug | Shape |
-|---|---|
-| **No video decode** | See above. The single largest one. |
-| **Export encoded nothing** | See above. |
-| `getClipBox` ignored canvas size | It positions from `project.width/height`, so any export resolution other than the project's own put the whole composition in a corner. 4K was broken outright. |
-| Export never seeked video | `renderTimelineFrame` is synchronous — it draws whatever frame each element holds. Without an awaited seek an export writes one stale frame repeatedly: a real file, right duration, wrong picture. |
-| One bad audio source silenced the whole render | The mix threw, the failure was swallowed as "audio is not worth failing a render over", and the export returned `ok: true, hasAudio: false`. The seed project reproduced it every time — its music URL 403s to ffmpeg. |
-| **10 tools reported success on no-ops** | `split_clip`, `freeze_frame`, `delete_clip`, `trim_clip`, `move_clip`, `remove_effect`, `set_effect_param`, `animate_effect_param`, `add_effect`, `apply_motion_preset`. The store bails silently on a locked clip / unknown effect / out-of-range time and returns void, so the tool has nothing to check. |
-| `remove_silence` | Detected no silence. Trimmed 200ms off each end of every clip and reported the total as dead air found. Now measures with ffmpeg `silencedetect`, and has a `dryRun`. |
-| `suggest_broll` | Four Unsplash JPEGs named `.mp4`, six hardcoded Kiswahili keywords, `confidence: 0.94 + (index % 5) * 0.01`. Now searches the project's own media pool. |
-| `generateAutoCaptions` (store) | Still held the four hardcoded Kiswahili phrases, imported by nothing. Deleted. |
-| Blind casts | `easing as any` ×2, `fps as 24 | 30 | 60`. `EASINGS`, `FPS_VALUES` and `CLIP_TYPES` now exist as runtime lists kept in step by `satisfies`. |
-| Silent empty results | `list_effects` with a bad category and `patch_clips` with a misspelled `clipType` both reported success having done nothing. |
-| Copilot model dropdown | Still decorative on the fallback path — `configureModelEndpoint` is defined and called from nowhere. Removed. |
+Every one was the same shape — something that looked like it worked:
 
-**Lesson from how this was missed:** the audit swept tools and engines and
-never asked the most basic question — *does a file come out?* Trace each
-user-visible outcome end to end to the artifact it claims to produce, not just
-to the function that claims to produce it.
+- **No video decode at all.** Every clip drew through `new Image()`. Hidden because the seed "footage" was Unsplash JPEGs named `.mov` with fake ProRes labels.
+- **Export encoded nothing.** Rendered every frame, discarded them, slept, returned a path that was never created, reported success.
+- **Beat markers were a metronome.** Real DSP ran; the detected onsets were then thrown away and a grid synthesised from the tempo estimate. 2.5% error scaled to 4+ seconds across a song.
+- **`remove_silence` detected no silence.** Trimmed 200ms off both ends of every clip and reported the total as dead air found.
+- **`suggest_broll` was a lookup table** for one demo: four JPEGs named `.mp4`, six hardcoded Kiswahili keywords, `confidence: 0.94 + (index % 5) * 0.01`.
+- **Five colour controls rendered nothing** while appearing as live sliders and being set by three built-in presets.
+- **Ten tools reported success on no-ops** — the store bailed silently on a locked clip or unknown effect and returned void.
+- **The main process had no typecheck**, which hid a permission handler that denied every permission and an ffmpeg path that could be null.
 
-Verified genuinely real, do not re-audit: `beatDetect.ts` (WebAudio decode,
-spectral-flux onsets, autocorrelation tempo), `compositor.ts` rendering,
-`exportPipeline.ts`, the effects registry.
+### The method
 
-**Audit method that worked:** grep for dead modules (exported, imported by
-nobody), `setTimeout(resolve` simulating work, `as SomeUnion` blind casts,
-`z.string()` where an enum exists, and handlers that never touch a store.
-That sweep is what surfaced the audio findings — the tools were fine; the
-engine underneath was not.
+Grep for dead modules (exported, imported by nobody), `setTimeout`
+simulating work, `as SomeUnion` blind casts, `z.string()` where an enum
+exists, handlers that never touch a store.
 
-**Five more patterns, from the passes after that one:**
+Then the five patterns that actually found things:
 
-1. **Trace to the artifact, not to the function.** Export "worked" through
-   every layer that claimed to work. The question that found it was *does a
-   file come out?* The same question found the video bug: *are these pixels
-   the footage?* Render the frame and LOOK.
+1. **Trace to the artifact, not the function.** Export "worked" through every layer that claimed to. The question that found it was *does a file come out?* The same question found the video bug: *are these pixels the footage?* Render the frame and LOOK.
 
-2. **A store that returns `void` cannot be checked.** Ten tools reported
-   success because the store bailed silently and gave them nothing to test.
-   If a store method can decline, it must say so in its return type.
+2. **A store method that returns `void` cannot be checked.** Ten tools reported success because the store bailed silently and gave them nothing to test. If a store method can decline, it must say so in its return type.
 
-3. **Demo data that flatters the code hides the bug.** The seed project's
-   JPEGs-named-`.mov` meant the only real video path was never exercised.
-   A seed project that misdescribes itself is a test that always passes.
-   If you add fixtures, make them honest. Fixing that lie immediately
-   exposed a second one: `create_grid_layout` had always measured its
-   crop against the wrong fit mode, and only worked because the samples
-   claimed to be video.
+3. **Demo data that flatters the code hides the bug.** Seed JPEGs named `.mov` meant the only real video path was never exercised. Fixing that lie immediately exposed a second one in `create_grid_layout`. A seed project that misdescribes itself is a test that always passes.
 
-4. **Test against ground truth you constructed.** Beat detection looked
-   fine until it was run on a click track built at exactly 120 BPM: it
-   said 123, and the markers were a synthesised grid rather than the
-   detected onsets. `remove_silence` looked fine until it ran on a file
-   with two known 1.5s gaps. Build the input whose answer you already
-   know.
+4. **Test against ground truth you constructed.** Beat detection looked fine until it ran on a click track built at exactly 120 BPM. `remove_silence` looked fine until it ran on a file with two known 1.5s gaps. Build the input whose answer you already know.
 
-5. **The obvious API is sometimes the wrong one.** `document.fonts.check()`
-   reads exactly like a font-availability test and returns true for every
-   name, because it reports whether the fallback can render the text. The
-   check passed for "Definitely Not A Font". A check that always passes is
-   worse than no check.
+5. **The obvious API is sometimes the wrong one, and the blunt signal is usually right.** `document.fonts.check()` reads exactly like a font-availability test and returns true for every name. Meanwhile a readiness probe ignored the *exit code* in favour of pattern-matching the message, and called a CLI ready while it was printing "Authentication required". Prefer the signal that cannot be phrased around.
 
-**Verify from outside the app:** `debug/capture` on the RPC server returns a
-PNG of the real window — `screencapture` needs a screen-recording grant a
-terminal usually lacks, and the compositor's frame render shows the picture
-with none of the UI. Renderer console output is forwarded to the terminal in
-development; without it a crashed React tree just looks like a black window.
-
-**Your first task: audit all 48 tools in `src/mcp/toolRegistry.ts` for the
-same pattern.** For each, ask:
-
-- Does it validate enum-ish inputs, or blind-cast? (`oneOf()` helper exists —
-  use it. Fixed at 5 sites; check for more.)
-- Does the handler actually *do* the thing, or return a plausible shape?
-- Does the description promise more than the implementation delivers?
-- Does it report success on a partial or no-op?
-
-Grep starters: `as \w+Type`, `as \w+Kind`, `z.string()` where an enum exists,
-handlers with no store mutation, `setTimeout` used to simulate work.
-
-Write findings into the capability-gap log (below) or fix them outright.
+**Unknown is not the same as absent.** This one bit three times in a row
+— the Copilot claimed "built-in" while still checking for the CLI, then
+the picker claimed backends were ready before probing them, then it did
+it again in the code written to fix it. Any status with a loading state
+needs three values, not two, and nothing may act on the unknown.
 
 ---
 
-## 4. The capability gap log — this is your build queue
+## 4. The capability gap log — your build queue
 
-`report_capability_gap` / `list_capability_gaps` (tools) →
-`src/store/gapStore.ts` → `GapLog.tsx` (amber badge in the Copilot header).
+`report_capability_gap` / `list_capability_gaps` → `src/store/gapStore.ts`
+→ `GapLog.tsx` (amber badge in the Copilot header).
 
-The agent is instructed to log a gap **whenever it says no OR substitutes
-something different** — including when a workaround succeeded. Repeat asks
-bump a counter, so the list sorts by real demand. Exports as markdown.
+The agent logs a gap whenever it says no OR substitutes something
+different — including when a workaround succeeded. Repeat asks bump a
+counter, so it sorts by real demand. Exports as markdown.
 
-Treat it as the prioritised backlog. It is a feature list ranked by users
-actually hitting the limit, which beats guessing.
+Treat it as the prioritised backlog, and as the list of which **skills**
+to build first (§6).
 
 ---
 
-## 5. Roadmap (proposed — revisit against the gap log)
+## 5. Roadmap
 
-**Phase 0 — Export.** DONE. Also video decode, which had to come first:
-encoding frames is pointless while the frames are placeholder gradients.
+**Phase 0 — Package and verify.** See Priority Zero. Nothing ships until
+the packaged app is exercised.
 
-**Phase 1 — Trust.** Three passes done (see §3), the rest of the 48 not yet.
-Nothing else matters if tools lie.
+**Phase 1 — Finish the audit.** Eight tools listed in §3 remain.
 
-**Phase 2 — Altitude.** Replace agent improvisation with deterministic tools.
-`create_grid_layout` is the worked example (22 calls → 3). Candidates:
-`create_picture_in_picture`, `apply_look_preset`, `auto_montage_to_beats`,
-`batch_apply`, `create_lower_third`, `assemble_from_folder`.
-Rule of thumb: if the agent needed >6 calls and a verification step, it should
-have been one tool.
+**Phase 2 — Altitude.** Replace agent improvisation with deterministic
+tools. Rule of thumb: if the agent needed >6 calls and a verification
+step, it should have been one tool. Highest value first:
 
-**Phase 2.5 — audio depth.** Playback, real waveforms, `analyze_audio`,
-on-demand Whisper setup and audio IN THE RENDER have landed. What remains:
-`ClipAudioSettings.pitch`, `voiceEffect`, `noiseReduction` and `ducking` are
-stored and applied by neither the playback engine nor the export
-filtergraph. `render_export` now REPORTS them as not applied rather than
-dropping them silently, so the gap is visible — but it is still a gap.
+- **`analyze_reference_video`** — the differentiated one. The agent has
+  ffmpeg and eyes; it can extract frames and look at them, detect cuts,
+  measure cadence against the beat, sample the grade, read text
+  placement. Improvised this is 20+ calls and different every run; as a
+  tool it is 2 calls and deterministic. Nothing else on the market does
+  this, and it is the natural first skill.
+- `create_picture_in_picture`, `apply_look_preset`,
+  `auto_montage_to_beats`, `batch_apply`, `assemble_from_folder`.
 
 **Phase 3 — ffmpeg bridge.** A first-class `ffmpeg_process` tool
-(stabilize / speed-interpolate / denoise / custom filtergraph) that renders to
-a temp file and auto-imports. Unlocks a large slice of "impossible" cheaply.
-ffmpeg lives at `/opt/homebrew/bin/ffmpeg`; find it robustly (see §6).
+(stabilise / interpolate / denoise / custom filtergraph) rendering to a
+temp file and auto-importing. Buys a large slice of "impossible"
+cheaply, because those can be pre-rendered rather than implemented.
 
-**Phase 4 — GPU stage.** A WebGL2 pass in `compositor.ts`, wiring the existing
-dead `shaders.ts`. This is the real unlock for VFX/motion graphics: chroma key,
-warps, page curl, displacement, real motion blur. Biggest job; do it last and
-deliberately. Keep the 2D path as fallback.
+**Phase 4 — GPU stage.** WebGL2 (or WebGPU) pass in `compositor.ts`,
+wiring the dead `shaders.ts`. The real unlock for chroma key, warps,
+displacement and motion blur. Biggest job; keep the 2D path as fallback.
 
-**Cost/speed levers throughout:** higher-altitude tools (fewest turns wins),
-keep `--strict-mcp-config` (avoids loading the user's other MCP servers),
-consider a cheaper model for mechanical turns, and batch tools over loops.
-Typical turn today: 3–20 calls, 13–30s, $0.15–0.25.
+**Phase 2.5 — audio depth.** Playback, waveforms, `analyze_audio`,
+Whisper and audio-in-the-render all landed. What remains is the per-clip
+processing listed in §3.
 
 ---
 
-## 6. Traps that cost real time. Read these.
+## 6. Product direction
+
+Decisions taken deliberately. Revisit them on purpose, not by drift.
+
+**Desktop only, and staying on Electron.** Mobile is where CapCut is
+strongest and where this product is weakest — no ffmpeg, no shell, no
+filesystem means arriving on their turf having left the moat at home.
+And Electron is the *right* choice here rather than a legacy one: the
+compositor depends on Chromium-specific behaviour (SVG filters
+referenced from canvas, WebCodecs, `queryLocalFonts`,
+`OfflineAudioContext`), and Tauri's per-OS webviews would mean verifying
+the render pipeline three times and finding it differs.
+
+If mobile ever matters, the path is Tauri/Capacitor wrapping the
+existing renderer plus an in-app agent loop against provider APIs — not
+React Native or Flutter, which would mean rewriting the compositor.
+Keeping that door open costs one rule, worth honouring regardless
+because it also keeps the layer testable:
+
+> **`src/engine` and `src/store` must not reference `window.electronAPI`.**
+> OS access goes through the bridge. They are a portable core.
+
+**Credentials are the user's own.** No inference cost to us, ever. The
+picker accepts both shapes — subscription CLIs (`claude`, `codex login`)
+and raw API keys — stored at `0600` in the app's data directory, not the
+user's shell profile, because a Finder-launched app cannot read that
+profile anyway.
+
+**The intended model is a free editor plus a skill store.** A skill is
+not a prompt pack: it is **tools + assets + a template project +
+a verification test**, installed like an extension, with new projects
+cloned from it. That shape matters —
+
+- the buyer can never get nothing: if the agent fumbles they still have
+  a real project on the timeline
+- every skill is demoable before purchase by showing the template
+- assets are licensed per skill, which is tractable, rather than
+  licensing a whole library, which is not
+
+### Charging for skills
+
+**Sell skills one-time. Do not put buyers on a subscription.**
+
+Reasoned from the demand shape rather than from another platform's
+model: a creator picks one to three skills matching the content they
+make, uses them for a year, and occasionally tries something new. That
+is recurring *occasionally*, not recurring *monthly*. A subscription
+asks someone who needs one skill to rent the rest of the catalogue, and
+with a small catalogue it is worse — everything arrives in month one and
+month two buys nothing.
+
+The economics also rule out the usual alternatives:
+
+- **Usage-based is unjustifiable.** Inference is on the user's own
+  subscription, so a per-run charge meters something that costs us
+  nothing, and users can tell.
+- **All-you-can-eat is a leak** unless skills stay revocable managed
+  extensions. They do — projects clone *from* an installed skill rather
+  than exporting it — so revocation works, but the demand shape still
+  argues against it.
+
+What is genuinely recurring, and therefore honest to subscribe:
+
+- **Sellers, not buyers.** Authors get ongoing service — storefront,
+  hosting, verification runs on every AuraCut release, payouts,
+  analytics. A creator tier is a small paying group receiving continuous
+  commercial value. Most marketplaces make their early money this way.
+- **Commercial rights**, where a bundled asset's own licence recurs.
+  Price the rights, not the download: personal / commercial / team is a
+  tier boundary that is not arbitrary, and it is how stock libraries
+  price for exactly this audience.
+- Optionally a **studio pass** for people who want everything and early
+  access — offered alongside one-time purchase, never instead of it.
+
+Two consequences to plan for:
+
+1. **One-time means per major version.** Updates within 1.x, a
+   discounted upgrade at 2.0. "Updates forever for one payment" is a
+   lifetime-deal trap: revenue front-loaded, maintenance perpetual, and
+   worse for third-party authors who will abandon skills and leave you
+   holding them.
+2. **A free editor has no revenue floor.** Skill sales are lumpy and
+   tied to catalogue growth. Accept the lumpiness deliberately, or hold
+   one non-skill pro capability back for a cheap platform tier — but
+   decide which, rather than discovering it.
+
+Creator split: 70/30 is standard; **80/20 for the first year** is worth
+it, because early supply is the bottleneck, not demand.
+
+Things to build into the format **before** there are a thousand skills,
+because they are ruinous to retrofit:
+
+1. **Slots.** A template has specific media; a skill needs placeholders. Without them a skill is a template with extra steps — the value is that one skill makes many different videos.
+2. **Asset provenance, enforced at packaging.** The author declares a licence per bundled asset or it cannot be published.
+3. **A verification run.** The skill executes against a fresh project and the artifact is checked. If it does not run, it does not publish. Quality control and the marketing claim in one.
+4. **A declared tool-API version.** Otherwise the next tool change silently breaks skills in the field and you learn about it from refunds.
+5. **The verification fixture stored with the skill**, so every skill in the store can be re-run against a new AuraCut build before shipping. That turns "did I break anyone's skill?" into a test suite.
+
+Authoring happens **in the editor** — make an edit, then package it. Most
+of the raw material exists: `mcpStore` already logs every tool execution
+and the timeline keeps commit labels, which together are the recipe. It
+is recorded already and simply not kept.
+
+Sequence: build two skills by hand from the top of the gap log and let
+the packaging format fall out of what they needed. Then the authoring
+flow. Then the store.
+
+---
+
+## 7. Traps that cost real time. Read these.
 
 **`ELECTRON_RUN_AS_NODE=1` is inherited from VS Code.** Every Electron launch
 from a VS Code terminal starts as plain Node and exits silently. Always
@@ -348,7 +426,7 @@ success. Read the mount point from `hdiutil` output.
 
 ---
 
-## 7. How to run and verify
+## 8. How to run and verify
 
 ```bash
 yarn install
@@ -384,7 +462,7 @@ module directly gives a *different* instance and will waste your time.
 
 ---
 
-## 8. Release
+## 9. Release
 
 Tag `v*` → GitHub Actions builds macOS/Windows/Linux and publishes installers
 plus the `latest*.yml` manifests the updater reads.
@@ -404,7 +482,7 @@ not work).
 
 ---
 
-## 9. Working agreement
+## 10. Working agreement
 
 The maintainer values being told the truth about what does not work over
 being told things are fine. Several times this session the useful move was
