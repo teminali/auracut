@@ -73,7 +73,15 @@ export interface EffectDefinition {
    *
    * A machine with no WebGL renders the clip unshaded rather than failing.
    */
-  gpu?: 'chroma_key' | 'displace' | 'rgb_glitch';
+  gpu?:
+    | 'chroma_key'
+    | 'displace'
+    | 'rgb_glitch'
+    /* Mesh warps. These move GEOMETRY, not texture reads — the stage
+       draws a subdivided grid for them instead of one quad. */
+    | 'page_curl'
+    | 'flag_wave'
+    | 'ripple';
 }
 
 /* ── Small drawing helpers ──────────────────────────────────────── */
@@ -363,6 +371,88 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
       { key: 'angle', label: 'Direction', type: 'number', default: 0, min: 0, max: 360, step: 1, unit: '°', animatable: true },
     ],
     gpu: 'displace',
+  },
+
+  /* ══ MESH WARPS ══
+     Everything above runs a fragment program over a flat quad, which is
+     why `NEXT.md` listed these three as out of reach rather than as
+     unwritten: a page curl is a shape, not a colour. The stage draws a
+     subdivided mesh for them and their vertex programs move it. Like
+     every other GPU effect here, a machine with no WebGL renders the
+     clip unwarped rather than failing. */
+
+  {
+    type: 'page_curl',
+    label: 'Page Curl',
+    category: 'distort',
+    glyph: '📄',
+    description:
+      'Peels the clip off the frame like a page, curling it around a cylinder and showing ' +
+      'its reverse. Keyframe "progress" 0 → 100 over a clip sitting on top of another and ' +
+      'the curl becomes a transition that reveals what is underneath. Runs on the GPU as a ' +
+      'displaced mesh; needs WebGL, and renders flat without it.',
+    params: [
+      { key: 'progress', label: 'Progress', type: 'number', default: 0, min: 0, max: 100, step: 0.5, unit: '%', animatable: true,
+        hint: 'How far the page has turned. 0 is untouched; 100 has it clear of the frame.' },
+      { key: 'angle', label: 'Direction', type: 'number', default: 315, min: 0, max: 360, step: 1, unit: '°', animatable: true,
+        hint: 'Which way the curl travels, measured y-UP: 0° peels the right edge, 90° the top, 315° the classic bottom-right corner.' },
+      { key: 'radius', label: 'Curl radius', type: 'number', default: 12, min: 1, max: 40, step: 0.5, unit: '%', animatable: true,
+        hint: 'As a share of frame height. Small is a tight roll, large is a lazy fold.' },
+      { key: 'shading', label: 'Shading', type: 'number', default: 70, min: 0, max: 100, step: 1, unit: '%', animatable: true,
+        hint: 'Light across the curl, from the surface normal. 0 leaves brightness exactly as it was.' },
+      { key: 'backColor', label: 'Reverse', type: 'color', default: '#efece5' },
+      { key: 'backShow', label: 'Show-through', type: 'number', default: 12, min: 0, max: 100, step: 1, unit: '%', animatable: true,
+        hint: 'How much of the print reads through the back of the page.' },
+    ],
+    gpu: 'page_curl',
+  },
+
+  {
+    type: 'flag_wave',
+    label: 'Flag Wave',
+    category: 'distort',
+    glyph: '🏳️',
+    description:
+      'Waves the clip like cloth on a pole — a travelling wave lifts the sheet out of the ' +
+      'plane, and the light across it comes from the surface slope rather than a painted ' +
+      'gradient. Runs on the GPU as a displaced mesh.',
+    params: [
+      { key: 'amount', label: 'Amount', type: 'number', default: 30, min: 0, max: 100, step: 1, unit: '%', animatable: true },
+      { key: 'waves', label: 'Waves', type: 'number', default: 2, min: 0.25, max: 12, step: 0.25, animatable: true,
+        hint: 'How many crests fit across the frame along the direction.' },
+      { key: 'speed', label: 'Speed', type: 'number', default: 45, min: 0, max: 100, step: 1, animatable: true,
+        hint: '0 freezes the wave. It still warps — it just stops moving.' },
+      { key: 'angle', label: 'Direction', type: 'number', default: 0, min: 0, max: 360, step: 1, unit: '°', animatable: true },
+      { key: 'anchor', label: 'Pin edge', type: 'number', default: 100, min: 0, max: 100, step: 1, unit: '%', animatable: true,
+        hint: '100 pins the leading edge like a flagpole; 0 lets the whole sheet move.' },
+      { key: 'shading', label: 'Shading', type: 'number', default: 70, min: 0, max: 100, step: 1, unit: '%', animatable: true },
+    ],
+    gpu: 'flag_wave',
+  },
+
+  {
+    type: 'ripple',
+    label: 'Ripple',
+    category: 'distort',
+    glyph: '💧',
+    description:
+      'Rings spreading from a point, pushing the image outward along the radius. Because it ' +
+      'moves the mesh and not the texture read, the EDGE of the picture ripples too and ' +
+      'pixels land outside the rectangle they started in — which is the difference from ' +
+      'Displacement. Runs on the GPU as a displaced mesh.',
+    params: [
+      { key: 'amount', label: 'Amount', type: 'number', default: 35, min: 0, max: 100, step: 1, unit: '%', animatable: true },
+      { key: 'rings', label: 'Rings', type: 'number', default: 4, min: 0.25, max: 20, step: 0.25, animatable: true },
+      { key: 'speed', label: 'Speed', type: 'number', default: 50, min: 0, max: 100, step: 1, animatable: true,
+        hint: '0 freezes the rings where they are.' },
+      { key: 'centerX', label: 'Centre X', type: 'number', default: 50, min: 0, max: 100, step: 1, unit: '%', animatable: true },
+      { key: 'centerY', label: 'Centre Y', type: 'number', default: 50, min: 0, max: 100, step: 1, unit: '%', animatable: true,
+        hint: 'Measured y-UP: 0 is the bottom of the frame.' },
+      { key: 'falloff', label: 'Falloff', type: 'number', default: 35, min: 0, max: 100, step: 1, unit: '%', animatable: true,
+        hint: 'How fast the rings die away from the centre. 0 carries them to the edge.' },
+      { key: 'shading', label: 'Shading', type: 'number', default: 60, min: 0, max: 100, step: 1, unit: '%', animatable: true },
+    ],
+    gpu: 'ripple',
   },
 
   {

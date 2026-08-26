@@ -8,7 +8,7 @@
 
 import {
   Track, Clip, ClipType, ProjectSettings, ClipTransition, ClipTextStyle, ShapeStyle,
-  MotionPath, AnimatableProperty, ClipFilters, ClipMask,
+  MotionPath, AnimatableProperty, ClipFilters, ClipMask, TransitionType, TRANSITION_TYPES,
 } from '../types/edl';
 import {
   getClipBox,
@@ -23,7 +23,7 @@ import {
 } from './effectsRegistry';
 import { interpolateKeyframes, applyEasing } from './keyframeMath';
 import { toneFilterId } from './toneFilters';
-import { runShader, hexToRgb01, ShaderKey } from './gpuStage';
+import { runShader, hexToRgb01, gpuShaderReady, ShaderKey, UniformValue } from './gpuStage';
 import {
   likelyVideoUrl, getVideoFrame, getVideoNaturalSize, videoFailed, getVideoGeneration,
   preloadVideo,
@@ -270,6 +270,12 @@ function getTransitionState(clip: Clip, offsetMs: number): TransitionState | nul
   return null;
 }
 
+/** A shader the transition wants run over the clip's isolated layer. */
+interface GpuTransitionPass {
+  key: ShaderKey;
+  uniforms: Record<string, UniformValue>;
+}
+
 interface TransitionEffect {
   alpha: number;
   scale: number;
@@ -280,11 +286,21 @@ interface TransitionEffect {
   /** Full-frame colour wash drawn after the clip. */
   flash?: { color: string; alpha: number };
   rgbSplitPx: number;
+  /**
+   * Set only when the shader is known to be runnable. Whichever of the
+   * two paths is taken, the OTHER one is zeroed in the same branch — a
+   * transition that applied both would blur twice and split twice, and
+   * would look like the GPU path was simply stronger.
+   */
+  gpuPass?: GpuTransitionPass;
 }
 
 const NO_EFFECT: TransitionEffect = {
   alpha: 1, scale: 1, offsetX: 0, offsetY: 0, rotation: 0, blurPx: 0, rgbSplitPx: 0,
 };
+
+/** Streak length as a fraction of frame width, at full speed. */
+const WHIP_STREAK = 0.07;
 
 function resolveTransitionEffect(
   state: TransitionState | null,
@@ -317,11 +333,26 @@ function resolveTransitionEffect(
       e.flash = { color: '#ffffff', alpha: Math.pow(1 - eased, 1.6) };
       break;
 
-    case 'whip_pan':
+    case 'whip_pan': {
       e.offsetX = (1 - eased) * canvasWidth * (incoming ? 0.85 : -0.85);
-      e.blurPx = (1 - eased) * 22;
       e.alpha = Math.min(1, eased * 1.6);
+      /*
+        A whip pan is directional motion, and `blur(22px)` is not: a
+        gaussian destroys the detail ACROSS the pan exactly as hard as
+        the detail along it, so the frame reads as out of focus rather
+        than as fast. On the GPU it streaks along the pan only.
+      */
+      const speed = 1 - eased;
+      if (speed > 0.004 && gpuShaderReady('motion_streak')) {
+        e.gpuPass = {
+          key: 'motion_streak',
+          uniforms: { u_linear: [speed * WHIP_STREAK, 0] },
+        };
+      } else {
+        e.blurPx = speed * 22;
+      }
       break;
+    }
 
     case 'push_left':
       e.offsetX = (1 - eased) * canvasWidth * (incoming ? 1 : -1);
@@ -335,6 +366,15 @@ function resolveTransitionEffect(
       e.offsetY = (1 - eased) * canvasHeight * (incoming ? 1 : -1);
       break;
 
+    /*
+      The two zooms stay on the 2D canvas, and that was a measurement
+      rather than an omission. A radial streak was built (the shader
+      supported it, four lines wired it) and it looked good — but a zoom
+      transition had NO blur before, so this was not replacing something
+      the 2D canvas does badly, it was a new look, and it cost +6.4 ms
+      per clip per frame at 1080p. See `SHADER_MOTION_STREAK_FS` for the
+      numbers and how to put it back.
+    */
     case 'zoom_in':
       e.scale = 1 + (1 - eased) * 0.55;
       e.alpha = eased;
@@ -345,19 +385,35 @@ function resolveTransitionEffect(
       e.alpha = eased;
       break;
 
-    case 'spin':
-      e.rotation = (1 - eased) * 180 * (incoming ? 1 : -1);
-      e.scale = 0.4 + eased * 0.6;
-      e.alpha = eased;
-      break;
-
-    case 'glitch':
+    case 'glitch': {
       e.alpha = 0.55 + eased * 0.45;
-      e.rgbSplitPx = (1 - eased) * canvasWidth * 0.03;
       // Horizontal tearing driven by the transition phase, not wall-clock,
       // so a rendered frame is always reproducible.
       e.offsetX = Math.sin(p * 47) * (1 - eased) * 26;
+      const violence = 1 - eased;
+      if (violence > 0.004 && gpuShaderReady('glitch_tear')) {
+        /*
+          The 2D split is three extra full draws through
+          `sepia(1) hue-rotate(...) saturate(6)` — a tint that
+          approximates a channel and leaks the other two back in — and it
+          is inside the `clip.mediaUrl` branch, so a text or shape clip
+          got a glitch transition with no glitch in it. The shader reads
+          the channels themselves and does not care what drew the layer.
+        */
+        e.gpuPass = {
+          key: 'glitch_tear',
+          uniforms: {
+            u_split: violence * 0.03,
+            u_tear: violence * 0.05,
+            u_rows: 24,
+            u_phase: p,
+          },
+        };
+      } else {
+        e.rgbSplitPx = violence * canvasWidth * 0.03;
+      }
       break;
+    }
 
     case 'diagonal_split':
       e.offsetX = (1 - eased) * canvasWidth * 0.6 * (incoming ? 1 : -1);
@@ -370,6 +426,29 @@ function resolveTransitionEffect(
   }
 
   return e;
+}
+
+/**
+ * Which transition types would actually take a GPU pass right now.
+ *
+ * Derived by asking `resolveTransitionEffect` rather than by keeping a
+ * second list next to the switch, because a hand-written list is how
+ * `propertyPath` came to advertise twenty-four animatable properties
+ * when seven were. It reports what would happen on THIS machine at this
+ * moment: with no WebGL, or with the stage forced off, the answer is
+ * correctly empty.
+ */
+export function gpuTransitionTypes(): TransitionType[] {
+  const out: TransitionType[] = [];
+  for (const type of TRANSITION_TYPES) {
+    const probe: TransitionState = {
+      t: 0.25,
+      transition: { type, durationMs: 1000 },
+      direction: 'in',
+    };
+    if (resolveTransitionEffect(probe, 1920, 1080).gpuPass) out.push(type);
+  }
+  return out;
 }
 
 /* ── Colour filters ─────────────────────────────────────────────── */
@@ -1193,22 +1272,107 @@ function scratchPair(width: number, height: number) {
  * share the machinery and chain in the right order: shade first, then
  * feather, because the mask defines the clip's final shape.
  */
-/** Enabled effects that want a shader rather than a 2D hook. */
-function gpuEffects(clip: Clip): { key: ShaderKey; params: Record<string, number>; intensity: number }[] {
+interface GpuEffectPass {
+  key: ShaderKey;
+  params: Record<string, number | string>;
+  intensity: number;
+}
+
+/**
+ * Enabled effects that want a shader rather than a 2D hook.
+ *
+ * **This used to read `effect.params[p.key]` straight off the clip**,
+ * which is the raw stored value with no keyframes applied — while the
+ * 2D hooks one function down go through `resolveEffectParams`. So every
+ * GPU effect was frozen at its first value. `displace` declares all four
+ * of its parameters `animatable: true`, `list_properties` reported them
+ * as animatable, `animate_effect_param` accepted the keyframes and the
+ * store kept them, and the renderer read past them: the same shape as
+ * `mask.rotation`, which was animatable, rendered, keyframed green by
+ * the suite, and written by nothing. Found while adding the mesh warps,
+ * whose whole point is a keyframed `progress`.
+ */
+function gpuEffects(clip: Clip, offsetMs: number): GpuEffectPass[] {
   if (!clip.effects || clip.effects.length === 0) return [];
-  const out: { key: ShaderKey; params: Record<string, number>; intensity: number }[] = [];
+  const out: GpuEffectPass[] = [];
   for (const effect of clip.effects) {
     if (!effect.enabled) continue;
     const def = getEffectDefinition(effect.type);
     if (!def?.gpu) continue;
-    const params: Record<string, number> = {};
+    const resolved = resolveEffectParams(effect, offsetMs);
+    const params: Record<string, number | string> = {};
     for (const p of def.params) {
-      const v = effect.params[p.key];
-      params[p.key] = typeof v === 'number' ? v : (typeof p.default === 'number' ? p.default : 0);
+      const v = resolved[p.key];
+      if (typeof v === 'number' || typeof v === 'string') params[p.key] = v;
+      else params[p.key] = typeof p.default === 'number' || typeof p.default === 'string' ? p.default : 0;
     }
     out.push({ key: def.gpu as ShaderKey, params, intensity: effect.intensity ?? 1 });
   }
   return out;
+}
+
+const RAD = Math.PI / 180;
+const num = (v: number | string | undefined, fallback: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+
+/**
+ * Uniforms for one GPU effect.
+ *
+ * All of the 0..100 / degrees / percentage-of-frame conversion lives
+ * here, in one switch, so the shaders can be written in the units they
+ * want and the tool surface can keep speaking the numbers the UI shows.
+ */
+function gpuEffectUniforms(pass: GpuEffectPass, offsetMs: number): Record<string, UniformValue> {
+  const { params: q, intensity } = pass;
+  const seconds = offsetMs / 1000;
+
+  switch (pass.key) {
+    case 'displace':
+      return {
+        u_amount: (num(q.amount, 24) / 100) * 0.14 * intensity,
+        u_scale: num(q.scale, 14),
+        u_time: seconds * (num(q.speed, 40) / 100) * 2.2,
+        u_angle: num(q.angle, 0) * RAD,
+      };
+
+    case 'rgb_glitch':
+      return { u_amount: (num(q.amount, 20) / 100) * intensity };
+
+    case 'page_curl':
+      return {
+        /* Wet/dry on a curl is how far the page has turned, which is the
+           only reading of "half a page curl" that means anything. */
+        u_progress: (num(q.progress, 0) / 100) * intensity,
+        u_angle: num(q.angle, 315) * RAD,
+        u_radius: num(q.radius, 12) / 100,
+        u_shading: num(q.shading, 70) / 100,
+        u_backColor: hexToRgb01(typeof q.backColor === 'string' ? q.backColor : '#efece5'),
+        u_backMix: num(q.backShow, 12) / 100,
+      };
+
+    case 'flag_wave':
+      return {
+        u_amp: (num(q.amount, 30) / 100) * 0.25 * intensity,
+        u_waves: Math.max(0.05, num(q.waves, 2)),
+        u_time: seconds * (num(q.speed, 45) / 100) * 7.5,
+        u_angle: num(q.angle, 0) * RAD,
+        u_anchor: num(q.anchor, 100) / 100,
+        u_shading: num(q.shading, 70) / 100,
+      };
+
+    case 'ripple':
+      return {
+        u_amp: (num(q.amount, 35) / 100) * 0.18 * intensity,
+        u_rings: Math.max(0.05, num(q.rings, 4)),
+        u_time: seconds * (num(q.speed, 50) / 100) * 9,
+        u_center: [num(q.centerX, 50) / 100, num(q.centerY, 50) / 100],
+        u_falloff: (num(q.falloff, 35) / 100) * 6,
+        u_shading: num(q.shading, 60) / 100,
+      };
+
+    default:
+      return {};
+  }
 }
 
 function renderClipLayered(
@@ -1220,7 +1384,8 @@ function renderClipLayered(
   canvasWidth: number,
   canvasHeight: number,
   mask: ClipMask,
-  needsFeather: boolean
+  needsFeather: boolean,
+  transitionPass: GpuTransitionPass | null
 ): boolean {
   const pair = scratchPair(canvasWidth, canvasHeight);
   if (!pair) return false;
@@ -1258,23 +1423,31 @@ function renderClipLayered(
     // unkeyed, which is the honest fallback.
   }
 
-  for (const fxPass of gpuEffects(clip)) {
-    let uniforms: Record<string, number | [number, number, number]> = {};
-    if (fxPass.key === 'displace') {
-      uniforms = {
-        u_amount: (fxPass.params.amount / 100) * 0.14 * fxPass.intensity,
-        u_scale: fxPass.params.scale,
-        u_time: (offsetMs / 1000) * (fxPass.params.speed / 100) * 2.2,
-        u_angle: (fxPass.params.angle * Math.PI) / 180,
-      };
-    } else if (fxPass.key === 'rgb_glitch') {
-      uniforms = { u_amount: (fxPass.params.amount ?? 20) / 100 * fxPass.intensity };
-    }
-    const out = runShader(pair.layer, fxPass.key, uniforms, canvasWidth, canvasHeight);
+  for (const fxPass of gpuEffects(clip, offsetMs)) {
+    const out = runShader(
+      pair.layer, fxPass.key, gpuEffectUniforms(fxPass, offsetMs), canvasWidth, canvasHeight);
     if (!out) continue;
     pair.layerCtx.setTransform(1, 0, 0, 1, 0, 0);
     pair.layerCtx.clearRect(0, 0, canvasWidth, canvasHeight);
     pair.layerCtx.drawImage(out, 0, 0);
+  }
+
+  /*
+    2b — the transition's own pass, last of the shaders.
+
+    A transition is the outermost thing that happens to a clip: it acts
+    on the clip as the audience finally sees it, keyed and warped and
+    all. Running it before the effects would streak the un-warped image
+    and then warp the streaks.
+  */
+  if (transitionPass) {
+    const out = runShader(
+      pair.layer, transitionPass.key, transitionPass.uniforms, canvasWidth, canvasHeight);
+    if (out) {
+      pair.layerCtx.setTransform(1, 0, 0, 1, 0, 0);
+      pair.layerCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+      pair.layerCtx.drawImage(out, 0, 0);
+    }
   }
 
   // 3 — the feathered alpha.
@@ -1324,10 +1497,24 @@ function renderClip(
 
   const mask = resolvedMask(clip, offsetMs);
   const needsFeather = mask.enabled && mask.featherPx > 0.5;
-  const needsGpu = clip.chromaKey?.enabled === true || gpuEffects(clip).length > 0;
+  /*
+    Recomputed rather than threaded through: `renderClipPass` derives the
+    same effect from the same `offsetMs` a moment later, and the motion
+    blur path below calls it several times with a DIFFERENT offset per
+    sample, so there is no single value to hand down. The function is
+    pure and small; `gpuShaderReady` is a map lookup once the program has
+    compiled.
+  */
+  const transitionPass =
+    resolveTransitionEffect(getTransitionState(clip, offsetMs), canvasWidth, canvasHeight)
+      .gpuPass ?? null;
+  const needsGpu =
+    clip.chromaKey?.enabled === true ||
+    gpuEffects(clip, offsetMs).length > 0 ||
+    transitionPass !== null;
   if (needsFeather || needsGpu) {
     if (renderClipLayered(ctx, clip, project, playheadMs, offsetMs,
-                          canvasWidth, canvasHeight, mask, needsFeather)) {
+                          canvasWidth, canvasHeight, mask, needsFeather, transitionPass)) {
       return;
     }
   }
