@@ -211,6 +211,26 @@ function registerAgentIpc() {
     return filePath;
   });
 
+  /*
+    Read a project file. Kept to a text read with a size ceiling rather
+    than a general file-read bridge: the renderer asking main for
+    arbitrary paths is exactly the kind of surface that grows into
+    something regrettable.
+  */
+  ipcMain.handle('project:read', async (_e, p: { path: string }) => {
+    const fs = await import('fs');
+    try {
+      const stat = fs.statSync(p.path);
+      if (!stat.isFile()) return { ok: false, error: 'That path is not a file.' };
+      if (stat.size > 64 * 1024 * 1024) {
+        return { ok: false, error: 'That file is too large to be a Kerf project.' };
+      }
+      return { ok: true, json: fs.readFileSync(p.path, 'utf8') };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
   ipcMain.handle('audio:analyze', async (_e, p: { mediaUrl: string; silenceThresholdDb?: number; minSilenceMs?: number }) =>
     analyzeAudio(p.mediaUrl, p.silenceThresholdDb, p.minSilenceMs));
   ipcMain.handle('stt:setup', async (_e, p: { model?: string }) => setupTranscription(p?.model));

@@ -52,6 +52,10 @@ export interface ElectronAPI {
     writeTemp: (name: string, bytes: Uint8Array) => Promise<string>;
   };
 
+  project: {
+    read: (path: string) => Promise<{ ok: boolean; json?: string; error?: string }>;
+  };
+
   /** Screen state, so the window close button can mean the right thing. */
   ui: {
     setScreen: (screen: 'home' | 'editor') => Promise<boolean>;
@@ -135,6 +139,10 @@ const api: ElectronAPI = {
 
   media: {
     writeTemp: (name, bytes) => ipcRenderer.invoke('media:writeTemp', { name, bytes }),
+  },
+
+  project: {
+    read: (filePath) => ipcRenderer.invoke('project:read', { path: filePath }),
   },
 
   ui: {

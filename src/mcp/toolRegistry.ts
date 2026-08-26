@@ -38,6 +38,7 @@ import { loadFonts, isFontAvailable, fontsAreEnumerated } from '../engine/system
 import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
 import { followToolCall } from '../engine/agentPresence';
 import { buildStarterProject, STARTER_NAME } from '../engine/starterProject';
+import { deserializeProject } from '../engine/projectIO';
 
 /* ── Tool definition ────────────────────────────────────────────── */
 
@@ -1622,6 +1623,43 @@ defineTool({
     const ids = (clipIds ?? []).map((r) => resolveClipId(r));
     state.selectClips(ids);
     return { selected: ids.length, clipIds: ids };
+  },
+});
+
+defineTool({
+  name: 'open_project',
+  category: 'project',
+  description:
+    'Open a Kerf project file (.kerf / .json) from an absolute path, replacing whatever is ' +
+    'currently open. Reports whether the file had to be upgraded from an older project format, ' +
+    'and which media could not be relinked. Refuses a file written by a NEWER Kerf rather than ' +
+    'loading it partially. Destructive to the current project.',
+  schema: z.object({
+    path: z.string().describe('Absolute path to the project file'),
+  }),
+  handler: async ({ path: filePath }) => {
+    const api = (window as any).electronAPI;
+    if (!api?.project?.read) throw new Error('Reading project files needs the desktop bridge.');
+    const read = await api.project.read(filePath);
+    if (!read.ok) throw new Error(read.error ?? 'Could not read that file.');
+
+    const result = deserializeProject(read.json);
+    if (!result.ok) throw new Error(result.error ?? 'Could not open that project.');
+
+    const t = timeline();
+    const p = project().project;
+    return {
+      opened: filePath,
+      name: p.name,
+      tracks: t.tracks.length,
+      clips: t.tracks.reduce((n, tr) => n + tr.clips.length, 0),
+      durationMs: p.durationMs,
+      width: p.width,
+      height: p.height,
+      fps: p.fps,
+      ...(result.migratedFrom !== undefined ? { migratedFromFormat: result.migratedFrom } : {}),
+      ...(result.relinkNeeded?.length ? { relinkNeeded: result.relinkNeeded } : {}),
+    };
   },
 });
 

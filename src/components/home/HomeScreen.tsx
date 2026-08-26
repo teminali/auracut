@@ -121,6 +121,14 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
       pushToast({ kind: 'error', title: 'Could not open', detail: result.error });
       return;
     }
+    if (result.migratedFrom !== undefined) {
+      pushToast({
+        kind: 'info',
+        title: 'Project upgraded',
+        detail: `It was saved in format ${result.migratedFrom} and has been brought up to date. ` +
+          'Save it to keep the newer form.',
+      });
+    }
     if (result.relinkNeeded?.length) {
       pushToast({
         kind: 'info',
