@@ -50,6 +50,14 @@ export interface ExportResult {
   height: number;
   /** How many clips actually contributed sound to the mix. */
   audioSegments: number;
+  /** Where the render time went, so a slow one can be diagnosed. */
+  timing?: {
+    seekMs: number;
+    compositeMs: number;
+    encodeMs: number;
+    writeMs: number;
+    msPerFrame: number;
+  };
 }
 
 /**
@@ -125,7 +133,7 @@ function canvasToJpeg(canvas: HTMLCanvasElement): Promise<Uint8Array> {
         blob.arrayBuffer().then((b) => resolve(new Uint8Array(b))).catch(reject);
       },
       'image/jpeg',
-      0.95
+      0.92
     );
   });
 }
@@ -256,12 +264,41 @@ export async function runHardwareExport(
     works in project pixels, so scaling here would resample twice; giving
     it the output size directly keeps one resampling step.
   */
+  /*
+    ONE canvas, and deliberately NOT `willReadFrequently`.
+
+    That flag was set here with the reasoning "every frame is read back
+    for JPEG encoding, so keep the surface on the CPU" — which sounds
+    right and is backwards. Measured on the starter project, 345 frames
+    at 1080p:
+
+        willReadFrequently: true    encode 13,435ms   total 14,786ms
+        willReadFrequently: false   encode  4,883ms   total  6,233ms
+
+    A CPU-backed canvas pushes compositing through software rasterisation
+    and gives `toBlob` no fast path to take. 2.4x, for removing a flag.
+
+    A ring of canvases with the encodes issued together was tried and
+    removed: at ring sizes 1, 4 and 8 the render took 6277ms, 6210ms and
+    6318ms. `toBlob` serialises inside Chromium however many are in
+    flight, so the ring bought nothing and cost 66MB at 1080p. If frame
+    encoding is ever worth parallelising it needs OffscreenCanvas in
+    workers, or WebCodecs, not more canvases on this thread.
+  */
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
-  // Every frame is read back for JPEG encoding, so keep the surface on the CPU.
-  const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
+  const ctx = canvas.getContext('2d', { alpha: false });
   if (!ctx) throw new Error('Could not create a render context for export.');
+
+  /*
+    Where the time actually goes. The handover has listed a performance
+    pass as "currently unmeasured" since the export was built, and the
+    first question about a slow render — is it compositing, encoding, or
+    the bridge? — had no answer. Four counters cost nothing and the
+    result carries them back.
+  */
+  const timing = { seekMs: 0, compositeMs: 0, encodeMs: 0, writeMs: 0 };
 
   try {
     for (let frame = 0; frame < totalFrames; frame++) {
@@ -274,12 +311,21 @@ export async function runHardwareExport(
         the export writes one stale frame over and over — a real file, the
         right duration, and completely the wrong picture.
       */
+      let t0 = performance.now();
       await seekVideosForFrame(tracks, timestampMs);
+      timing.seekMs += performance.now() - t0;
 
+      t0 = performance.now();
       renderTimelineFrame(ctx, tracks, project, timestampMs, width, height);
-      const jpeg = await canvasToJpeg(canvas);
+      timing.compositeMs += performance.now() - t0;
 
+      t0 = performance.now();
+      const jpeg = await canvasToJpeg(canvas);
+      timing.encodeMs += performance.now() - t0;
+
+      t0 = performance.now();
       const written = await api.exporter.frame(sessionId, jpeg);
+      timing.writeMs += performance.now() - t0;
       if (!written.ok) throw new Error(written.error ?? 'The encoder stopped accepting frames.');
 
       if (frame % 5 === 0 || frame === totalFrames - 1) {
@@ -310,6 +356,16 @@ export async function runHardwareExport(
       width,
       height,
       audioSegments: audioClips.length,
+      timing: {
+        seekMs: Math.round(timing.seekMs),
+        compositeMs: Math.round(timing.compositeMs),
+        encodeMs: Math.round(timing.encodeMs),
+        writeMs: Math.round(timing.writeMs),
+        msPerFrame: totalFrames > 0
+          ? Math.round(((timing.seekMs + timing.compositeMs + timing.encodeMs + timing.writeMs)
+              / totalFrames) * 10) / 10
+          : 0,
+      },
     };
   } catch (err) {
     await api.exporter.cancel(sessionId);

@@ -1804,6 +1804,7 @@ defineTool({
           ? { requested: result.audio.requested, included: result.audio.included }
           : undefined,
         elapsedMs: result.elapsedMs,
+        ...(result.timing ? { timing: result.timing } : {}),
         ...(warnings.length ? { warnings } : {}),
         ...(warnings.length
           ? { tellTheUser: 'This render is not exactly what was asked for — repeat the warnings above to the user.' }
