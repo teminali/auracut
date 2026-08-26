@@ -1654,7 +1654,10 @@ defineTool({
  * and the encoding is the sort of detail that gets fixed in one of two
  * places.
  */
-async function importMediaFromPath(filePath: string, name?: string): Promise<MediaAsset> {
+async function importMediaFromPath(
+  filePath: string,
+  name?: string
+): Promise<MediaAsset & { decoded: boolean; undecodableReason?: string }> {
   if (!filePath.startsWith('/')) {
     throw new Error(`Path must be absolute, got "${filePath}"`);
   }
@@ -1683,7 +1686,14 @@ async function importMediaFromPath(filePath: string, name?: string): Promise<Med
   };
 
   timeline().addMediaAsset(asset);
-  return asset;
+  /*
+    The asset is still added when it could not be decoded — refusing it
+    outright would be worse, since the file may be perfectly good and only
+    unsupported by Chromium, and `ffmpeg_process` can still transcode it
+    into something that plays. What must not happen is reporting a clean
+    import. The flag rides along so the tool can say so.
+  */
+  return { ...asset, decoded: probed.decoded, undecodableReason: probed.reason };
 }
 
 const FFMPEG_OPERATIONS = [
@@ -2203,20 +2213,46 @@ function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
    tools; this is how that file becomes something the editor can cut.
    ═══════════════════════════════════════════════════════════════════ */
 
-/** Probe a media file in the renderer to learn its real duration/size. */
+/**
+ * Probe a media file in the renderer to learn its real duration/size.
+ *
+ * `decoded` is the part that matters. Every failure path here used to
+ * resolve `{ durationMs: 5000 }` — the same shape a success returns — so
+ * a file the browser could not open came back looking like a perfectly
+ * ordinary five-second clip. `import_media_from_path` then reported
+ * success, the asset went into the pool, and it rendered the
+ * compositor's placeholder gradient forever. An agent told a user their
+ * footage was imported, and nothing anywhere could have contradicted it.
+ *
+ * Two values could not express this: a duration is either measured or
+ * invented, and the caller has to be able to tell which. Unknown is not
+ * the same as absent — the same rule §3 records for every status in this
+ * codebase with a loading state.
+ */
 function probeMedia(url: string, type: ClipType): Promise<{
   durationMs: number;
   width?: number;
   height?: number;
   thumbnailUrl: string;
+  /** False when nothing could decode this, so durationMs is a guess. */
+  decoded: boolean;
+  /** Why it could not be decoded, when it could not. */
+  reason?: string;
 }> {
   return new Promise((resolve) => {
     // Images have no duration and decode as an <img>.
     if (type === 'image') {
       const img = new Image();
       img.onload = () =>
-        resolve({ durationMs: 5000, width: img.naturalWidth, height: img.naturalHeight, thumbnailUrl: url });
-      img.onerror = () => resolve({ durationMs: 5000, thumbnailUrl: '' });
+        resolve({
+          durationMs: 5000, width: img.naturalWidth, height: img.naturalHeight,
+          thumbnailUrl: url, decoded: true,
+        });
+      img.onerror = () =>
+        resolve({
+          durationMs: 5000, thumbnailUrl: '', decoded: false,
+          reason: 'the image decoder refused it — wrong extension, or the file is corrupt',
+        });
       img.src = url;
       return;
     }
@@ -2224,21 +2260,45 @@ function probeMedia(url: string, type: ClipType): Promise<{
     const el = document.createElement(type === 'audio' ? 'audio' : 'video');
     el.preload = 'metadata';
 
-    const done = (ok: boolean) => {
-      if (!ok) { resolve({ durationMs: 5000, thumbnailUrl: '' }); return; }
+    let settled = false;
+    const done = (ok: boolean, reason?: string) => {
+      if (settled) return;
+      settled = true;
+      /*
+        Release the element either way. A failed <video> holds its decoder
+        open, and scanning a folder of them leaks one per file — Chromium
+        starts logging "Unsupported pixel format" on a loop.
+      */
+      const release = () => { el.removeAttribute('src'); el.load(); };
+
+      if (!ok) {
+        release();
+        resolve({ durationMs: 5000, thumbnailUrl: '', decoded: false, reason });
+        return;
+      }
       const video = el as HTMLVideoElement;
-      resolve({
-        durationMs: Number.isFinite(el.duration) ? Math.round(el.duration * 1000) : 5000,
+      const measured = Number.isFinite(el.duration);
+      const out = {
+        durationMs: measured ? Math.round(el.duration * 1000) : 5000,
         width: video.videoWidth || undefined,
         height: video.videoHeight || undefined,
         thumbnailUrl: type === 'audio' ? '' : url,
-      });
+        decoded: true,
+        // Metadata arrived but carried no duration — a real case for
+        // streams and some fragmented files. Still not a measurement.
+        ...(measured ? {} : { decoded: false, reason: 'metadata carried no duration' }),
+      };
+      release();
+      resolve(out);
     };
 
     el.onloadedmetadata = () => done(true);
-    el.onerror = () => done(false);
+    el.onerror = () => done(false, 'the media decoder refused it — unsupported codec, or the file is corrupt');
     // Never hang the tool call on a codec the browser cannot open.
-    setTimeout(() => done(Number.isFinite(el.duration)), 4000);
+    setTimeout(
+      () => done(Number.isFinite(el.duration), 'timed out after 4s without metadata'),
+      4000
+    );
     el.src = url;
   });
 }
@@ -2268,6 +2328,16 @@ defineTool({
       type: asset.type,
       durationMs: asset.durationMs,
       ...(asset.width ? { dimensions: `${asset.width}×${asset.height}` } : {}),
+      decoded: asset.decoded,
+      ...(asset.decoded
+        ? {}
+        : {
+            warning:
+              `Nothing could decode this file: ${asset.undecodableReason}. It is in the media ` +
+              'pool, but durationMs is a 5s placeholder rather than a measurement, and any clip ' +
+              'from it renders the placeholder gradient. Run it through ffmpeg_process to ' +
+              'transcode it, or check the path.',
+          }),
     };
   },
 });
