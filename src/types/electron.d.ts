@@ -99,6 +99,27 @@ export interface KerfElectronAPI {
   media: {
     /** Writes bytes to a temp file and returns its absolute path. */
     writeTemp: (name: string, bytes: Uint8Array) => Promise<string>;
+    /**
+     * Enumerate a folder, in main, because the renderer cannot: `fetch`
+     * and XHR on a `file://` DIRECTORY both fail even with webSecurity
+     * off (measured — "Failed to fetch" and onerror/status 0).
+     *
+     * Names, sizes and timestamps only. Whether a file is usable media
+     * is decided by trying to decode it, not by its extension.
+     */
+    listFolder: (
+      path: string,
+      recursive?: boolean
+    ) => Promise<{
+      ok: boolean;
+      folder?: string;
+      entries?: {
+        name: string; path: string; kind: 'file' | 'directory' | 'other';
+        sizeBytes: number; mtimeMs: number; birthtimeMs: number;
+      }[];
+      unreadable?: { name: string; reason: string }[];
+      error?: string;
+    }>;
   };
 
   ui: {

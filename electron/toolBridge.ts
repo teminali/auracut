@@ -14,6 +14,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { BrowserWindow, ipcMain } from 'electron';
+import { registerFolderScan } from './folderScan';
 
 export interface ToolCallResult {
   success: boolean;
@@ -57,6 +58,11 @@ export function setBridgeWindow(window: BrowserWindow | null): void {
 }
 
 export function initToolBridge(): void {
+  /* Folder enumeration for `assemble_from_folder`. It lives on this call
+     rather than in main.ts only because parallel work owns main.ts; see
+     the header of folderScan.ts. */
+  registerFolderScan();
+
   ipcMain.on(
     'bridge:response',
     (_event, payload: { id: string; ok: boolean; data?: unknown; error?: string }) => {

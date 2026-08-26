@@ -41,6 +41,8 @@ import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
 import { followToolCall } from '../engine/agentPresence';
 import { buildStarterProject, STARTER_NAME } from '../engine/starterProject';
 import { deserializeProject } from '../engine/projectIO';
+import { autoMontageToBeats } from '../engine/montage';
+import { assembleFromFolder } from '../engine/folderAssembly';
 
 /* ── Tool definition ────────────────────────────────────────────── */
 
@@ -2340,6 +2342,94 @@ defineTool({
           }),
     };
   },
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   ALTITUDE — one call in place of a loop the agent would improvise
+
+   The test for whether something belongs here: if doing it by hand takes
+   more than about six calls and a verification step, it should have been
+   a tool. Both of these were measured at fifteen to forty.
+
+   The logic lives in `src/engine/montage.ts` and
+   `src/engine/folderAssembly.ts`; what is below is only the schema and
+   the description.
+   ═══════════════════════════════════════════════════════════════════ */
+
+defineTool({
+  name: 'auto_montage_to_beats',
+  category: 'timeline',
+  description:
+    'Lay a montage whose cuts land on the beats of a music track. Detects the tempo and the ' +
+    'beat grid from the audio itself, then places each shot from one beat to another — this ' +
+    'BUILDS the edit, where detect_beats({snapCuts:true}) only nudges cuts that already exist. ' +
+    'Takes media-pool assets, or re-lays the clips already on the target track. Every choice it ' +
+    'is forced to make comes back in the result: which beats it cut on and how many of those ' +
+    'were detected rather than interpolated, what it did when the material ran out before the ' +
+    'music did, and what it did with any clip shorter than the shot it had to fill. Call with ' +
+    'dryRun first to see the shot list before it touches the timeline.',
+  schema: z.object({
+    audioClipId: z.string().optional()
+      .describe('Music clip on the timeline; defaults to the first audio clip with media'),
+    audioAssetId: z.string().optional()
+      .describe('Media-pool id or name for the music. Placed at 0ms on an audio track if it is not on the timeline yet.'),
+    assetIds: z.array(z.string()).optional()
+      .describe('Media-pool ids or names, in the order you want them. Omit to re-cut the clips already on the track.'),
+    trackId: z.string().optional().describe('Video track to lay the montage on; defaults to the first video track'),
+    cutEveryBeats: z.number().min(0.25).max(16).optional()
+      .describe('Shot length in beats; default 2. Every beat (1) is a cut every half second at 120 BPM. ' +
+                'Values below 1 cut on positions interpolated between detected beats, and the result says how many.'),
+    startMs: z.number().optional().describe('Where the montage starts; defaults to the start of the music'),
+    endMs: z.number().optional().describe('Where it stops; defaults to the end of the music'),
+    order: z.enum(['as-given', 'reverse', 'shuffle']).optional().describe('Default as-given'),
+    seed: z.number().optional().describe('Makes shuffle reproducible; default 1'),
+    whenMaterialRunsOut: z.enum(['loop', 'stop', 'stretch']).optional()
+      .describe('Fewer sources than shots: loop them (default), stop the montage early, or stretch the shot length so they span the music'),
+    whenClipIsShort: z.enum(['slow', 'gap', 'skip']).optional()
+      .describe('A source shorter than its shot: slow it to fit (default), let it play out and leave the rest empty, or pass it over'),
+    reuse: z.enum(['advance', 'restart']).optional()
+      .describe('A looped source starts later in itself each pass (default advance) or restarts from its head'),
+    clearTrack: z.boolean().optional().describe('Remove what is on the track first; default true'),
+    muteSourceAudio: z.boolean().optional().describe('Silence each shot so only the music plays; default true'),
+    fitMode: z.enum(['cover', 'contain']).optional().describe('Default cover'),
+    minShotMs: z.number().optional()
+      .describe('Refuse a grid finer than this; default 120. Kerf clamps a clip to 100ms, so a finer grid drifts off the beat.'),
+    maxCuts: z.number().optional().describe('Safety cap on the number of shots; default 400'),
+    dryRun: z.boolean().optional().describe('Report the shot list and every decision without changing anything'),
+  }),
+  handler: async (args) => autoMontageToBeats(args),
+});
+
+defineTool({
+  name: 'assemble_from_folder',
+  category: 'media',
+  description:
+    'Import a folder of media and build a sequence from it, in one call. Reports what it did ' +
+    'with EVERY file it found: the order it chose and why, the files it could not decode — by ' +
+    'name, with the reason, and they are not imported — the ones that were not media at all, ' +
+    'and how each clip got its duration. The counts are checked against the number of files ' +
+    'seen, so a folder of twelve cannot silently become a nine-clip sequence. Stills and video ' +
+    'go on one track together; audio goes to an audio track. Follow it with ' +
+    'auto_montage_to_beats to put the cuts on the music.',
+  schema: z.object({
+    folder: z.string().describe('Absolute path to a directory'),
+    recursive: z.boolean().optional().describe('Descend into subfolders (max 4 deep); default false, and the subfolder names are reported either way'),
+    orderBy: z.enum(['name', 'modified', 'created', 'duration', 'as-listed']).optional()
+      .describe('Default name, compared naturally so clip2 precedes clip10. "created" is the filesystem creation time, NOT EXIF capture time.'),
+    trackId: z.string().optional().describe('Video track to build on; defaults to the first video track'),
+    startMs: z.number().optional().describe('Where the sequence starts; default 0'),
+    stillDurationMs: z.number().optional().describe('How long each still is held; default 3000. A still has no duration, so this is a choice.'),
+    uniformDurationMs: z.number().optional().describe('Give every clip this length instead of its measured one'),
+    maxClipMs: z.number().optional().describe('Trim any clip longer than this'),
+    minClipMs: z.number().optional().describe('Extend any clip shorter than this'),
+    audio: z.enum(['bed', 'sequence', 'ignore']).optional()
+      .describe('bed (default) lays the first audio file at the start; sequence lays them all end to end; ignore imports but places none'),
+    clearTrack: z.boolean().optional().describe('Remove what is on the video track first; default true'),
+    fitMode: z.enum(['cover', 'contain']).optional().describe('Default cover'),
+    limit: z.number().optional().describe('Use only the first N files in the chosen order'),
+    dryRun: z.boolean().optional().describe('Report the whole plan, including the undecodable files, without importing anything'),
+  }),
+  handler: async (args) => assembleFromFolder(args),
 });
 
 defineTool({
