@@ -23,6 +23,7 @@ import {
 } from './effectsRegistry';
 import { interpolateKeyframes, applyEasing } from './keyframeMath';
 import { toneFilterId } from './toneFilters';
+import { runShader, hexToRgb01, ShaderKey } from './gpuStage';
 import {
   likelyVideoUrl, getVideoFrame, getVideoNaturalSize, videoFailed, getVideoGeneration,
   preloadVideo,
@@ -1152,18 +1153,42 @@ function scratchPair(width: number, height: number) {
 }
 
 /**
- * Draw a clip through a feathered mask.
+ * Draw a clip through an isolated layer.
  *
- * `mask.featherPx` was stored, listed with a 0..200 range and rendered by
- * nothing, because `ctx.clip()` is binary — there is no soft clip. The
- * only way to get a soft edge is to build the alpha separately:
+ * Needed whenever the clip cannot be drawn straight onto the frame:
  *
- *   1. draw the clip unmasked into a layer,
- *   2. fill the mask outline into a second layer through a blur,
- *   3. `destination-in` the second onto the first,
- *   4. composite the result.
+ *   - **a feathered mask.** `ctx.clip()` is binary, so there is no soft
+ *     clip. The alpha has to be built separately: fill the mask outline
+ *     through a blur into a second layer and use it as the source of a
+ *     `destination-in`. Blurring after the content is drawn would blur
+ *     the CONTENT rather than the mask edge.
+ *   - **a GPU pass.** A fragment shader needs the clip's own pixels as a
+ *     texture, and running it against the main canvas would key or warp
+ *     everything already composited underneath.
+ *
+ * Both end the same way — one canvas drawn onto the frame — so they
+ * share the machinery and chain in the right order: shade first, then
+ * feather, because the mask defines the clip's final shape.
  */
-function renderClipFeathered(
+/** Enabled effects that want a shader rather than a 2D hook. */
+function gpuEffects(clip: Clip): { key: ShaderKey; params: Record<string, number>; intensity: number }[] {
+  if (!clip.effects || clip.effects.length === 0) return [];
+  const out: { key: ShaderKey; params: Record<string, number>; intensity: number }[] = [];
+  for (const effect of clip.effects) {
+    if (!effect.enabled) continue;
+    const def = getEffectDefinition(effect.type);
+    if (!def?.gpu) continue;
+    const params: Record<string, number> = {};
+    for (const p of def.params) {
+      const v = effect.params[p.key];
+      params[p.key] = typeof v === 'number' ? v : (typeof p.default === 'number' ? p.default : 0);
+    }
+    out.push({ key: def.gpu as ShaderKey, params, intensity: effect.intensity ?? 1 });
+  }
+  return out;
+}
+
+function renderClipLayered(
   ctx: CanvasRenderingContext2D,
   clip: Clip,
   project: ProjectSettings,
@@ -1172,41 +1197,91 @@ function renderClipFeathered(
   canvasWidth: number,
   canvasHeight: number,
   mask: ClipMask,
-  box: ClipBox
+  needsFeather: boolean
 ): boolean {
   const pair = scratchPair(canvasWidth, canvasHeight);
   if (!pair) return false;
 
-  // 1 — the clip, drawn with its mask suppressed so the edge stays soft.
-  const unmasked: Clip = { ...clip, mask: { ...clip.mask, enabled: false } };
-  renderClipPass(pair.layerCtx, unmasked, project, playheadMs, offsetMs, canvasWidth, canvasHeight);
+  // 1 — the clip. Its mask is suppressed when feathering, so the edge
+  //     stays soft instead of being hard-clipped first.
+  const source: Clip = needsFeather
+    ? { ...clip, mask: { ...clip.mask, enabled: false } }
+    : clip;
+  renderClipPass(pair.layerCtx, source, project, playheadMs, offsetMs, canvasWidth, canvasHeight);
 
-  // 2 — the outline, filled through a blur, in the clip's own space.
-  const mctx = pair.maskCtx;
-  mctx.save();
-  mctx.translate(box.cx, box.cy);
-  if (box.rotation !== 0) mctx.rotate((box.rotation * Math.PI) / 180);
-  const feather = Math.max(0, mask.featherPx);
-  if (mask.inverted) {
-    /* Inverted: opaque everywhere, with a soft hole punched out. Filling
-       an even-odd path would work for a hard edge but not a blurred one —
-       the blur has to apply to the hole, not to the union. */
-    mctx.fillStyle = '#ffffff';
-    mctx.fillRect(-canvasWidth, -canvasHeight, canvasWidth * 2, canvasHeight * 2);
-    mctx.globalCompositeOperation = 'destination-out';
+  // 2 — GPU passes, over the isolated layer.
+  const key = clip.chromaKey;
+  if (key?.enabled) {
+    const shaded = runShader(
+      pair.layer,
+      'chroma_key',
+      {
+        u_keyColor: hexToRgb01(key.targetColorHex),
+        /* The shader compares a straight RGB distance, which runs 0..~1.73.
+           The stored values are the 0..100 the UI and the tools speak. */
+        u_similarity: Math.max(0.01, (key.similarity / 100) * 0.9),
+        u_smoothness: Math.max(0.001, (key.smoothness / 100) * 0.5),
+        u_spill: key.spill / 100,
+      },
+      canvasWidth,
+      canvasHeight
+    );
+    if (shaded) {
+      pair.layerCtx.setTransform(1, 0, 0, 1, 0, 0);
+      pair.layerCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+      pair.layerCtx.drawImage(shaded, 0, 0);
+    }
+    // No `shaded` means no WebGL on this machine. The clip still draws,
+    // unkeyed, which is the honest fallback.
   }
-  mctx.filter = `blur(${feather.toFixed(1)}px)`;
-  mctx.fillStyle = '#ffffff';
-  traceMaskPath(mctx, mask, box);
-  mctx.fill();
-  mctx.restore();
 
-  // 3 — the blurred outline becomes the layer's alpha.
-  pair.layerCtx.globalCompositeOperation = 'destination-in';
-  pair.layerCtx.drawImage(pair.mask, 0, 0);
-  pair.layerCtx.globalCompositeOperation = 'source-over';
+  for (const fxPass of gpuEffects(clip)) {
+    let uniforms: Record<string, number | [number, number, number]> = {};
+    if (fxPass.key === 'displace') {
+      uniforms = {
+        u_amount: (fxPass.params.amount / 100) * 0.14 * fxPass.intensity,
+        u_scale: fxPass.params.scale,
+        u_time: (offsetMs / 1000) * (fxPass.params.speed / 100) * 2.2,
+        u_angle: (fxPass.params.angle * Math.PI) / 180,
+      };
+    } else if (fxPass.key === 'rgb_glitch') {
+      uniforms = { u_amount: (fxPass.params.amount ?? 20) / 100 * fxPass.intensity };
+    }
+    const out = runShader(pair.layer, fxPass.key, uniforms, canvasWidth, canvasHeight);
+    if (!out) continue;
+    pair.layerCtx.setTransform(1, 0, 0, 1, 0, 0);
+    pair.layerCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    pair.layerCtx.drawImage(out, 0, 0);
+  }
 
-  // 4 — composite, in canvas space, ignoring whatever transform is set.
+  // 3 — the feathered alpha.
+  if (needsFeather) {
+    const box = getClipBox(clip, project, playheadMs, getNaturalSize(clip));
+    const mctx = pair.maskCtx;
+    mctx.save();
+    mctx.translate(box.cx, box.cy);
+    if (box.rotation !== 0) mctx.rotate((box.rotation * Math.PI) / 180);
+    if (mask.inverted) {
+      /* Inverted: opaque everywhere with a soft hole punched out. Filling
+         an even-odd path would be right for a hard edge and wrong here —
+         the blur has to apply to the hole, not to the union. */
+      mctx.fillStyle = '#ffffff';
+      mctx.fillRect(-canvasWidth, -canvasHeight, canvasWidth * 2, canvasHeight * 2);
+      mctx.globalCompositeOperation = 'destination-out';
+    }
+    mctx.filter = `blur(${Math.max(0, mask.featherPx).toFixed(1)}px)`;
+    mctx.fillStyle = '#ffffff';
+    traceMaskPath(mctx, mask, box);
+    mctx.fill();
+    mctx.restore();
+
+    pair.layerCtx.globalCompositeOperation = 'destination-in';
+    pair.layerCtx.setTransform(1, 0, 0, 1, 0, 0);
+    pair.layerCtx.drawImage(pair.mask, 0, 0);
+    pair.layerCtx.globalCompositeOperation = 'source-over';
+  }
+
+  // 4 — composite in canvas space, whatever transform is currently set.
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.drawImage(pair.layer, 0, 0);
@@ -1225,11 +1300,11 @@ function renderClip(
   const offsetMs = playheadMs - clip.startTimeMs;
 
   const mask = resolvedMask(clip, offsetMs);
-  if (mask.enabled && mask.featherPx > 0.5) {
-    const natural = getNaturalSize(clip);
-    const box = getClipBox(clip, project, playheadMs, natural);
-    if (renderClipFeathered(ctx, clip, project, playheadMs, offsetMs,
-                            canvasWidth, canvasHeight, mask, box)) {
+  const needsFeather = mask.enabled && mask.featherPx > 0.5;
+  const needsGpu = clip.chromaKey?.enabled === true || gpuEffects(clip).length > 0;
+  if (needsFeather || needsGpu) {
+    if (renderClipLayered(ctx, clip, project, playheadMs, offsetMs,
+                          canvasWidth, canvasHeight, mask, needsFeather)) {
       return;
     }
   }

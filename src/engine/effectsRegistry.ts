@@ -64,6 +64,16 @@ export interface EffectDefinition {
   post?: (rc: EffectRenderContext) => void;
   /** Effects that only make sense on certain clip types. */
   appliesTo?: ('video' | 'image' | 'text' | 'shape' | 'audio' | 'adjustment')[];
+  /**
+   * Runs as a fragment shader over the clip's own pixels instead of as a
+   * 2D hook. Named here rather than implemented here, because the GPU
+   * needs the clip rendered in isolation first — the compositor's layered
+   * path is the only place that exists. The registry stays the single
+   * catalogue either way, so `list_effects` needs no special case.
+   *
+   * A machine with no WebGL renders the clip unshaded rather than failing.
+   */
+  gpu?: 'chroma_key' | 'displace' | 'rgb_glitch';
 }
 
 /* ── Small drawing helpers ──────────────────────────────────────── */
@@ -336,6 +346,23 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
       }
       ctx.restore();
     },
+  },
+
+  {
+    type: 'displace',
+    label: 'Displacement',
+    category: 'distort',
+    glyph: '🌊',
+    description:
+      'Warps the image through a moving noise field — heat haze, glass, water, liquid ' +
+      'melt. Runs on the GPU; needs WebGL, and renders unwarped without it.',
+    params: [
+      { key: 'amount', label: 'Amount', type: 'number', default: 24, min: 0, max: 100, step: 1, animatable: true },
+      { key: 'scale', label: 'Detail', type: 'number', default: 14, min: 1, max: 80, step: 1, animatable: true },
+      { key: 'speed', label: 'Speed', type: 'number', default: 40, min: 0, max: 100, step: 1, animatable: true },
+      { key: 'angle', label: 'Direction', type: 'number', default: 0, min: 0, max: 360, step: 1, unit: '°', animatable: true },
+    ],
+    gpu: 'displace',
   },
 
   {
