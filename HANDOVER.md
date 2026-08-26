@@ -714,6 +714,44 @@ module directly gives a *different* instance and will waste your time.
 
 ## 11. Release
 
+### The rename, and what it left behind
+
+The project was **AuraCut** until v1.2.0. A kerf is the narrow slit a blade
+leaves in material; in an editor the edit is the gap between two clips.
+
+Three consequences outlive the rename, none of them worth a migration at
+this size but all worth knowing:
+
+- **User data was orphaned, deliberately.** `appId` moved to
+  `com.kerf.editor` and `productName` to `Kerf`, so Electron derives a new
+  userData directory. Settings, the capability gap log and the generated
+  MCP config are all still sitting at the old path. Nothing reads them.
+- **Old project files will not open.** `projectIO.ts` checks
+  `file.format === 'kerf.project'` and the extension is now `.kerf.json`.
+  Anything saved as `.auracut.json` is rejected. One line would accept the
+  legacy string if a real file ever turns up.
+- **`/Applications/AuraCut.app` must be deleted by hand**, or the machine
+  carries two editors that both bind RPC port 3888 — and whichever starts
+  first wins, which is a confusing way to test the wrong build.
+
+**Auto-update survived, and this was verified rather than assumed.** Shipped
+v1.1.0 installs read a feed pointing at `teminali/auracut`. GitHub redirects
+renamed repositories: the old release-asset URLs return 200, `releases.atom`
+301s to `teminali/kerf`, and the API redirects. The shipped 1.1.0 build was
+then launched after the rename and asked its own feed — it answered
+`up-to-date`, not `error`, which is the answer that proves the redirect
+resolved. Nobody was stranded.
+
+If you ever rename again, the identifiers that cross a process boundary are
+the dangerous half, because they fail silently: the RPC env vars and token
+header, the `KERF_SIGNED` build-time define, and above all the MCP server
+name — renaming it renames all 53 tools at once, and the system prompt in
+`claudeSession.ts` names them literally. Rename both in the same commit or
+the agent will confidently call tools that no longer exist, which reads as
+a model failure rather than a rename bug.
+
+### Cutting one
+
 Tag `v*` → GitHub Actions builds macOS/Windows/Linux and publishes installers
 plus the `latest*.yml` manifests the updater reads.
 
