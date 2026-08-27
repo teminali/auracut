@@ -16,6 +16,25 @@ directories:
   output: release
   buildResources: build
 
+# ── Do not rebuild the one native module ───────────────────────────
+#
+# `uiohook-napi` is N-API, and N-API is ABI-stable across Node and
+# Electron versions. That is the entire reason it ships prebuilt
+# binaries for every platform Kerf targets: nobody should ever have to
+# compile it.
+#
+# @electron/rebuild compiles it anyway, and on Linux that failed twice
+# in a row on headers the runner does not carry — first `X11/keysym.h`,
+# then `X11/extensions/Xrandr.h`. Installing them one at a time is
+# whack-a-mole against a compile that should not be happening: the
+# prebuilt `prebuilds/linux-x64/uiohook-napi.node` is already in the
+# package, and `node-gyp-build` finds it at runtime.
+#
+# This is a blanket switch and there is exactly one native dependency
+# for it to apply to. Anything added later that is NOT N-API will need
+# this reconsidered rather than assumed.
+npmRebuild: false
+
 # Ad-hoc signs macOS builds that have no Developer ID, so they can run at all.
 afterPack: build/afterPack.cjs
 

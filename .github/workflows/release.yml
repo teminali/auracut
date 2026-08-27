@@ -77,19 +77,11 @@ jobs:
           node-version: 22
           cache: yarn
 
-      # `uiohook-napi` ships N-API prebuilds for every platform Kerf
-      # targets, and @electron/rebuild compiles it from source anyway.
-      # On Linux that needs the X11 headers, which the runner does not
-      # have: v1.3.0's Linux job died on `X11/keysym.h: No such file`
-      # forty-nine seconds in, having built the app perfectly first.
-      - name: X11 headers for the input hook (Linux)
-        if: matrix.platform == 'linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libx11-dev libxtst-dev libxt-dev libxinerama-dev \
-            libx11-xcb-dev libxkbcommon-dev libxkbcommon-x11-dev libxkbfile-dev
-
+      # No step here installs X11 headers, and that is the point.
+      # `npmRebuild: false` in electron-builder.yml stops the one native
+      # module being compiled at all — it is N-API and ships prebuilt
+      # binaries. Installing headers to fix the compile was the first fix
+      # attempted and it was whack-a-mole: keysym.h, then Xrandr.h.
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
