@@ -1,7 +1,7 @@
 # Kerf
 
 An open-source, non-linear video editor for the desktop, with the Model
-Context Protocol wired through the whole application — every edit the UI can
+Context Protocol wired through the whole application. Every edit the UI can
 make, an agent can make too, through the same store.
 
 macOS · Windows · Linux · Electron + React + TypeScript
@@ -30,7 +30,7 @@ gone, so clear the quarantine flag instead:
 find /Applications/Kerf.app -print0 | xargs -0 xattr -d com.apple.quarantine
 ```
 
-(`xattr -r` does **not** work — macOS 26 removed the `-r` flag.)
+(`xattr -r` does **not** work. MacOS 26 removed the `-r` flag.)
 
 ---
 
@@ -41,7 +41,7 @@ that. Nothing is ever installed behind your back: an update downloads in the
 background, and a **Restart to update** button appears in the title bar. You
 choose when to take it.
 
-**Windows and Linux update themselves.** **macOS currently does not** —
+**Windows and Linux update themselves.** **macOS currently does not** ,
 Squirrel.Mac will not apply an update whose code signature it cannot verify,
 and these builds are unsigned. Rather than fail silently forever, the macOS
 build detects this and shows a **Get \<version\>** button that opens the
@@ -65,7 +65,7 @@ build, which is what flips the app from "tell the user" to "just update".
 
 ## The Copilot
 
-The Copilot panel does not implement an agent — it **runs** one. Each turn
+The Copilot panel does not implement an agent. It **runs** one. Each turn
 spawns the Claude Code CLI with Kerf registered as an MCP server, so the
 model gets its whole native toolset (Bash, Read, Write, WebFetch, downloads)
 *alongside* all 104 Kerf editing tools, and every edit lands in the window
@@ -76,7 +76,7 @@ npm i -g @anthropic-ai/claude-code
 ```
 
 That is the only requirement. It authenticates with your existing Claude
-subscription — there is no API key to paste and no per-token billing beyond
+subscription. There is no API key to paste and no per-token billing beyond
 what your plan already covers. Without the CLI the Copilot falls back to a
 built-in regex planner that handles common editing phrasings but cannot hold
 a conversation or touch your files; the panel says so rather than pretending.
@@ -121,16 +121,45 @@ Copilot drawer ──IPC──> main ──spawn──> claude CLI
 
 The last hop is the important one. The editing tools operate on the zustand
 stores, which live in the renderer, so an external process cannot call them
-directly — it has to ask the window. An earlier version of the stdio server
+directly. It has to ask the window. An earlier version of the stdio server
 ran the tools in its own process against a fresh, empty store and edited a
 project nobody could see.
+
+---
+
+## The skills store
+
+A skill is not a prompt pack. It is **tools, assets, a template project
+and a verification test**, installed like an extension, with new
+projects cloned from it. Three things follow from that shape: the buyer
+can never get nothing (if the agent fumbles they still have a real
+project on the timeline), every skill is demoable before purchase by
+showing the template, and assets are licensed per skill rather than per
+library.
+
+`server/` is the backend: a Cloudflare Worker with D1 and R2, holding
+accounts, the catalogue, orders and entitlements. Sign-in is an OAuth
+device flow proxied through the Worker, so the client secret never ships
+inside the app. Payments go through Lipia for mobile money.
+
+Licences are signed (ECDSA P-256, thirty days) and verified on the
+client against a public key compiled into the app, so a skill you bought
+opens on a laptop with no connection.
+
+`server/README.md` is the deploy runbook. `node server/verify_store.mjs`
+is 36 checks, and the ones that matter are negative: an unsigned
+callback grants nothing, a replayed one grants nothing twice, and paying
+100 against a 5000 order grants nothing.
+
+**Not built yet, and named rather than implied:** nothing publishes a
+package, and nothing installs a downloaded one.
 
 ---
 
 ## Shipping a release
 
 ```bash
-# 1. Bump the version — this number is what clients compare against.
+# 1. Bump the version, this number is what clients compare against.
 npm version 1.1.0          # commits and tags v1.1.0
 
 # 2. Push the tag. That is the decision to ship.
@@ -139,7 +168,7 @@ git push origin main --follow-tags
 
 The `Release` workflow then builds on macOS, Windows and Linux in parallel and
 uploads the installers **plus the `latest*.yml` manifests** to a GitHub
-release. Those manifests are what installed copies read — a release without
+release. Those manifests are what installed copies read. A release without
 them is invisible to the updater.
 
 Versions must increase monotonically. An installed 1.1.0 will ignore a 1.0.9.
@@ -165,24 +194,47 @@ never overwrite a live release.
 
 > **Note:** if you run these from inside a VS Code integrated terminal,
 > `ELECTRON_RUN_AS_NODE=1` is inherited from the editor and Electron will
-> start as plain Node — the app exits immediately with no output. Prefix with
+> start as plain Node. The app exits immediately with no output. Prefix with
 > `env -u ELECTRON_RUN_AS_NODE`, or use a standalone terminal.
 
 ### Layout
 
 ```
 electron/         main process, preload bridge, auto-updater
-  build.mjs       bundles both halves to CommonJS (.cjs — see the file)
+  build.mjs       bundles both halves to CommonJS (.cjs, see the file)
 src/
   components/     UI, organised by region of the window
+    ui/icons.ts   the platform icon set, in ONE file so it stays swappable
   engine/         compositor, effects, export, geometry, snapping
-  store/          zustand stores — the single source of truth
+                  previewRender.ts renders effect and transition previews
+                  through the real compositor, not an illustration
+  services/       the store client, session, and licence verification
+  store/          zustand stores, the single source of truth
   mcp/            tool registry exposed over MCP
+server/           the skills store: a Cloudflare Worker with D1 and R2
 build/            icon, entitlements, ad-hoc signing hook
+tools/            the verification suites, run by `npm run verify`
 ```
+
+### House rules, enforced rather than written down
+
+Four things about the interface are checks in `npm test`, because each
+had already drifted once:
+
+| Rule | Why |
+| --- | --- |
+| No emoji anywhere in `src` | An emoji is drawn by the OS font: a different picture on every platform, at a different weight from every real icon beside it, and unstylable. They were the effect and transition "previews" for a long time. |
+| Icons only from `ui/icons.ts` | The last set swap touched 52 files. The next should touch one. |
+| One type scale: 10 / 11 / 12 / 13 / 15 | It had drifted to 285 raw pixel sizes, 82 of them at 9px, which is below the scale entirely. |
+| No em dashes in anything a user or an agent reads | Comments are exempt. Strings are not. |
+
+Two more that are conventions rather than checks: **material for
+content, nothing for chrome** (posters and media get a surface;
+navigation and toolbars get nothing until hovered), and **recessed
+things keep a hairline, raised things do not**.
 
 ---
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
