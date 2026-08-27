@@ -423,16 +423,38 @@ const Review: React.FC<{
         </div>
 
         <div className="w-[288px] flex-shrink-0 border-l border-line overflow-y-auto p-3 space-y-3">
+          {/*
+            A take with no screen file is a FAILED take, and it used to
+            say "Take saved" under a green tick with the reason three
+            boxes further down. The heading is the one thing anybody
+            reads; it has to be the thing that is true.
+          */}
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-spectrum-green flex-shrink-0" weight="fill" />
-            <span className="text-ui font-medium text-spectrum-text">Take saved</span>
+            {take.screen ? (
+              <CheckCircle2 className="w-4 h-4 text-spectrum-green flex-shrink-0" weight="fill" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-spectrum-red flex-shrink-0" weight="fill" />
+            )}
+            <span className="text-ui font-medium text-spectrum-text">
+              {take.screen ? 'Take saved' : 'The screen was not recorded'}
+            </span>
           </div>
 
-          <p className="text-ui-sm text-spectrum-textMuted leading-relaxed">
-            The Tutorial skill will:
-          </p>
+          {!take.screen && (
+            <p className="text-ui-sm text-spectrum-textMuted leading-relaxed">
+              Nothing was written for the display, so there is no take to open.
+              {take.camera ? ' The camera file is on disk and can be imported by hand.' : ''}
+              {' '}Record again, and if it happens twice the reasons below are the place to look.
+            </p>
+          )}
 
-          <ul className="space-y-1.5">
+          {take.screen && (
+            <p className="text-ui-sm text-spectrum-textMuted leading-relaxed">
+              The Tutorial skill will:
+            </p>
+          )}
+
+          <ul className={take.screen ? 'space-y-1.5' : 'hidden'}>
             <Bullet
               icon={CursorClick}
               text={
@@ -515,11 +537,16 @@ const Review: React.FC<{
           </span>
         )}
 
+        {!take.screen && (
+          <span className="ml-auto text-ui-sm text-spectrum-textDim">
+            Nothing to open.
+          </span>
+        )}
         <button
           data-recorder="open-raw"
           onClick={() => void onBuild('raw')}
           disabled={building || !take.screen}
-          className="pro-btn-filled h-8 px-3 text-ui gap-1.5 ml-auto"
+          className={`pro-btn-filled h-8 px-3 text-ui gap-1.5 ${take.screen ? 'ml-auto' : ''}`}
           title="Screen, camera and voice on the timeline. Nothing interpreted."
         >
           Open raw

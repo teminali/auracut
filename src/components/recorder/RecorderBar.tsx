@@ -25,10 +25,15 @@ interface BarState {
   phase: string;
   elapsedMs: number;
   markCount: number;
+  /** Set when a recorder is producing nothing. The bar is the only thing
+      on screen while the editor window is hidden, so it has to show it. */
+  fault: string | null;
 }
 
 export const RecorderBar: React.FC = () => {
-  const [state, setState] = React.useState<BarState>({ phase: 'recording', elapsedMs: 0, markCount: 0 });
+  const [state, setState] = React.useState<BarState>({
+    phase: 'recording', elapsedMs: 0, markCount: 0, fault: null,
+  });
   /* Local, so pressing Mark acknowledges instantly rather than waiting
      for the next state push from the other window. Cleared on a timer
      rather than compared against `Date.now()` in the render: nothing
@@ -43,6 +48,7 @@ export const RecorderBar: React.FC = () => {
         phase: String(incoming.phase ?? 'recording'),
         elapsedMs: Number(incoming.elapsedMs ?? 0),
         markCount: Number(incoming.markCount ?? 0),
+        fault: incoming.fault ? String(incoming.fault) : null,
       });
     });
     return () => { off?.(); };
@@ -79,7 +85,9 @@ export const RecorderBar: React.FC = () => {
     >
       <span
         className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ml-1 ${
-          finishing ? 'bg-spectrum-textDim' : paused ? 'bg-spectrum-amber' : 'bg-spectrum-red animate-pulse'
+          finishing ? 'bg-spectrum-textDim'
+            : state.fault ? 'bg-spectrum-red'
+              : paused ? 'bg-spectrum-amber' : 'bg-spectrum-red animate-pulse'
         }`}
         aria-hidden="true"
       />
@@ -88,9 +96,16 @@ export const RecorderBar: React.FC = () => {
         {formatDuration(state.elapsedMs)}
       </span>
 
-      {state.markCount > 0 && (
+      {state.fault ? (
+        /* The timer keeps counting whether anything is being written or
+           not, so a bar that shows only a timer is a bar that looks fine
+           while a take records nothing. */
+        <span className="text-micro text-spectrum-red truncate" title={state.fault}>
+          not recording
+        </span>
+      ) : state.markCount > 0 ? (
         <span className="text-micro font-mono tabular text-white/45">{state.markCount}</span>
-      )}
+      ) : null}
 
       <span className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
         <BarButton

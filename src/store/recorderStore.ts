@@ -15,6 +15,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { create } from 'zustand';
+import { useUiStore } from './uiStore';
 import { RecorderSource, RecorderPermissions } from '../types/electron';
 import {
   CaptureSettings, DeviceOption, Take,
@@ -130,6 +131,11 @@ interface RecorderState {
 
   countdown: number;
   elapsedMs: number;
+  /**
+   * Set when a recorder is producing nothing, within seconds of the
+   * start rather than at the end. See `SILENCE_GRACE_MS`.
+   */
+  fault: string | null;
   /** How many moments the user has marked during this take. */
   markCount: number;
   shortcuts: string[];
@@ -165,12 +171,20 @@ interface RecorderState {
 let ticker: number | null = null;
 let countdownTimer: number | null = null;
 
+/** One id, so a fault from an earlier take cannot linger over a later one. */
+const FAULT_TOAST = 'recorder-fault';
+
 /** Push what the floating bar shows. Called on every tick and phase change. */
-function publish(state: { phase: RecorderPhase; elapsedMs: number; markCount: number }): void {
+function publish(state: {
+  phase: RecorderPhase; elapsedMs: number; markCount: number; fault?: string | null;
+}): void {
   void window.electronAPI?.recorder.publishState({
     phase: state.phase,
     elapsedMs: state.elapsedMs,
     markCount: state.markCount,
+    /* The bar is the only thing on screen while the window is hidden, so
+       a take that is recording nothing has to be visible THERE. */
+    fault: state.fault ?? null,
   });
 }
 
@@ -190,6 +204,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
 
   countdown: 0,
   elapsedMs: 0,
+  fault: null,
   markCount: 0,
   shortcuts: [],
 
@@ -198,7 +213,10 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
   warnings: [],
 
   open: () => {
-    set({ isOpen: true, phase: 'setup', take: null, error: null, warnings: [], elapsedMs: 0, markCount: 0 });
+    set({
+      isOpen: true, phase: 'setup', take: null, error: null,
+      warnings: [], elapsedMs: 0, markCount: 0, fault: null,
+    });
     void get().refreshPermissions();
     void get().refreshSources();
     void get().refreshDevices();
@@ -334,7 +352,29 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
       hideWindow: state.settings.hideWindow,
     };
 
-    const outcome = await startCapture(settings);
+    // Whatever the last take said, this one has not said it yet.
+    useUiStore.getState().dismissToast(FAULT_TOAST);
+
+    const outcome = await startCapture(settings, (fault) => {
+      /*
+        Raised from the capture engine six seconds in, not at the end.
+        The alternative is what actually happened to somebody: twenty-
+        seven seconds of recording, a green tick, and a zero-byte file.
+      */
+      set({ fault });
+      publish({ phase: get().phase, elapsedMs: get().elapsedMs, markCount: get().markCount, fault });
+      useUiStore.getState().pushToast({
+        /* A fixed id, and sticky. Sticky because a take that is
+           recording nothing is not something to miss while you look
+           away; a fixed id so it replaces itself rather than stacking,
+           and so the next take can clear it by name. */
+        id: FAULT_TOAST,
+        kind: 'error',
+        title: 'This take is not recording',
+        detail: fault,
+        ttl: 0,
+      });
+    });
     if (!outcome.ok) {
       set({ phase: 'error', error: outcome.error ?? 'The capture could not be started.', warnings: outcome.warnings });
       return;
@@ -344,6 +384,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
       phase: 'recording',
       elapsedMs: 0,
       markCount: 0,
+      fault: null,
       warnings: outcome.warnings,
       shortcuts: outcome.shortcuts,
       error: null,
@@ -370,7 +411,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
 
       const elapsedMs = Math.round(performance.now() - startedAt - pausedTotal);
       set({ elapsedMs });
-      publish({ phase: 'recording', elapsedMs, markCount: current.markCount });
+      publish({ phase: 'recording', elapsedMs, markCount: current.markCount, fault: current.fault });
     }, 200);
   },
 
@@ -417,7 +458,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
   discard: async () => {
     if (ticker !== null) { window.clearInterval(ticker); ticker = null; }
     if (isRecording()) await cancelCapture(true);
-    set({ phase: 'setup', take: null, elapsedMs: 0, markCount: 0, error: null, warnings: [] });
+    set({ phase: 'setup', take: null, elapsedMs: 0, markCount: 0, error: null, warnings: [], fault: null });
   },
 
   /*

@@ -222,25 +222,50 @@ async function acquireScreen(settings: CaptureSettings): Promise<{
 
   const video: DesktopConstraints = { mandatory };
 
-  if (settings.systemAudio) {
+  /*
+    ── System audio is a WINDOWS capability, and asking anyway is not free ──
+
+    This used to attempt the loopback request everywhere and treat a
+    throw as "not supported". macOS does not throw. It RESOLVES, hands
+    back a real MediaStream with one audio track, and that track never
+    delivers a sample — and a MediaRecorder given a video track and a
+    silent-forever audio track **emits nothing at all**. No error, no
+    `onerror`, `onstart` fires normally. It simply never produces a
+    chunk.
+
+    Measured on macOS 15, Electron 34, against one display:
+
+        4s of desktop video alone          8 chunks, 1,202,678 bytes
+        the same 4s with desktop audio     0 chunks,         0 bytes
+
+    That is how a user recorded twenty-seven seconds of screen and
+    camera and got a 0-byte `screen.webm` next to a 14MB `camera.mp4`.
+    The camera survived only because its own microphone had failed, so
+    that recorder happened to be video-only. The main process logged the
+    other half of it: `Utility process gone: crashed, exitCode 5,
+    audio.mojom.AudioService`, once per take, at the instant it started.
+
+    So the request is gated on the platform that can actually serve it
+    rather than on whether it throws. `settings.systemAudio` stays a
+    real setting — the studio still offers it, because a Windows user
+    wants it — and on every other platform it becomes a stated warning
+    instead of a poisoned recorder.
+  */
+  const canLoopback = window.electronAPI?.platform === 'win32';
+
+  if (settings.systemAudio && canLoopback) {
     try {
-      /*
-        Loopback audio, which only Windows actually provides. macOS has
-        no system-audio device without a third-party kernel extension,
-        and most Linux setups need one wired up in PulseAudio. So this
-        is attempted and its failure is a WARNING, never an error: the
-        take goes ahead silently rather than not going ahead.
-      */
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { mandatory: { chromeMediaSource: 'desktop' } } as unknown as MediaTrackConstraints,
         video: video as unknown as MediaTrackConstraints,
       });
+      const audio = stream.getAudioTracks()[0] ?? null;
       return {
         video: stream.getVideoTracks()[0],
-        systemAudio: stream.getAudioTracks()[0] ?? null,
-        ...(stream.getAudioTracks().length === 0
-          ? { warning: 'This machine offered no system audio, so the screen take has no sound of its own.' }
-          : {}),
+        systemAudio: audio,
+        ...(audio ? {} : {
+          warning: 'This machine offered no system audio, so the screen take has no sound of its own.',
+        }),
       };
     } catch {
       /* fall through to picture only */
@@ -254,10 +279,12 @@ async function acquireScreen(settings: CaptureSettings): Promise<{
   return {
     video: stream.getVideoTracks()[0],
     systemAudio: null,
-    ...(settings.systemAudio
+    ...(settings.systemAudio && !canLoopback
       ? {
-        warning: 'System audio is not available on this platform, so the screen take has no sound '
-          + 'of its own. Your microphone was still recorded.',
+        warning: 'System audio is a Windows feature, so the screen take has no sound of its own. '
+          + 'Your microphone was still recorded. Asking for it here does not merely fail: it '
+          + 'returns a track that never delivers a sample and stops the recording entirely, so '
+          + 'Kerf does not ask.',
       }
       : {}),
   };
@@ -283,6 +310,8 @@ interface Recorder {
   startedAt: number | null;
   /** Every chunk is awaited, so a stop cannot run ahead of the writes. */
   writes: Promise<unknown>[];
+  /** How many chunks have actually arrived. The watchdog reads this. */
+  chunks: number;
   hasAudio: boolean;
   width: number;
   height: number;
@@ -301,6 +330,9 @@ interface Session {
   input: InputCaptureStatus;
   warnings: string[];
   shortcuts: string[];
+  watchdog: number | null;
+  /** Set when a recorder produced nothing. Surfaced while the take runs. */
+  fault: string | null;
 }
 
 let session: Session | null = null;
@@ -311,6 +343,21 @@ export function isRecording(): boolean {
 
 /** Milliseconds a chunk covers. Fewer round trips, still bounded memory. */
 const TIMESLICE_MS = 3000;
+
+/**
+ * How long to wait before deciding a recorder is producing nothing.
+ *
+ * Two timeslices and a little. A MediaRecorder that is working has
+ * emitted twice by then; one that never will has emitted nothing, and
+ * that difference is worth catching in six seconds rather than in
+ * twenty-seven minutes.
+ *
+ * This exists because of a failure that produced NO error of any kind:
+ * `onstart` fired, `onerror` never did, and `ondataavailable` simply
+ * never ran. Nothing in the MediaRecorder API reports that state, so it
+ * has to be measured.
+ */
+const SILENCE_GRACE_MS = 6500;
 
 export interface StartOutcome {
   ok: boolean;
@@ -323,7 +370,10 @@ export interface StartOutcome {
   dir?: string;
 }
 
-export async function startCapture(settings: CaptureSettings): Promise<StartOutcome> {
+export async function startCapture(
+  settings: CaptureSettings,
+  onFault: (message: string) => void = () => undefined
+): Promise<StartOutcome> {
   if (session) return { ok: false, error: 'A recording is already running.', warnings: [], shortcuts: [], cursorTracked: false };
 
   const api = window.electronAPI;
@@ -384,20 +434,49 @@ export async function startCapture(settings: CaptureSettings): Promise<StartOutc
     /* ── 3. The microphone ── */
     let mic: MediaStreamTrack | null = null;
     if (settings.micDeviceId) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
+      /*
+        The remembered device first, the system default second.
+
+        `deviceId: { exact }` fails outright with "Requested device not
+        found" when the id no longer resolves, and ids do stop resolving:
+        they are scoped to the page's origin and are re-minted when
+        permission state changes, so a microphone chosen before the
+        permission prompt is answered can be gone by the time recording
+        starts. Losing the narration of a whole take over a stale
+        identifier is not a trade worth making, so an exact miss falls
+        back to whatever the machine considers its default and says so.
+      */
+      const shapes: { constraint: MediaTrackConstraints; note?: string }[] = [
+        {
+          constraint: {
             deviceId: { exact: settings.micDeviceId },
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
+            echoCancellation: true, noiseSuppression: true, autoGainControl: true,
           },
-          video: false,
-        });
-        mic = stream.getAudioTracks()[0];
-        openedTracks.push(mic);
-      } catch (err) {
-        warnings.push(`The microphone could not be opened, so the take has no narration. ${(err as Error).message}`);
+        },
+        {
+          constraint: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          note: 'The microphone you picked was not there any more, so the take used this '
+            + 'machine\'s default input instead.',
+        },
+      ];
+
+      for (const shape of shapes) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: shape.constraint,
+            video: false,
+          });
+          mic = stream.getAudioTracks()[0];
+          openedTracks.push(mic);
+          if (shape.note) warnings.push(shape.note);
+          break;
+        } catch (err) {
+          if (shape === shapes[shapes.length - 1]) {
+            warnings.push(
+              `No microphone could be opened, so the take has no narration. ${(err as Error).message}`
+            );
+          }
+        }
       }
     }
 
@@ -459,6 +538,7 @@ export async function startCapture(settings: CaptureSettings): Promise<StartOutc
         recorder,
         startedAt: null,
         writes: [],
+        chunks: 0,
         hasAudio: tracks.some((t) => t.kind === 'audio'),
         width,
         height,
@@ -467,6 +547,7 @@ export async function startCapture(settings: CaptureSettings): Promise<StartOutc
       recorder.onstart = () => { entry.startedAt = performance.now(); };
       recorder.ondataavailable = (event) => {
         if (!event.data || event.data.size === 0) return;
+        entry.chunks += 1;
         /*
           Kept as a promise the stop path awaits. Fire and forget loses
           the tail of the recording: `stop()` emits one last, often
@@ -498,6 +579,8 @@ export async function startCapture(settings: CaptureSettings): Promise<StartOutc
       input: begun.input,
       warnings,
       shortcuts: begun.shortcuts,
+      watchdog: null,
+      fault: null,
     };
 
     /*
@@ -507,11 +590,31 @@ export async function startCapture(settings: CaptureSettings): Promise<StartOutc
     */
     for (const entry of built) entry.recorder.start(TIMESLICE_MS);
 
+    /*
+      And then check that it is ACTUALLY recording.
+
+      Nothing else does. A MediaRecorder handed a track that never
+      delivers reports success at every step and produces no bytes, and
+      the only way to know is to look at whether any arrived.
+    */
+    const started = session;
+    started.watchdog = window.setTimeout(() => {
+      if (session !== started) return;
+      const dead = started.recorders.filter((entry) => entry.chunks === 0);
+      if (dead.length === 0) return;
+
+      started.fault = dead.length === started.recorders.length
+        ? 'Nothing is being recorded. Stop and try again.'
+        : `The ${dead.map((d) => d.name).join(' and ')} is not recording. Stop and try again.`;
+      onFault(started.fault);
+    }, SILENCE_GRACE_MS);
+
     return {
       ok: true,
       warnings,
       shortcuts: begun.shortcuts,
       cursorTracked: begun.cursorTracked,
+      input: begun.input,
       dir: begun.dir,
     };
   } catch (err) {
@@ -552,6 +655,7 @@ export async function stopCapture(): Promise<{ ok: true; take: Take } | { ok: fa
   const current = session;
   if (!current) return { ok: false, error: 'Nothing is recording.' };
   current.phase = 'finishing';
+  if (current.watchdog !== null) { window.clearTimeout(current.watchdog); current.watchdog = null; }
 
   for (const entry of current.recorders) {
     if (entry.recorder.state === 'paused') entry.recorder.resume();
@@ -575,6 +679,7 @@ export async function cancelCapture(discard: boolean): Promise<void> {
   const current = session;
   if (!current) return;
   current.phase = 'finishing';
+  if (current.watchdog !== null) { window.clearTimeout(current.watchdog); current.watchdog = null; }
 
   for (const entry of current.recorders) {
     if (entry.recorder.state !== 'inactive') {
@@ -635,6 +740,7 @@ export function probeVideo(url: string): Promise<{ width: number; height: number
 
 async function assemble(current: Session, result: RecordingResult): Promise<Take> {
   const warnings = [...current.warnings];
+  if (current.fault) warnings.push(current.fault);
 
   const screenRec = current.recorders.find((r) => r.name === 'screen');
   const cameraRec = current.recorders.find((r) => r.name === 'camera');
