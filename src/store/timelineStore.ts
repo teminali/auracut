@@ -2792,7 +2792,32 @@ export const useTimelineStore = create<TimelineStore>()(
 
     /* ══ media pool ══ */
 
-    addMediaAsset: (asset) => set((s) => { s.mediaPool.unshift(asset); }),
+    /*
+      Replace by id rather than always prepending.
+
+      This unshifted unconditionally, and several assets carry a FIXED
+      id: the starter's music bed is `starter:kerf-film-bed` and every
+      seeded sample in `defaultMedia` is `media_*`. So opening the
+      starter twice put two entries with the same id in the pool, and
+      the media panel rendered two React children with the same key,
+      which React logs as "may cause children to be duplicated and/or
+      omitted, the behavior is unsupported". Five opens, five copies.
+
+      `open_starter_project` is a TOOL, so an agent can call it in a
+      loop without anybody clicking anything.
+
+      Fixed in the STORE and not at the call sites, for the same reason
+      the lock was: a rule enforced where the data changes holds for
+      the UI, the tools and anything written later. A re-added asset
+      keeps its position rather than jumping to the front, because
+      re-importing a file you already have is not a new import.
+    */
+    addMediaAsset: (asset) =>
+      set((s) => {
+        const at = s.mediaPool.findIndex((a) => a.id === asset.id);
+        if (at === -1) s.mediaPool.unshift(asset);
+        else s.mediaPool[at] = asset;
+      }),
     removeMediaAsset: (assetId) =>
       set((s) => { s.mediaPool = s.mediaPool.filter((a) => a.id !== assetId); }),
     setAssetPeaks: (assetId, peaks) =>

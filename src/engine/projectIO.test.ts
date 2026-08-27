@@ -479,3 +479,40 @@ describe('autosave', () => {
     expect(restoreAutosave().ok).toBe(false);
   });
 });
+
+/* ── Media pool identity ──────────────────────────────────────────── */
+
+describe('the media pool holds one entry per asset id', () => {
+  it('replaces rather than duplicating when an id comes back', async () => {
+    /*
+      `addMediaAsset` unshifted unconditionally, and several assets carry
+      a FIXED id: the starter's bed is `starter:kerf-film-bed` and every
+      seeded sample is `media_*`. Opening the starter twice therefore put
+      two entries with the same id in the pool, and React logged
+      "Encountered two children with the same key" on every media panel
+      render. Found in the packaged app's own error log.
+
+      `open_starter_project` is a tool, so an agent can do this in a loop.
+    */
+    const { useTimelineStore } = await import('../store/timelineStore');
+    const store = useTimelineStore.getState();
+
+    const asset = {
+      id: 'starter:kerf-film-bed',
+      name: 'bed', type: 'audio' as const, url: 'file:///bed.wav',
+      durationMs: 1000, addedAt: 0,
+    };
+
+    store.addMediaAsset(asset as never);
+    store.addMediaAsset(asset as never);
+    store.addMediaAsset({ ...asset, name: 'bed renamed' } as never);
+
+    const pool = useTimelineStore.getState().mediaPool;
+    const mine = pool.filter((a) => a.id === 'starter:kerf-film-bed');
+    expect(mine).toHaveLength(1);
+    // The later add wins, so re-importing updates rather than shadowing.
+    expect(mine[0].name).toBe('bed renamed');
+    // Every id in the pool is unique, not just this one.
+    expect(new Set(pool.map((a) => a.id)).size).toBe(pool.length);
+  });
+});
