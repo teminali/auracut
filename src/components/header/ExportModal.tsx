@@ -7,7 +7,7 @@ import { formatDuration } from '../../utils/time';
 import { SegmentedControl, ToggleRow, Section } from '../ui/Controls';
 import {
   X, Download, Check, Film, Loader2,
-} from 'lucide-react';
+} from '../ui/icons';
 
 /* The short edge — the long edge follows the project's aspect ratio. */
 const RESOLUTIONS = [

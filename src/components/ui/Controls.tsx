@@ -7,7 +7,7 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import {
   ChevronRight, RotateCcw, Timer,
-} from 'lucide-react';
+} from './icons';
 
 /* ── Scrub behaviour ────────────────────────────────────────────── */
 

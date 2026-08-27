@@ -5,7 +5,7 @@ import { Clip, KineticAnimation } from '../../types/edl';
 import { Section, SliderRow, ColorField, ToggleRow, SegmentedControl, NumberField } from '../ui/Controls';
 import {
   Type, Sparkle, PaintBucket, AlignLeft, AlignCenter, AlignRight, Bold, Italic, CaseUpper,
-} from 'lucide-react';
+} from '../ui/icons';
 
 /*
   The font list used to be these nine names, hardcoded and identical on

@@ -14,7 +14,7 @@ import { useProjectStore } from '../../store/projectStore';
 import { useMeasure } from '../../hooks/useMeasure';
 import {
   X, MousePointer2, ArrowUpRight, Square, Circle, Pencil, Type, Undo2, Trash2, Check, MapPin,
-} from 'lucide-react';
+} from '../ui/icons';
 
 interface FrameAnnotatorProps {
   frame: CapturedFrame;

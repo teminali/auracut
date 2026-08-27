@@ -122,6 +122,46 @@ does not fail, it sits there. `npm run verify` counts `[vite] connecting…`
 lines per suite and reports any suite that ran across one as DISTURBED.
 Use `npm run verify -- --built` to be immune, or do not edit while it runs.
 
+**Trap 8 — a dev server started before a `tailwind.config.js` change
+serves a BROKEN app, and the log says nothing.** Tailwind's config is
+read once at server start. Add a token — a colour, a font size — and an
+already-running `vite` still compiles against the old config, so the
+first `@apply text-<new-token>` fails PostCSS and `/src/index.css`
+returns an HTML error page instead of CSS. `main.tsx` imports that
+stylesheet, so the import throws and **the app never mounts**.
+
+What that looks like from outside is the confusing part. There is no
+renderer error, no stack, and no crash:
+
+    [Kerf] RPC bridge on http://127.0.0.1:3950/rpc
+    [renderer:0] [vite] connecting...
+    [renderer:0] [vite] connected.
+    (nothing, ever)
+
+`npm run verify` reports `RPC never became ready: timed out after 120s`
+and 0/16 suites, which reads exactly like a broken build. It cost a full
+diagnostic pass — the poster-capture work added in the same session was
+suspected first, deferred off the mount path, and re-run before the
+actual cause was found. The one-line check:
+
+```bash
+curl -s http://localhost:5173/src/index.css | head -c 200   # HTML == broken
+```
+
+A second dev server on another port, started after the config change,
+serves the app perfectly — which is what made it look like the runner
+rather than the server. **Restart every dev server after touching
+`tailwind.config.js`**, and if a suite run cannot boot, curl the CSS
+before suspecting the code.
+
+**It also has a silent, non-fatal half that is far easier to miss.**
+Change a token's VALUE rather than adding one — blue to amber — and
+nothing errors at all: the old utility still exists, so
+`text-spectrum-accent` keeps emitting the old colour. The app renders,
+every suite passes, and one icon is quietly the wrong colour. Caught
+only by looking at a screenshot and noticing an amber theme with a blue
+icon in it.
+
 **Trap 6 — `yarn install` can leave `node_modules/electron/dist` empty.**
 Its postinstall reported success and extracted only
 `LICENSES.chromium.html`; `npm run verify` then failed preflight with "no
@@ -909,6 +949,155 @@ package name rather than by line count before believing it.
   against 0.05ms for the 2D grain. `SHADER_WHIP_PAN_FS` is KEPT with its
   reason: it needs two textures and a `ClipTransition` has one clip, so
   it is a correct shader waiting for a path that does not exist yet.
+
+## 9. The home screen is CapCut's now — done, with one thing open
+
+`src/components/home/` was rebuilt to CapCut's layout: sidebar with an
+identity card and a labelled nav group, a top band that is also the
+titlebar, a hero tile with a secondary card under it and a tall rail
+down the right, a row of eight tool tiles, and the projects wall.
+HANDOVER §7 has the slot-by-slot map of what replaced CapCut's
+account/Pro/Spaces/sync features, and why the reversal was deliberate.
+
+**`tools/verify_home.py`, 18 checks, is in `npm run verify`.** It is the
+first suite that navigates the app rather than only calling tools, so
+two things about it are worth knowing before you touch it:
+
+- It needs `KERF_DEBUG=1` for `debug/eval`. `run_all_suites.py` now sets
+  that on the throwaway instance it launches.
+- It is registered LAST and restores the launch state on the way out —
+  starter loaded, back on home — so the pixel suites do not inherit an
+  empty timeline from it.
+
+**Its `--selftest` is the reason to believe it.** It re-runs every
+assertion with all clicks SUPPRESSED and requires the 14 interaction
+checks to go RED. Three checks are deliberately not controls and say so
+in the file: they are the controls for their neighbours.
+
+**A test bug caught by that discipline, named here because it is the
+easy one to repeat.** The first draft found tiles with
+`button.textContent.trim() === 'Captions'` and reported the Captions
+tile as broken. It was not: the AI badge is a `<span>` INSIDE the
+button, so the tile's text is `"AICaptions"` and the selector matched
+nothing and clicked nothing. Match tool tiles by `title`.
+
+### Open here
+
+- **Nothing on this screen has an accessible name.** That is not a home
+  screen problem — `grep -rn 'aria-' src/components` returns **one** hit
+  across ~12k lines, and it is a decorative `aria-hidden` on the logo.
+  195 `<button>` elements, 202 `title=` tooltips, zero `aria-label`,
+  zero `role`. Icon-only buttons are the worst of it: a screen reader
+  gets nothing at all. `title` is a tooltip, not a name, and it is not
+  announced reliably by any of them. This was found while counting
+  buttons for the home rebuild and is the single largest untouched
+  quality gap in the UI.
+- **Nothing in `src/components` is virtualised, and only the Copilot
+  thread is memoised.** The projects wall is capped at 12 by the
+  recents store so it is not the place this will bite; the timeline is.
+- **The file-open dialog is untested.** `verify_home` drives the hidden
+  `<input type="file">` with a constructed `File` and proves a BROKEN
+  project is reported rather than swallowed; the native picker itself
+  cannot be driven from `debug/eval`, and the happy path is covered
+  only through `openRecent`'s shared `deserializeProject` call.
+
+---
+
+## 10. The store — built, verified, and what is left
+
+`server/` (Cloudflare Worker + D1 + R2) plus the client in
+`src/services/` and `src/store/accountStore.ts`. HANDOVER §13 is the
+reasoning; `server/README.md` is the deploy runbook.
+
+```bash
+cd server && npm install
+npm run db:local && npm run seed:local
+npx wrangler dev --port 8788 --local
+node verify_store.mjs                    # 33 checks
+
+KERF_STORE_URL=http://127.0.0.1:8788 npx electron .    # point Kerf at it
+```
+
+**Done and measured:** device-flow sign-in proxied through the Worker,
+sessions at 0600 in main, a public catalogue, free claims, Lipia
+mobile-money orders with an STK push and polling, the signed webhook,
+ECDSA licences verified in the renderer, and the storefront UI.
+
+### Closed since it was written
+
+1. ~~**`status='published'` is not gated on `verified_at`.**~~ It is a
+   **CHECK constraint** now, not a comment and not a code path — no
+   admin screen, migration or future route can route around it. §6's
+   "if it does not run, it does not publish" is enforced by SQLite.
+   `verify_store.mjs` proves it by trying, and has a control that a
+   VERIFIED skill still publishes, so the check cannot pass for the
+   wrong reason.
+2. ~~**No reconcile cron.**~~ `*/2 * * * *`, `reconcileOpenOrders`,
+   settling through the same `markPaidAndGrant` the webhook uses. It
+   covers the buyer who approved a payment and closed the laptop; the
+   on-demand path already covered the one still watching. Gives up
+   after six hours, and a Lipia outage explicitly does NOT mark orders
+   failed — "expired" is read by a buyer as "you were not charged".
+3. ~~**No rate limiting.**~~ Ten device starts per IP and five orders
+   per user per ten minutes, counted in D1. The device limit is checked
+   BEFORE the provider is called, which is the entire point — a limit
+   applied after the round trip protects nothing.
+4. ~~**The dev licence key is compiled into the client.**~~ A production
+   key was generated, its public half is in `licenceKey.ts`, and the
+   private half is at `server/.secrets/licence-signing.jwk` (0600,
+   gitignored) which `npm run setup` pipes into the Worker secret.
+
+   **And the first fix for this was a hole.** Listing both keys as
+   trusted would have shipped a build that accepts licences signed by
+   the DEV key — whose private half is generated by a script in this
+   repo and printed to a terminal. Anybody could have minted themselves
+   any skill. `trustedKeys(isDev)` now returns production only in a
+   production build, it takes a boolean rather than reading
+   `import.meta.env.DEV` so the production answer is testable, and
+   `licenceKey.test.ts` asserts it. Both guards were made to fail on
+   purpose before being believed.
+
+### Still open here
+
+1. **Nothing publishes a package.** `skill_versions` rows and R2 objects
+   are still written by hand. There is no author-facing publish flow.
+2. **Nothing installs a downloaded skill.** The entitlement is real and
+   the download route works; unpacking into `userData/skills/` is not
+   written. Note there is no unzip in Node and no zip dependency in this
+   repo — decide the container before writing the installer, and prefer
+   something `zlib` can already inflate over adding a dependency to the
+   path that runs purchased code.
+3. **Refund initiation.** The webhook handles `payment.refunded` and
+   revokes; nothing calls Lipia's `POST /api/v1/refund`.
+4. **The seller side** — payouts, the 80/20 first-year split, analytics.
+
+### Four things only a human with a browser can do
+
+`npm run setup` does every Cloudflare step; these four it cannot.
+
+- `npx wrangler login` — OAuth in a browser.
+- The **Google** OAuth client (Cloud Console → Credentials → OAuth
+  client ID → *TVs and Limited Input devices*).
+- The **GitHub** OAuth app with **Device flow** enabled. There is no API
+  for creating OAuth Apps — only GitHub Apps — so this one cannot be
+  scripted at all.
+- The **Lipia tenant** for Kerf, with its callback set to
+  `<worker>/webhooks/lipia`. Lipia's tenant creation is Next.js server
+  actions behind a dashboard login; the alternative is writing to a live
+  payments database that serves DukaBot and M-Digital, which is not a
+  thing to do unasked.
+
+### One thing worth copying
+
+`verify_store.mjs` refuses the unsigned callback BEFORE it accepts the
+signed one, and asserts nothing was granted in between. Every "it works"
+check in that file has a sibling that proves the mechanism was actually
+doing the work — the entitlement is claimed only after asserting it was
+absent, and the licence check is paired with a tampered licence that must
+fail. That is the same shape as `--selftest` elsewhere in this repo, and
+it is the reason the 33 mean anything.
+
+---
 
 ## How the maintainer wants this worked
 

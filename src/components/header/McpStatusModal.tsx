@@ -3,7 +3,7 @@ import { useMcpStore } from '../../store/mcpStore';
 import { KERF_TOOLS } from '../../mcp/toolRegistry';
 import { EFFECT_REGISTRY } from '../../engine/effectsRegistry';
 import { PROPERTY_SCHEMA } from '../../engine/propertyPath';
-import { X, Server, Wrench, Activity, Check, AlertCircle, Search, Copy } from 'lucide-react';
+import { X, Server, Wrench, Activity, Check, AlertCircle, Search, Copy } from '../ui/icons';
 
 export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const status = useMcpStore((s) => s.status);

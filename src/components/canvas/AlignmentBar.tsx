@@ -9,7 +9,7 @@ import { getNaturalSize } from '../../engine/compositor';
 import { Clip } from '../../types/edl';
 import {
   AlignHorizontalJustifyStart, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignHorizontalSpaceAround, AlignVerticalSpaceAround, Maximize, RotateCcw, FlipHorizontal2, FlipVertical2,
-} from 'lucide-react';
+} from '../ui/icons';
 
 const ALIGN_BUTTONS: { action: AlignAction; icon: React.ElementType; label: string }[] = [
   { action: 'left', icon: AlignHorizontalJustifyStart, label: 'Align left' },

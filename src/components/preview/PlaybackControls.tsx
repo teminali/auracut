@@ -4,7 +4,7 @@ import { useProjectStore } from '../../store/projectStore';
 import { formatTimecode } from '../../utils/time';
 import {
   Play, Pause, SkipBack, SkipForward, ChevronLeft, ChevronRight, Repeat, Flag, ScissorsLineDashed,
-} from 'lucide-react';
+} from '../ui/icons';
 
 const RATES = [0.25, 0.5, 1, 1.5, 2];
 
@@ -107,14 +107,14 @@ export const PlaybackControls: React.FC = () => {
             onClick={togglePlay}
             className={`w-9 h-9 mx-1 rounded-full flex items-center justify-center transition-all duration-fast ${
               isPlaying
-                ? 'bg-spectrum-accent text-white shadow-[0_2px_10px_-2px_rgba(74,144,255,0.7)]'
+                ? 'bg-spectrum-accent text-[#2a1806] shadow-[0_2px_10px_-2px_rgba(242,160,38,0.7)]'
                 : 'bg-spectrum-card border border-line-strong text-spectrum-text hover:bg-spectrum-cardHover shadow-raised'
             }`}
             title="Play / pause (Space)"
           >
             {isPlaying
-              ? <Pause className="w-[15px] h-[15px] fill-current" />
-              : <Play className="w-[15px] h-[15px] fill-current ml-0.5" />}
+              ? <Pause className="w-[15px] h-[15px]" weight="fill" />
+              : <Play className="w-[15px] h-[15px] ml-0.5" weight="fill" />}
           </button>
 
           <button onClick={() => stepFrame(1)} className="pro-btn w-7 h-7" title="Next frame (→)">

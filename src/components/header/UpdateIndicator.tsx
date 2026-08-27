@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { useUpdater } from '../../hooks/useUpdater';
-import { Download, RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Download, RefreshCw, ExternalLink, AlertTriangle } from '../ui/icons';
 
 export const UpdateIndicator: React.FC = () => {
   const { status, install, openReleases } = useUpdater();

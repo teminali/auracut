@@ -3,7 +3,7 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, VoiceEffect } from '../../types/edl';
 import { Section, SliderRow, ToggleRow, SegmentedControl, NumberField } from '../ui/Controls';
 import { unpreviewableAudio } from '../../engine/audioEffects';
-import { Volume2, Waves, Mic, Sparkle, EarOff } from 'lucide-react';
+import { Volume2, Waves, Mic, Sparkle, EarOff } from '../ui/icons';
 
 const VOICE_EFFECTS: { value: VoiceEffect; label: string }[] = [
   { value: 'none', label: 'Natural' },

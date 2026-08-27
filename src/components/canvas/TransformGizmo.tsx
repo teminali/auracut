@@ -36,7 +36,7 @@ import { resolveSnap, AlignmentGuide, SpacingIndicator, SnapContext } from '../.
 import { Clip } from '../../types/edl';
 import {
   Lock,
-} from 'lucide-react';
+} from '../ui/icons';
 
 interface TransformGizmoProps {
   viewport: Viewport;

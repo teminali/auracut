@@ -2,7 +2,7 @@ import React from 'react';
 import { useUiStore } from '../../store/uiStore';
 import {
   Check, AlertCircle, Info, X, Loader2,
-} from 'lucide-react';
+} from './icons';
 
 const ICONS = {
   success: Check,

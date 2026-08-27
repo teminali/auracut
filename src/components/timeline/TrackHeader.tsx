@@ -4,7 +4,7 @@ import { useUiStore } from '../../store/uiStore';
 import { Track } from '../../types/edl';
 import {
   Eye, EyeOff, Lock, Unlock, Volume2, VolumeX, Headphones, ChevronUp, ChevronDown, Trash2,
-} from 'lucide-react';
+} from '../ui/icons';
 
 const TYPE_STYLE: Record<Track['type'], { badge: string; color: string; ring: string }> = {
   video:   { badge: 'V', color: 'text-lane-video',   ring: 'bg-lane-video' },

@@ -30,7 +30,7 @@ import {
 } from './agentPhases';
 import {
   Check, X, Loader2, ChevronRight, Eye, Sparkle, ScanEye, Film, TerminalSquare, Lightbulb,
-} from 'lucide-react';
+} from '../ui/icons';
 
 /* ── Phase identity ─────────────────────────────────────────────── */
 

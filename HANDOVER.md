@@ -1100,30 +1100,60 @@ flow. Then the store.
 
 ## 7. The home screen
 
-`src/components/home/HomeScreen.tsx`, shown before a project is open and
-returned to via the mark in the header.
+`src/components/home/`, shown before a project is open and returned to
+via the mark in the header. `HomeScreen` is the shell; `HomeTopBar`,
+`HomeSidebar`, `HeroRow`, `MoreTools`, `ProjectsSection` and
+`SkillsView` sit under it, and every action the screen can take lives in
+`homeActions.ts` rather than in the tile that triggers it.
 
-**Deliberately not CapCut's home.** Theirs is a feature launcher — a grid
-of tiles because each of their AI capabilities is a discrete button.
-Kerf's capability is not a grid; it is a conversation and a set of
-skills. So the screen is organised around INTENT: one primary action,
-and it is a sentence.
+**It is CapCut's layout now, and that is a reversal.** This section used
+to argue the opposite at length: that CapCut's home is a feature
+launcher — a grid of tiles because each of its AI capabilities is a
+discrete button — and that Kerf's capability is a conversation, so the
+screen was organised around INTENT, with one primary action that was a
+sentence ("What do you want to make?") wired straight to a Copilot turn.
 
-Order, by how often it is actually needed: say what you want → unsaved
-work, if any → recent projects → skills.
+The maintainer's call was to adopt CapCut's layout, sidebar included.
+The prompt box is gone; describing an edit now happens in the editor's
+Copilot drawer, which the second card on this screen opens directly.
 
-Three rules it is held to. These are what "better than CapCut" means
-concretely, and they are worth defending against future additions:
+**What was NOT adopted, and why.** CapCut's home carries Sign in, Join
+Pro, Spaces, Project sync and eight AI tool tiles. Kerf has no accounts,
+no cloud, no Pro tier and no "AI fashion model", so those slots hold
+Kerf's own things:
 
-1. **Real content over chrome.** Every recent tile is a frame rendered
-   from that project, captured on the way out of the editor. A wall of
-   grey rectangles is a file dialog with extra steps — and CapCut's own
-   home is full of them.
-2. **One unmistakable primary action.** CapCut's home has roughly
-   twenty-five clickable things above the fold, three of which are
-   advertisements. This has one, and it is the thing nothing else on the
-   market can do: describe the edit and have it start.
-3. **No upsell in the workspace. Ever.**
+| CapCut's slot | What is in it here |
+|---|---|
+| account card | the agent connection — the one thing Kerf connects to |
+| Join Pro | Open project… |
+| Templates / Spaces nav | Skills, which says in writing that it is not built |
+| New project hero | New project — and it now really makes a new project |
+| Video Studio card | the Copilot |
+| ad carousel (right rail) | the most recent project, poster and all |
+| ad card (sidebar foot) | unsaved work to recover, or nothing |
+| eight AI tool tiles | the eight editor panels, AI-badged on the two that run a model |
+| Project sync | nothing. Search and view mode are real; sync has no backend |
+
+Two of the three rules the old screen was held to survive the change,
+for the same reasons they were written down:
+
+1. **Real content over chrome.** Every project tile — and the whole
+   right rail — is a frame rendered from that project, captured on the
+   way out of the editor. A wall of grey rectangles is a file dialog
+   with extra steps.
+3. **No upsell in the workspace. Ever.** CapCut runs advertisements in
+   both card slots. Neither does here, which is why the sidebar's foot
+   is empty when there is nothing to recover.
+
+Rule 2 — one unmistakable primary action — is weakened deliberately:
+this layout has a hero, a secondary card, a rail and eight tiles above
+the projects wall. That is what the layout change cost, and it was the
+trade being asked for.
+
+**"New project" did not exist before this.** The old button entered the
+editor with whatever happened to be loaded, so leaving a project and
+pressing New handed you the same project straight back. It clears the
+timeline and resets the settings now.
 
 Recents live in `src/store/recentsStore.ts` — localStorage, capped at 12
 because each entry carries a project snapshot and an unbounded list
@@ -1131,9 +1161,110 @@ would exhaust the quota and take the autosave down with it. Quota
 failure drops snapshots and keeps the list, which is what the screen
 actually needs.
 
-The Skills section says it does not exist yet, on purpose. An empty
-store dressed as a full one is exactly the theatre the rest of this
-codebase has had removed.
+**Verified by `tools/verify_home.py`** (18 checks, in `npm run verify`).
+It drives the real DOM — clicks what a user clicks — and then asks the
+STORES what changed, because six of the eight tool tiles differ only by
+which panel they open and no screenshot would tell you that two of them
+opened the same one. `--selftest` is the control: it runs the identical
+assertions with every click SUPPRESSED and requires all 14 interaction
+checks to go RED. A check that still passes when nobody pressed anything
+was reading ambient state and proving nothing.
+
+### The material pass, and the accent
+
+The layout is CapCut's; the *execution* is not, and the difference is
+what separates a screen that reads as considered from one that reads as
+generated. Three things carry it, and none of them is colour — see the
+`HOME SURFACE` layer in `index.css`:
+
+1. **A light source.** Every raised plane has an inner highlight on its
+   top edge and a cast shadow below it, consistent with light from
+   above. Flat fills with a 1px border are the tell.
+2. **Grain.** An inlined `feTurbulence` at 2–5%. Perfectly smooth
+   gradients band on an OLED panel and read as vector art.
+3. **Response.** A lift and a warming fill, on the one easing curve
+   the app already had.
+
+**Point 1 was then walked back, and the walk-back is the lesson.** The
+first pass gave every card a border, a cast shadow AND an inner
+highlight. Held against CapCut's own screen, that was three edges where
+the reference has one: their cards are a solid rectangle about sixteen
+RGB points lighter than the page, with no border, no shadow and no
+highlight, and it reads dramatically calmer.
+
+The theory is not wrong in general; it was wrong HERE. Elevation earns
+its cost when surfaces overlap and you have to read which is in front. A
+launcher is a flat grid of tiles that never overlap, so every shadow was
+noise answering a question nobody asked. Depth is now only on the things
+that genuinely float — the hero, and anything hovered.
+
+The same correction applied twice more:
+
+- **The active nav item carried three signals** — an edge bar, a raised
+  gradient pill and an inset ring — for one binary state. It is a quiet
+  fill plus an accent-coloured icon now. The edge bar is gone entirely:
+  flush-to-frame is right in the editor, where the rail IS the window
+  edge, and wrong in a sidebar that is inset from it.
+- **The tool row wrapped each tile in a bordered box**, putting eight
+  containers in a row to compete with the hero above them. The container
+  belongs to the ICON — a rounded square behind the glyph, as the
+  reference does it — and the tile itself has none.
+
+The rule that came out of it, and the one to hold new work to:
+**material for content, nothing for chrome.** Project posters, the hero
+and the Copilot card are content and get a surface. Navigation, tool
+launchers, the account block and the recovery notice are chrome and get
+nothing until hovered.
+
+The primary tile went through three versions before it was right, and
+the two rejected ones are the useful part: a flat pale-cyan slab with
+two centred words reads as a placeholder (the space does nothing and
+nothing says what pressing it does), and softening the mesh was not
+enough — **a pale slab in a dark interface always looks pasted on**. It
+is left-aligned with a supporting line and an arrow now, and its colour
+is saturated enough to belong to the interface rather than sit on it.
+
+**The accent is amber (`#f2a026`), not blue.** Two consequences that had
+to be handled rather than noticed later:
+
+- **White on amber is about 2.1:1 and fails every contrast bar there
+  is.** `--on-accent` (`#2a1806`, ~9:1) is what sits on accent fills,
+  and `.btn-primary` uses it.
+- **Amber already meant something.** It still marks keyframes, which is
+  coherent — a keyframe at the playhead is an active thing, and active
+  is what accent means. It also marked the timeline's SNAP GUIDE, and
+  that was not coherent: an amber guide beside an amber playhead is two
+  meanings in one signal. The guide is teal now. Teal also carries "AI"
+  (the Copilot card, the AI badges), so the palette reads: **amber =
+  the thing you are acting on, teal = the agent.**
+
+### Real frames on the wall
+
+§7 rule 1 says every project tile is a frame from that project, and
+until this pass that was only true of projects you had *left* — the
+capture ran in `goHome`, synchronously, taking whatever the media cache
+happened to hold. Leave a project a second after opening it and every
+clip is still decoding, so the "frame" is the compositor's dark
+placeholder gradient. That does not look like an error. It looks like a
+legitimately dark shot, and it sticks to the wall for ever.
+
+`src/engine/posterCapture.ts` renders a poster from a stored snapshot
+**without touching the live stores** — `captureFrame` takes tracks and a
+project as arguments and makes its own canvas, which matters because the
+home screen still holds whatever project was last open and a tool tile
+enters the editor with it. It waits on `mediaPending` rather than
+guessing, and samples a third of the way in rather than at zero, where
+edits usually start on black or a title card.
+
+Two callers: a backfill on home for any entry missing a poster, and a
+fire-and-forget re-render after `goHome` that replaces the synchronous
+capture with a decoded one. The backfill runs on `requestIdleCallback` —
+each capture is a full-resolution composite of every clip in the project
+and must never compete with the renderer registering the IPC handlers
+the MCP bridge talks to.
+
+The bundled starter has no snapshot (it is rebuilt from code, not
+reloaded), so it keeps a placeholder until it has been opened once.
 
 ### Navigation
 
@@ -1152,12 +1283,32 @@ traffic light in a packaged build before trusting it.
 
 ### Iconography
 
-**One AI mark across the whole platform: lucide `Sparkle`** — the single
+**One AI mark across the whole platform: `Sparkle`** — the single
 four-point shine. It replaced `Sparkles` (the multi-star, which is on
 every AI product shipped in the last two years) and `Wand2`, so there is
 one symbol for "the agent did this" rather than three. If a place ever
 genuinely needs its own mark, give it one deliberately; do not let the
 set drift back.
+
+It had already drifted by one and nobody had noticed: the editor's
+activity rail wore `Sparkle` on the **VFX** tile as well as the AI tile,
+two rows apart in the same 58px column. VFX is not AI. It is `Zap` now,
+and `Sparkle` again means one thing.
+
+**The set is Phosphor, and every icon comes from `ui/icons.ts`.** The
+reason for the swap is not nicer drawings, it is SIX WEIGHTS: a
+single-weight stroke set can only signal "selected" by changing colour,
+which is why every toolbar in this app read flat. Idle is `regular`,
+active is `fill`, and that is legible at 16px with no colour at all.
+
+`ui/icons.ts` re-exports the set under the names the codebase already
+used, so the next swap is one file rather than 52. Two rules are
+enforced by `ui/iconography.test.ts` rather than written down and
+forgotten: **no emoji anywhere in `src`**, and **no direct imports from
+an icon package**. Both had already been broken once.
+
+Note that `stroke-[N]` and `strokeWidth` do NOTHING to a Phosphor glyph
+— it is a filled path, not a stroked one. Use `weight`.
 
 ---
 
@@ -1210,9 +1361,11 @@ resolution.
 **The editor-close intercept is unverified** — see §7. It is standard
 Electron, but the test path did not exercise it.
 
-**None of the commercial layer exists** — accounts, payments, skill
-hosting, distribution, updates, licence enforcement, storefront. That is
-a second product and it is not scoped.
+**The commercial layer has a spine now** — see §13. Accounts, the
+catalogue, entitlements, signed licences and Lipia mobile-money payment
+are built and verified (`server/`, 33 checks). Still absent: package
+publish, payouts and the seller side, refund initiation, and a reconcile
+cron. Distribution and updates remain unscoped.
 
 ---
 
@@ -1435,6 +1588,80 @@ detects this and shows "Get \<version\>" instead of failing silently. Adding
 already detects `CSC_LINK` and stamps `KERF_SIGNED=1`, which esbuild inlines
 at build time (it is a build-time fact; reading `process.env` at runtime does
 not work).
+
+---
+
+## 13. The store — accounts, entitlements and Lipia
+
+`server/` is a Cloudflare Worker (D1 + R2). Its README is the runbook;
+this is why it is shaped the way it is.
+
+**A server was not a choice.** Three independent reasons, any one
+sufficient: Lipia's `callback_url` is a webhook and a desktop app has no
+public URL; the Lipia key pair is a bearer secret and Kerf ships as
+source; and entitlement has to live somewhere the buyer cannot edit.
+
+**Kerf is a Lipia tenant**, like DukaBot and M-Digital. Lipia
+(`pay.mhasibudigital.com`) wraps Selcom and owns the merchant
+credentials and the static-IP proxy Selcom's whitelisting needs, so
+nothing in `server/` knows what Selcom is. The contract was read off
+Lipia's own route handlers rather than its docs page:
+`POST /api/v1/charge` takes `{amount, currency, method, provider,
+customer_msisdn, metadata, idempotency_key}`, and the callback arrives
+signed `X-Lipia-Signature` with `metadata` echoed back verbatim — which
+is the join between a Lipia transaction and a Kerf order.
+
+**Sign-in is a device flow, proxied.** Kerf polls the Worker; the Worker
+polls Google or GitHub. That keeps the OAuth client secret server-side,
+makes the account row a side effect of an exchange we performed rather
+than a token the client handed us, and lets the poll interval be
+enforced where one buggy desktop cannot burn everyone's quota.
+
+**Licences are signed, short-lived and verified on the client.** ECDSA
+P-256, 30 days, checked by `src/services/licenceKey.ts` against a public
+key compiled into the app — so a bought skill opens on a laptop with no
+connection, which in this market is the normal case. Ed25519 would be
+smaller and was rejected: WebCrypto support for it is recent enough that
+a signature the server can make and the renderer cannot verify would
+lock out a paying customer.
+
+The expiry IS the revocation. A signed token cannot be recalled, so a
+refund stops the next licence being minted rather than killing the one
+in hand. That trade is deliberate and it is stated in the code.
+
+**What the verification suite is built to catch** (`node verify_store.mjs`,
+33 checks): a licence that does not verify under the key the client
+actually ships; a licence edited to name another skill; an unsigned or
+wrongly-signed callback granting anything; a REPLAYED callback granting
+twice, which matters because Lipia retries on a 1m/5m/30m/2h/12h ladder;
+and an underpayment — 100 against a 5000 order — being fulfilled.
+
+**The client side** is `src/services/storeClient.ts` (portable, `fetch`
+only), `src/store/accountStore.ts` (three-valued: `unknown` is not
+`signed_out`), and the store UI in `src/components/home/`. The session
+token is held at 0600 by main in `electron/storeSession.ts`, not in
+localStorage — the app already keeps agent API keys that way and a
+second, weaker standard for the same kind of secret is how one of them
+ends up wrong.
+
+**Prices live in the catalogue, not in `skill.json`.** A price changes
+without the skill changing, and a price baked into a package is a price
+you cannot correct. Entitlement is per MAJOR version, per §6.
+
+**The publish gate is a CHECK constraint.** §6 says "if it does not run,
+it does not publish"; that was a comment in the schema, and a comment is
+not an enforcement. `CHECK (status != 'published' OR verified_at IS NOT
+NULL)` cannot be routed around by any code path or forgotten by any
+future admin screen.
+
+**The dev signing key is trusted in DEV BUILDS ONLY, and the first
+version of that got it wrong.** Listing both keys as trusted would have
+shipped a build accepting licences signed by a key whose private half is
+generated by a script in this repo and printed to a terminal — anybody
+could have minted themselves any skill. `trustedKeys(isDev)` takes a
+boolean rather than reading `import.meta.env.DEV`, precisely so a test
+can ask for the production answer; a check that can only observe the
+environment it runs in cannot fail in the case that matters.
 
 ---
 

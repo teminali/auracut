@@ -6,7 +6,7 @@ import { SFX_CATALOGUE, SfxSpec } from '../../engine/sfxEngine';
 import { executeTool } from '../../mcp/toolRegistry';
 import { formatDuration } from '../../utils/time';
 import { Section } from '../ui/Controls';
-import { Music, Music4, Scissors, Volume2, Plus, Waves, AudioLines } from 'lucide-react';
+import { Music, Music4, Scissors, Volume2, Plus, Waves, AudioLines } from '../ui/icons';
 
 export const AudioPanel: React.FC = () => {
   const mediaPool = useTimelineStore((s) => s.mediaPool);

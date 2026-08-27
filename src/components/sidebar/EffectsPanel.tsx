@@ -4,9 +4,11 @@ import React, { useMemo, useState } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import { EFFECT_REGISTRY, EFFECT_CATEGORIES } from '../../engine/effectsRegistry';
+import { MotionThumb } from '../ui/MotionThumb';
+import { effectPreview } from '../../engine/previewRender';
 import {
   Search, Sparkle, Plus, Layers,
-} from 'lucide-react';
+} from '../ui/icons';
 
 export const EffectsPanel: React.FC = () => {
   const selectedClipIds = useTimelineStore((s) => s.selectedClipIds);
@@ -92,10 +94,20 @@ export const EffectsPanel: React.FC = () => {
             <button
               key={effect.type}
               onClick={() => apply(effect.type)}
-              className="card-interactive w-full p-2 flex items-start gap-2.5 text-left group"
+              className="w-full p-2 flex items-start gap-2.5 text-left group rounded-squircle-md
+                         bg-[#16191f] hover:bg-[#1f242c] transition-colors duration-base"
               title={`Add ${effect.label}`}
             >
-              <span className="text-[18px] leading-none mt-0.5 flex-shrink-0">{effect.glyph}</span>
+              {/* The effect running, not a picture suggesting it. Many
+                  of these only exist in motion — a still of `shake`,
+                  `zoom_pulse` or `film_grain` is the clip with nothing
+                  applied. */}
+              <MotionThumb
+                load={() => effectPreview(effect.type)}
+                label={`${effect.label} preview`}
+                restAt={0.5}
+                className="w-[62px] aspect-video rounded-[5px] flex-shrink-0"
+              />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-medium text-spectrum-text truncate group-hover:text-spectrum-accent transition-colors">

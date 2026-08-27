@@ -38,6 +38,15 @@ export interface RecentProject {
 interface RecentsState {
   recents: RecentProject[];
   remember: (entry: Omit<RecentProject, 'openedAt'>) => void;
+  /**
+   * Attach a rendered frame to an entry that had none.
+   *
+   * Separate from `remember` on purpose: a backfilled poster must not
+   * move the project to the top of the list. Recency means "when you
+   * last worked on it", and reordering the wall because a thumbnail
+   * finished rendering would be the list lying about what you did.
+   */
+  setPoster: (id: string, posterUrl: string) => void;
   forget: (id: string) => void;
   clear: () => void;
 }
@@ -87,7 +96,10 @@ const STARTER_ENTRY: RecentProject = {
   name: STARTER_NAME,
   durationMs: STARTER_DURATION_MS,
   aspectRatio: '16:9',
-  clipCount: 88,
+  // Counted from the built project, not estimated. It said 88 and the
+  // builder makes 87 — invisible while this was a small tile, and now
+  // it is the caption on the largest card on the screen.
+  clipCount: 87,
   openedAt: 0,
   starter: 'kerf-brand-film',
 };
@@ -108,6 +120,12 @@ export const useRecentsStore = create<RecentsState>((set, get) => ({
       ...get().recents.filter((r) => r.id !== entry.id && !r.starter),
     ].slice(0, LIMIT);
 
+    persist(next);
+    set({ recents: next });
+  },
+
+  setPoster: (id, posterUrl) => {
+    const next = get().recents.map((r) => (r.id === id ? { ...r, posterUrl } : r));
     persist(next);
     set({ recents: next });
   },

@@ -26,11 +26,12 @@ import { RichText } from './RichText';
 import { AgentThread } from './AgentThread';
 import { RunStatus } from './RunStatus';
 import { AgentPicker } from './AgentPicker';
+import * as Icons from '../ui/icons';
 import { GapLog } from './GapLog';
 import { useGapStore } from '../../store/gapStore';
 import {
   Sparkle, X, ArrowUp, Cpu, ChevronDown, ChevronRight, Terminal, Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair, Lightbulb, Eye, EyeOff,
-} from 'lucide-react';
+} from '../ui/icons';
 
 /** A keycap, so the hint line reads as keys rather than as punctuation. */
 /** Display names for the selectable backends. */
@@ -46,6 +47,18 @@ const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     {children}
   </kbd>
 );
+
+/**
+ * Maps a quick action's icon NAME to the platform icon set.
+ *
+ * The names live in `agentBridge` (the portable engine layer, which
+ * must not import React components) and are resolved here, in the
+ * renderer, which is the layer that knows what an icon is.
+ */
+const QuickIcon: React.FC<{ name: string }> = ({ name }) => {
+  const Cmp = (Icons as Record<string, React.ElementType>)[name];
+  return Cmp ? <Cmp className="w-3.5 h-3.5 flex-shrink-0" /> : null;
+};
 
 export const CopilotDrawer: React.FC = () => {
   const isOpen = useProjectStore((s) => s.isCopilotOpen);
@@ -625,7 +638,7 @@ export const CopilotDrawer: React.FC = () => {
                              hover:border-spectrum-accentLine hover:text-spectrum-text transition-colors"
                   title={`${action.prompt} — loads into the box so you can check the context first`}
                 >
-                  <span>{action.icon}</span>
+                  <QuickIcon name={action.icon} />
                   {action.label}
                 </button>
               ))}

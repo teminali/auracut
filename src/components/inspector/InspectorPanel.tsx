@@ -11,7 +11,7 @@ import { ShapeInspector } from './ShapeInspector';
 import { EmptyState } from '../ui/Controls';
 import {
   MousePointerSquareDashed, Move3d, Palette, Sparkle, Gauge, Diamond, Volume2, Type, Shapes, Lock,
-} from 'lucide-react';
+} from '../ui/icons';
 
 type TabId = 'transform' | 'color' | 'effects' | 'speed' | 'keys' | 'audio' | 'text' | 'shape';
 

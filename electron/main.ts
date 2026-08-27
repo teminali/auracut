@@ -1,4 +1,10 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import {
+  readSession as readStoreSession,
+  writeSession as writeStoreSession,
+  clearSession as clearStoreSession,
+  storeBaseUrl,
+} from './storeSession';
 import path from 'path';
 import http from 'http';
 import { initAutoUpdater } from './updater';
@@ -395,6 +401,25 @@ function registerAgentIpc() {
   ipcMain.handle('export:cancel', (_e, p: { sessionId: string }) => { cancelExport(p.sessionId); return true; });
 
   /* ── Which CLI drives the Copilot ── */
+
+  /* ── Kerf Store session ──────────────────────────────────────────
+     The token is a credential, so it is held in main at 0600 and the
+     renderer is handed it only when it asks. See electron/storeSession.ts
+     for why this is not localStorage. */
+  ipcMain.handle('store:getSession', () => ({
+    session: readStoreSession(),
+    baseUrl: storeBaseUrl(),
+  }));
+
+  ipcMain.handle('store:setSession', (_e, p: { token: string; expiresAt: number }) => {
+    writeStoreSession({ token: p.token, expiresAt: p.expiresAt });
+    return true;
+  });
+
+  ipcMain.handle('store:clearSession', () => {
+    clearStoreSession();
+    return true;
+  });
 
   ipcMain.handle('agents:list', async (_e, p: { deep?: boolean }) => ({
     selected: getBackendId(),

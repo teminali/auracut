@@ -13,9 +13,12 @@
     --line-soft: rgba(255, 255, 255, 0.042);
     --line-strong: rgba(255, 255, 255, 0.125);
 
-    --accent: #4a90ff;
-    --accent-soft: rgba(74, 144, 255, 0.15);
-    --accent-line: rgba(74, 144, 255, 0.4);
+    --accent: #f2a026;
+    --accent-soft: rgba(242, 160, 38, 0.15);
+    --accent-line: rgba(242, 160, 38, 0.42);
+    /* Type that sits ON the accent. White on amber is about 2.1:1 and
+       fails every contrast bar there is; this is ~9:1. */
+    --on-accent: #2a1806;
 
     --stage: #060709;
     --sunken: #0a0b0e;
@@ -85,7 +88,7 @@
   /* Keyboard focus only — pointer interaction never draws a ring. */
   :focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(74, 144, 255, 0.45);
+    box-shadow: 0 0 0 2px rgba(242, 160, 38, 0.5);
     border-radius: 5px;
   }
 
@@ -108,6 +111,205 @@
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOME SURFACE
+   The launcher is the one screen in the app that is looked AT rather
+   than worked THROUGH, so it gets a material system the tool panels
+   deliberately do not: a light source, real elevation, and grain.
+
+   Three things separate a surface that reads as considered from one
+   that reads as generated, and none of them is colour:
+
+     1. A LIGHT SOURCE. Every raised plane has an inner highlight on
+        its top edge and a cast shadow below it, both consistent with
+        light from above. Flat fills with a 1px border are the tell.
+     2. GRAIN. Perfectly smooth gradients band on an OLED panel and
+        read as vector art. A few percent of noise is what makes a
+        dark surface look like a material instead of a fill.
+     3. RESPONSE. Weight under the cursor — a lift, a shadow that
+        grows, a border that warms — on one easing curve.
+   ═══════════════════════════════════════════════════════════════ */
+@layer components {
+  :root {
+    /* feTurbulence, inlined. ~700 bytes and no network. */
+    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* The page. A cool light from above the top edge, so the screen has
+     a direction and the cards below have something to catch. */
+  .home-stage {
+    position: relative;
+    background:
+      radial-gradient(145% 70% at 50% -18%, rgba(255, 196, 120, 0.05) 0%, transparent 62%),
+      var(--stage);
+  }
+
+  .home-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--grain);
+    opacity: 0.022;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .home-stage > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── The plane ────────────────────────────────────────────────
+     A FILL, not a frame. This started as a bordered, shadowed,
+     inner-highlighted surface on the theory that a light source is
+     what separates a considered UI from a flat one. Held against the
+     reference, that was wrong for this screen: CapCut's cards are a
+     solid rectangle about sixteen RGB points lighter than the page,
+     with no border, no shadow and no highlight — one edge where mine
+     had three, and it reads dramatically calmer at a glance.
+
+     The theory is not wrong in general; it is wrong HERE. Elevation
+     earns its cost when surfaces overlap and you have to read which
+     is in front. A launcher is a flat grid of tiles that never
+     overlap, so every shadow is noise with no question to answer.
+     Depth stays on the things that genuinely float — the hero, and
+     anything hovered. */
+  .surface-card {
+    background: #16191f;
+    border: 1px solid transparent;
+    transition:
+      transform var(--t-base) var(--ease),
+      background-color var(--t-base) var(--ease);
+  }
+
+  .surface-card-hover:hover {
+    transform: translateY(-1px);
+    background: #1c2028;
+  }
+
+  .surface-card-hover:active {
+    transform: translateY(0);
+    background: #1f242c;
+    transition-duration: var(--t-fast);
+  }
+
+  /* ── The primary tile ─────────────────────────────────────────
+     A mesh of three radial gradients, not a linear ramp. A single
+     two-stop gradient across 900px bands visibly on a dark panel;
+     overlapping radials at different angles never do, and they give
+     the slab a shape instead of a direction. */
+  .hero-tile {
+    position: relative;
+    overflow: hidden;
+    /*
+      DEEP, not pale. Two passes at a light cyan slab both read as a
+      washed-out rectangle sitting on top of the interface rather than
+      part of it — which is the exact quality being designed out. A
+      dark UI wants its one saturated element to be SATURATED: the
+      colour carries the hierarchy, a specular sheen across the top
+      carries the light, and white type sits on it the way it does on
+      every other surface in the app.
+
+      Three layers, and each does one job:
+        · a tight specular sheen from above the top-left corner
+        · a deep shadow pooling into the bottom-right
+        · the body gradient, which never gets lighter than #1e9fc0
+    */
+    background:
+      radial-gradient(105% 150% at 6% -35%, rgba(255, 240, 209, 0.32) 0%, transparent 44%),
+      /* Pushed further off the corner and eased back. At 0.82 over a
+         60% falloff the shadow reached a third of the way across and
+         turned the right side brown rather than deep amber — a muddy
+         end to a gradient reads as a badly exported JPEG. */
+      radial-gradient(70% 110% at 108% 150%, rgba(52, 24, 2, 0.62) 0%, transparent 62%),
+      linear-gradient(102deg, #b8761a 0%, #eaa833 44%, #b06f14 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+      0 16px 44px -22px rgba(197, 130, 26, 0.6);
+    transition: transform var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+  }
+
+  .hero-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--grain);
+    /* Heavier here than on the page: a large saturated area is where
+       banding actually shows. */
+    opacity: 0.05;
+    pointer-events: none;
+  }
+
+  .hero-tile:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.36),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+      0 26px 60px -24px rgba(197, 130, 26, 0.75);
+  }
+
+  .hero-tile:active {
+    transform: translateY(0) scale(0.997);
+    transition-duration: var(--t-fast);
+  }
+
+  /* ── Entrance ─────────────────────────────────────────────────
+     Staggered, short, and once. Anything longer than ~260ms on a
+     launcher is a screen you wait for rather than one that arrives.
+     The reduced-motion block in base flattens all of it. */
+  .rise-in {
+    animation: rise-in 0.34s var(--ease) both;
+  }
+
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(9px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .rise-1 { animation-delay: 0.02s; }
+  .rise-2 { animation-delay: 0.07s; }
+  .rise-3 { animation-delay: 0.12s; }
+  .rise-4 { animation-delay: 0.17s; }
+
+  /* ── Section headings ─────────────────────────────────────────
+     Display size, tight tracking, and an optical nudge left so the
+     cap-height aligns with the card edges beneath it rather than the
+     glyph's own side bearing. */
+  .section-head {
+    @apply font-semibold text-spectrum-text;
+    font-size: 22px;
+    line-height: 28px;
+    letter-spacing: -0.022em;
+    margin-left: -0.5px;
+  }
+
+  /* A count or hint sitting on the heading's baseline. */
+  .section-note {
+    @apply text-ui-sm text-spectrum-textDim;
+    letter-spacing: 0.002em;
+  }
+
+  /* ── Media ────────────────────────────────────────────────────
+     A poster is the content; the frame around it should be almost
+     nothing, and what moves on hover should be the image. */
+  .poster-zoom {
+    transition: transform 0.55s var(--ease);
+  }
+
+  .group:hover .poster-zoom {
+    transform: scale(1.045);
+  }
+
+  /* Timecodes and counts over an image. Blur, not opacity, so the
+     digits stay legible over a bright frame. */
+  .media-pill {
+    @apply text-micro font-mono tabular text-white/90;
+    background: rgba(6, 8, 12, 0.66);
+    backdrop-filter: blur(10px) saturate(1.3);
   }
 }
 
@@ -245,11 +447,13 @@
   }
 
   .btn-primary {
-    @apply rounded-squircle-xs inline-flex items-center justify-center font-semibold text-white flex-shrink-0;
-    background: linear-gradient(180deg, #5f9dff 0%, #3a7ef0 100%);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.45),
-      0 0 0 0.5px rgba(58, 126, 240, 0.5);
+    @apply rounded-squircle-xs inline-flex items-center justify-center font-semibold flex-shrink-0;
+    /* Dark type, not white — see --on-accent. */
+    color: var(--on-accent);
+    background: linear-gradient(180deg, #ffb84a 0%, #e8901a 100%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 1px 2px rgba(0, 0, 0, 0.45),
+      0 0 0 0.5px rgba(232, 144, 26, 0.5);
     transition: filter var(--t-fast) ease, box-shadow var(--t-fast) ease;
   }
 
@@ -338,7 +542,7 @@
   .squircle-input:focus,
   .squircle-input:focus-within {
     border-color: var(--accent);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(74, 144, 255, 0.22);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(242, 160, 38, 0.22);
   }
 
   .pro-input::placeholder {
@@ -521,7 +725,7 @@ input[type='range']:hover::-webkit-slider-thumb {
 
 input[type='range']:active::-webkit-slider-thumb {
   transform: scale(1.05);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 0 4px rgba(74, 144, 255, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 0 4px rgba(242, 160, 38, 0.25);
 }
 
 input[type='range'].range-accent::-webkit-slider-thumb {

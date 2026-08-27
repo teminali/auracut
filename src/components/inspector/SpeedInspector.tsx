@@ -7,7 +7,7 @@ import { resolveSpeedPoints, getSpeedCurveMultiplier } from '../../engine/keyfra
 import { Section, SliderRow, ToggleRow, SegmentedControl } from '../ui/Controls';
 import {
   Gauge, Rewind, Waves, RotateCcw, Plus,
-} from 'lucide-react';
+} from '../ui/icons';
 
 const PRESETS: { value: SpeedCurvePreset; label: string; hint: string }[] = [
   { value: 'linear', label: 'Normal', hint: 'Constant rate' },

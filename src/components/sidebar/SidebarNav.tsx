@@ -10,8 +10,8 @@
 import React from 'react';
 import { useLayoutStore, SidebarTab } from '../../store/layoutStore';
 import {
-  FolderOpen, Music, Type, Subtitles, Layers, Sparkle, Sliders,
-} from 'lucide-react';
+  FolderOpen, Music, Type, Subtitles, Layers, Sparkle, Sliders, Zap,
+} from '../ui/icons';
 
 interface TabItem {
   id: SidebarTab;
@@ -26,7 +26,10 @@ const TABS: TabItem[] = [
   { id: 'text', label: 'Text', icon: Type, hotkey: '3' },
   { id: 'captions', label: 'Captions', icon: Subtitles, hotkey: '4' },
   { id: 'transitions', label: 'Trans', icon: Layers, hotkey: '5' },
-  { id: 'effects', label: 'VFX', icon: Sparkle, hotkey: '6' },
+  /* `Sparkle` is the platform's ONE AI mark (HANDOVER, Iconography).
+     VFX is not AI, and wearing the same symbol as the AI panel two
+     tiles below it is how a set of one drifts back to a set of three. */
+  { id: 'effects', label: 'VFX', icon: Zap, hotkey: '6' },
   { id: 'filters', label: 'Colour', icon: Sliders, hotkey: '7' },
   { id: 'ai', label: 'AI', icon: Sparkle, hotkey: '8' },
 ];
@@ -60,9 +63,10 @@ export const SidebarNav: React.FC = () => {
                 isActive ? 'opacity-100' : 'opacity-0'
               }`}
             />
-            <Icon
-              className={`w-[18px] h-[18px] transition-colors ${isActive ? 'stroke-[1.9]' : 'stroke-[1.6]'}`}
-            />
+            {/* The reason the icon set changed. A stroke-only set can
+                signal "selected" with colour alone; a filled glyph reads
+                as selected at 18px before any colour is processed. */}
+            <Icon className="w-[18px] h-[18px] transition-colors" weight={isActive ? 'fill' : 'regular'} />
             <span className={`text-[9px] leading-none tracking-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>
               {tab.label}
             </span>

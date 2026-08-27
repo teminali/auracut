@@ -49,10 +49,19 @@ export default {
           textDim: '#6f7887',
           textFaint: '#4e5663',
 
-          accent: '#4a90ff',
-          accentHover: '#6ba5ff',
-          accentSoft: 'rgba(74,144,255,0.15)',
-          accentLine: 'rgba(74,144,255,0.40)',
+          /* ── The primary ──────────────────────────────────────────
+             Amber. Note what it collides with and how that is resolved:
+             `amber` below still means KEYFRAME and CAUTION, and those
+             are close enough to the accent to be read as the same
+             signal. Keyframes are fine — a keyframe at the playhead IS
+             an active thing, which is what accent means. The timeline's
+             SNAP GUIDE was not fine (an amber line beside an amber
+             playhead is two different meanings in one colour) and has
+             moved to teal. */
+          accent: '#f2a026',
+          accentHover: '#ffb445',
+          accentSoft: 'rgba(242,160,38,0.15)',
+          accentLine: 'rgba(242,160,38,0.42)',
 
           blue: '#4a90ff',
           green: '#33c98d',
@@ -97,6 +106,12 @@ export default {
         'ui': ['12px', { lineHeight: '16px' }],
         'ui-lg': ['13px', { lineHeight: '18px', letterSpacing: '-0.005em' }],
         'ui-xl': ['15px', { lineHeight: '21px', letterSpacing: '-0.012em' }],
+        /* The home screen is a launcher, not a tool surface, and the five
+           sizes above are tuned for panels dense with controls. Two display
+           sizes exist ONLY for it — a section heading and a hero label — so
+           the exception is named here rather than scattered as raw px. */
+        'display': ['17px', { lineHeight: '23px', letterSpacing: '-0.014em' }],
+        'display-lg': ['20px', { lineHeight: '27px', letterSpacing: '-0.018em' }],
         /* legacy aliases — kept so older call sites keep compiling */
         '2xs': ['10px', { lineHeight: '13px', letterSpacing: '0.02em' }],
         'xs2': ['10px', { lineHeight: '14px' }],

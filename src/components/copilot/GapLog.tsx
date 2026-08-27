@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { useGapStore } from '../../store/gapStore';
-import { X, Copy, Check, Trash2, Lightbulb } from 'lucide-react';
+import { X, Copy, Check, Trash2, Lightbulb } from '../ui/icons';
 
 export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { gaps, toggleResolved, remove, clear, exportMarkdown } = useGapStore();

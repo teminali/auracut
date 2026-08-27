@@ -2,7 +2,7 @@ import React from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, ShapeKind } from '../../types/edl';
 import { Section, SliderRow, ColorField, ToggleRow, SegmentedControl } from '../ui/Controls';
-import { Shapes, PaintBucket, Scissors, Square, Circle, Triangle, Star, Minus, MoveRight, Heart, Hexagon, Spline } from 'lucide-react';
+import { Shapes, PaintBucket, Scissors, Square, Circle, Triangle, Star, Minus, MoveRight, Heart, Hexagon, Spline } from '../ui/icons';
 
 const SHAPES: { value: ShapeKind; label: string; icon: React.ElementType }[] = [
   { value: 'rectangle', label: 'Rect', icon: Square },

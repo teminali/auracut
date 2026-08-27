@@ -13,7 +13,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import React from 'react';
-import { Square } from 'lucide-react';
+import { Square } from '../ui/icons';
 
 interface Props {
   activity: string;

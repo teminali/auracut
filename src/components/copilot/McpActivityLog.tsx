@@ -1,6 +1,6 @@
 import React from 'react';
 import { useMcpStore } from '../../store/mcpStore';
-import { Check, AlertCircle } from 'lucide-react';
+import { Check, AlertCircle } from '../ui/icons';
 
 export const McpActivityLog: React.FC = () => {
   const logs = useMcpStore((s) => s.logs);

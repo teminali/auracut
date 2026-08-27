@@ -10,7 +10,7 @@ import React, { useState } from 'react';
 import { PreflightReport, CapturedFrame, Annotation } from '../../types/context';
 import {
   Check, AlertTriangle, CircleAlert, Camera, Pencil, ShieldCheck, X, ChevronRight,
-} from 'lucide-react';
+} from '../ui/icons';
 
 interface ContextPreflightProps {
   report: PreflightReport;

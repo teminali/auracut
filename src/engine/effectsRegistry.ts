@@ -55,8 +55,6 @@ export interface EffectDefinition {
   label: string;
   category: EffectCategory;
   description: string;
-  /** Small emoji/glyph for the browser card. */
-  glyph: string;
   params: EffectParam[];
   /** Runs before the clip's pixels are drawn (filters, transforms, clips). */
   pre?: (rc: EffectRenderContext) => void;
@@ -128,7 +126,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'glow',
     label: 'Anamorphic Glow',
     category: 'light',
-    glyph: '✨',
     description: 'Diffused highlight bloom with an optional horizontal streak.',
     params: [
       { key: 'radius', label: 'Bloom radius', type: 'number', default: 28, min: 0, max: 120, step: 1, unit: 'px', animatable: true },
@@ -168,7 +165,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'rgb_split',
     label: 'RGB Split',
     category: 'distort',
-    glyph: '👾',
     description: 'Chromatic aberration — offsets the red and cyan channels.',
     params: [
       { key: 'offset', label: 'Offset', type: 'number', default: 8, min: 0, max: 80, step: 0.5, unit: 'px', animatable: true },
@@ -199,7 +195,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'film_grain',
     label: '35mm Film Grain',
     category: 'stylize',
-    glyph: '🎞️',
     description: 'Animated analogue grain with adjustable size and colour noise.',
     params: [
       { key: 'amount', label: 'Amount', type: 'number', default: 35, min: 0, max: 100, step: 1, unit: '%', animatable: true },
@@ -240,7 +235,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'scanlines',
     label: 'CRT Scanlines',
     category: 'stylize',
-    glyph: '📺',
     description: 'Retro monitor scanlines with rolling interference.',
     params: [
       { key: 'spacing', label: 'Line spacing', type: 'number', default: 4, min: 2, max: 24, step: 1, unit: 'px' },
@@ -267,7 +261,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'vhs',
     label: 'VHS Tape',
     category: 'stylize',
-    glyph: '📼',
     description: 'Tracking bars, colour bleed and tape warble.',
     params: [
       { key: 'tracking', label: 'Tracking error', type: 'number', default: 0.4, min: 0, max: 1, step: 0.01, animatable: true },
@@ -325,7 +318,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'halftone',
     label: 'Halftone Print',
     category: 'stylize',
-    glyph: '🗞️',
     description: 'Newsprint dot screen at an adjustable angle.',
     params: [
       { key: 'dotSize', label: 'Dot size', type: 'number', default: 6, min: 2, max: 28, step: 1, unit: 'px' },
@@ -359,7 +351,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'displace',
     label: 'Displacement',
     category: 'distort',
-    glyph: '🌊',
     description:
       'Warps the image through a moving noise field — heat haze, glass, water, liquid ' +
       'melt. Runs on the GPU; needs WebGL, and renders unwarped without it.',
@@ -384,7 +375,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'page_curl',
     label: 'Page Curl',
     category: 'distort',
-    glyph: '📄',
     description:
       'Peels the clip off the frame like a page, curling it around a cylinder and showing ' +
       'its reverse. Keyframe "progress" 0 → 100 over a clip sitting on top of another and ' +
@@ -410,7 +400,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'flag_wave',
     label: 'Flag Wave',
     category: 'distort',
-    glyph: '🏳️',
     description:
       'Waves the clip like cloth on a pole — a travelling wave lifts the sheet out of the ' +
       'plane, and the light across it comes from the surface slope rather than a painted ' +
@@ -433,7 +422,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'ripple',
     label: 'Ripple',
     category: 'distort',
-    glyph: '💧',
     description:
       'Rings spreading from a point, pushing the image outward along the radius. Because it ' +
       'moves the mesh and not the texture read, the EDGE of the picture ripples too and ' +
@@ -458,7 +446,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'pixelate',
     label: 'Pixelate',
     category: 'distort',
-    glyph: '🟦',
     description: 'Mosaic blocks — good for censoring or a retro look.',
     params: [
       { key: 'size', label: 'Block size', type: 'number', default: 16, min: 2, max: 120, step: 1, unit: 'px', animatable: true },
@@ -489,7 +476,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'gaussian_blur',
     label: 'Gaussian Blur',
     category: 'blur',
-    glyph: '🌫️',
     description: 'Clean symmetrical blur.',
     params: [
       { key: 'radius', label: 'Radius', type: 'number', default: 8, min: 0, max: 80, step: 0.5, unit: 'px', animatable: true },
@@ -504,7 +490,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'radial_blur',
     label: 'Radial Zoom Blur',
     category: 'blur',
-    glyph: '💫',
     description: 'Zoom-streak blur radiating from the centre.',
     params: [
       { key: 'amount', label: 'Amount', type: 'number', default: 0.35, min: 0, max: 1, step: 0.01, animatable: true },
@@ -535,7 +520,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'directional_blur',
     label: 'Directional Blur',
     category: 'blur',
-    glyph: '💨',
     description: 'Motion-streak blur along a chosen angle.',
     params: [
       { key: 'length', label: 'Length', type: 'number', default: 20, min: 0, max: 160, step: 1, unit: 'px', animatable: true },
@@ -568,7 +552,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'light_leak',
     label: 'Light Leak',
     category: 'light',
-    glyph: '🌅',
     description: 'Warm analogue flare sweeping across the frame.',
     params: [
       { key: 'color', label: 'Leak colour', type: 'color', default: '#ff9a4d' },
@@ -596,7 +579,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'godrays',
     label: 'God Rays',
     category: 'light',
-    glyph: '🔆',
     description: 'Volumetric light shafts from an adjustable source point.',
     params: [
       { key: 'x', label: 'Source X', type: 'number', default: 0, min: -1, max: 1, step: 0.01, animatable: true },
@@ -639,7 +621,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'lens_flare',
     label: 'Lens Flare',
     category: 'light',
-    glyph: '🔅',
     description: 'Anamorphic flare with ghost elements along the optical axis.',
     params: [
       { key: 'x', label: 'Position X', type: 'number', default: 0.3, min: -1, max: 1, step: 0.01, animatable: true },
@@ -690,7 +671,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'vignette',
     label: 'Vignette',
     category: 'light',
-    glyph: '⭕',
     description: 'Darkens (or lifts) the frame edges.',
     params: [
       { key: 'amount', label: 'Amount', type: 'number', default: 45, min: -100, max: 100, step: 1, unit: '%', animatable: true },
@@ -717,7 +697,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'duotone',
     label: 'Duotone',
     category: 'color',
-    glyph: '🎨',
     description: 'Maps luminance onto two brand colours.',
     params: [
       { key: 'shadow', label: 'Shadow colour', type: 'color', default: '#12203f' },
@@ -752,7 +731,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'color_wash',
     label: 'Colour Wash',
     category: 'color',
-    glyph: '🌈',
     description: 'Blends a flat colour over the clip in any blend mode.',
     params: [
       { key: 'color', label: 'Colour', type: 'color', default: '#4c9dff' },
@@ -785,7 +763,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'particles',
     label: 'Particles',
     category: 'generate',
-    glyph: '❄️',
     description: 'Drifting particle field — snow, embers, dust or bokeh.',
     params: [
       {
@@ -868,7 +845,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'shake',
     label: 'Camera Shake',
     category: 'motion',
-    glyph: '📳',
     description: 'Procedural handheld or impact shake applied to the layer.',
     params: [
       { key: 'amplitude', label: 'Amplitude', type: 'number', default: 12, min: 0, max: 120, step: 1, unit: 'px', animatable: true },
@@ -897,7 +873,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'zoom_pulse',
     label: 'Beat Zoom Pulse',
     category: 'motion',
-    glyph: '💓',
     description: 'Rhythmic scale pump — lock the BPM to your track.',
     params: [
       { key: 'bpm', label: 'BPM', type: 'number', default: 120, min: 40, max: 220, step: 1 },
@@ -919,7 +894,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'mirror',
     label: 'Mirror / Kaleidoscope',
     category: 'distort',
-    glyph: '🪞',
     description: 'Reflects the frame across an axis.',
     params: [
       {
@@ -957,7 +931,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'letterbox',
     label: 'Letterbox Bars',
     category: 'utility',
-    glyph: '🎬',
     description: 'Baked-in cinematic mattes at any aspect ratio.',
     params: [
       { key: 'ratio', label: 'Target ratio', type: 'number', default: 2.39, min: 1, max: 3, step: 0.01, hint: '2.39 = Cinemascope' },
@@ -983,7 +956,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'drop_shadow',
     label: 'Drop Shadow',
     category: 'stylize',
-    glyph: '🌑',
     description: 'Casts a soft shadow behind the layer.',
     params: [
       { key: 'color', label: 'Colour', type: 'color', default: '#000000' },
@@ -1005,7 +977,6 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'outline',
     label: 'Outline / Stroke',
     category: 'stylize',
-    glyph: '⬜',
     description: 'Draws a border around the layer bounds.',
     params: [
       { key: 'color', label: 'Colour', type: 'color', default: '#ffffff' },

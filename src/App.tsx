@@ -28,12 +28,13 @@ import { useLayoutStore } from './store/layoutStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { startAutosave, serializeProject } from './engine/projectIO';
 import { captureCurrentFrame } from './engine/contextProtocol';
+import { posterFromSnapshot } from './engine/posterCapture';
 import { useProjectStore } from './store/projectStore';
 import { useTimelineStore, getContentEndMs } from './store/timelineStore';
 import { useRecentsStore } from './store/recentsStore';
 import {
   PanelLeftClose, PanelRightClose,
-} from 'lucide-react';
+} from './components/ui/icons';
 
 const PANELS = {
   media: MediaPanel,
@@ -82,6 +83,7 @@ export const App: React.FC = () => {
 
       if (clipCount > 0) {
         const frame = captureCurrentFrame();
+        const snapshot = serializeProject();
         useRecentsStore.getState().remember({
           id: proj.id,
           name: proj.name,
@@ -89,7 +91,27 @@ export const App: React.FC = () => {
           durationMs: getContentEndMs(timeline.tracks),
           aspectRatio: proj.aspectRatio,
           clipCount,
-          snapshot: serializeProject(),
+          snapshot,
+        });
+
+        /*
+          Then render it again properly, in the background.
+
+          The capture above is synchronous and takes whatever the media
+          cache happens to hold at that instant. Leave the editor a
+          second after opening a project and every clip is still
+          decoding, so the "frame" is the compositor's dark placeholder
+          gradient — which does not look like an error, it looks like a
+          legitimately dark shot, and it sticks to the wall for ever.
+
+          `posterFromSnapshot` waits for decode and samples a third of
+          the way in rather than at zero, so this replaces a plausible
+          black rectangle with the project's actual picture. It is fire
+          and forget: nothing waits on it, and if it fails the frame
+          captured above is still there.
+        */
+        void posterFromSnapshot(snapshot).then(({ dataUrl }) => {
+          if (dataUrl) useRecentsStore.getState().setPoster(proj.id, dataUrl);
         });
       }
     } catch {

@@ -1235,14 +1235,22 @@ class AgentBridgeService {
 
 export const agentBridge = new AgentBridgeService();
 
-/** Exposed for the quick-action chips in the copilot drawer. */
+/**
+ * Exposed for the quick-action chips in the copilot drawer.
+ *
+ * `icon` is a NAME, not a glyph. It used to be an emoji, which meant
+ * the chip's icon was whatever the OS font decided — a different
+ * drawing on every platform, at a different optical weight from every
+ * real icon beside it, and unstylable. The renderer maps this name to
+ * the platform icon set.
+ */
 export const QUICK_ACTIONS: { label: string; prompt: string; icon: string }[] = [
-  { label: 'Cinematic grade', prompt: 'Give it a cinematic teal and orange film look', icon: '🎞️' },
-  { label: 'Cut silence', prompt: 'Cut all the silence out of the dialogue', icon: '✂️' },
-  { label: 'Beat sync', prompt: 'Detect the beats and snap the cuts to them', icon: '🥁' },
-  { label: 'Captions', prompt: 'Generate Kiswahili captions for the audio', icon: '💬' },
-  { label: 'Glow', prompt: 'Add an anamorphic glow to the selected clip', icon: '✨' },
-  { label: 'Ken Burns', prompt: 'Animate a slow ken burns push on this clip', icon: '🎥' },
-  { label: 'Vertical', prompt: 'Reformat this for TikTok vertical 9:16', icon: '📱' },
-  { label: 'Film grain', prompt: 'Add 35mm film grain', icon: '🎬' },
+  { label: 'Cinematic grade', prompt: 'Give it a cinematic teal and orange film look', icon: 'Film' },
+  { label: 'Cut silence', prompt: 'Cut all the silence out of the dialogue', icon: 'Scissors' },
+  { label: 'Beat sync', prompt: 'Detect the beats and snap the cuts to them', icon: 'Music4' },
+  { label: 'Captions', prompt: 'Generate Kiswahili captions for the audio', icon: 'Subtitles' },
+  { label: 'Glow', prompt: 'Add an anamorphic glow to the selected clip', icon: 'Sparkle' },
+  { label: 'Ken Burns', prompt: 'Animate a slow ken burns push on this clip', icon: 'Video' },
+  { label: 'Vertical', prompt: 'Reformat this for TikTok vertical 9:16', icon: 'Smartphone' },
+  { label: 'Film grain', prompt: 'Add 35mm film grain', icon: 'Clapperboard' },
 ];

@@ -11,7 +11,7 @@ import { MOTION_PRESET_LABELS } from '../../store/timelineStore';
 import { ASPECT_DIMENSIONS, AspectRatio } from '../../types/edl';
 import {
   Search, Scissors, Copy, Trash2, Flag, Sparkle, Play, Undo2, Redo2, Layers, Snowflake, RotateCcw, Unlink, Music4, Subtitles, Download, Smartphone, Magnet, Command as CommandIcon,
-} from 'lucide-react';
+} from './icons';
 
 interface CommandItem {
   id: string;

@@ -6,7 +6,7 @@ import { ShapeKind } from '../../types/edl';
 import { Section } from '../ui/Controls';
 import {
   Type, Plus, Square, Circle, Triangle, Star, Minus, MoveRight, Heart, Hexagon, Spline, Layers,
-} from 'lucide-react';
+} from '../ui/icons';
 import { PanelSearch, matchesQuery } from './PanelSearch';
 
 const TITLE_PRESETS = [

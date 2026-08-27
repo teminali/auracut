@@ -21,7 +21,7 @@ import { UpdateIndicator } from './UpdateIndicator';
 import { KerfMark } from '../ui/KerfMark';
 import {
   Sparkle, Download, Undo2, Redo2, Command, Save, FolderOpen, Keyboard,
-} from 'lucide-react';
+} from '../ui/icons';
 
 /** A hairline rule between control clusters. */
 const Divider: React.FC = () => <div className="w-px h-4 bg-line flex-shrink-0" />;
@@ -105,7 +105,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         >
           <div
             className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center shadow-raised"
-            style={{ background: 'linear-gradient(145deg,#6ba5ff,#3a6ff0)' }}
+            style={{ background: 'linear-gradient(145deg,#ffbc55,#e08a12)' }}
           >
             {/* The kerf: two bars and the cut between them. */}
             <KerfMark className="w-[13px] h-[13px]" />

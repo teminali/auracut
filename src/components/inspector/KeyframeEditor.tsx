@@ -15,8 +15,8 @@ import { interpolateKeyframes, keyframesFor, applyEasing } from '../../engine/ke
 import { MOTION_PRESET_LABELS } from '../../store/timelineStore';
 import { Section, SegmentedControl, EmptyState } from '../ui/Controls';
 import {
-  Diamond, Trash2, ChevronLeft, ChevronRight, Plus, LineChart, Rows3, Sparkle, Timer,
-} from 'lucide-react';
+  Check, ChevronLeft, ChevronRight, Diamond, LineChart, Plus, Rows3, Sparkle, Timer, Trash2,
+} from '../ui/icons';
 
 interface KeyframeEditorProps {
   clip: Clip;
@@ -185,7 +185,11 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
       openContextMenu(e.clientX, e.clientY, [
         ...EASING_OPTIONS.map((opt) => ({
           id: opt.value,
-          label: `${kf.easing === opt.value ? '✓ ' : '   '}${opt.label}`,
+          label: opt.label,
+          // A real icon, not a tick character padded with spaces. The
+          // text version misaligned every unselected row by three
+          // characters and could not be styled.
+          icon: kf.easing === opt.value ? Check : undefined,
           onSelect: () => setKeyframeEasing(clip.id, kf.id, opt.value),
         })),
         {

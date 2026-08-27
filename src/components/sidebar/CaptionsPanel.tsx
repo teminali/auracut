@@ -14,7 +14,7 @@ import {
 import { Section, SliderRow, ToggleRow, SegmentedControl, ColorField } from '../ui/Controls';
 import {
   Subtitles, Upload, Download, Globe, Sparkle, FileText, Check, AlertTriangle, Clock, Type,
-} from 'lucide-react';
+} from '../ui/icons';
 
 const LANGUAGES = [
   { value: 'sw', label: 'Kiswahili' },

@@ -3,7 +3,7 @@ import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import {
   Trash2, Flag,
-} from 'lucide-react';
+} from '../ui/icons';
 
 interface MarkerLaneProps {
   pxPerMs: number;

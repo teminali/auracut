@@ -2,7 +2,7 @@ import React from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, DEFAULT_FILTERS } from '../../types/edl';
 import { Section, SliderRow, SegmentedControl } from '../ui/Controls';
-import { Sun, Palette, Contrast, Sparkle, RotateCcw, Copy } from 'lucide-react';
+import { Sun, Palette, Contrast, Sparkle, RotateCcw, Copy } from '../ui/icons';
 
 /** One-click grades. Each is just a set of filter values. */
 const LOOKS: { id: string; label: string; swatch: string; filters: Partial<Clip['filters']> }[] = [

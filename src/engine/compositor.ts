@@ -328,9 +328,27 @@ function resolveTransitionEffect(
       break;
 
     case 'dip_to_white':
-    case 'flash':
       e.alpha = 1;
       e.flash = { color: '#ffffff', alpha: Math.pow(1 - eased, 1.6) };
+      break;
+
+    /*
+      `flash` used to FALL THROUGH into `dip_to_white` and was therefore
+      the identical transition under a second name. The panel sells them
+      as different things — "Fade through white" and "Hard white hit" —
+      and picking either produced the same slow fade.
+
+      Found by rendering both previews and noticing the two thumbnails
+      were byte-identical, which is the kind of thing a catalogue of
+      fourteen emoji could never have surfaced.
+
+      An impact flash is not a dip. A dip is symmetrical and slow; a hit
+      is instant and gone. The exponent is the whole difference: at the
+      quarter point a dip is still 62% white and a hit is down to 20%.
+    */
+    case 'flash':
+      e.alpha = 1;
+      e.flash = { color: '#ffffff', alpha: Math.pow(1 - eased, 4.5) };
       break;
 
     case 'whip_pan': {

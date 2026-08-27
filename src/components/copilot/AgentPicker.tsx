@@ -27,7 +27,7 @@ import { AgentBackendStatus } from '../../types/electron';
 import { useUiStore } from '../../store/uiStore';
 import {
   Check, Download, LogIn, Loader2, AlertTriangle, X,
-} from 'lucide-react';
+} from '../ui/icons';
 
 interface Props {
   onClose: () => void;

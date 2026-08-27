@@ -9,7 +9,7 @@ import { analyzeTranscriptForBroll, BrollSuggestion } from '../../engine/brollEn
 import { Section } from '../ui/Controls';
 import {
   Sparkle, Scissors, Music4, Film, Plus, Subtitles, Smartphone, Palette, Layers, MessageSquare,
-} from 'lucide-react';
+} from '../ui/icons';
 
 interface Recipe {
   id: string;

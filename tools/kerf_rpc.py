@@ -48,6 +48,22 @@ def call(name: str, args: dict | None = None, timeout: int = 900) -> dict:
         return json.load(r)
 
 
+def raw(method: str, params: dict | None = None, timeout: int = 300) -> dict:
+    """
+    Call a top-level RPC METHOD rather than a tool.
+
+    `call` always sends `tools/call`, so `debug/eval` and `debug/capture`
+    came back as `Unknown tool "debug/capture"` — which reads like a
+    missing feature and is actually the wrong envelope.
+    """
+    body = json.dumps({'method': method, 'params': params or {}}).encode()
+    req = urllib.request.Request(
+        ENDPOINT, data=body,
+        headers={'x-kerf-token': token(), 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.load(r)
+
+
 def ok(result: dict, what: str) -> dict:
     """Unwrap a tool result, raising with the real error rather than a KeyError."""
     payload = result.get('result', {})

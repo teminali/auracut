@@ -26,7 +26,7 @@ import { audioEngine } from '../../engine/audioEngine';
 import { syncVideo } from '../../engine/videoEngine';
 import {
   Grid3x3, Ratio, Film, Magnet, ZoomIn, ZoomOut, Maximize2, Minimize2, Gauge,
-} from 'lucide-react';
+} from '../ui/icons';
 
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
 

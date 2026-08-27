@@ -5,7 +5,7 @@ import { useUiStore } from '../../store/uiStore';
 import { detectBeats } from '../../engine/beatDetect';
 import {
   Scissors, Trash2, Copy, Magnet, ZoomIn, ZoomOut, Plus, ArrowLeftRight, Snowflake, RotateCcw, Unlink, Flag, Layers, Music4, Maximize,
-} from 'lucide-react';
+} from '../ui/icons';
 
 interface TimelineToolbarProps {
   scrollRef: React.RefObject<HTMLDivElement | null>;

@@ -96,6 +96,14 @@ export interface ElectronAPI {
     onGoHome: (cb: () => void) => () => void;
   };
 
+  /** The Kerf Store session token, held at 0600 in main rather than
+      in the renderer's localStorage. */
+  store: {
+    getSession: () => Promise<{ session: { token: string; expiresAt: number } | null; baseUrl: string }>;
+    setSession: (token: string, expiresAt: number) => Promise<boolean>;
+    clearSession: () => Promise<boolean>;
+  };
+
   /** Which CLI backend drives the Copilot, and getting one installed. */
   agents: {
     list: (deep?: boolean) => Promise<{ selected: string; backends: unknown[] }>;
@@ -196,6 +204,12 @@ const api: ElectronAPI = {
       ipcRenderer.on('ui:go-home', handler);
       return () => ipcRenderer.removeListener('ui:go-home', handler);
     },
+  },
+
+  store: {
+    getSession: () => ipcRenderer.invoke('store:getSession'),
+    setSession: (token, expiresAt) => ipcRenderer.invoke('store:setSession', { token, expiresAt }),
+    clearSession: () => ipcRenderer.invoke('store:clearSession'),
   },
 
   agents: {

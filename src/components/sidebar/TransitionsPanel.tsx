@@ -5,24 +5,26 @@ import { TransitionType } from '../../types/edl';
 import { SliderRow, SegmentedControl, Section } from '../ui/Controls';
 import {
   Layers, ArrowLeftRight,
-} from 'lucide-react';
+} from '../ui/icons';
 import { PanelSearch, matchesQuery } from './PanelSearch';
+import { MotionThumb } from '../ui/MotionThumb';
+import { transitionPreview } from '../../engine/previewRender';
 
-const TRANSITIONS: { id: TransitionType; label: string; glyph: string; hint: string }[] = [
-  { id: 'crossfade', label: 'Dissolve', glyph: '🎬', hint: 'Classic film dissolve' },
-  { id: 'blur_dissolve', label: 'Blur Dissolve', glyph: '🌫️', hint: 'Soft defocus blend' },
-  { id: 'dip_to_black', label: 'Dip to Black', glyph: '⚫', hint: 'Fade through black' },
-  { id: 'dip_to_white', label: 'Dip to White', glyph: '⚪', hint: 'Fade through white' },
-  { id: 'flash', label: 'Impact Flash', glyph: '💥', hint: 'Hard white hit' },
-  { id: 'whip_pan', label: 'Whip Pan', glyph: '⚡', hint: 'Motion-blurred swish' },
-  { id: 'zoom_in', label: 'Zoom In', glyph: '🔍', hint: 'Punch into the frame' },
-  { id: 'zoom_out', label: 'Zoom Out', glyph: '🔭', hint: 'Pull back' },
-  { id: 'glitch', label: 'Glitch', glyph: '👾', hint: 'RGB tear' },
-  { id: 'diagonal_split', label: 'Diagonal', glyph: '⚔️', hint: 'Corner slide' },
-  { id: 'push_left', label: 'Push Left', glyph: '⬅️', hint: 'Slide the frame out' },
-  { id: 'push_right', label: 'Push Right', glyph: '➡️', hint: 'Slide the frame in' },
-  { id: 'slide_up', label: 'Slide Up', glyph: '⬆️', hint: 'Vertical push' },
-  { id: 'spin', label: 'Spin', glyph: '🌀', hint: 'Rotate and scale' },
+const TRANSITIONS: { id: TransitionType; label: string; hint: string }[] = [
+  { id: 'crossfade', label: 'Dissolve', hint: 'Classic film dissolve' },
+  { id: 'blur_dissolve', label: 'Blur Dissolve', hint: 'Soft defocus blend' },
+  { id: 'dip_to_black', label: 'Dip to Black', hint: 'Fade through black' },
+  { id: 'dip_to_white', label: 'Dip to White', hint: 'Fade through white' },
+  { id: 'flash', label: 'Impact Flash', hint: 'Hard white hit' },
+  { id: 'whip_pan', label: 'Whip Pan', hint: 'Motion-blurred swish' },
+  { id: 'zoom_in', label: 'Zoom In', hint: 'Punch into the frame' },
+  { id: 'zoom_out', label: 'Zoom Out', hint: 'Pull back' },
+  { id: 'glitch', label: 'Glitch', hint: 'RGB tear' },
+  { id: 'diagonal_split', label: 'Diagonal', hint: 'Corner slide' },
+  { id: 'push_left', label: 'Push Left', hint: 'Slide the frame out' },
+  { id: 'push_right', label: 'Push Right', hint: 'Slide the frame in' },
+  { id: 'slide_up', label: 'Slide Up', hint: 'Vertical push' },
+  { id: 'spin', label: 'Spin', hint: 'Rotate and scale' },
 ];
 
 export const TransitionsPanel: React.FC = () => {
@@ -140,7 +142,7 @@ export const TransitionsPanel: React.FC = () => {
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 grid grid-cols-2 gap-1.5 content-start">
+      <div className="flex-1 overflow-y-auto p-2 grid grid-cols-2 gap-2 content-start auto-rows-max">
         {shown.length === 0 && (
           <p className="col-span-2 text-[10px] text-spectrum-textFaint text-center py-4">
             Nothing matches “{query}”.
@@ -150,14 +152,38 @@ export const TransitionsPanel: React.FC = () => {
           <button
             key={item.id}
             onClick={() => apply(item.id)}
-            className="card-interactive p-2.5 flex flex-col items-center justify-center text-center gap-1 group"
+            className="rounded-squircle-md overflow-hidden text-left group
+                       bg-[#16191f] hover:bg-[#1f242c] transition-colors duration-base"
             title={item.hint}
           >
-            <span className="text-[18px] leading-none">{item.glyph}</span>
-            <span className="text-[11px] font-medium text-spectrum-text group-hover:text-spectrum-accent transition-colors">
-              {item.label}
+            {/* The real transition, rendered by the real compositor.
+                This replaced an emoji, which told nobody anything: a
+                magnifying glass for zoom, a spiral for spin, and a film
+                reel for dissolve are three pictures of nothing. */}
+            <MotionThumb
+              load={() => transitionPreview(item.id)}
+              label={`${item.label} transition preview`}
+              /*
+                A third of the way in, not half.
+
+                At the midpoint `dip_to_white` and `flash` render the
+                IDENTICAL frame: both are saturated white there, so the
+                still cannot tell them apart even though the motion
+                obviously can. Neither transition is broken; the sample
+                was taken at the one instant where they agree. A third
+                of the way in, the hard hit has already peaked and the
+                slow dip is still ramping.
+              */
+              restAt={0.34}
+              className="w-full aspect-video"
+            />
+            <span className="block px-2 py-1.5">
+              <span className="block text-ui-sm font-medium text-spectrum-text truncate
+                               group-hover:text-spectrum-accent transition-colors">
+                {item.label}
+              </span>
+              <span className="block text-micro text-spectrum-textFaint truncate">{item.hint}</span>
             </span>
-            <span className="text-[9px] text-spectrum-textFaint truncate w-full">{item.hint}</span>
           </button>
         ))}
       </div>

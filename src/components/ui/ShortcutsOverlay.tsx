@@ -2,7 +2,7 @@ import React from 'react';
 import { useUiStore } from '../../store/uiStore';
 import {
   X, Keyboard,
-} from 'lucide-react';
+} from './icons';
 
 const GROUPS: { title: string; items: [string, string][] }[] = [
   {

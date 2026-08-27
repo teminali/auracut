@@ -13,9 +13,11 @@ import {
   EFFECT_REGISTRY, EFFECT_CATEGORIES, getEffectDefinition, EffectParam,
 } from '../../engine/effectsRegistry';
 import { SliderRow, Section, ColorField, ToggleRow, EmptyState } from '../ui/Controls';
+import { MotionThumb } from '../ui/MotionThumb';
+import { effectPreview } from '../../engine/previewRender';
 import {
   Sparkle, Plus, Trash2, ChevronUp, ChevronDown, Eye, EyeOff, Search, X, Copy, Timer, Diamond,
-} from 'lucide-react';
+} from '../ui/icons';
 
 export const EffectStackInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
   const [isBrowserOpen, setBrowserOpen] = useState(false);
@@ -152,7 +154,11 @@ const EffectRow: React.FC<{
           onClick={() => setExpanded((v) => !v)}
           className="flex items-center gap-1.5 min-w-0 flex-1 text-left"
         >
-          <span className="text-[13px] leading-none w-4 text-center flex-shrink-0">{def.glyph}</span>
+          <MotionThumb
+            load={() => effectPreview(def.type)}
+            label={`${def.label} preview`}
+            className="w-[34px] aspect-video rounded-[4px] flex-shrink-0"
+          />
           <span className="text-[11px] font-medium text-spectrum-text truncate">{def.label}</span>
           {keyframedParams.size > 0 && (
             <Diamond className="w-2.5 h-2.5 text-spectrum-amber fill-spectrum-amber flex-shrink-0" />
@@ -400,7 +406,11 @@ const EffectBrowser: React.FC<{
                   onClick={() => onPick(effect.type)}
                   className="card-interactive p-2.5 text-left flex gap-2.5 items-start group"
                 >
-                  <span className="text-[18px] leading-none mt-0.5 flex-shrink-0">{effect.glyph}</span>
+                  <MotionThumb
+                    load={() => effectPreview(effect.type)}
+                    label={`${effect.label} preview`}
+                    className="w-[56px] aspect-video rounded-[5px] flex-shrink-0"
+                  />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center justify-between gap-2">
                       <span className="text-[12px] font-medium text-spectrum-text truncate">{effect.label}</span>

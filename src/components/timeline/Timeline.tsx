@@ -54,7 +54,29 @@ export const Timeline: React.FC = () => {
   const [dropTargetTrack, setDropTargetTrack] = useState<string | null>(null);
 
   const pxPerMs = BASE_PX_PER_MS * zoomLevel;
-  const contentWidth = Math.max(600, project.durationMs * pxPerMs + 240);
+
+  /*
+    The lanes have to reach the right edge of the viewport.
+
+    Content width used to be `duration * pxPerMs + 240` and nothing
+    else, so a short project in a wide window drew lanes that stopped
+    part way across and left bare panel background beyond them — an
+    11.5s project at the default zoom is 815px of lanes in a 1226px
+    viewport, and the 411px of nothing after it reads as a rendering
+    fault rather than as "the sequence ends here". Every NLE fills the
+    track area and lets the ruler run past the content.
+  */
+  const [viewportWidth, setViewportWidth] = useState(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(() => setViewportWidth(el.clientWidth));
+    ro.observe(el);
+    setViewportWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  const contentWidth = Math.max(600, viewportWidth, project.durationMs * pxPerMs + 240);
 
   /* ── Snap candidates ── */
 
@@ -335,7 +357,10 @@ export const Timeline: React.FC = () => {
               {/* Snap guide */}
               {snapLineMs !== null && (
                 <div
-                  className="absolute top-0 w-px bg-spectrum-amber pointer-events-none z-40 shadow-[0_0_6px_rgba(245,165,36,0.7)]"
+                  /* Teal, not amber. The playhead is the accent now, and two
+                     vertical lines in the same colour a few pixels apart are
+                     two different meanings wearing one signal. */
+                  className="absolute top-0 w-px bg-spectrum-teal pointer-events-none z-40 shadow-[0_0_6px_rgba(45,212,191,0.75)]"
                   style={{ left: snapLineMs * pxPerMs, height: lanesTotalHeight }}
                 />
               )}

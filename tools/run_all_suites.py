@@ -132,6 +132,10 @@ SUITES = [
     # excused in writing, and every "patch_clip covers it" is proven by
     # driving patch_clip.
     'verify_tool_coverage',
+    # The home screen, driven through the real DOM. Last, because it is
+    # the only suite that navigates the app rather than only calling
+    # tools, and it restores the launch state on the way out.
+    'verify_home',
 ]
 
 # Suites that shell out to ffmpeg/ffprobe themselves. Named so that a
@@ -205,6 +209,10 @@ class Kerf:
         env.pop('ELECTRON_RUN_AS_NODE', None)
         env['KERF_RPC_PORT'] = str(self.port)
         env['VITE_DEV_SERVER_URL'] = self.vite_url
+        # `verify_home` drives the real DOM through `debug/eval`, which is
+        # gated behind this. The instance is a throwaway on a random port
+        # with its own token, launched only to be tested.
+        env['KERF_DEBUG'] = '1'
         self._log = open(self.log_path, 'wb')
         # Launching the real binary rather than node_modules/.bin/electron:
         # that wrapper spawns the app as a CHILD, so killing the wrapper

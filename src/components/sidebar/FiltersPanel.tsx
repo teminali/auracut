@@ -7,7 +7,7 @@ import { DEFAULT_FILTERS, Clip } from '../../types/edl';
 import { Section } from '../ui/Controls';
 import {
   Sliders, Layers, Check,
-} from 'lucide-react';
+} from '../ui/icons';
 import { PanelSearch, matchesQuery } from './PanelSearch';
 
 const LOOKS: { id: string; label: string; swatch: string; hint: string; filters: Partial<Clip['filters']> }[] = [

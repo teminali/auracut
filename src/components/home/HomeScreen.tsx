@@ -1,329 +1,198 @@
 /* ═══════════════════════════════════════════════════════════════════
    Home.
 
-   Deliberately NOT CapCut's home, which is a feature launcher: a grid
-   of tiles because each of its AI capabilities is a discrete button.
-   Kerf's capability is not a grid — it is a conversation and a set
-   of skills, so the home screen is organised around INTENT.
+   Laid out after CapCut's: a left rail with an identity card and a
+   labelled nav group, a top band that doubles as the titlebar, a big
+   primary tile with a secondary card beneath it and a tall rail down
+   the right, a row of tool tiles, and the projects wall under that.
 
-   One primary action, and it is a sentence: say what you want to make.
-   Nothing else on this screen competes with it. Underneath, in order of
-   how often it is actually needed: work in progress, then what you can
-   make (skills), then everything else.
+   What sits in those slots is Kerf's, and only what exists. There is
+   no account, no Pro tier, no cloud workspace and no project sync, so
+   those slots hold the agent connection, the Copilot, the most recent
+   project and the eight editor panels instead. Two of CapCut's rules
+   are kept for the same reason they were written down in HANDOVER §7:
 
-   Three rules it is held to, which are what "better" means here rather
-   than a number:
+     1. Real content over chrome. Every project tile is a frame
+        rendered from that project.
+     3. No upsell in the workspace. Ever. CapCut runs advertisements
+        in the rail and in the sidebar's bottom card; neither does.
 
-     1. Real content over chrome. Every project tile is a frame rendered
-        from that project. A wall of grey rectangles is a file dialog
-        with extra steps.
-     2. One unmistakable primary action. CapCut's home has roughly
-        twenty-five clickable things above the fold and three of them
-        are advertisements.
-     3. No upsell in the workspace. Ever.
+   This REPLACED an intent-led home built around a prompt box — "what
+   do you want to make?" — which started a Copilot turn straight from
+   this screen. That entry point is gone; describing an edit now
+   happens in the editor's Copilot drawer, which the second card here
+   opens directly.
    ═══════════════════════════════════════════════════════════════════ */
 
 import React from 'react';
-import { useProjectStore } from '../../store/projectStore';
-import { useRecentsStore, RecentProject } from '../../store/recentsStore';
-import { KerfMark } from '../ui/KerfMark';
-import { buildStarterProject } from '../../engine/starterProject';
+import { HomeTopBar } from './HomeTopBar';
+import { HomeSidebar, HomeView } from './HomeSidebar';
+import { HeroRow } from './HeroRow';
+import { MoreTools } from './MoreTools';
+import { ProjectsSection } from './ProjectsSection';
+import { SkillsView } from './SkillsView';
+import { useHomeActions } from './homeActions';
+import { AgentPicker } from '../copilot/AgentPicker';
+import { ShortcutsOverlay } from '../ui/ShortcutsOverlay';
+import { useRecentsStore } from '../../store/recentsStore';
 import { useClaudeAgentStore } from '../../store/claudeAgentStore';
-import { useUiStore } from '../../store/uiStore';
-import { hasAutosave, restoreAutosave, clearAutosave, deserializeProject } from '../../engine/projectIO';
-import { formatDuration } from '../../utils/time';
-import {
-  Sparkle, Plus, FolderOpen, ArrowUp, Clock, RotateCcw, X, Blocks, Film,
-} from 'lucide-react';
-
-/* ── What you can ask for, when you have no idea what to ask for ──── */
-
-const STARTERS = [
-  'Cut this down to a 30-second version for Reels',
-  'Give the whole thing a warm cinematic grade',
-  'Add captions and cut the silence out of the dialogue',
-  'Match the style of a reference video I have',
-];
+import { useAccountStore } from '../../store/accountStore';
+import { hasAutosave, clearAutosave } from '../../engine/projectIO';
+import { posterFromSnapshot } from '../../engine/posterCapture';
 
 interface Props {
   onEnterEditor: () => void;
 }
 
 export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
-  const [prompt, setPrompt] = React.useState('');
+  const [view, setView] = React.useState<HomeView>('home');
   const [recoverable, setRecoverable] = React.useState(false);
+  const [pickerOpen, setPickerOpen] = React.useState(false);
 
   const recents = useRecentsStore((s) => s.recents);
   const forget = useRecentsStore((s) => s.forget);
-  const project = useProjectStore((s) => s.project);
-  const setCopilotOpen = useProjectStore((s) => s.setCopilotOpen);
-  const agent = useClaudeAgentStore();
-  const pushToast = useUiStore((s) => s.pushToast);
+  const refreshStatus = useClaudeAgentStore((s) => s.refreshStatus);
+  const initAccount = useAccountStore((s) => s.init);
+  const actions = useHomeActions(onEnterEditor);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
-    void agent.refreshStatus();
+    void refreshStatus();
+    /*
+      Reads the 0600 session file, then the catalogue. Until it answers,
+      the account is `unknown` rather than signed out — see §3 on the
+      third value, which this codebase got wrong three times running.
+    */
+    void initAccount();
     /*
       Autosave has been writing to localStorage every 20 seconds since
       the app was built, and NOTHING ever read it back — `hasAutosave`
       and `restoreAutosave` were called from nowhere. A user whose app
       crashed had their work sitting right there and was never offered
-      it. This is the offer.
+      it. The sidebar's bottom card is the offer.
     */
     setRecoverable(hasAutosave());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshStatus, initAccount]);
+
+  /*
+    Backfill the frames. A tile without a poster falls back to an icon
+    on a gradient, which is the file-dialog-with-extra-steps this screen
+    exists to avoid — so any entry carrying a snapshot gets its frame
+    rendered offscreen from that snapshot.
+
+    Sequentially, and one at a time: each render primes the media cache
+    and waits for decode, and four of them at once would thrash the
+    decoder and produce four dark frames instead of one good one.
+
+    The bundled starter has no snapshot — it is rebuilt from code, not
+    reloaded — so it keeps the placeholder until it has been opened
+    once, at which point leaving the editor captures a real frame.
+  */
+  React.useEffect(() => {
+    let cancelled = false;
+
+    /*
+      Deferred, and idle if the browser will say so.
+
+      Each capture is a full-resolution composite of every clip in the
+      project — 87 of them for the bundled starter — drawn synchronously
+      on the main thread. Starting that during mount competes with the
+      renderer registering its IPC handlers, which is what the MCP
+      bridge and every automated check talk to. A thumbnail is never
+      worth delaying the app being answerable.
+    */
+    const idle = (fn: () => void) =>
+      typeof requestIdleCallback === 'function'
+        ? requestIdleCallback(fn, { timeout: 3000 })
+        : window.setTimeout(fn, 1200);
+
+    idle(() => { if (!cancelled) void run(); });
+
+    async function run() {
+      const pending = useRecentsStore.getState().recents.filter((r) => !r.posterUrl && r.snapshot);
+      for (const entry of pending) {
+        if (cancelled) return;
+        const { dataUrl } = await posterFromSnapshot(entry.snapshot!);
+        if (cancelled) return;
+        if (dataUrl) useRecentsStore.getState().setPoster(entry.id, dataUrl);
+        await new Promise((r) => setTimeout(r, 60));
+      }
+    }
+
+    return () => { cancelled = true; };
   }, []);
 
-  const startWithPrompt = async () => {
-    const text = prompt.trim();
-    if (!text) return;
-    onEnterEditor();
-    setCopilotOpen(true);
-    // Let the editor mount before the turn starts writing to it.
-    await new Promise((r) => setTimeout(r, 60));
-    void agent.send(text);
-  };
-
-  const recover = () => {
-    const result = restoreAutosave();
-    if (!result.ok) {
-      pushToast({ kind: 'error', title: 'Could not recover', detail: result.error });
-      return;
-    }
-    onEnterEditor();
-    pushToast({ kind: 'success', title: 'Recovered your last session' });
-  };
-
-  const openRecent = (entry: RecentProject) => {
-    // The starter is rebuilt from code, not reloaded from a snapshot.
-    if (entry.starter) {
-      buildStarterProject();
-      onEnterEditor();
-      pushToast({
-        kind: 'info',
-        title: 'Opened the starter project',
-        detail: 'Kerf\u2019s own brand film — 11.5s, thirteen cuts on detected beats. Edit it freely.',
-      });
-      return;
-    }
-
-    if (!entry.snapshot) {
-      pushToast({
-        kind: 'info',
-        title: 'This one is not stored locally',
-        detail: entry.filePath ? `Open ${entry.filePath} from the editor.` : 'Reopen it from a file.',
-      });
-      return;
-    }
-    // deserializeProject applies straight to the stores; it returns only
-    // whether it worked and what could not be relinked.
-    const result = deserializeProject(entry.snapshot);
-    if (!result.ok) {
-      pushToast({ kind: 'error', title: 'Could not open', detail: result.error });
-      return;
-    }
-    if (result.migratedFrom !== undefined) {
-      pushToast({
-        kind: 'info',
-        title: 'Project upgraded',
-        detail: `It was saved in format ${result.migratedFrom} and has been brought up to date. ` +
-          'Save it to keep the newer form.',
-      });
-    }
-    if (result.relinkNeeded?.length) {
-      pushToast({
-        kind: 'info',
-        title: `${result.relinkNeeded.length} file${result.relinkNeeded.length > 1 ? 's' : ''} need relinking`,
-        detail: 'Their original paths are gone — re-import them from the Media panel.',
-      });
-    }
-    onEnterEditor();
-  };
-
-  const agentLabel = agent.status?.label ?? 'Claude Code';
-  const agentReady = Boolean(agent.status?.installed);
-
   return (
-    <div className="w-full h-full bg-spectrum-bg overflow-y-auto">
-      <div className="mx-auto w-full max-w-[1080px] px-8 py-10 space-y-10">
+    <div className="home-stage w-full h-full flex flex-col overflow-hidden">
+      <HomeTopBar onOpenAgentPicker={() => setPickerOpen(true)} />
 
-        {/* ── Identity, kept small. The product is below it. ── */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span
-              className="w-[26px] h-[26px] rounded-[7px] flex items-center justify-center shadow-raised flex-shrink-0"
-              style={{ background: 'linear-gradient(145deg,#6ba5ff,#3a6ff0)' }}
-            >
-              <KerfMark className="w-[15px] h-[15px]" />
-            </span>
-            <span className="text-ui-lg font-semibold text-spectrum-text tracking-tight">Kerf</span>
-          </div>
+      <div className="flex-1 flex min-h-0">
+        <HomeSidebar
+          view={view}
+          onView={setView}
+          onOpenFile={() => fileInputRef.current?.click()}
+          recoverable={recoverable}
+          onRecover={actions.recover}
+          onDiscardRecovery={() => { clearAutosave(); setRecoverable(false); }}
+        />
 
-          <span
-            className="flex items-center gap-1.5 text-[10px] font-mono text-spectrum-textFaint"
-            title={agentReady ? `${agentLabel} is connected` : 'No agent CLI found — the editor still works'}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${agentReady ? 'bg-spectrum-green' : 'bg-spectrum-textFaint'}`} />
-            {agentReady ? agentLabel : 'no agent'}
-          </span>
-        </div>
-
-        {/* ── The one primary action ── */}
-        <div className="space-y-4">
-          <h1 className="text-[28px] leading-[1.15] font-semibold text-spectrum-text tracking-[-0.02em]">
-            What do you want to make?
-          </h1>
-
-          <div className="pro-input flex items-end gap-2 p-2.5">
-            <Sparkle className="w-4 h-4 text-spectrum-accent flex-shrink-0 mb-1" />
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void startWithPrompt(); }
-              }}
-              rows={1}
-              placeholder="Describe the edit, or drop footage in and say what to do with it…"
-              className="flex-1 bg-transparent outline-none text-ui-lg text-spectrum-text placeholder:text-spectrum-textFaint resize-none max-h-32 min-w-0 leading-snug py-1"
-              onInput={(e) => {
-                const el = e.currentTarget;
-                el.style.height = 'auto';
-                el.style.height = `${Math.min(128, el.scrollHeight)}px`;
-              }}
-            />
-            <button
-              onClick={startWithPrompt}
-              disabled={!prompt.trim()}
-              className="btn-primary w-8 h-8 rounded-full flex-shrink-0"
-              title="Start (Enter)"
-            >
-              <ArrowUp className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            {STARTERS.map((s) => (
-              <button
-                key={s}
-                onClick={() => setPrompt(s)}
-                className="h-[26px] px-2.5 rounded-full border border-line text-ui-sm text-spectrum-textMuted
-                           hover:border-spectrum-accentLine hover:text-spectrum-text transition-colors"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-
-          {/* Editing by hand is a first-class path, not a fallback. */}
-          <div className="flex items-center gap-2 pt-1">
-            <button onClick={onEnterEditor} className="pro-btn-filled h-[30px] px-3 gap-1.5 text-ui-sm">
-              <Plus className="w-3.5 h-3.5" /> New project
-            </button>
-            <button
-              onClick={() => { onEnterEditor(); pushToast({ kind: 'info', title: 'Open a project from the header' }); }}
-              className="pro-btn h-[30px] px-3 gap-1.5 text-ui-sm"
-            >
-              <FolderOpen className="w-3.5 h-3.5" /> Open…
-            </button>
-          </div>
-        </div>
-
-        {/* ── Unsaved work, when there is any ── */}
-        {recoverable && (
-          <div className="rounded-squircle-sm border border-spectrum-amber/35 bg-spectrum-amber/[0.06] p-3
-                          flex items-center gap-3">
-            <RotateCcw className="w-4 h-4 text-spectrum-amber flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-ui-sm font-medium text-spectrum-text">You have unsaved work from last time</p>
-              <p className="text-[10px] text-spectrum-textDim">Kerf saves a copy every 20 seconds.</p>
-            </div>
-            <button onClick={recover} className="pro-btn-filled h-[26px] px-2.5 text-ui-sm flex-shrink-0">
-              Recover
-            </button>
-            <button
-              onClick={() => { clearAutosave(); setRecoverable(false); }}
-              className="pro-btn w-[26px] h-[26px] flex-shrink-0"
-              title="Discard it"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
-        {/* ── Work in progress ── */}
-        <section className="space-y-3">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-ui-lg font-semibold text-spectrum-text flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-spectrum-textDim" /> Recent
-            </h2>
-            {recents.length > 0 && (
-              <span className="text-[10px] font-mono text-spectrum-textFaint">{recents.length}</span>
-            )}
-          </div>
-
-          {recents.length === 0 ? (
-            <div className="rounded-squircle-sm border border-dashed border-line p-6 text-center">
-              <p className="text-ui-sm text-spectrum-textDim">
-                Nothing yet. Projects you open will appear here with a frame from the edit.
-              </p>
+        {/*
+          Capped rather than fluid. Eight tool tiles spread across a 27"
+          display land a hand's width apart and the row stops reading as
+          a group — the Gestalt breaks long before the pixels run out.
+        */}
+        <main className="flex-1 min-w-0 overflow-y-auto pl-9 pr-12 pb-16">
+          <div className="max-w-[1180px]">
+          {view === 'home' ? (
+            /* Rhythm, not a constant. The hero block and the tool row
+               are one thought and sit closer together; the projects
+               wall is a different one and gets air before it. */
+            <div className="flex flex-col gap-14">
+              <HeroRow
+                onNewProject={actions.newProject}
+                onOpenCopilot={actions.openCopilot}
+                mostRecent={recents[0]}
+                onOpenRecent={actions.openRecent}
+              />
+              <MoreTools onOpenPanel={actions.openPanel} />
+              <div>
+                <ProjectsSection
+                  recents={recents}
+                  onOpen={actions.openRecent}
+                  onForget={forget}
+                  featuredId={recents[0]?.id}
+                />
+              </div>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-3">
-              {recents.map((entry) => (
-                <button
-                  key={entry.id}
-                  onClick={() => openRecent(entry)}
-                  className="group text-left rounded-squircle-sm border border-line bg-spectrum-panel
-                             overflow-hidden hover:border-spectrum-accentLine transition-colors"
-                >
-                  <span className="block aspect-video bg-spectrum-sunken overflow-hidden">
-                    {entry.posterUrl ? (
-                      <img src={entry.posterUrl} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="w-full h-full flex items-center justify-center">
-                        <Film className="w-5 h-5 text-spectrum-textFaint" />
-                      </span>
-                    )}
-                  </span>
-                  <span className="block p-2">
-                    <span className="block text-ui-sm font-medium text-spectrum-text truncate
-                                     group-hover:text-spectrum-accent transition-colors">
-                      {entry.name}
-                    </span>
-                    <span className="block text-[9px] font-mono text-spectrum-textFaint tabular mt-0.5">
-                      {formatDuration(entry.durationMs)} · {entry.aspectRatio} · {entry.clipCount} clips
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
+            <SkillsView />
           )}
-        </section>
-
-        {/* ── Skills ──
-             The marketplace surface. Honest about not existing yet:
-             an empty store dressed as a full one would be exactly the
-             theatre the rest of this codebase has had removed. */}
-        <section className="space-y-3">
-          <h2 className="text-ui-lg font-semibold text-spectrum-text flex items-center gap-1.5">
-            <Blocks className="w-3.5 h-3.5 text-spectrum-textDim" /> Skills
-          </h2>
-
-          <div className="rounded-squircle-sm border border-line bg-spectrum-panel/60 p-4 space-y-2">
-            <p className="text-ui-sm text-spectrum-text font-medium">Not built yet.</p>
-            <p className="text-ui-sm text-spectrum-textDim leading-relaxed max-w-[620px]">
-              A skill will be a template project, the assets it needs, and the tools to
-              generate variations of it — installed like an extension, with new projects
-              cloned from it. One prompt to a finished edit, and the template is still
-              yours to change by hand afterwards.
-            </p>
-            <p className="text-[10px] text-spectrum-textFaint">
-              See §6 of HANDOVER.md for the format and what has to be in it before there
-              are a thousand of them.
-            </p>
           </div>
-        </section>
-
+        </main>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,.kerf.json,application/json"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          // Reset first, so choosing the same file twice fires again.
+          e.target.value = '';
+          if (file) void actions.openFile(file);
+        }}
+      />
+
+      {pickerOpen && (
+        <AgentPicker
+          onClose={() => setPickerOpen(false)}
+          onSelected={() => { void refreshStatus(); setPickerOpen(false); }}
+        />
+      )}
+
+      <ShortcutsOverlay />
     </div>
   );
 };

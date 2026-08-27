@@ -9,7 +9,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import React from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X } from '../ui/icons';
 
 interface Props {
   value: string;

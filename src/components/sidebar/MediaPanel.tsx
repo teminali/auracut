@@ -5,7 +5,7 @@ import { MediaAsset } from '../../types/edl';
 import { formatDuration, formatFileSize } from '../../utils/time';
 import {
   Plus, Video, Music, Image as ImageIcon, Upload, LayoutGrid, List, Search, Trash2, Film,
-} from 'lucide-react';
+} from '../ui/icons';
 
 type ViewMode = 'grid' | 'list';
 
