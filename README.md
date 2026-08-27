@@ -228,6 +228,22 @@ never overwrite a live release.
 > `ELECTRON_RUN_AS_NODE=1` is inherited from the editor and Electron will
 > start as plain Node. The app exits immediately with no output. Prefix with
 > `env -u ELECTRON_RUN_AS_NODE`, or use a standalone terminal.
+>
+> **This applies to `open` as well, which is the surprising half.** `open`
+> propagates the calling shell's environment, so
+> `open -a /Applications/Kerf.app` from that same terminal starts the app and
+> kills it within about 80ms. `open` exits 0, no window appears, and NOTHING
+> is written to the app log, because the process dies before the logger is
+> constructed. The only trace is in the system log, as
+> `termination reported by launchd (0, 0, 0)`.
+>
+> Double-clicking in Finder is unaffected: Finder has no such variable. If a
+> packaged build refuses to start from a terminal, check this first:
+>
+> ```bash
+> echo $ELECTRON_RUN_AS_NODE          # set? that is the whole problem
+> env -u ELECTRON_RUN_AS_NODE open -a /Applications/Kerf.app
+> ```
 
 ### Layout
 

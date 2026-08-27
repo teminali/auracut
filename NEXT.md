@@ -43,6 +43,28 @@ ps -o pid,lstart -p $(pgrep -f "Kerf.app/Contents/MacOS/Kerf" | head -1)   # tra
 among them). It makes `electron .` run as plain node: `ipcMain` comes back
 undefined and main dies on its first `.handle`. Always `env -u` it.
 
+**Trap 1b, and it applies to `open` too, which is the half that costs
+the hour.** `open` propagates the calling shell's environment, so
+`open -a /Applications/Kerf.app` from a terminal carrying
+`ELECTRON_RUN_AS_NODE=1` starts the app and kills it in about 80ms.
+`open` exits **0**, no window appears, and **nothing reaches the app's
+own log**, because the process dies before the logger is constructed.
+The only trace is in the system log:
+
+```
+runningboardd: [app<application.com.kerf.editor...>:9614]
+               termination reported by launchd (0, 0, 0)
+```
+
+Chased as a Gatekeeper problem, then as a LaunchServices duplicate-bundle
+problem, then as code signing, before the controlled test: plain `open`
+fails, `env -u ELECTRON_RUN_AS_NODE open` succeeds, same command
+otherwise. `spctl --assess` does say "rejected" and always will for an
+ad-hoc signature, which is a red herring worth knowing about.
+
+Finder is unaffected. This only bites an agent or a developer launching
+from a shell, which is exactly who reads these notes.
+
 **Trap 2 — `electron/*.ts` compiles to `dist-electron` and HMR does not
 touch it.** A main-process change needs `npm run build:electron` **and a
 restart**. A test suite run against a stale main produces results that
