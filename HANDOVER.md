@@ -1224,23 +1224,33 @@ enough — **a pale slab in a dark interface always looks pasted on**. It
 is left-aligned with a supporting line and an arrow now, and its colour
 is saturated enough to belong to the interface rather than sit on it.
 
-**The accent is green (`#2ecc80`).** It was blue, then amber, then
-this. Two consequences that had to be handled rather than noticed later:
+**The accent is Claude's terracotta (`#d97757`).** Blue, then amber,
+then green, then this. Two consequences, and they are now CHECKS rather
+than things to remember:
 
-- **White on a mid green is about 2.2:1 and fails every contrast bar
-  there is**, exactly as it did on amber. `--on-accent` (`#06251a`,
-  ~8:1) is what sits on accent fills, and `.btn-primary` uses it. This
-  is the check to repeat on any future accent, not a fact about amber.
+- **White has failed on three accents running**: 3.1:1 on amber, 2.2:1
+  on green, 3.1:1 on this terracotta. `--on-accent` (`#2b1108`, 5.7:1)
+  is what sits on accent fills. `palette.test.ts` now asserts it, so a
+  fifth accent cannot ship with unreadable type on it.
 - **Every accent collides with something, and the collision moves when
-  the accent does.** Amber collided with KEYFRAME and CAUTION, so the
-  snap guide went teal. Green collides with the STATUS green and with
-  the teal that had just taken the snap guide and "AI" — teal beside
-  green is one signal, not two. Both moved to BLUE, which is free now
-  that it is no longer the primary.
+  the accent does.** Amber hit KEYFRAME and CAUTION, so the snap guide
+  went teal. Green hit the STATUS green and that same teal, so "AI" and
+  the snap guide went blue. This terracotta is the hardest yet, because
+  an orange-red lands in the middle of the warm range where caution and
+  error already lived. Measured as hue separation rather than judged:
+  amber was 23 degrees away and moved to a yellower gold at 32.
 
-  The palette reads: **green = the thing you are acting on, blue = the
-  agent, amber = keyframes and caution.** Changing the accent again
-  means walking this list again; it is not a one-token edit.
+  **Red could not be fixed by hue at all.** It is boxed between the
+  accent at 15 degrees and the pink text lane at 330, and every hue in
+  that window is within 30 of one or the other. It is separated by
+  SATURATION instead, a vivid red against a muted clay. That is
+  mitigation rather than elimination, and it is written down because
+  the next person will otherwise assume it was never checked.
+
+  The palette reads: **terracotta = the thing you are acting on, blue =
+  the agent, gold = keyframes and caution, vivid red = error.**
+  `palette.test.ts` enforces the 30-degree rule and the saturation
+  exception, so the next swap fails loudly instead of quietly.
 
 ### Real frames on the wall
 

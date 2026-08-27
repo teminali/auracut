@@ -77,7 +77,7 @@ export const HeroRow: React.FC<Props> = ({ onNewProject, onOpenCopilot, mostRece
 
           <span className="ml-5 min-w-0">
             <span className="block text-[30px] leading-[1.08] font-semibold text-white tracking-[-0.028em]
-                             drop-shadow-[0_1px_2px_rgba(0,28,18,0.35)]">
+                             drop-shadow-[0_1px_2px_rgba(40,12,4,0.35)]">
               New project
             </span>
             <span className="block text-ui-xl text-white/70 mt-1.5">

@@ -109,7 +109,7 @@ export const PlaybackControls: React.FC = () => {
             onClick={togglePlay}
             className={`w-9 h-9 mx-1 rounded-full flex items-center justify-center transition-all duration-fast ${
               isPlaying
-                ? 'bg-spectrum-accent text-[#06251a] shadow-[0_2px_10px_-2px_rgba(46,204,128,0.7)]'
+                ? 'bg-spectrum-accent text-[#2b1108] shadow-[0_2px_10px_-2px_rgba(217,119,87,0.7)]'
                 : 'bg-spectrum-card border border-line-strong text-spectrum-text hover:bg-spectrum-cardHover shadow-raised'
             }`}
             title="Play / pause (Space)"

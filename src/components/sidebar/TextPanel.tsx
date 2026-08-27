@@ -113,7 +113,7 @@ export const TextPanel: React.FC = () => {
                     {preset.text.split('\n')[0]}
                   </span>
                 </span>
-                <span className="w-5 h-5 rounded-full bg-spectrum-panel group-hover:bg-spectrum-accent text-spectrum-textDim group-hover:text-[#06251a] flex items-center justify-center transition-colors flex-shrink-0">
+                <span className="w-5 h-5 rounded-full bg-spectrum-panel group-hover:bg-spectrum-accent text-spectrum-textDim group-hover:text-[#2b1108] flex items-center justify-center transition-colors flex-shrink-0">
                   <Plus className="w-3 h-3" />
                 </span>
               </button>

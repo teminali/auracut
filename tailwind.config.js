@@ -50,29 +50,40 @@ export default {
           textFaint: '#4e5663',
 
           /* ── The primary ──────────────────────────────────────────
-             Green. What it collides with, and how each is resolved:
+             Claude's terracotta. Fourth accent this project has had
+             (blue, amber, green, this), and the rule that came out of
+             the earlier swaps holds: the token change is the easy part,
+             every accent collides with something, and the collision
+             MOVES when the accent does.
 
-               · `green` below was a STATUS colour (agent connected,
-                 audio lane). Status green beside an accent green is
-                 tolerable because both mean "good", but it is nudged
-                 brighter so the two are not the same swatch.
-               · TEAL used to carry "AI" and the timeline's snap guide,
-                 and teal beside green is one signal, not two. Both
-                 moved to BLUE, which is free now that it is no longer
-                 the primary.
-               · `amber` keeps KEYFRAME and CAUTION, and is now well
-                 clear of the accent, which it was not when the accent
-                 was amber. */
-          accent: '#2ecc80',
-          accentHover: '#48e39a',
-          accentSoft: 'rgba(46,204,128,0.15)',
-          accentLine: 'rgba(46,204,128,0.42)',
+             This one is the hardest so far, because a terracotta is an
+             orange-red and the warm range already housed CAUTION and
+             ERROR. Measured as hue separation, not by eye:
+
+               amber  38 deg, only 23 from the accent  -> moved to 47
+               red   356 deg, only 18 from the accent  -> see below
+               pink  330 deg, 45 away                  -> left alone
+               blue / green / purple, 119 deg or more  -> left alone
+
+             Amber moved to a yellower gold, which buys 32 degrees and
+             is clear. RED COULD NOT BE SOLVED BY HUE: it is boxed in
+             between the accent at 15 and the text lane's pink at 330,
+             and every hue in that window is within 30 of one or the
+             other. So it is separated by SATURATION and lightness
+             instead, as a vivid red against a muted clay. That is
+             mitigation rather than elimination, and it is written down
+             because the next person to look will otherwise assume it
+             was not checked. */
+          accent: '#d97757',
+          accentHover: '#e8927a',
+          accentSoft: 'rgba(217,119,87,0.15)',
+          accentLine: 'rgba(217,119,87,0.42)',
 
           blue: '#4a90ff',
           green: '#3ddc97',
           teal: '#2dd4bf',
-          amber: '#f0a92e',
-          red: '#ee5a63',
+          amber: '#f5c518',   // keyframes and caution; 32 deg clear of the accent
+          red: '#f0334f',     // vivid, against the accent's muted clay
           purple: '#a081f5',
           pink: '#ee6fae',
         },

@@ -106,7 +106,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         >
           <div
             className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center shadow-raised"
-            style={{ background: 'linear-gradient(145deg,#5ee6a4,#1fae69)' }}
+            style={{ background: 'linear-gradient(145deg,#eb9b81,#c4603f)' }}
           >
             {/* The kerf: two bars and the cut between them. */}
             <KerfMark className="w-[13px] h-[13px]" />
