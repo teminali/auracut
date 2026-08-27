@@ -669,6 +669,21 @@ and how it was found is the part worth keeping.
   curve. Both fixed, measured at the MIDPOINT — the only place a curve
   is visible.
 
+**An intermittent nobody has explained yet:**
+
+- `verify_keyframes` failed ONCE in a full run with
+  `filters.highlights: ins: No track matching "track_mtbgd4qb1c3ms"` —
+  a track id that had gone stale mid-suite, which means something reset
+  the project between the row creating the track and the row inserting
+  into it. It did NOT reproduce: the suite alone is 95/95, and two full
+  runs either side are 15/15 · 516/516. Checked for a stray agent
+  editing the project concurrently — the only `claude` processes on the
+  machine were VS Code extension sessions, not the `/opt/homebrew/bin`
+  binary Kerf spawns. The failing run also took 149s against a usual
+  107–115s, so contention is the best guess and not a finding. Recorded
+  with its exact error rather than called a flake, because next time it
+  happens this is the note that makes it two data points instead of one.
+
 **Still open, deliberately:**
 
 - **`detach_audio` cannot tell whether the source has an audio stream**,

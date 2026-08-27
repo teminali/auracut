@@ -750,3 +750,92 @@ export function summariseEnvelope(env: ContextEnvelope): string {
   if (env.frame && !env.frame.unavailableReason) bits.push('frame attached');
   return bits.join(' · ');
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   The turn brief — what the agent is told before it asks.
+
+   Measured, on the starter project: "How many clips are on the
+   timeline?" took 16.7s and two round-trips (ToolSearch, then
+   describe_timeline) against a 4.1s floor for a turn that calls no
+   tools. Every one of those round-trips is a full model call, and the
+   answer was sitting in the renderer's stores the whole time.
+
+   The context protocol already builds exactly this for the BUILT-IN
+   planner — `buildEnvelope` — and the Claude path never used it:
+   `agent.send(text)` sent the bare prompt. The primary backend was
+   getting LESS context than the fallback.
+
+   Kept compact and bounded on purpose. This rides on every turn, so it
+   is a summary an editor would recognise, not a project dump: a 200-clip
+   sequence lists the first few per track and says how many more.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const BRIEF_CLIPS_PER_TRACK = 6;
+
+export function buildTurnBrief(): string {
+  const t = useTimelineStore.getState();
+  const proj = useProjectStore.getState().project;
+  const lines: string[] = [];
+
+  lines.push(
+    `Project "${proj.name}" · ${proj.aspectRatio} ${proj.width}x${proj.height} · ` +
+    `${proj.fps}fps · ${formatTimecode(proj.durationMs, proj.fps)} long ` +
+    `(content ends ${formatTimecode(getContentEndMs(t.tracks), proj.fps)})`
+  );
+  lines.push(
+    `Playhead ${formatTimecode(t.playheadMs, proj.fps)} (${Math.round(t.playheadMs)}ms)` +
+    (t.inPointMs !== null || t.outPointMs !== null
+      ? ` · in/out ${t.inPointMs ?? 0}–${t.outPointMs ?? proj.durationMs}ms`
+      : '')
+  );
+
+  const selected = t.selectedClipIds.length;
+  if (selected > 0) {
+    const names = t.tracks
+      .flatMap((tr) => tr.clips)
+      .filter((c) => t.selectedClipIds.includes(c.id))
+      .map((c) => `"${c.name}" (${c.id})`);
+    lines.push(`Selected: ${names.join(', ')}`);
+  } else {
+    lines.push('Selected: nothing');
+  }
+
+  lines.push('');
+  lines.push('Tracks, top to bottom:');
+  for (const track of [...t.tracks].sort((a, b) => a.index - b.index)) {
+    const flags = [
+      track.muted ? 'muted' : null,
+      track.solo ? 'solo' : null,
+      track.locked ? 'LOCKED' : null,
+    ].filter(Boolean).join(', ');
+    lines.push(
+      `  [${track.index}] ${track.name} (${track.type}${flags ? `, ${flags}` : ''}) — ` +
+      `${track.clips.length} clip${track.clips.length === 1 ? '' : 's'}`
+    );
+    const shown = [...track.clips].sort((a, b) => a.startTimeMs - b.startTimeMs);
+    for (const clip of shown.slice(0, BRIEF_CLIPS_PER_TRACK)) {
+      const extras = [
+        clip.effects.length ? `${clip.effects.length}fx` : null,
+        clip.keyframes.length ? `${clip.keyframes.length}kf` : null,
+        clip.locked ? 'locked' : null,
+      ].filter(Boolean).join(' ');
+      lines.push(
+        `      ${clip.startTimeMs}–${clip.startTimeMs + clip.durationMs}ms  ` +
+        `"${clip.name}" ${clip.type} ${clip.id}${extras ? `  ${extras}` : ''}`
+      );
+    }
+    if (shown.length > BRIEF_CLIPS_PER_TRACK) {
+      lines.push(`      …and ${shown.length - BRIEF_CLIPS_PER_TRACK} more on this track`);
+    }
+  }
+
+  if (t.markers.length > 0) {
+    lines.push('');
+    lines.push(`Markers: ${t.markers.length} (${t.markers.slice(0, 5)
+      .map((m) => `${m.timeMs}ms ${m.kind}`).join(', ')}${t.markers.length > 5 ? ', …' : ''})`);
+  }
+  lines.push('');
+  lines.push(`Media pool: ${t.mediaPool.length} asset(s)`);
+
+  return lines.join('\n');
+}

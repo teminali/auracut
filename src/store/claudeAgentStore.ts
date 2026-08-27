@@ -8,6 +8,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { create } from 'zustand';
+import { buildTurnBrief } from '../engine/contextProtocol';
 import type { ClaudeEvent, ClaudeStatus } from '../types/electron';
 
 export interface AgentToolCall {
@@ -158,7 +159,23 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
       startedAt: Date.now(),
     }));
 
-    await api.claude.send(prompt, get().hasSession);
+    /*
+      Hand the agent the timeline it is about to edit.
+
+      Measured: "How many clips are on the timeline?" cost 16.7s and two
+      model round-trips — ToolSearch, then describe_timeline — against a
+      4.1s floor for a turn that calls no tools. The answer was in the
+      renderer's stores the whole time. The built-in planner has always
+      been given this (`buildEnvelope`); the CLI path sent bare text, so
+      the PRIMARY backend was the less informed one.
+
+      Sent every turn rather than once at session start, because the
+      user moves the playhead and changes the selection between turns
+      and a stale brief is worse than none.
+    */
+    const withContext =
+      `<kerf-timeline>\n${buildTurnBrief()}\n</kerf-timeline>\n\n${prompt}`;
+    await api.claude.send(withContext, get().hasSession);
   },
 
   stop: () => {
