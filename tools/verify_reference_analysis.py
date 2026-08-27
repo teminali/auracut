@@ -693,10 +693,38 @@ for fn in sorted(glob.glob(os.path.join(gd, '*.png'))):
 ind_rgb = tot / npix
 ind_luma = ysum / npix
 tool_rgb = s['grade']['colour']['meanRgb']
+"""
+This compares TWO DECODERS, and that is a wider tolerance than it looks.
+
+The tool reads its pixels through Chromium (a <video> element onto a
+canvas); this independent measurement reads them through ffmpeg into
+PNGs. h264 is YUV, and turning YUV into RGB involves a colour matrix and
+a range convention (limited 16-235 against full 0-255) that the two do
+not have to agree on to the last digit — and Chromium's answer depends
+on whether the machine gave it a hardware decoder.
+
+Measured: the INDEPENDENT side reads 75.8 on both this machine and a
+GitHub macOS runner — ffmpeg is stable. The TOOL side reads 68.26 here
+and 63.48 there. So the drift is Chromium's, it is about 5 luma between
+machines, and a +-10 window that passed locally failed in CI on the
+first run. Tightening it further would only make the suite a detector of
+which decoder the machine has.
+
+So: +-20, and what this check is really asserting is that the contact
+sheet is a faithful sample of the film rather than of something else
+entirely — a scrambled or half-black sheet would be 40 or 80 out, not
+12. The SHAPE of the grade is checked by the neighbours below (B > R,
+"cool", the dominant hue, the zig-zag), and those are range-invariant,
+which is why they are the ones to trust.
+
+Recorded in NEXT.md: analyze_reference_video's ABSOLUTE grade numbers
+are decoder-dependent to about 5 luma. Its comparative readings are not.
+"""
 check('the grade agrees with full-resolution frames it never saw',
-      abs(s['grade']['luminance']['mean'] - ind_luma) < 10
-      and all(abs(t - i) < 12 for t, i in zip(tool_rgb, ind_rgb)),
-      f"tool luma {s['grade']['luminance']['mean']} vs {ind_luma:.1f} independent; "
+      abs(s['grade']['luminance']['mean'] - ind_luma) < 20
+      and all(abs(t - i) < 20 for t, i in zip(tool_rgb, ind_rgb)),
+      f"tool luma {s['grade']['luminance']['mean']} vs {ind_luma:.1f} independent "
+      f"(two decoders, ~5 luma of machine variance); "
       f"RGB {tool_rgb} vs [{ind_rgb[0]:.1f}, {ind_rgb[1]:.1f}, {ind_rgb[2]:.1f}]")
 check('and it reads the blue in it as blue',
       tool_rgb[2] > tool_rgb[0] and ind_rgb[2] > ind_rgb[0]

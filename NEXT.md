@@ -499,6 +499,41 @@ still allowed through, or a locked clip could never be unlocked again.
 
 ---
 
+## 6b. The skill format — first skill built, format falling out
+
+HANDOVER §0 item 11 says build two skills by hand FIRST and let the
+format fall out of what they needed. **One is built:
+`skills/beat-montage/`**, 12 checks green against artifacts — cuts 0ms
+off the detected beat, the six shots measured on screen in the reported
+order, a portrait export with an audio stream at the length asked for.
+
+`skill.json` was written LAST, and every field in it earned its place.
+What it needed that did not exist:
+
+- **`save_project`.** There was a `project:read` and no counterpart, so
+  an agent could open a project and never save one. A skill IS a template
+  project; there was no way to make the template.
+- **`remove_media`.** The first template shipped **eight** assets: its
+  own bed plus the seven seeded samples. A template that ships the app's
+  sample library ships someone else's licensing problem — and §6's whole
+  argument for skills is that assets are licensed PER SKILL.
+- **Portable media paths.** The template stored its bed as an absolute
+  `file://` URL, so it worked on exactly one machine. `serializeProject`
+  now writes media inside the project's own directory as `./assets/…`
+  and `deserializeProject` resolves it back. Proven by copying the whole
+  skill folder elsewhere and opening it there, where the bed still
+  DECODED at 119.6 BPM — resolving a string is not the same as reading a
+  file.
+
+**Still open, and deliberately not designed yet:** nothing installs a
+skill. There is no registry, no lifecycle, no entitlement. Writing that
+format before something reads it is how you get a schema nobody can
+satisfy — and §0 says two skills, not one. The second is what should
+decide whether recipes need branching, whether slots need validation, and
+what an install actually does.
+
+---
+
 ## 7. Do not redo these
 
 Each was tried, measured, and rejected. The numbers are in the code

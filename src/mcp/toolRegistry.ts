@@ -2002,7 +2002,10 @@ defineTool({
     } }).electronAPI;
     if (!api?.project?.write) throw new Error('Writing project files needs the desktop bridge.');
 
-    const json = serializeProject();
+    // Media inside this directory is stored relative, so the folder can
+    // be moved, copied or installed elsewhere and still find its assets.
+    const baseDir = filePath.slice(0, filePath.lastIndexOf('/'));
+    const json = serializeProject(baseDir);
     const res = await api.project.write(filePath, json);
     if (!res.ok) throw new Error(res.error ?? 'Could not write that file.');
 
@@ -2037,7 +2040,7 @@ defineTool({
     const read = await api.project.read(filePath);
     if (!read.ok) throw new Error(read.error ?? 'Could not read that file.');
 
-    const result = deserializeProject(read.json);
+    const result = deserializeProject(read.json, filePath.slice(0, filePath.lastIndexOf('/')));
     if (!result.ok) throw new Error(result.error ?? 'Could not open that project.');
 
     const t = timeline();
@@ -3145,6 +3148,47 @@ defineTool({
       defaultSeconds: s.seconds,
     })),
   }),
+});
+
+defineTool({
+  name: 'remove_media',
+  category: 'media',
+  description:
+    'Remove an asset from the media pool. Refuses while any clip still uses it, and names ' +
+    'those clips — an asset that vanishes from under a clip leaves the clip rendering the ' +
+    'placeholder gradient forever. Use to prune a project down to the media it actually ' +
+    'needs, which is what a template project has to be.',
+  schema: z.object({
+    assetId: z.string().describe('Asset id, or part of its name'),
+    force: z.boolean().optional().describe('Remove even though clips use it. They will break.'),
+  }),
+  handler: ({ assetId, force }) => {
+    const state = timeline();
+    const asset =
+      state.mediaPool.find((a) => a.id === assetId) ??
+      state.mediaPool.find((a) => a.name.toLowerCase().includes(assetId.toLowerCase()));
+    if (!asset) {
+      throw new Error(`No media asset "${assetId}". Available: ${state.mediaPool.map((a) => a.name).join(', ')}`);
+    }
+
+    const users = state.tracks.flatMap((t) =>
+      t.clips.filter((c) => c.mediaUrl && c.mediaUrl === asset.url).map((c) => c.name)
+    );
+    if (users.length > 0 && !force) {
+      throw new Error(
+        `"${asset.name}" is still used by ${users.length} clip(s): ${users.slice(0, 5).join(', ')}` +
+        `${users.length > 5 ? '…' : ''}. Remove those clips first, or pass force to break them.`
+      );
+    }
+
+    state.removeMediaAsset(asset.id);
+    return {
+      removed: asset.id,
+      name: asset.name,
+      remaining: timeline().mediaPool.length,
+      ...(users.length ? { brokeClips: users } : {}),
+    };
+  },
 });
 
 defineTool({

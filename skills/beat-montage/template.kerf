@@ -1,0 +1,262 @@
+{
+  "format": "kerf.project",
+  "version": 2,
+  "savedAt": 1787816784602,
+  "project": {
+    "id": "proj_default_kerf",
+    "name": "Beat Montage — template",
+    "aspectRatio": "9:16",
+    "width": 1080,
+    "height": 1920,
+    "fps": 30,
+    "durationMs": 32000,
+    "backgroundColor": "#0a0b0e",
+    "createdAt": 1787816769406,
+    "updatedAt": 1787816784579
+  },
+  "tracks": [
+    {
+      "id": "track_mtb7ybps2tpi",
+      "type": "text",
+      "name": "Title",
+      "index": 0,
+      "muted": false,
+      "locked": false,
+      "solo": false,
+      "volume": 1,
+      "heightPx": 52,
+      "collapsed": false,
+      "clips": [
+        {
+          "color": "#ee6fae",
+          "startTimeMs": 0,
+          "durationMs": 2500,
+          "sourceStartMs": 0,
+          "sourceDurationMs": 2500,
+          "fitMode": "none",
+          "blendMode": "normal",
+          "locked": false,
+          "hidden": false,
+          "id": "txt_mtb7ybq04ex7",
+          "trackId": "track_mtb7ybps2tpi",
+          "type": "text",
+          "name": "YOUR TITLE",
+          "textStyle": {
+            "text": "YOUR TITLE",
+            "fontFamily": "Inter",
+            "fontSize": 120,
+            "fontWeight": 800,
+            "italic": false,
+            "color": "#ffffff",
+            "strokeColor": "#000000",
+            "strokeWidth": 0,
+            "shadowColor": "rgba(0,0,0,0.75)",
+            "shadowBlur": 0,
+            "shadowOffsetX": 0,
+            "shadowOffsetY": 4,
+            "align": "center",
+            "letterSpacing": 0,
+            "lineHeight": 1.15,
+            "uppercase": false,
+            "backgroundPadding": 18,
+            "backgroundRadius": 10,
+            "kineticAnimation": "none"
+          },
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "flipH": false,
+            "flipV": false
+          },
+          "mask": {
+            "enabled": false,
+            "type": "rectangle",
+            "sizeX": 80,
+            "sizeY": 80,
+            "offsetX": 0,
+            "offsetY": 0,
+            "rotation": 0,
+            "roundness": 12,
+            "featherPx": 0,
+            "inverted": false
+          },
+          "speed": {
+            "multiplier": 1,
+            "curvePreset": "linear",
+            "preservePitch": true,
+            "reversed": false
+          },
+          "keyframes": [],
+          "filters": {
+            "brightness": 0,
+            "contrast": 0,
+            "saturation": 0,
+            "exposure": 0,
+            "temperature": 0,
+            "tint": 0,
+            "highlights": 0,
+            "shadows": 0,
+            "sharpen": 0,
+            "vignette": 0,
+            "grain": 0,
+            "blur": 0,
+            "hueRotate": 0
+          },
+          "chromaKey": {
+            "enabled": false,
+            "targetColorHex": "#00ff00",
+            "similarity": 40,
+            "smoothness": 10,
+            "spill": 10
+          },
+          "effects": [],
+          "motionBlur": {
+            "enabled": false,
+            "shutterAngle": 180,
+            "samples": 6
+          },
+          "audio": {
+            "volume": 1,
+            "fadeInMs": 0,
+            "fadeOutMs": 0,
+            "pitch": 0,
+            "voiceEffect": "none",
+            "noiseReduction": false,
+            "ducking": false,
+            "detached": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "track_mtb7ybps12j0",
+      "type": "video",
+      "name": "Footage",
+      "index": 1,
+      "muted": false,
+      "locked": false,
+      "solo": false,
+      "volume": 1,
+      "heightPx": 52,
+      "collapsed": false,
+      "clips": []
+    },
+    {
+      "id": "track_mtb7ybpr0cfv",
+      "type": "audio",
+      "name": "Music",
+      "index": 2,
+      "muted": false,
+      "locked": false,
+      "solo": false,
+      "volume": 1,
+      "heightPx": 44,
+      "collapsed": false,
+      "clips": [
+        {
+          "color": "#33c98d",
+          "startTimeMs": 0,
+          "durationMs": 32000,
+          "sourceStartMs": 0,
+          "sourceDurationMs": 32000,
+          "fitMode": "cover",
+          "blendMode": "normal",
+          "locked": false,
+          "hidden": false,
+          "id": "clip_mtb7ybpz3iox",
+          "trackId": "track_mtb7ybpr0cfv",
+          "type": "audio",
+          "name": "bed_120bpm",
+          "mediaUrl": "./assets/bed_120bpm.wav",
+          "transform": {
+            "x": 0,
+            "y": 0,
+            "scaleX": 1,
+            "scaleY": 1,
+            "rotation": 0,
+            "opacity": 1,
+            "anchorX": 0.5,
+            "anchorY": 0.5,
+            "flipH": false,
+            "flipV": false
+          },
+          "mask": {
+            "enabled": false,
+            "type": "rectangle",
+            "sizeX": 80,
+            "sizeY": 80,
+            "offsetX": 0,
+            "offsetY": 0,
+            "rotation": 0,
+            "roundness": 12,
+            "featherPx": 0,
+            "inverted": false
+          },
+          "speed": {
+            "multiplier": 1,
+            "curvePreset": "linear",
+            "preservePitch": true,
+            "reversed": false
+          },
+          "keyframes": [],
+          "filters": {
+            "brightness": 0,
+            "contrast": 0,
+            "saturation": 0,
+            "exposure": 0,
+            "temperature": 0,
+            "tint": 0,
+            "highlights": 0,
+            "shadows": 0,
+            "sharpen": 0,
+            "vignette": 0,
+            "grain": 0,
+            "blur": 0,
+            "hueRotate": 0
+          },
+          "chromaKey": {
+            "enabled": false,
+            "targetColorHex": "#00ff00",
+            "similarity": 40,
+            "smoothness": 10,
+            "spill": 10
+          },
+          "effects": [],
+          "motionBlur": {
+            "enabled": false,
+            "shutterAngle": 180,
+            "samples": 6
+          },
+          "audio": {
+            "volume": 1,
+            "fadeInMs": 0,
+            "fadeOutMs": 0,
+            "pitch": 0,
+            "voiceEffect": "none",
+            "noiseReduction": false,
+            "ducking": false,
+            "detached": false
+          }
+        }
+      ]
+    }
+  ],
+  "markers": [],
+  "mediaPool": [
+    {
+      "id": "asset_mtb7ybpy_l6t3h",
+      "name": "bed_120bpm",
+      "type": "audio",
+      "url": "./assets/bed_120bpm.wav",
+      "thumbnailUrl": "",
+      "durationMs": 32000,
+      "fileSizeFormatted": "—"
+    }
+  ]
+}

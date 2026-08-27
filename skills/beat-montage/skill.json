@@ -1,0 +1,122 @@
+{
+  "_comment": [
+    "Written LAST, from what building this skill by hand actually needed.",
+    "HANDOVER §0 item 11 says to build two skills by hand first and let the",
+    "format fall out of what they needed, rather than designing a schema and",
+    "then discovering it is wrong. Every field below earned its place by",
+    "being something the build could not do without. Nothing here is",
+    "speculative, and the fields a second skill turns out to need should be",
+    "added then, not now."
+  ],
+
+  "id": "beat-montage",
+  "name": "Beat Montage",
+  "version": "1.0.0",
+  "summary": "Cuts a folder of footage to the beat of its own music bed, 9:16.",
+
+  "toolApi": 1,
+  "_toolApi": [
+    "A DECLARED tool-API version, per §0 item 11. A skill is a recipe of",
+    "tool calls, and tools change: `detect_beats` gained `percussive` and",
+    "`import_media_from_path` gained `decoded` in the same session this was",
+    "written. A skill that ran against the old shapes has no way to know it",
+    "is now reading fields that do not exist unless it says which API it was",
+    "built for."
+  ],
+
+  "requiresTools": [
+    "open_project",
+    "detect_beats",
+    "assemble_from_folder",
+    "auto_montage_to_beats",
+    "render_export"
+  ],
+
+  "template": "template.kerf",
+  "_template": [
+    "The buyer can never get nothing (§6): if the agent fumbles, this is",
+    "still a real, playable project on the timeline — bed, tracks and a",
+    "title. It is also what makes the skill demoable before purchase.",
+    "It stores its media as ./assets/… so the folder can be installed",
+    "anywhere; verified by copying the whole directory elsewhere and opening",
+    "it there, where the bed still decoded at 119.6 BPM."
+  ],
+
+  "assets": [
+    {
+      "path": "assets/bed_120bpm.wav",
+      "role": "music",
+      "durationMs": 32000,
+      "bpm": 120,
+      "licence": "generated-for-this-skill",
+      "_licence": [
+        "Assets are licensed PER SKILL, which is tractable, rather than per",
+        "library, which is not (§6). This one is synthesised, so the licence",
+        "is trivial — but the field exists because the next skill's will not",
+        "be, and a skill store cannot ask that question retroactively."
+      ]
+    }
+  ],
+
+  "slots": [
+    {
+      "id": "footage",
+      "kind": "folder",
+      "required": true,
+      "description": "A folder of clips. Ordered by filename unless you say otherwise."
+    },
+    {
+      "id": "title",
+      "kind": "text",
+      "required": false,
+      "default": "YOUR TITLE",
+      "targetClipName": "YOUR TITLE",
+      "description": "The opening card. Leave empty to drop it."
+    }
+  ],
+  "_slots": [
+    "What the buyer is allowed to change without editing the recipe. Both of",
+    "these are things the by-hand build had to be told, so they are the two",
+    "that exist. `targetClipName` is how a slot finds its clip in the",
+    "template, and it is a NAME rather than an id because ids are regenerated",
+    "and a skill outlives them."
+  ],
+
+  "recipe": [
+    { "tool": "open_project", "args": { "path": "{skill}/template.kerf" } },
+    { "tool": "assemble_from_folder",
+      "args": { "folder": "{slot:footage}", "orderBy": "name", "audio": "ignore", "clearTrack": true } },
+    { "tool": "auto_montage_to_beats",
+      "args": { "cutEveryBeats": 2, "whenMaterialRunsOut": "loop" } }
+  ],
+
+  "verify": "verify.py",
+  "_verify": [
+    "The fourth part, and the one that makes this a skill rather than a",
+    "prompt pack. 12 checks, all against artifacts: the template opens with",
+    "its own assets and nobody else's, the cuts land on the bed's detected",
+    "beats (0ms worst), the frames on screen are the caller's footage in the",
+    "reported order (measured as colour distance, because a montage that",
+    "reported shots it never rendered is a thing that has happened here),",
+    "and the exported file is portrait, has an audio stream, and is the",
+    "length that was asked for."
+  ],
+
+  "provenance": {
+    "author": "kerf",
+    "builtWith": "Kerf 1.2.0",
+    "builtAt": "2026-08-27",
+    "verifiedOn": "macOS arm64, and the eight-suite CI runner"
+  },
+
+  "_notInHereYet": [
+    "Deliberately absent until a second skill proves they are needed:",
+    "no dependency graph between recipe steps (this one is a straight",
+    "line), no per-slot validation rules (the folder either has media or",
+    "assemble_from_folder says what it skipped), no pricing or entitlement",
+    "(that is the store, HANDOVER Stage 4 item 13, and a second product),",
+    "and no install/uninstall lifecycle — nothing installs skills yet, and",
+    "writing that format before something reads it is how you get a schema",
+    "nobody can satisfy."
+  ]
+}

@@ -73,18 +73,67 @@ export interface ProjectFile {
   mediaPool: MediaAsset[];
 }
 
-export function serializeProject(): string {
+/* ── Portable paths ────────────────────────────────────────────────
+
+   A project saved with absolute `file://` URLs is a project that only
+   works on the machine that wrote it. That is tolerable for your own
+   documents and fatal for a SKILL, which is a template project plus its
+   assets, installed somewhere the author never saw.
+
+   So: media that lives inside the project file's own directory is
+   written RELATIVE to it, and resolved back on load. A skill folder
+   moved, copied or installed anywhere keeps working; media from
+   elsewhere on the disk stays absolute, because a relative path to
+   somewhere outside the folder is not portable either, it just looks it.
+
+   Both directions are no-ops when no base directory is known — the
+   autosave path has no file, and neither does an old project.          */
+
+function toPortableUrl(url: string, baseDir: string): string {
+  if (!url.startsWith('file://')) return url;
+  let abs: string;
+  try {
+    abs = decodeURI(url.slice('file://'.length));
+  } catch {
+    return url;
+  }
+  const dir = baseDir.endsWith('/') ? baseDir : `${baseDir}/`;
+  return abs.startsWith(dir) ? `./${abs.slice(dir.length)}` : url;
+}
+
+function fromPortableUrl(url: string, baseDir: string): string {
+  if (!url.startsWith('./')) return url;
+  const dir = baseDir.endsWith('/') ? baseDir : `${baseDir}/`;
+  return `file://${encodeURI(dir + url.slice(2)).replace(/#/g, '%23')}`;
+}
+
+function remapMedia<T extends { url?: string }>(items: T[], map: (u: string) => string): T[] {
+  return items.map((i) => (i.url ? { ...i, url: map(i.url) } : i));
+}
+
+/**
+ * @param baseDir Absolute directory the file is being written into. When
+ * given, media inside it is stored relative so the folder can move.
+ */
+export function serializeProject(baseDir?: string): string {
   const timeline = useTimelineStore.getState();
   const project = useProjectStore.getState().project;
+
+  const map = baseDir ? (u: string) => toPortableUrl(u, baseDir) : (u: string) => u;
 
   const file: ProjectFile = {
     format: 'kerf.project',
     version: FORMAT_VERSION,
     savedAt: Date.now(),
     project,
-    tracks: timeline.tracks,
+    tracks: timeline.tracks.map((t) => ({
+      ...t,
+      clips: t.clips.map((c) => (c.mediaUrl ? { ...c, mediaUrl: map(c.mediaUrl) } : c)),
+    })),
     markers: timeline.markers,
-    mediaPool: timeline.mediaPool,
+    mediaPool: remapMedia(timeline.mediaPool, map).map((a) =>
+      a.thumbnailUrl ? { ...a, thumbnailUrl: map(a.thumbnailUrl) } : a
+    ),
   };
 
   return JSON.stringify(file, null, 2);
@@ -99,7 +148,7 @@ export interface LoadResult {
   migratedFrom?: number;
 }
 
-export function deserializeProject(json: string): LoadResult {
+export function deserializeProject(json: string, baseDir?: string): LoadResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -154,22 +203,47 @@ export function deserializeProject(json: string): LoadResult {
     return { ok: false, error: 'The project file is missing its tracks or settings.' };
   }
 
+  // Resolve any `./` media back against the directory the file came
+  // from, so a folder that moved still finds its own assets.
+  const unmap = baseDir ? (u: string) => fromPortableUrl(u, baseDir) : (u: string) => u;
+
   // Run every clip through the factory so older files gain any new fields.
   const tracks: Track[] = file.tracks.map((track) => ({
     ...track,
     collapsed: track.collapsed ?? false,
-    clips: (track.clips ?? []).map((clip) => createClip(clip as unknown as Clip)),
+    clips: (track.clips ?? []).map((clip) => {
+      const c = clip as unknown as Clip;
+      return createClip(c.mediaUrl ? { ...c, mediaUrl: unmap(c.mediaUrl) } : c);
+    }),
   }));
 
-  const relinkNeeded = (file.mediaPool ?? [])
-    .filter((a) => a.url.startsWith('blob:'))
+  /*
+    `undefined` and `[]` mean different things and always have: a file
+    with no mediaPool KEY keeps the current pool, a file with an EMPTY
+    one replaces it with empty. Collapsing the two here changed
+    documented behaviour and the unit tests caught it immediately.
+  */
+  const pool = file.mediaPool
+    ? remapMedia(file.mediaPool, unmap).map((a) =>
+        a.thumbnailUrl ? { ...a, thumbnailUrl: unmap(a.thumbnailUrl) } : a
+      )
+    : undefined;
+
+  /*
+    `blob:` URLs never survive a reload — they belong to the session that
+    made them. A `./` path that had no base directory to resolve against
+    will not resolve either, and saying so beats letting the clip render
+    a placeholder and calling the load clean.
+  */
+  const relinkNeeded = (pool ?? [])
+    .filter((a) => a.url.startsWith('blob:') || a.url.startsWith('./'))
     .map((a) => a.name);
 
   useTimelineStore.getState().loadProject(tracks, file.markers ?? []);
   useProjectStore.getState().loadProjectSettings(file.project);
 
   // Restore the media pool alongside the timeline.
-  useTimelineStore.setState((s) => ({ ...s, mediaPool: file.mediaPool ?? s.mediaPool }));
+  useTimelineStore.setState((s) => ({ ...s, mediaPool: pool ?? s.mediaPool }));
 
   return {
     ok: true,
