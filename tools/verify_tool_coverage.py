@@ -108,6 +108,18 @@ UI_ONLY = {
     'setSelectedTrackId': 'track selection is UI focus; every track tool takes an explicit trackId',
     'setAssetPeaks':      'internal waveform cache, filled by the audio decoder, not an edit',
     'insertClipObject':   'internal: re-inserts an existing clip object during undo and paste',
+    # Grouping looks like an editing capability and is not one outside
+    # the mouse. `clip.groupId` is read in exactly one place —
+    # ClipBlock.tsx's drag handler — so it makes clips move together
+    # when a HUMAN drags them. No store operation honours it: `moveClip`
+    # moves one clip straight out of its group and leaves the rest
+    # behind, and `trimClip` ignores it entirely, though edl.ts:430 says
+    # "move and trim together". Exposing it would give an agent a flag
+    # that changes nothing the agent itself can do — a tool that reports
+    # success and does nothing, which is the thing this repo keeps
+    # finding. Logged as a gap in HANDOVER §4 instead of papered over.
+    'groupSelected':      'groupId is honoured only by the UI drag handler; no store op or render reads it',
+    'ungroupSelected':    'ditto — the inverse of a UI-only flag',
 }
 
 
