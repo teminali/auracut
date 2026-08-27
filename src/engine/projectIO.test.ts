@@ -516,3 +516,35 @@ describe('the media pool holds one entry per asset id', () => {
     expect(new Set(pool.map((a) => a.id)).size).toBe(pool.length);
   });
 });
+
+describe('loading heals a pool that a previous bug duplicated', () => {
+  it('drops repeats of the same asset id on restore', async () => {
+    /*
+      Fixing `addMediaAsset` stops NEW duplicates and does nothing for a
+      project or an autosave already holding five copies of the starter's
+      bed, which is then restored on every launch for ever. Measured on
+      the installed build: the fix held (five more opens added nothing)
+      while the pool still carried five copies from before it.
+    */
+    const { useTimelineStore } = await import('../store/timelineStore');
+    const { deserializeProject, serializeProject } = await import('./projectIO');
+
+    const asset = (name: string) => ({
+      id: 'starter:kerf-film-bed', name, type: 'audio' as const,
+      url: 'file:///bed.wav', durationMs: 1000, addedAt: 0,
+    });
+
+    // A file written while the bug was live.
+    const file = JSON.parse(serializeProject());
+    file.mediaPool = [asset('first'), asset('dupe'), asset('dupe again')];
+
+    const result = deserializeProject(JSON.stringify(file));
+    expect(result.ok).toBe(true);
+
+    const pool = useTimelineStore.getState().mediaPool;
+    const beds = pool.filter((a) => a.id === 'starter:kerf-film-bed');
+    expect(beds).toHaveLength(1);
+    // First wins, so a stale copy behind a fresher one cannot resurrect.
+    expect(beds[0].name).toBe('first');
+  });
+});

@@ -71,8 +71,8 @@ export const HomeSidebar: React.FC<Props> = ({
           ) : (
             <span
               className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0
-                         shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_2px_8px_-2px_rgba(224,138,18,0.5)]"
-              style={{ background: 'linear-gradient(148deg,#ffc266,#e08a12)' }}
+                         shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_2px_8px_-2px_rgba(31,174,105,0.5)]"
+              style={{ background: 'linear-gradient(148deg,#6fecb0,#1fae69)' }}
             >
               <KerfMark className="w-[18px] h-[18px]" />
             </span>

@@ -242,8 +242,25 @@ export function deserializeProject(json: string, baseDir?: string): LoadResult {
   useTimelineStore.getState().loadProject(tracks, file.markers ?? []);
   useProjectStore.getState().loadProjectSettings(file.project);
 
-  // Restore the media pool alongside the timeline.
-  useTimelineStore.setState((s) => ({ ...s, mediaPool: pool ?? s.mediaPool }));
+  /*
+    Restore the media pool alongside the timeline, DEDUPED BY ID.
+
+    `addMediaAsset` used to append without checking, so any project
+    saved while that bug was live carries repeats of the fixed-id
+    assets: the starter's bed, and every `media_*` sample. Fixing the
+    writer stops new ones, and does nothing at all for a file or an
+    autosave already holding five copies of the same bed, which is
+    then restored on every launch for ever.
+
+    First occurrence wins, so an entry that was updated before being
+    duplicated is not resurrected by an older copy behind it.
+  */
+  const restored = pool ?? null;
+  if (restored) {
+    const seen = new Set<string>();
+    const unique = restored.filter((a) => (seen.has(a.id) ? false : (seen.add(a.id), true)));
+    useTimelineStore.setState((s) => ({ ...s, mediaPool: unique }));
+  }
 
   return {
     ok: true,

@@ -26,6 +26,7 @@ import { RichText } from './RichText';
 import { AgentThread } from './AgentThread';
 import { RunStatus } from './RunStatus';
 import { AgentPicker } from './AgentPicker';
+import { VoiceInput } from './VoiceInput';
 import * as Icons from '../ui/icons';
 import { GapLog } from './GapLog';
 import { useGapStore } from '../../store/gapStore';
@@ -686,6 +687,20 @@ export const CopilotDrawer: React.FC = () => {
               el.style.height = `${Math.min(112, el.scrollHeight)}px`;
             }}
           />
+
+          {/* Speak instead of typing. It fills the box rather than
+              sending, for the same reason the quick actions do: an
+              editing instruction is destructive and a transcript is
+              imperfect, so it costs one glance to check. Renders
+              nothing at all when Whisper is not installed. */}
+          <VoiceInput
+            disabled={busy}
+            onTranscript={(text) => {
+              setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+              inputRef.current?.focus();
+            }}
+          />
+
           {busy ? (
             <button
               onClick={agent.isRunning ? agent.stop : cancelRun}

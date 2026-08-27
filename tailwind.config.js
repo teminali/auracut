@@ -50,21 +50,26 @@ export default {
           textFaint: '#4e5663',
 
           /* ── The primary ──────────────────────────────────────────
-             Amber. Note what it collides with and how that is resolved:
-             `amber` below still means KEYFRAME and CAUTION, and those
-             are close enough to the accent to be read as the same
-             signal. Keyframes are fine — a keyframe at the playhead IS
-             an active thing, which is what accent means. The timeline's
-             SNAP GUIDE was not fine (an amber line beside an amber
-             playhead is two different meanings in one colour) and has
-             moved to teal. */
-          accent: '#f2a026',
-          accentHover: '#ffb445',
-          accentSoft: 'rgba(242,160,38,0.15)',
-          accentLine: 'rgba(242,160,38,0.42)',
+             Green. What it collides with, and how each is resolved:
+
+               · `green` below was a STATUS colour (agent connected,
+                 audio lane). Status green beside an accent green is
+                 tolerable because both mean "good", but it is nudged
+                 brighter so the two are not the same swatch.
+               · TEAL used to carry "AI" and the timeline's snap guide,
+                 and teal beside green is one signal, not two. Both
+                 moved to BLUE, which is free now that it is no longer
+                 the primary.
+               · `amber` keeps KEYFRAME and CAUTION, and is now well
+                 clear of the accent, which it was not when the accent
+                 was amber. */
+          accent: '#2ecc80',
+          accentHover: '#48e39a',
+          accentSoft: 'rgba(46,204,128,0.15)',
+          accentLine: 'rgba(46,204,128,0.42)',
 
           blue: '#4a90ff',
-          green: '#33c98d',
+          green: '#3ddc97',
           teal: '#2dd4bf',
           amber: '#f0a92e',
           red: '#ee5a63',

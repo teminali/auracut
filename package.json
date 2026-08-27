@@ -1,7 +1,7 @@
 {
   "name": "kerf",
   "version": "1.2.0",
-  "description": "Kerf — open-source AI video editor with full Model Context Protocol (MCP) integration",
+  "description": "Kerf \u2014 open-source AI video editor with full Model Context Protocol (MCP) integration",
   "author": {
     "name": "teminali",
     "email": "muhasibudigital@gmail.com"
@@ -34,7 +34,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.1",
-    "@phosphor-icons/react": "^2.1.10",
     "@radix-ui/react-dialog": "^1.1.6",
     "@radix-ui/react-dropdown-menu": "^2.1.6",
     "@radix-ui/react-popover": "^1.1.6",
@@ -58,6 +57,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@types/node": "^22.13.4",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",

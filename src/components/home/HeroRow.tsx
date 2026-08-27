@@ -77,7 +77,7 @@ export const HeroRow: React.FC<Props> = ({ onNewProject, onOpenCopilot, mostRece
 
           <span className="ml-5 min-w-0">
             <span className="block text-[30px] leading-[1.08] font-semibold text-white tracking-[-0.028em]
-                             drop-shadow-[0_1px_2px_rgba(0,20,32,0.35)]">
+                             drop-shadow-[0_1px_2px_rgba(0,28,18,0.35)]">
               New project
             </span>
             <span className="block text-ui-xl text-white/70 mt-1.5">
@@ -108,8 +108,8 @@ export const HeroRow: React.FC<Props> = ({ onNewProject, onOpenCopilot, mostRece
         >
           <span className="flex items-center gap-2.5">
             <span className="w-9 h-9 rounded-[11px] flex items-center justify-center flex-shrink-0
-                             bg-spectrum-teal/12">
-              <Sparkle className="w-[19px] h-[19px] text-spectrum-teal" />
+                             bg-spectrum-blue/14">
+              <Sparkle className="w-[19px] h-[19px] text-spectrum-blue" />
             </span>
             <span className="text-[17px] leading-tight font-semibold text-spectrum-text tracking-[-0.016em]">Copilot</span>
           </span>
@@ -122,7 +122,7 @@ export const HeroRow: React.FC<Props> = ({ onNewProject, onOpenCopilot, mostRece
               here: the inference is bought and paid for by the person
               using it. Never truncated — a claim cut off mid-word is
               worse than no claim. */}
-          <span className="flex items-center gap-1.5 mt-3 text-ui-sm text-spectrum-teal/90 leading-snug">
+          <span className="flex items-center gap-1.5 mt-3 text-ui-sm text-spectrum-blue/90 leading-snug">
             <KeyRound className="w-3.5 h-3.5 flex-shrink-0" />
             <span>{runsOn}</span>
           </span>
@@ -134,7 +134,7 @@ export const HeroRow: React.FC<Props> = ({ onNewProject, onOpenCopilot, mostRece
                a decorative glow is just a grey circle. */
             className="absolute -right-40 -bottom-56 w-[520px] h-[520px] rounded-full opacity-55
                        transition-opacity duration-slow group-hover:opacity-80 pointer-events-none"
-            style={{ background: 'radial-gradient(circle at 50% 50%,rgba(45,212,191,0.20) 0%,rgba(45,212,191,0.07) 38%,transparent 70%)' }}
+            style={{ background: 'radial-gradient(circle at 50% 50%,rgba(74,144,255,0.20) 0%,rgba(74,144,255,0.07) 38%,transparent 70%)' }}
           />
         </button>
       </div>

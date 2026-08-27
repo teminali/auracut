@@ -78,7 +78,7 @@ export const MoreTools: React.FC<{ onOpenPanel: (tab: SidebarTab) => void }> = (
               {tool.ai && (
                 <span
                   className="absolute top-1.5 right-1.5 h-[14px] px-[5px] rounded-[4px]
-                             bg-spectrum-teal/14 text-spectrum-teal text-[8.5px] font-bold
+                             bg-spectrum-blue/16 text-spectrum-blue text-[8.5px] font-bold
                              tracking-[0.06em] flex items-center"
                   aria-hidden="true"
                 >

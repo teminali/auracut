@@ -360,7 +360,7 @@ export const Timeline: React.FC = () => {
                   /* Teal, not amber. The playhead is the accent now, and two
                      vertical lines in the same colour a few pixels apart are
                      two different meanings wearing one signal. */
-                  className="absolute top-0 w-px bg-spectrum-teal pointer-events-none z-40 shadow-[0_0_6px_rgba(45,212,191,0.75)]"
+                  className="absolute top-0 w-px bg-spectrum-blue pointer-events-none z-40 shadow-[0_0_6px_rgba(74,144,255,0.75)]"
                   style={{ left: snapLineMs * pxPerMs, height: lanesTotalHeight }}
                 />
               )}

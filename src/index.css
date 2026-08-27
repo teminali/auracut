@@ -13,12 +13,13 @@
     --line-soft: rgba(255, 255, 255, 0.042);
     --line-strong: rgba(255, 255, 255, 0.125);
 
-    --accent: #f2a026;
-    --accent-soft: rgba(242, 160, 38, 0.15);
-    --accent-line: rgba(242, 160, 38, 0.42);
-    /* Type that sits ON the accent. White on amber is about 2.1:1 and
-       fails every contrast bar there is; this is ~9:1. */
-    --on-accent: #2a1806;
+    --accent: #2ecc80;
+    --accent-soft: rgba(46, 204, 128, 0.15);
+    --accent-line: rgba(46, 204, 128, 0.42);
+    /* Type that sits ON the accent. White on a mid green is about 2.2:1
+       and fails every contrast bar there is, exactly as it did on amber;
+       this is ~8:1. */
+    --on-accent: #06251a;
 
     --stage: #060709;
     --sunken: #0a0b0e;
@@ -88,7 +89,7 @@
   /* Keyboard focus only — pointer interaction never draws a ring. */
   :focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px rgba(242, 160, 38, 0.5);
+    box-shadow: 0 0 0 2px rgba(46, 204, 128, 0.5);
     border-radius: 5px;
   }
 
@@ -143,7 +144,7 @@
   .home-stage {
     position: relative;
     background:
-      radial-gradient(145% 70% at 50% -18%, rgba(255, 196, 120, 0.05) 0%, transparent 62%),
+      radial-gradient(145% 70% at 50% -18%, rgba(130, 245, 190, 0.05) 0%, transparent 62%),
       var(--stage);
   }
 
@@ -219,17 +220,17 @@
         · the body gradient, which never gets lighter than #1e9fc0
     */
     background:
-      radial-gradient(105% 150% at 6% -35%, rgba(255, 240, 209, 0.32) 0%, transparent 44%),
+      radial-gradient(105% 150% at 6% -35%, rgba(216, 255, 236, 0.30) 0%, transparent 44%),
       /* Pushed further off the corner and eased back. At 0.82 over a
          60% falloff the shadow reached a third of the way across and
          turned the right side brown rather than deep amber — a muddy
          end to a gradient reads as a badly exported JPEG. */
-      radial-gradient(70% 110% at 108% 150%, rgba(52, 24, 2, 0.62) 0%, transparent 62%),
-      linear-gradient(102deg, #b8761a 0%, #eaa833 44%, #b06f14 100%);
+      radial-gradient(70% 110% at 108% 150%, rgba(3, 42, 27, 0.62) 0%, transparent 62%),
+      linear-gradient(102deg, #17925c 0%, #3ccb87 44%, #148456 100%);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.28),
       inset 0 0 0 1px rgba(255, 255, 255, 0.09),
-      0 16px 44px -22px rgba(197, 130, 26, 0.6);
+      0 16px 44px -22px rgba(31, 174, 105, 0.55);
     transition: transform var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
   }
 
@@ -249,7 +250,7 @@
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.36),
       inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-      0 26px 60px -24px rgba(197, 130, 26, 0.75);
+      0 26px 60px -24px rgba(31, 174, 105, 0.7);
   }
 
   .hero-tile:active {
@@ -480,10 +481,10 @@
     @apply rounded-squircle-xs inline-flex items-center justify-center font-semibold flex-shrink-0;
     /* Dark type, not white — see --on-accent. */
     color: var(--on-accent);
-    background: linear-gradient(180deg, #ffb84a 0%, #e8901a 100%);
+    background: linear-gradient(180deg, #4ee39c 0%, #1fae69 100%);
     border: 1px solid rgba(255, 255, 255, 0.16);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 1px 2px rgba(0, 0, 0, 0.45),
-      0 0 0 0.5px rgba(232, 144, 26, 0.5);
+      0 0 0 0.5px rgba(31, 174, 105, 0.5);
     transition: filter var(--t-fast) ease, box-shadow var(--t-fast) ease;
   }
 
@@ -573,7 +574,7 @@
   .squircle-input:focus,
   .squircle-input:focus-within {
     border-color: var(--accent);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(242, 160, 38, 0.22);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 2px rgba(46, 204, 128, 0.22);
   }
 
   .pro-input::placeholder {
@@ -756,7 +757,7 @@ input[type='range']:hover::-webkit-slider-thumb {
 
 input[type='range']:active::-webkit-slider-thumb {
   transform: scale(1.05);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 0 4px rgba(242, 160, 38, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 0 4px rgba(46, 204, 128, 0.25);
 }
 
 input[type='range'].range-accent::-webkit-slider-thumb {

@@ -1224,19 +1224,23 @@ enough — **a pale slab in a dark interface always looks pasted on**. It
 is left-aligned with a supporting line and an arrow now, and its colour
 is saturated enough to belong to the interface rather than sit on it.
 
-**The accent is amber (`#f2a026`), not blue.** Two consequences that had
-to be handled rather than noticed later:
+**The accent is green (`#2ecc80`).** It was blue, then amber, then
+this. Two consequences that had to be handled rather than noticed later:
 
-- **White on amber is about 2.1:1 and fails every contrast bar there
-  is.** `--on-accent` (`#2a1806`, ~9:1) is what sits on accent fills,
-  and `.btn-primary` uses it.
-- **Amber already meant something.** It still marks keyframes, which is
-  coherent — a keyframe at the playhead is an active thing, and active
-  is what accent means. It also marked the timeline's SNAP GUIDE, and
-  that was not coherent: an amber guide beside an amber playhead is two
-  meanings in one signal. The guide is teal now. Teal also carries "AI"
-  (the Copilot card, the AI badges), so the palette reads: **amber =
-  the thing you are acting on, teal = the agent.**
+- **White on a mid green is about 2.2:1 and fails every contrast bar
+  there is**, exactly as it did on amber. `--on-accent` (`#06251a`,
+  ~8:1) is what sits on accent fills, and `.btn-primary` uses it. This
+  is the check to repeat on any future accent, not a fact about amber.
+- **Every accent collides with something, and the collision moves when
+  the accent does.** Amber collided with KEYFRAME and CAUTION, so the
+  snap guide went teal. Green collides with the STATUS green and with
+  the teal that had just taken the snap guide and "AI" — teal beside
+  green is one signal, not two. Both moved to BLUE, which is free now
+  that it is no longer the primary.
+
+  The palette reads: **green = the thing you are acting on, blue = the
+  agent, amber = keyframes and caution.** Changing the accent again
+  means walking this list again; it is not a one-token edit.
 
 ### Real frames on the wall
 
