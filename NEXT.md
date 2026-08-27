@@ -726,6 +726,28 @@ path** — trap 7. The symlinked `node_modules` makes every lane report the
 MAIN repo's binary, so `pkill -f auracut/node_modules/electron` kills all
 of them at once. It happened twice in one session.
 
+**And tearing the worktree down does NOT kill what it launched.**
+`git worktree remove --force` deletes the directory and reports success
+while a lane's Kerf keeps running from it — found afterwards holding
+port 3931, its binary path still naming a directory that no longer
+exists. Nothing warns you, and the process is now unfindable by any
+path that still resolves. Kill the lane's instance BEFORE removing its
+worktree, or you are left with an orphan you can only find by port:
+
+```bash
+lsof -a -p <pid> -nP -iTCP -sTCP:LISTEN     # -a, or -p and -i are OR'd
+                                            # and you get every file on
+                                            # the machine
+ps -eo pid,ppid,command | grep 'MacOS/Electron \.'   # ppid 1 == orphan
+```
+
+Seven were cleared at the end of this session: five from two nights
+before, one from the morning, and one of this session's own lanes. Six
+held an RPC port each; the seventh held none at all, which is the
+EADDRINUSE half-dead case trap 7 describes — an app that logs "port N is
+already in use, so there is no RPC bridge in this instance" and then
+sits there looking fine.
+
 ---
 
 ## 7. Do not redo these
