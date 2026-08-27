@@ -363,6 +363,38 @@ def probe_rename():
           f'tracks after reopen: {names}')
 
 
+# ═══ 9 · the lock, measured rather than read ════════════════════════
+def probe_lock_is_honoured():
+    """`set_track_lock` claims split/trim/move/delete decline on a locked
+    track. That claim was READ from `refuseReason` in the source and
+    shipped in a tool description without ever being run — and a
+    description an agent believes is exactly as load-bearing as code.
+    `add_effect` once reported success on a locked clip, so the claim is
+    not obviously true.
+
+    Under --selftest the track is NOT locked, and the same six calls must
+    then all SUCCEED — which is what makes the count a real threshold
+    rather than six calls that were going to fail anyway.
+    """
+    print('\n· the lock — every clip edit on a locked track must refuse')
+    reset('locked')
+    a = add_track('video', 'LOCKED')
+    b = add_track('video', 'SPARE')
+    c = shape(a, '#ffffff')
+
+    if not SELFTEST:
+        ok(call('set_track_lock', {'trackId': a, 'locked': True}), 'lock')
+
+    edits = [('split_clip',  {'clipId': c, 'atMs': DUR // 2}),
+             ('trim_clip',   {'clipId': c, 'newEndMs': DUR - 200}),
+             ('move_clip',   {'clipId': c, 'trackId': b, 'startTimeMs': 100}),
+             ('patch_clip',  {'clipId': c, 'properties': {'transform.x': 99}}),
+             ('add_effect',  {'clipId': c, 'effectType': 'glow'}),
+             ('delete_clip', {'clipId': c})]
+    refused = sum(threw(name, args) for name, args in edits)
+    metric('a locked track refuses clip edits', 0.0, float(refused), 5.5)
+
+
 # ═══ 8 · refusals ═══════════════════════════════════════════════════
 def probe_refusals():
     print('\n· refusals — an unknown id must throw, not report success')
@@ -415,7 +447,8 @@ if __name__ == '__main__':
     if SELFTEST:
         print('holding every track still — each metric must now move LESS than its bar')
     for probe in (probe_mute_and_history, probe_volume, probe_solo_audio, probe_solo_video,
-                  probe_reorder, probe_remove, probe_rename, probe_refusals):
+                  probe_reorder, probe_remove, probe_rename, probe_refusals,
+                  probe_lock_is_honoured):
         try:
             probe()
         except Exception as e:
