@@ -1176,6 +1176,14 @@ export const useTimelineStore = create<TimelineStore>()(
         const found = findClip(s.tracks, clipId);
         if (!found) return;
         const { track, clip } = found;
+        /*
+          The TRACK lock, and deliberately not the clip lock. A lock
+          protects a clip from being changed, and duplicating leaves the
+          original untouched — copying a locked clip is a thing an
+          editor should let you do. Adding to a locked TRACK is not, and
+          `insertClip` already refuses exactly that.
+        */
+        if (track.locked) return;
 
         const copy = structuredClone(current(clip)) as Clip;
         copy.id = copyId;
@@ -1242,6 +1250,22 @@ export const useTimelineStore = create<TimelineStore>()(
         return {
           ok: false,
           error: `No track "${trackId}".`,
+          gapsClosed: 0,
+          clipsMoved: 0,
+          totalShiftMs: 0,
+        };
+      }
+
+      /*
+        A locked track is the whole reason someone locks a track: to
+        stop its timing moving. This repacked it anyway, which is the
+        most destructive of the lock inconsistencies — it does not edit
+        one clip, it moves every clip on the track at once.
+      */
+      if (track.locked) {
+        return {
+          ok: false,
+          error: `Track "${track.name}" is locked. Unlock it first.`,
           gapsClosed: 0,
           clipsMoved: 0,
           totalShiftMs: 0,
@@ -1337,6 +1361,8 @@ export const useTimelineStore = create<TimelineStore>()(
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        const why = lockRefusal(found);
+        if (why) { outcome = { ok: false, error: why, reversed: found.clip.speed.reversed }; return; }
         found.clip.speed.reversed = !found.clip.speed.reversed;
         outcome = { ok: true, reversed: found.clip.speed.reversed };
       });
@@ -1732,7 +1758,7 @@ export const useTimelineStore = create<TimelineStore>()(
       let renamed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (!found) return;
+        if (!found || lockRefusal(found)) return;
         found.clip.name = name;
         renamed = true;
       });
@@ -1949,6 +1975,8 @@ export const useTimelineStore = create<TimelineStore>()(
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        const why = lockRefusal(found);
+        if (why) { outcome = { ok: false, error: why, from: -1, to: -1 }; return; }
         const list = found.clip.effects;
         const idx = list.findIndex((e) => e.id === effectRef || e.type === effectRef);
         if (idx === -1) {
@@ -1990,6 +2018,8 @@ export const useTimelineStore = create<TimelineStore>()(
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        const why = lockRefusal(found);
+        if (why) { outcome = { ok: false, error: why, enabled: false }; return; }
         const fx = found.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
         if (!fx) {
           const have = found.clip.effects.map((e) => e.type).join(', ') || 'none';
@@ -2091,6 +2121,8 @@ export const useTimelineStore = create<TimelineStore>()(
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        const why = lockRefusal(found);
+        if (why) { outcome = { ok: false, error: why, removed: 0 }; return; }
         const removed = found.clip.effects.length;
         if (removed > 0) found.clip.effects = [];
         outcome = { ok: true, removed };

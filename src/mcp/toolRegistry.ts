@@ -1963,6 +1963,7 @@ defineTool({
   }),
   handler: ({ clipId, name }) => {
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     const before = findClipById(timeline().tracks, id)!.name;
     if (!timeline().renameClip(id, name)) throw new Error(refuseReason(id));
     return { clipId: id, from: before, to: name, changed: before !== name };
@@ -2196,16 +2197,21 @@ defineTool({
   description:
     'Play a clip backwards, or turn it forwards again. It toggles by default and reports which ' +
     'way the clip now runs; pass `reversed` to set it explicitly. Reversal is applied by reading ' +
-    'the SOURCE back to front at render time, so it changes the picture only for clips whose ' +
-    'source moves — video. A still image, a shape or a text layer renders identically reversed, ' +
-    'and keyframes are NOT mirrored: they stay on the clip\'s own forward timeline. For a baked ' +
-    'reversed file (and for reversed audio) use ffmpeg_process with operation "reverse".',
+    'the SOURCE back to front at render time, which has three consequences worth knowing before ' +
+    'you promise a user a reversed shot. It changes the PICTURE only for clips whose source ' +
+    'moves — video; a still image, a shape or a text layer renders identically reversed. ' +
+    'Keyframes are NOT mirrored: they stay on the clip\'s own forward timeline. And the SOUND is ' +
+    'not reversed at all — measured on a 300Hz-to-3000Hz sweep, the exported mix still rises in ' +
+    'both directions, so reversed dialogue exports as forward dialogue. For a genuinely reversed ' +
+    'file, picture and sound together, use ffmpeg_process with operation "reverse" and place the ' +
+    'clip it produces.',
   schema: z.object({
     clipId: z.string().optional(),
     reversed: z.boolean().optional().describe('Set explicitly instead of toggling'),
   }),
   handler: ({ clipId, reversed }) => {
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     const clip = findClipById(timeline().tracks, id)!;
     const was = clip.speed.reversed === true;
 
@@ -2244,6 +2250,7 @@ defineTool({
   schema: z.object({ clipId: z.string().optional() }),
   handler: ({ clipId }) => {
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     const clip = findClipById(timeline().tracks, id)!;
     const had = clip.effects.map((e) => e.type);
 
@@ -2277,6 +2284,7 @@ defineTool({
   handler: ({ clipId, effect, enabled }) =>
     asOneEdit('Toggle effect', () => {
       const id = resolveClipId(clipId);
+    requireUnlocked(id);
       const clip = findClipById(timeline().tracks, id)!;
       const fx = clip.effects.find((e) => e.id === effect || e.type === effect);
       if (!fx) {
@@ -2311,6 +2319,7 @@ defineTool({
   }),
   handler: ({ clipId, effect, direction }) => {
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     const clip = findClipById(timeline().tracks, id)!;
     const step = direction === 'earlier' ? -1 : 1;
 

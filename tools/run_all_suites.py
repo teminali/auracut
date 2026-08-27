@@ -123,6 +123,15 @@ SUITES = [
     # HANDOVER §8's six named regressions, asserted on purpose rather
     # than incidentally by suites written for other reasons.
     'verify_hardening',
+    # The agent-tooling gap. Three lanes again, and again registered in
+    # ONE edit here rather than three there, so the branches could merge.
+    'verify_tracks',
+    'verify_clip_ops',
+    # The audit from NEXT.md §6c, as a check rather than a snippet in a
+    # markdown file: every store action must be reachable by a tool or
+    # excused in writing, and every "patch_clip covers it" is proven by
+    # driving patch_clip.
+    'verify_tool_coverage',
 ]
 
 # Suites that shell out to ffmpeg/ffprobe themselves. Named so that a
@@ -131,7 +140,7 @@ SUITES = [
 NEEDS_FFMPEG = {'verify_audio', 'verify_ffmpeg_bridge',
                 'verify_playback_audio', 'verify_frame_context',
                 'verify_montage', 'verify_reference_analysis',
-                'verify_hardening'}
+                'verify_hardening', 'verify_tracks', 'verify_clip_ops'}
 
 SUMMARY_RE = re.compile(r'^\s*(\d+)\s*/\s*(\d+)\s')
 BAD_LINE_RE = re.compile(r'^\s*(FAIL\b|ERROR\b|failing:)')

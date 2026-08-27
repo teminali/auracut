@@ -235,8 +235,40 @@ def export_frame(path, seconds):
     return np.array(Image.open(png).convert('RGB')).astype(float)
 
 
+def build_sweep(path, w=320, h=180, fps=30):
+    """A clip whose SOUND changes over time — 300Hz rising to 3000Hz.
+
+    A constant tone cannot tell you which way it is playing, which is
+    exactly how "reversed" could look done for audio while doing nothing.
+    """
+    dur = RAMP_MS / 1000
+    subprocess.run([
+        'ffmpeg', '-y', '-v', 'error',
+        '-f', 'lavfi', '-i', f'color=c=gray:s={w}x{h}:r={fps}:d={dur}',
+        '-f', 'lavfi', '-i',
+        f"aevalsrc='0.5*sin(2*PI*(300*t + 2700*t*t/(2*{dur})))':s={SR}:d={dur}",
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast',
+        '-c:a', 'aac', '-b:a', '128k', '-shortest', path,
+    ], check=True)
+    return path
+
+
+def dominant_hz(x):
+    spec = np.abs(np.fft.rfft(x * np.hanning(len(x))))
+    return float(np.fft.rfftfreq(len(x), 1 / SR)[int(np.argmax(spec))])
+
+
+def export_pcm(path):
+    wav = path + '.pcm.wav'
+    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', path, '-vn', '-ac', '1',
+                    '-ar', str(SR), '-c:a', 'pcm_s16le', wav], check=True)
+    with wave.open(wav) as w:
+        return np.frombuffer(w.readframes(w.getnframes()), dtype='<i2').astype(float) / 32768
+
+
 CHART = build_chart(os.path.join(TMP, 'chart.png'))
 RAMP = build_ramp(os.path.join(TMP, 'ramp.mp4'))
+SWEEP = build_sweep(os.path.join(TMP, 'sweep.mp4'))
 
 
 # ── scenes ──────────────────────────────────────────────────────────
@@ -677,6 +709,25 @@ def structural():
           (r.get('tellTheUser') or 'NO WARNING')[:74])
     refuses('reverse_clip refuses an unknown id', 'reverse_clip',
             {'clipId': 'clip_not_real'}, 'no clip matching')
+
+    # Reversal reads the SOURCE back to front for the picture and nothing
+    # at all for the sound — `collectAudioClips` never sees `reversed`,
+    # and the export filtergraph has no `areverse` in it. Reversed
+    # dialogue would export as forward dialogue, so it is measured here
+    # rather than left as something an agent finds out from a user.
+    t = fresh(RAMP_MS, 'sweepscene')
+    a = ok(call('import_media_from_path', {'path': SWEEP, 'name': 'sweep'}), 'import')['assetId']
+    c = ok(call('insert_clip', {'assetId': a, 'trackId': t, 'startTimeMs': 0}), 'insert')['clipId']
+    fwd, _ = render('sweep-forward')
+    ok(call('reverse_clip', {'clipId': c}), 'reverse')
+    rev, _ = render('sweep-reversed')
+    seg = int(0.4 * SR)
+    f_lo, f_hi = dominant_hz(export_pcm(fwd)[:seg]), dominant_hz(export_pcm(fwd)[-seg:])
+    r_lo, r_hi = dominant_hz(export_pcm(rev)[:seg]), dominant_hz(export_pcm(rev)[-seg:])
+    check('reverse_clip reverses the picture, NOT the sound',
+          f_hi > f_lo and r_hi > r_lo and abs(r_lo - f_lo) < 60 and abs(r_hi - f_hi) < 60,
+          f'a 300->3000Hz sweep still RISES reversed: forward {f_lo:.0f}->{f_hi:.0f}Hz, '
+          f'reversed {r_lo:.0f}->{r_hi:.0f}Hz — use ffmpeg_process for reversed audio')
 
     # ── markers, through a save/open round trip ─────────────────────
     # Markers have no pixel signature, so they are checked the only way
