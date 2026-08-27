@@ -36,6 +36,22 @@ describe('iconography', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('uses the SINGLE-shine AI mark, never the multi-star', () => {
+    /*
+      HANDOVER, Iconography: one AI mark across the platform, the single
+      four-point shine. It replaced the multi-star once already because
+      that is the glyph on every AI product of the last few years.
+
+      Phosphor's icon actually NAMED `Sparkle` is the multi-star (three
+      to four shapes per weight against StarFour's one), so migrating to
+      that set put back exactly what had been removed. The shim maps the
+      name to `StarFour`, and this pins it.
+    */
+    const shim = readFileSync(join('src', 'components', 'ui', 'icons.ts'), 'utf8');
+    expect(shim).toMatch(/StarFour as Sparkle/);
+    expect(shim).not.toMatch(/^export \{ Sparkle \}/m);
+  });
+
   it('imports icons only through the platform set', () => {
     /*
       One file decides what an icon is. The last set swap touched 52

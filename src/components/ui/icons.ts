@@ -159,7 +159,23 @@ export { SkipForward } from '@phosphor-icons/react';
 export { SlidersHorizontal as Sliders } from '@phosphor-icons/react';
 export { DeviceMobile as Smartphone } from '@phosphor-icons/react';
 export { Snowflake } from '@phosphor-icons/react';
-export { Sparkle } from '@phosphor-icons/react';
+/*
+  THE AI MARK, and the one line in this file that is a product decision.
+
+  Phosphor's `Sparkle` is the MULTI-star: a large four-point shine with
+  two or three smaller ones around it, which is the glyph on every AI
+  product shipped in the last few years. HANDOVER's Iconography note
+  removed exactly that once already, in favour of the single four-point
+  shine, and the migration to this set quietly put it back.
+
+  `StarFour` is the single shine. Verified by counting subpaths in the
+  packaged path data rather than by eye: Sparkle draws three to four
+  shapes per weight, StarFour draws one.
+
+  Exported under the name the codebase already uses, so the fix is this
+  line and nothing else.
+*/
+export { StarFour as Sparkle } from '@phosphor-icons/react';
 export { BezierCurve as Spline } from '@phosphor-icons/react';
 export { ArrowsSplit as Split } from '@phosphor-icons/react';
 export { Square } from '@phosphor-icons/react';
