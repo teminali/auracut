@@ -52,6 +52,16 @@ export interface ExportClipAudio {
    * still ROSE in both directions (572Hz to 2738Hz either way).
    */
   reversed?: boolean;
+  /**
+   * A keyframed volume, sampled in the renderer as timeline-local
+   * points. Empty or absent means the static `volume` above applies.
+   *
+   * Sampled rather than expressed, because easing (easeInOut, hold,
+   * custom bezier) is implemented in `keyframeMath.ts` and a second
+   * implementation inside an ffmpeg expression would be one more thing
+   * to keep in step.
+   */
+  volumeEnvelope?: { tMs: number; v: number }[];
   /** Semitones, -24..24. */
   pitch?: number;
   voiceEffect?: 'none' | 'deep' | 'high' | 'robot' | 'echo' | 'telephone' | 'stadium';
@@ -335,7 +345,42 @@ function mixArgsFor(clips: ExportClipAudio[], outPath: string): string[] {
         break;
     }
 
-    if (clip.volume !== 1) chain.push(`volume=${clip.volume.toFixed(3)}`);
+    /*
+      A keyframed volume REPLACES the static one — the envelope was
+      sampled from the same `audio.volume` the static value comes from,
+      already multiplied by the track fader, so applying both would
+      square it.
+
+      Disjoint half-open segments summed, rather than nested `if()`:
+      `gte(t,a)*lt(t,b)` is 1 inside exactly one segment and 0
+      everywhere else, so the terms add to a piecewise-linear curve with
+      no nesting depth to worry about. `t` here is clip-local seconds —
+      the chain has already run `asetpts=PTS-STARTPTS` and has not yet
+      run `adelay` — and it is post-`areverse`, so the envelope follows
+      what the listener hears rather than the source.
+    */
+    const env = clip.volumeEnvelope;
+    if (env && env.length >= 2) {
+      const terms: string[] = [];
+      const first = env[0];
+      const last = env[env.length - 1];
+      terms.push(`lt(t,${(first.tMs / 1000).toFixed(4)})*${first.v.toFixed(4)}`);
+      for (let k = 0; k < env.length - 1; k++) {
+        const a = env[k].tMs / 1000;
+        const b = env[k + 1].tMs / 1000;
+        if (b <= a) continue;
+        const va = env[k].v;
+        const vb = env[k + 1].v;
+        terms.push(
+          `(gte(t,${a.toFixed(4)})*lt(t,${b.toFixed(4)}))*` +
+          `(${va.toFixed(4)}+(${(vb - va).toFixed(4)})*(t-${a.toFixed(4)})/${(b - a).toFixed(4)})`
+        );
+      }
+      terms.push(`gte(t,${(last.tMs / 1000).toFixed(4)})*${last.v.toFixed(4)}`);
+      chain.push(`volume=volume='${terms.join('+')}':eval=frame`);
+    } else if (clip.volume !== 1) {
+      chain.push(`volume=${clip.volume.toFixed(3)}`);
+    }
     if (clip.fadeInMs > 0) chain.push(`afade=t=in:st=0:d=${(clip.fadeInMs / 1000).toFixed(3)}`);
     if (clip.fadeOutMs > 0) {
       const start = Math.max(0, (clip.durationMs - clip.fadeOutMs) / 1000);

@@ -17,19 +17,25 @@ exact failure this is here to catch.
 
 Two sections:
 
-  · 34 property rows. That is every entry in `ANIMATABLE_PROPERTIES`
-    except `volume`, which is audible rather than visible — no suite in
-    tools/ keyframes it, so it is the one animatable property with no
-    proof anywhere. The file used to say "every property" and cover 28;
-    the six it silently skipped were positionX, positionY, opacity,
-    scaleX, scaleY and rotation, which is to say the six an editor uses
-    most.
+  · 34 property rows on PIXELS — every entry in `ANIMATABLE_PROPERTIES`
+    except `volume`, which is audible rather than visible. The file used
+    to say "every property" and cover 28; the six it silently skipped
+    were positionX, positionY, opacity, scaleX, scaleY and rotation,
+    which is to say the six an editor uses most.
+
+  · `volume`, on the EXPORTED WAVEFORM. It was the one animatable
+    property with no proof anywhere, and when someone finally measured
+    it, it was the eighteenth property to say it was animatable and not
+    be: `interpolateKeyframes` is consumed by `compositor.ts` and the
+    inspector, and neither `audioEngine` nor `exportPipeline` ever
+    mentioned keyframes. `add_keyframes` returned two ids and the
+    exported envelope came back byte-identical.
 
   · 52 rows on the tools that EDIT an animation once it exists —
     remove, move, re-ease, clear, upsert, and the motion-path points.
     Placing keyframes was a one-way door until those existed.
 """
-import sys, base64, io, json, os, tempfile
+import sys, base64, io, json, os, tempfile, subprocess, wave
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kerf_rpc import call, ok
 import numpy as np
@@ -838,6 +844,102 @@ TOOL_CHECKS = [
 ]
 
 
+# ══════════════════════════════════════════════════════════════════
+# volume, measured on the exported mix
+# ══════════════════════════════════════════════════════════════════
+
+def _tone(path, hz=1500, seconds=1.0):
+    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'lavfi',
+                    '-i', f'sine=frequency={hz}:duration={seconds}',
+                    '-c:a', 'aac', path], check=True)
+    return path
+
+
+def _buckets(mp4, n=8):
+    """RMS of the exported mix in n equal slices.
+
+    Sliced over the WAV's own length, not the project's: the mix is as
+    long as the audio in it, and reading the buckets as if they spanned
+    the whole timeline puts the middle of a ramp where its end should be
+    — which is how this check first read as a failure when it was right.
+    """
+    wav = mp4 + '.wav'
+    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', mp4, '-vn', '-ac', '1',
+                    '-ar', '48000', wav], capture_output=True, check=True)
+    with wave.open(wav) as w:
+        a = np.frombuffer(w.readframes(w.getnframes()), dtype='<i2').astype(float) / 32768
+    k = len(a) // n
+    return [float(np.sqrt((a[i * k:(i + 1) * k] ** 2).mean())) for i in range(n)]
+
+
+def _volume_scene():
+    ok(call('reset_project', {'name': 'volkf', 'aspectRatio': '16:9', 'fps': 30,
+                              'backgroundColor': '#000000', 'durationMs': 2000}), 'r')
+    vt = ok(call('add_track', {'type': 'video', 'name': 'V'}), 't')['trackId']
+    at = ok(call('add_track', {'type': 'audio', 'name': 'A'}), 't')['trackId']
+    ok(call('add_shape_layer', {'kind': 'rectangle', 'trackId': vt,
+                                'startTimeMs': 0, 'durationMs': 2000}), 's')
+    tone = _tone(os.path.join(TMP, 'tone.m4a'))
+    a = ok(call('import_media_from_path', {'path': tone, 'name': 'tone'}), 'i')['assetId']
+    return ok(call('insert_clip', {'trackId': at, 'assetId': a, 'startTimeMs': 0}), 'ins')['clipId']
+
+
+def _volume_render(tag, kfs=None):
+    c = _volume_scene()
+    # STILL holds the property flat: both keyframes at the same value, so
+    # the machinery runs and the envelope must NOT move.
+    #
+    # At the LOUDEST of the two, not the first. Holding the 0.0 -> 1.0
+    # row at its first value made the clip silent, and a silent clip
+    # cannot move — the row passed for want of any signal rather than
+    # because the envelope was flat, which is the thing a selftest is
+    # supposed to rule out.
+    if kfs:
+        if STILL:
+            loudest = max(k['value'] for k in kfs)
+            kfs = [dict(k, value=loudest) for k in kfs]
+        ok(call('add_keyframes', {'clipId': c, 'property': 'volume', 'keyframes': kfs}), 'kf')
+    out = os.path.join(TMP, f'vol_{tag}.mp4')
+    ok(call('render_export', {'outputPath': out, 'resolution': '720p'}), 'export')
+    return _buckets(out)
+
+
+def check_volume_keyframes():
+    flat = _volume_render('flat')
+    down = _volume_render('down', [{'timeOffsetMs': 0, 'value': 1.0},
+                                   {'timeOffsetMs': 1000, 'value': 0.0}])
+    up = _volume_render('up', [{'timeOffsetMs': 0, 'value': 0.0},
+                               {'timeOffsetMs': 1000, 'value': 1.0}])
+
+    # `threshold`, not `check`: these are measured rows, so they have to
+    # face --selftest. Under it both keyframes carry the SAME value, the
+    # export runs identically, and the envelope must then stay flat — a
+    # ramp row that still passes with a flat envelope is measuring
+    # encode noise, not the envelope.
+    spread = max(flat) - min(flat)
+    check('volume · an unkeyframed clip is flat', spread < 0.006,
+          f'unkeyframed spread {spread:.4f} across the mix')
+
+    threshold('volume · 1.0 -> 0.0 falls in the exported mix',
+              down[0] - down[-1], 0.03,
+              f'{down[0]:.4f} -> {down[-1]:.4f}')
+    threshold('volume · 0.0 -> 1.0 rises in the exported mix',
+              up[-1] - up[0], 0.03,
+              f'{up[0]:.4f} -> {up[-1]:.4f}')
+
+    # Separates "an envelope was applied" from "the RIGHT envelope was
+    # applied": a ramp down and a ramp up must be each other's
+    # reflection, not merely two different shapes. Under --selftest both
+    # are flat, so the reflection is trivially true and this row is not
+    # evidence there — hence `check`, which stands down.
+    mirrored = abs(down[0] - up[-1]) < 0.01 and abs(down[-1] - up[0]) < 0.01
+    check('volume · the two ramps mirror each other', mirrored,
+          f'down ends {down[0]:.4f}/{down[-1]:.4f} vs up ends {up[0]:.4f}/{up[-1]:.4f}')
+
+
+AUDIO_CHECKS = [('volume keyframes', check_volume_keyframes)]
+
+
 if __name__ == '__main__':
     argv = [x for x in sys.argv[1:] if x != '--selftest']
     selftest = '--selftest' in sys.argv
@@ -855,6 +957,15 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"  ERROR {name}: {e}")
             results.append((name, False))
+
+    print('\nvolume — the one that is audible rather than visible')
+    for label, fn in AUDIO_CHECKS:
+        if only and only not in label: continue
+        try:
+            fn()
+        except Exception as e:
+            print(f"  ERROR {label}: {e}")
+            tool_results.append((label, False))
 
     print('\nediting an animation that is already there')
     for label, fn in TOOL_CHECKS:

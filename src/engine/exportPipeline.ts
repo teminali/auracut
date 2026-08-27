@@ -15,6 +15,7 @@
 import { Track, ProjectSettings, Clip } from '../types/edl';
 import { renderTimelineFrame, undecodableSources } from './compositor';
 import { seekVideosForFrame } from './videoEngine';
+import { interpolateKeyframes } from './keyframeMath';
 
 export type ExportResolution = '720p' | '1080p' | '1440p' | '4k';
 
@@ -195,6 +196,54 @@ function absoluteMediaUrl(url: string): string {
   }
 }
 
+/**
+ * A keyframed `volume` as a series of timeline-local points.
+ *
+ * `volume` is one of the 35 ANIMATABLE_PROPERTIES and was read by
+ * NOTHING: `interpolateKeyframes` is consumed by `compositor.ts` and the
+ * inspector, and neither `audioEngine` nor this file ever mentioned
+ * keyframes. `add_keyframes` reported success, handed back two ids, and
+ * the exported envelope came out byte-identical — the eighteenth
+ * property to say it was animatable and not be.
+ *
+ * The curve is sampled HERE rather than expressed in ffmpeg, because
+ * easing lives here: `interpolateKeyframes` already applies easeIn,
+ * easeInOut, hold and custom beziers, and reproducing those in an
+ * expression evaluator would be a second implementation to keep in
+ * step. The main process gets plain points and interpolates linearly
+ * between them, so the only thing that can drift is resolution.
+ *
+ * Segment boundaries are keyframe times, with sub-samples inside each
+ * so a curve is not flattened to a straight line. Bounded, because a
+ * three-minute music bed keyframed every second would otherwise build
+ * an expression thousands of terms long.
+ */
+const ENVELOPE_SUBSAMPLES = 8;
+const ENVELOPE_MAX_POINTS = 256;
+
+function volumeEnvelopeFor(clip: Clip): { tMs: number; v: number }[] | undefined {
+  const keys = clip.keyframes
+    .filter((k) => k.property === 'volume')
+    .sort((a, b) => a.timeOffsetMs - b.timeOffsetMs);
+  if (keys.length < 2) return undefined;
+
+  const base = clip.audio.volume;
+  const times: number[] = [];
+  for (let i = 0; i < keys.length - 1; i++) {
+    const a = keys[i].timeOffsetMs;
+    const b = keys[i + 1].timeOffsetMs;
+    const steps = Math.max(1, Math.min(ENVELOPE_SUBSAMPLES,
+      Math.floor(ENVELOPE_MAX_POINTS / Math.max(1, keys.length - 1))));
+    for (let s = 0; s < steps; s++) times.push(a + ((b - a) * s) / steps);
+  }
+  times.push(keys[keys.length - 1].timeOffsetMs);
+
+  return times.map((tMs) => ({
+    tMs: Math.round(tMs),
+    v: interpolateKeyframes(clip.keyframes, 'volume', tMs, base),
+  }));
+}
+
 function collectAudioClips(tracks: Track[]) {
   const anySolo = tracks.some((t) => t.type === 'audio' && t.solo);
   const out = [];
@@ -224,6 +273,15 @@ function collectAudioClips(tracks: Track[]) {
         ducking: clip.audio.ducking,
         speed: clip.speed?.multiplier ?? 1,
         reversed: Boolean(clip.speed?.reversed),
+        /*
+          Scaled by the TRACK volume, the same way the static `volume`
+          above it is — otherwise keyframing a clip would silently
+          escape the track fader.
+        */
+        volumeEnvelope: volumeEnvelopeFor(clip)?.map((pt) => ({
+          tMs: pt.tMs,
+          v: pt.v * track.volume,
+        })),
       });
     }
   }
@@ -285,11 +343,21 @@ function windowAudioClips(
     const speed = c.speed || 1;
     const sourceShiftMs = (c.reversed ? tailCutMs : headCutMs) * speed;
 
+    /*
+      The envelope is in TIMELINE order, so re-basing it is the same
+      subtraction whether or not the clip is reversed — the head cut
+      always removes the first `headCutMs` of what the listener hears.
+    */
+    const envelope = c.volumeEnvelope
+      ?.map((pt) => ({ tMs: pt.tMs - headCutMs, v: pt.v }))
+      .filter((pt) => pt.tMs >= -1 && pt.tMs <= durationMs + 1);
+
     out.push({
       ...c,
       startTimeMs: c.startTimeMs + headCutMs - startMs,
       sourceStartMs: c.sourceStartMs + sourceShiftMs,
       durationMs,
+      ...(envelope && envelope.length >= 2 ? { volumeEnvelope: envelope } : {}),
     });
   }
   return out;
