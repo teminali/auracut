@@ -58,6 +58,7 @@ export const CopilotDrawer: React.FC = () => {
   const {
     messages, currentRun, showThoughts, history,
     toggleThoughts, sendPrompt, cancelRun, clearChat,
+    queue: chatQueue, unqueue: chatUnqueue, clearQueue: chatClearQueue,
   } = useAgentChatStore();
 
   /* The protocol depends on live editor state, so subscribe to the bits
@@ -84,7 +85,11 @@ export const CopilotDrawer: React.FC = () => {
     a time — and throwing away what the user typed is worse. Holding it
     and firing when the turn ends means an interruption is never lost.
   */
-  const [queued, setQueued] = useState<string | null>(null);
+  /*
+    The queue lives in the stores now, not here. A single `useState`
+    slot meant the SECOND thing you typed while the agent worked
+    overwrote the first, silently — and it died with the drawer.
+  */
   const openGaps = useGapStore((g) => g.gaps.filter((x) => !x.resolved).length);
 
   /*
@@ -140,18 +145,10 @@ export const CopilotDrawer: React.FC = () => {
     if (isOpen) inputRef.current?.focus();
   }, [isOpen]);
 
-  /* Send whatever was typed mid-turn, once the turn is actually over. */
-  useEffect(() => {
-    if (!queued || agent.isRunning || currentRun) return;
-    const text = queued;
-    setQueued(null);
-    void (agentReady ? agent.send(text) : sendPrompt(text, buildEnvelope({
-      annotations: frameAttached ? annotations : [],
-      frame,
-      includeFrame: frameAttached,
-    })));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queued, agent.isRunning, currentRun, agentReady]);
+  /* Draining is the stores' job — they know when a run actually ends. */
+  const queue = agentReady ? agent.queue : chatQueue;
+  const unqueue = agentReady ? agent.unqueue : chatUnqueue;
+  const clearQueue = agentReady ? agent.clearQueue : chatClearQueue;
 
   /* Esc stops the agent — the shortcut people reach for without thinking. */
   useEffect(() => {
@@ -225,9 +222,11 @@ export const CopilotDrawer: React.FC = () => {
     const text = input.trim();
     if (!text) return;
 
-    /* Busy: hold it rather than swallow the keypress. */
+    /* Busy: hold it rather than swallow the keypress. The stores queue
+       it and drain it when the run ends. */
     if (currentRun || agent.isRunning) {
-      setQueued(text);
+      if (agentReady) void agent.send(text);
+      else void sendPrompt(text);
       setInput('');
       setHistoryIndex(-1);
       return;
@@ -549,6 +548,49 @@ export const CopilotDrawer: React.FC = () => {
 
       {/* Composer */}
       <div className="p-2 border-t border-line flex-shrink-0 space-y-2 max-h-[52vh] overflow-y-auto">
+        {/*
+          Queued prompts, shown as themselves.
+
+          A count alone would repeat the old mistake in a quieter way:
+          the point of queueing is that you can keep thinking out loud
+          while the agent works, and you cannot do that if you cannot
+          see — or take back — what you have already lined up.
+        */}
+        {queue.length > 0 && (
+          <div className="space-y-1">
+            {queue.map((q, i) => (
+              <div
+                key={`${i}-${q.slice(0, 24)}`}
+                className="group flex items-start gap-1.5 rounded-squircle-sm border border-spectrum-accentLine/40
+                           bg-spectrum-accent/[0.07] px-2 py-1"
+              >
+                <span className="mt-[3px] text-[9px] font-mono text-spectrum-accent tabular-nums">
+                  {i + 1}
+                </span>
+                <span className="flex-1 min-w-0 text-[11px] text-spectrum-textDim leading-snug break-words">
+                  {q}
+                </span>
+                <button
+                  onClick={() => unqueue(i)}
+                  title="Remove from the queue"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded
+                             hover:bg-spectrum-sunken text-spectrum-textFaint hover:text-spectrum-text"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+            {queue.length > 1 && (
+              <button
+                onClick={clearQueue}
+                className="text-[9px] text-spectrum-textFaint hover:text-spectrum-text px-1"
+              >
+                Clear all {queue.length}
+              </button>
+            )}
+          </div>
+        )}
+
         {hasPrompt && !agentReady && (
           <ContextPreflight
             report={report}
@@ -634,8 +676,11 @@ export const CopilotDrawer: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5 px-1 text-[9px] text-spectrum-textFaint leading-snug flex-wrap">
-          {queued ? (
-            <span className="text-spectrum-accent">Queued — sends when this turn finishes.</span>
+          {queue.length > 0 ? (
+            <span className="text-spectrum-accent">
+              {queue.length === 1 ? '1 message queued' : `${queue.length} messages queued`}
+              {' — they send in order as each turn finishes.'}
+            </span>
           ) : blocked && !agentReady ? (
             <span>Send will sort the checks above first, then run this.</span>
           ) : (

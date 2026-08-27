@@ -23,7 +23,8 @@ if (import.meta.env.DEV) {
     import('./store/uiStore'),
     import('./mcp/toolRegistry'),
     import('./store/claudeAgentStore'),
-  ]).then(([timeline, project, chat, ui, mcp, agent]) => {
+    import('./store/layoutStore'),
+  ]).then(([timeline, project, chat, ui, mcp, agent, layout]) => {
     (window as any).__kerf = {
       timeline: timeline.useTimelineStore,
       project: project.useProjectStore,
@@ -32,6 +33,15 @@ if (import.meta.env.DEV) {
       executeTool: mcp.executeTool,
       tools: mcp.KERF_TOOLS,
       agent: agent.useClaudeAgentStore,
+      /*
+        Which screen is showing lives here, and without it no automated
+        UI check could get off the home screen — `open_starter_project`
+        loads a project into the stores and does NOT navigate, so a test
+        that opened one and looked for the editor found the home screen
+        and measured nothing. Cost an hour of a render-count measurement
+        reading zero for the most boring possible reason.
+      */
+      layout: layout.useLayoutStore,
     };
   });
 }

@@ -21,12 +21,16 @@ interface AgentChatState {
   showThoughts: boolean;
   /** Prompts the user has sent, newest last — ↑/↓ recall. */
   history: string[];
+  /** Typed while a run was in flight, oldest first. See `sendPrompt`. */
+  queue: string[];
 
   setSelectedModel: (model: AgentModel) => void;
   toggleThoughts: () => void;
   sendPrompt: (prompt: string, context?: ContextEnvelope) => Promise<void>;
   cancelRun: () => void;
   clearChat: () => void;
+  unqueue: (index: number) => void;
+  clearQueue: () => void;
 }
 
 const WELCOME: ChatMessage = {
@@ -48,13 +52,24 @@ export const useAgentChatStore = create<AgentChatState>((set, get) => ({
   selectedModel: 'builtin',
   showThoughts: true,
   history: [],
+  queue: [],
 
   setSelectedModel: (selectedModel) => set({ selectedModel }),
   toggleThoughts: () => set((s) => ({ showThoughts: !s.showThoughts })),
 
   sendPrompt: async (prompt, context) => {
     const trimmed = prompt.trim();
-    if (!trimmed || get().currentRun) return;
+    if (!trimmed) return;
+    /*
+      Busy: queue it rather than drop it. This used to be
+      `if (!trimmed || get().currentRun) return` — a prompt sent while a
+      run was in flight vanished, silently, with the caller's `await`
+      resolving as though it had been handled.
+    */
+    if (get().currentRun) {
+      set((s) => ({ queue: [...s.queue, trimmed] }));
+      return;
+    }
 
     const agentMsgId = `agent_${Date.now()}`;
     const model = get().selectedModel;
@@ -100,13 +115,23 @@ export const useAgentChatStore = create<AgentChatState>((set, get) => ({
     } finally {
       unsubscribe();
       set({ currentRun: null });
+      /* Drain one, through the same path a typed prompt takes. */
+      const next = get().queue[0];
+      if (next) {
+        set((s) => ({ queue: s.queue.slice(1) }));
+        void get().sendPrompt(next, context);
+      }
     }
   },
 
   cancelRun: () => {
+    // Cancelling means the whole run, queue included — see claudeAgentStore.stop.
     agentBridge.cancelActiveRun();
-    set({ currentRun: null });
+    set({ currentRun: null, queue: [] });
   },
 
-  clearChat: () => set({ messages: [WELCOME], currentRun: null }),
+  unqueue: (index) => set((s) => ({ queue: s.queue.filter((_, i) => i !== index) })),
+  clearQueue: () => set({ queue: [] }),
+
+  clearChat: () => set({ messages: [WELCOME], currentRun: null, queue: [] }),
 }));

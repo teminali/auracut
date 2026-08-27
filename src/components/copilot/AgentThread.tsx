@@ -60,7 +60,7 @@ function formatMs(ms: number): string {
 
 /* ── One tool call ──────────────────────────────────────────────── */
 
-const ToolRow: React.FC<{ call: AgentToolCall }> = ({ call }) => {
+const ToolRow: React.FC<{ call: AgentToolCall }> = React.memo(({ call }) => {
   const [open, setOpen] = React.useState(false);
 
   const pending = call.ok === undefined;
@@ -167,7 +167,8 @@ const ToolRow: React.FC<{ call: AgentToolCall }> = ({ call }) => {
       )}
     </div>
   );
-};
+});
+ToolRow.displayName = 'ToolRow';
 
 /* ── One phase ──────────────────────────────────────────────────── */
 
@@ -241,16 +242,17 @@ export const AgentThread: React.FC<{ turns: AgentTurn[] }> = ({ turns }) => (
   </div>
 );
 
-const UserTurn: React.FC<{ text: string }> = ({ text }) => (
+const UserTurn: React.FC<{ text: string }> = React.memo(({ text }) => (
   <div className="flex justify-end">
     <div className="max-w-[88%] rounded-squircle-sm bg-spectrum-accent/[0.13] border border-spectrum-accentLine/50
                     px-2.5 py-1.5 text-ui text-spectrum-text leading-relaxed whitespace-pre-wrap break-words">
       {text}
     </div>
   </div>
-);
+));
+UserTurn.displayName = 'UserTurn';
 
-const AgentTurnBlock: React.FC<{ turn: AgentTurn; isLast: boolean }> = ({ turn, isLast }) => {
+const AgentTurnBlock: React.FC<{ turn: AgentTurn; isLast: boolean }> = React.memo(({ turn, isLast }) => {
   const groups = React.useMemo(() => groupCalls(turn.toolCalls), [turn.toolCalls]);
   const elapsed = turn.endedAt ? turn.endedAt - turn.timestamp : null;
 
@@ -294,4 +296,5 @@ const AgentTurnBlock: React.FC<{ turn: AgentTurn; isLast: boolean }> = ({ turn, 
       )}
     </div>
   );
-};
+});
+AgentTurnBlock.displayName = 'AgentTurnBlock';

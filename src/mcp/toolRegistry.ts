@@ -673,12 +673,24 @@ defineTool({
 defineTool({
   name: 'set_effect_param',
   category: 'effects',
-  description: 'Change one parameter of an effect already on a clip.',
+  description:
+    'Change one parameter of an effect already on a clip. Call list_effects for the parameter ' +
+    'names, ranges and types of each effect. Numbers, colour strings ("#ff0088") and booleans ' +
+    'are all accepted depending on the parameter; the editor validates and reports what it ' +
+    'rejected rather than silently ignoring it.',
   schema: z.object({
     clipId: z.string().optional(),
     effect: z.string().describe('Effect id or effect type'),
-    param: z.string(),
-    value: z.any(),
+    param: z.string().describe('Parameter key, as reported by list_effects'),
+    /*
+      `z.any()` converted to an EMPTY JSON Schema — a property the CLI
+      is told nothing about. It is the one untyped field in all 104
+      tools, and "exposed" is not the same as "callable": a model with
+      no type has to guess whether a parameter wants 40 or "40".
+      A union types it without narrowing what the editor accepts.
+    */
+    value: z.union([z.number(), z.string(), z.boolean()])
+      .describe('Number, colour string, or boolean — whichever the parameter takes'),
   }),
   handler: ({ clipId, effect, param, value }) => {
     const id = resolveClipId(clipId);
@@ -1877,7 +1889,11 @@ defineTool({
 defineTool({
   name: 'add_track',
   category: 'timeline',
-  description: 'Create a new track.',
+  description:
+    'Create a new track. Tracks are the layers of the edit: "video" and "overlay" carry picture ' +
+    '(track 0 paints on top), "audio" carries sound, "text" carries titles and captions, and ' +
+    '"effect" carries adjustment layers that grade everything beneath them. A new track goes to ' +
+    'the bottom; use reorder_track to move it.',
   schema: z.object({
     type: z.enum(['video', 'audio', 'text', 'overlay', 'effect']),
     name: z.string().optional(),
@@ -4354,6 +4370,16 @@ function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
   }
   if (schema instanceof z.ZodRecord) {
     return { type: 'object', additionalProperties: true };
+  }
+  /*
+    Unions convert to `anyOf`. Without this branch a union fell through
+    to `{}` — the same empty schema `z.any()` produced, which is what
+    made `set_effect_param.value` the one untyped property across all
+    104 tools. Typing it with a union and NOT adding this would have
+    changed nothing while looking like a fix.
+  */
+  if (schema instanceof z.ZodUnion) {
+    return { anyOf: (def.options as z.ZodTypeAny[]).map((o) => zodToJsonSchema(o)) };
   }
   if (schema instanceof z.ZodNumber) return { type: 'number' };
   if (schema instanceof z.ZodBoolean) return { type: 'boolean' };

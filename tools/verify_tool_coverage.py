@@ -35,14 +35,27 @@ a tool since it was excused also fails, so the excuses cannot outlive
 the thing they were excusing.
 """
 import argparse
+import json
 import os
 import re
 import sys
+import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kerf_rpc import call, ok
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def rpc(method, params=None):
+    """A raw RPC call. `tools/list` is not a tool, so `call()` cannot reach it."""
+    from kerf_rpc import token, PORT
+    body = json.dumps({'method': method, 'params': params or {}}).encode()
+    req = urllib.request.Request(
+        f'http://127.0.0.1:{PORT}/rpc', data=body,
+        headers={'x-kerf-token': token(), 'Content-Type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.load(r)['result']
 
 results = []
 
@@ -197,6 +210,34 @@ def main(selftest=False):
         n = r.get('updatedClips', 0)
         check('updateClipsTransform · patch_clips batch', n >= 2,
               f'patched {n} clips in one call')
+
+    # ── 5. what the CLI actually RECEIVES over MCP ──────────────────
+    # Reachable-from-a-tool is only half of "full access". The other
+    # half is whether the tool survives the trip to the agent: the
+    # manifest goes through a hand-written minimal Zod -> JSON Schema
+    # conversion, and a shape it does not handle returns `{}` — a
+    # property the model is told nothing about. Exposed is not callable.
+    if not selftest:
+        manifest = rpc('tools/list')
+        check('every defined tool reaches the MCP manifest',
+              len(manifest) == len(re.findall(r'defineTool\(\{', open(
+                  os.path.join(ROOT, 'src/mcp/toolRegistry.ts')).read())),
+              f'{len(manifest)} in tools/list')
+
+        thin = [t['name'] for t in manifest if len(t.get('description') or '') < 20]
+        check('no tool ships a description too thin to act on', not thin,
+              'all substantive' if not thin else f'{len(thin)}: {", ".join(thin)}')
+
+        untyped = []
+        for t in manifest:
+            props = ((t.get('inputSchema') or {}).get('properties') or {})
+            for key, spec in props.items():
+                if (not isinstance(spec, dict) or not spec
+                        or not {'type', 'anyOf', 'enum'} & set(spec)):
+                    untyped.append(f"{t['name']}.{key}")
+        check('no parameter reaches the agent untyped', not untyped,
+              'every property carries a type' if not untyped
+              else f'{len(untyped)}: {", ".join(untyped[:6])}')
 
     kind = 'tool-coverage selftest' if selftest else 'tool-coverage'
     print(f'\n{sum(results)}/{len(results)} {kind} checks passed')

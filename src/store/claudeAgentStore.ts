@@ -44,9 +44,25 @@ interface ClaudeAgentState {
   startedAt: number | null;
   /** True once a turn has completed, so the next one can --resume. */
   hasSession: boolean;
+  /**
+   * Prompts typed while a turn was running, oldest first.
+   *
+   * `send` used to be `if (get().isRunning) return` — a message typed
+   * mid-turn was DISCARDED, with no error and nothing on screen. The
+   * drawer papered over it with a single `useState` slot, so typing two
+   * things while the agent worked silently threw the first one away.
+   * A queue belongs in the store: it survives the drawer closing, it can
+   * hold more than one, and it can be shown and edited.
+   */
+  queue: string[];
 
   refreshStatus: () => Promise<void>;
   send: (prompt: string) => Promise<void>;
+  /** Remove one waiting prompt by index. Returns what it removed. */
+  unqueue: (index: number) => string | null;
+  /** Start the next queued prompt, if the agent is now free. */
+  drainQueue: () => void;
+  clearQueue: () => void;
   stop: () => void;
   clear: () => void;
   attach: () => () => void;
@@ -64,6 +80,7 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
   status: null,
   turns: [],
   isRunning: false,
+  queue: [],
   activity: '',
   startedAt: null,
   hasSession: false,
@@ -77,9 +94,45 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
     set({ status: await api.claude.status() });
   },
 
+  unqueue: (index) => {
+    const q = get().queue;
+    if (index < 0 || index >= q.length) return null;
+    const [removed] = q.slice(index, index + 1);
+    set({ queue: q.filter((_, i) => i !== index) });
+    return removed ?? null;
+  },
+
+  clearQueue: () => set({ queue: [] }),
+
+  /*
+    Start the next queued prompt, if there is one.
+
+    Called wherever a run settles. `send` is re-entered rather than
+    inlined so a queued prompt goes through exactly the same path as a
+    typed one — including creating its turns and flipping isRunning —
+    and a queue of three drains one at a time rather than racing.
+  */
+  drainQueue: () => {
+    const { queue, isRunning } = get();
+    if (isRunning || queue.length === 0) return;
+    const [next, ...rest] = queue;
+    set({ queue: rest });
+    void get().send(next);
+  },
+
   send: async (prompt) => {
     const api = window.electronAPI;
-    if (!api?.claude || get().isRunning) return;
+    if (!api?.claude) return;
+    /*
+      Busy: hold it instead of dropping it. This is the whole point of
+      the queue — the previous behaviour returned here and the user's
+      message ceased to exist.
+    */
+    if (get().isRunning) {
+      const text = prompt.trim();
+      if (text) set((s) => ({ queue: [...s.queue, text] }));
+      return;
+    }
 
     const userTurn: AgentTurn = {
       id: `u_${Date.now()}`,
@@ -109,13 +162,18 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
   },
 
   stop: () => {
+    /*
+      Stopping is a decision about the whole run, not just the turn in
+      flight: a user who presses Esc does not want the three prompts
+      behind it to start firing one after another.
+    */
     void window.electronAPI?.claude.stop();
-    set({ isRunning: false, activity: '', startedAt: null });
+    set({ isRunning: false, activity: '', startedAt: null, queue: [] });
   },
 
   clear: () => {
     void window.electronAPI?.claude.reset();
-    set({ turns: [], hasSession: false, isRunning: false, activity: '', startedAt: null });
+    set({ turns: [], hasSession: false, isRunning: false, activity: '', startedAt: null, queue: [] });
   },
 
   /**
@@ -222,11 +280,13 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
             endedAt: Date.now(),
           }));
           set({ isRunning: false, activity: '', startedAt: null });
+          queueMicrotask(() => useClaudeAgentStore.getState().drainQueue());
           return;
 
         case 'kerf_done':
           patchLast((t) => (t.endedAt ? t : { ...t, endedAt: Date.now() }));
           set({ isRunning: false, activity: '', startedAt: null });
+          queueMicrotask(() => useClaudeAgentStore.getState().drainQueue());
           return;
 
         default:
