@@ -269,7 +269,7 @@ function parseJson(content: string, warnings: string[]): CaptionCue[] {
         : [];
 
   if (rows.length === 0) {
-    warnings.push('No caption array found — expected a top-level array, `.segments` or `.cues`');
+    warnings.push('No caption array found, expected a top-level array, `.segments` or `.cues`');
     return [];
   }
 

@@ -50,8 +50,8 @@ export const HomeTopBar: React.FC<Props> = ({ onOpenAgentPicker }) => {
             state === 'unknown'
               ? 'Looking for an agent CLI'
               : state === 'ready'
-                ? `${label} is connected — click to change`
-                : 'No agent CLI found — the editor still works. Click to set one up'
+                ? `${label} is connected, click to change`
+                : 'No agent CLI found, the editor still works. Click to set one up'
           }
         >
           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
@@ -70,7 +70,7 @@ export const HomeTopBar: React.FC<Props> = ({ onOpenAgentPicker }) => {
         <button
           onClick={onOpenAgentPicker}
           className="pro-btn w-[28px] h-[28px] rounded-full"
-          title="Settings — agent and API keys"
+          title="Settings, agent and API keys"
           aria-label="Settings"
         >
           <Settings className="w-4 h-4" />

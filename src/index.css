@@ -366,10 +366,21 @@
     @apply h-px bg-line w-full;
   }
 
+  /*
+    A card is a FILL, not a frame.
+
+    Same correction as the home screen (HANDOVER §7): a border plus a
+    fill is two edges doing one job, and in a sidebar panel where twenty
+    of these stack vertically it is twenty extra lines the eye has to
+    discount. The fill alone is sixteen RGB points off the panel behind
+    it, which separates them perfectly well and leaves the CONTENT as
+    the only thing drawing an outline anywhere.
+  */
   .card,
   .squircle-card {
-    @apply bg-spectrum-card border border-line rounded-squircle-sm;
-    transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease;
+    @apply bg-spectrum-card rounded-squircle-sm;
+    border: 1px solid transparent;
+    transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
   }
 
   .card-interactive {
@@ -377,9 +388,13 @@
   }
 
   .card-interactive:hover {
-    @apply bg-spectrum-cardHover border-line-strong;
+    @apply bg-spectrum-cardHover;
   }
 
+  /* A well KEEPS its border. Everything above recedes by being lighter
+     than the panel; a well is DARKER than the panel, and without a
+     hairline a dark rectangle on dark chrome reads as a hole rather
+     than as an inset. */
   .well {
     @apply bg-spectrum-sunken border border-line rounded-squircle-sm;
   }
@@ -503,10 +518,11 @@
     background-color: rgba(255, 255, 255, 0.05);
   }
 
+  /* One signal, like the home nav. A fill is enough to say "this one";
+     a fill plus a border plus an inset highlight plus a cast shadow is
+     a control shouting about a binary. */
   .seg-item-active {
     @apply bg-spectrum-card text-spectrum-text;
-    border-color: var(--line-strong);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.4);
   }
 
   /* On-state that also carries meaning (snapping on, safe areas on, …). */
@@ -517,7 +533,7 @@
   }
 
   .chip {
-    @apply inline-flex items-center gap-1 px-1.5 rounded-[5px] text-micro font-medium border border-line bg-spectrum-card text-spectrum-textDim;
+    @apply inline-flex items-center gap-1 px-1.5 rounded-[5px] text-micro font-medium bg-spectrum-card text-spectrum-textDim;
     height: var(--h-xs);
   }
 

@@ -133,8 +133,8 @@ export function interpolateKeyframes(
   }
 
   if (count === 0) return defaultValue;
-  if (!before) return after!.value;   // before the first key — hold it
-  if (!after) return before.value;    // after the last key — hold it
+  if (!before) return after!.value;   // before the first key. Hold it
+  if (!after) return before.value;    // after the last key. Hold it
   if (before === after) return before.value;
 
   const span = after.timeOffsetMs - before.timeOffsetMs;

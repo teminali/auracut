@@ -1426,7 +1426,7 @@ export const useTimelineStore = create<TimelineStore>()(
           outcome = {
             ok: false,
             error:
-              `"${found.clip.name}" has already been detached — detaching again would put a ` +
+              `"${found.clip.name}" has already been detached, detaching again would put a ` +
               'second copy of the same sound in the mix. Set audio.detached to false first if that is what you want.',
           };
           return;

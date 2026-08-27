@@ -176,7 +176,7 @@ export function callChanges(call: AgentToolCall): CallChange[] {
 
 /** Compact display for a property value. */
 export function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return '—';
+  if (value === null || value === undefined) return '-';
   if (typeof value === 'number') {
     return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
   }

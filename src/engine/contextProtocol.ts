@@ -106,7 +106,7 @@ const CONTRACTS: Record<CommandKind, ContextRequirement> = {
     kind: 'transition', label: 'Transitions',
     requiresPaused: true, requiresTarget: true, requiresPlayheadOnTarget: false,
     requiresFrame: false, requiresAudio: false,
-    rationale: 'A transition sits on a seam between two clips — I need to know which clip you mean.',
+    rationale: 'A transition sits on a seam between two clips. I need to know which clip you mean.',
   },
   speed: {
     kind: 'speed', label: 'Speed & time',
@@ -142,7 +142,7 @@ const CONTRACTS: Record<CommandKind, ContextRequirement> = {
     kind: 'export', label: 'Export',
     requiresPaused: false, requiresTarget: false, requiresPlayheadOnTarget: false,
     requiresFrame: false, requiresAudio: false,
-    rationale: 'Export works on the whole sequence — no frame context needed.',
+    rationale: 'Export works on the whole sequence. No frame context needed.',
   },
   project_setting: {
     kind: 'project_setting', label: 'Canvas & project',
@@ -261,7 +261,7 @@ export function runPreflight(input: PreflightInput): PreflightReport {
         severity: 'blocker',
         title: 'Pause on the scene you want changed',
         detail:
-          'Playback is running, so "this shot" keeps moving. Scrub to the exact moment you want edited and pause — I will read that frame.',
+          'Playback is running, so "this shot" keeps moving. Scrub to the exact moment you want edited and pause. I will read that frame.',
         fixLabel: 'Pause here',
         fix: () => useTimelineStore.getState().setIsPlaying(false),
       });
@@ -363,7 +363,7 @@ export function runPreflight(input: PreflightInput): PreflightReport {
         severity: 'blocker',
         title: 'Share the frame you are looking at',
         detail:
-          'This is a visual change. Attaching the frame lets me see exactly what you see — and you can draw on it to point at things.',
+          'This is a visual change. Attaching the frame lets me see exactly what you see. And you can draw on it to point at things.',
         fixLabel: 'Attach this frame',
         fix: input.onAttachFrame,
       });
@@ -643,7 +643,7 @@ export function serializeEnvelope(env: ContextEnvelope, kind: CommandKind): stri
     lines.push('│ When a tool omits clipId, it acts on THIS clip.');
   } else {
     lines.push('├─ PRIMARY TARGET ─────────────────────────────────────────');
-    lines.push('│ (none resolved — ask, or name a clip id explicitly)');
+    lines.push('│ (none resolved, ask, or name a clip id explicitly)');
   }
 
   lines.push('├─ ON SCREEN AT THE PLAYHEAD ──────────────────────────────');
@@ -673,14 +673,14 @@ export function serializeEnvelope(env: ContextEnvelope, kind: CommandKind): stri
     env.annotations.forEach((a, i) => {
       const anchor = labelAnchor(a);
       const where = anchor ? `at ${Math.round(anchor.x)},${Math.round(anchor.y)}px` : '';
-      lines.push(`│ [${i + 1}] ${a.kind}${a.text ? ` — "${a.text}"` : ''} ${where}`);
+      lines.push(`│ [${i + 1}] ${a.kind}${a.text ? ` - "${a.text}"` : ''} ${where}`);
       if (a.targets.length === 0) {
         lines.push('│      points at: (empty canvas area)');
       } else {
         for (const t of a.targets) {
           const h = t.localX < 0.33 ? 'left' : t.localX > 0.66 ? 'right' : 'centre';
           const v = t.localY < 0.33 ? 'top' : t.localY > 0.66 ? 'bottom' : 'middle';
-          lines.push(`│      points at: ${t.clipId} "${t.clipName}" — ${v}-${h} of that layer`);
+          lines.push(`│      points at: ${t.clipId} "${t.clipName}", ${v}-${h} of that layer`);
         }
       }
     });
@@ -809,7 +809,7 @@ export function buildTurnBrief(): string {
       track.locked ? 'LOCKED' : null,
     ].filter(Boolean).join(', ');
     lines.push(
-      `  [${track.index}] ${track.name} (${track.type}${flags ? `, ${flags}` : ''}) — ` +
+      `  [${track.index}] ${track.name} (${track.type}${flags ? `, ${flags}` : ''}), ` +
       `${track.clips.length} clip${track.clips.length === 1 ? '' : 's'}`
     );
     const shown = [...track.clips].sort((a, b) => a.startTimeMs - b.startTimeMs);

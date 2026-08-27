@@ -135,7 +135,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
             className={`text-ui-sm truncate transition-colors ${
               isSelected ? 'text-spectrum-text font-medium' : 'text-spectrum-textMuted'
             }`}
-            title={`${track.name} — double-click to rename`}
+            title={`${track.name}, double-click to rename`}
           >
             {track.name}
           </span>

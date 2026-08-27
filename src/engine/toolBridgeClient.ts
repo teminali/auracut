@@ -10,7 +10,7 @@ import { executeTool, getToolManifest } from '../mcp/toolRegistry';
 
 export function registerToolBridge(): void {
   const api = window.electronAPI;
-  if (!api?.bridge) return; // browser dev build — nothing to serve
+  if (!api?.bridge) return; // browser dev build. Nothing to serve
 
   api.bridge.onListTools(async (id) => {
     try {

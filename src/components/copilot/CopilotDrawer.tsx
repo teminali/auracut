@@ -361,8 +361,8 @@ export const CopilotDrawer: React.FC = () => {
               !agentChecked
                 ? 'Looking for the Claude Code CLI…'
                 : agentReady
-                  ? `Claude Code ${agent.status?.version ?? ''} — full agent, with file, shell and web access`
-                  : 'Claude Code CLI not found — using the built-in planner'
+                  ? `Claude Code ${agent.status?.version ?? ''}, full agent, with file, shell and web access`
+                  : 'Claude Code CLI not found, using the built-in planner'
             }
           >
             <span
@@ -394,7 +394,7 @@ export const CopilotDrawer: React.FC = () => {
             className={`pro-btn w-[22px] h-[22px] ${followAgent ? 'text-spectrum-accent' : ''}`}
             title={
               followAgent
-                ? 'The editor follows the Copilot — panels, selection and playhead move with its work. Click to stop following.'
+                ? 'The editor follows the Copilot. Panels, selection and playhead move with its work. Click to stop following.'
                 : 'The editor stays put while the Copilot works. Click to follow along.'
             }
           >
@@ -636,7 +636,7 @@ export const CopilotDrawer: React.FC = () => {
                   className="h-[24px] px-2 gap-1.5 text-ui-xs whitespace-nowrap flex-shrink-0 flex items-center
                              rounded-full border border-line text-spectrum-textMuted
                              hover:border-spectrum-accentLine hover:text-spectrum-text transition-colors"
-                  title={`${action.prompt} — loads into the box so you can check the context first`}
+                  title={`${action.prompt}, loads into the box so you can check the context first`}
                 >
                   <QuickIcon name={action.icon} />
                   {action.label}
@@ -692,7 +692,7 @@ export const CopilotDrawer: React.FC = () => {
           {queue.length > 0 ? (
             <span className="text-spectrum-accent">
               {queue.length === 1 ? '1 message queued' : `${queue.length} messages queued`}
-              {' — they send in order as each turn finishes.'}
+              {', they send in order as each turn finishes.'}
             </span>
           ) : blocked && !agentReady ? (
             <span>Send will sort the checks above first, then run this.</span>
@@ -756,7 +756,7 @@ const AgentIntro: React.FC<{ onPick: (text: string) => void }> = ({ onPick }) =>
     <div className="space-y-1.5">
       <p className="text-ui-lg text-spectrum-text font-semibold">Claude Code is driving this editor.</p>
       <p className="text-ui-sm text-spectrum-textMuted leading-relaxed">
-        It can read your timeline and change it, and it brings its own tools too — your files,
+        It can read your timeline and change it, and it brings its own tools too. Your files,
         the shell, the web. Ask in plain language; it will show you every step it takes.
       </p>
     </div>
@@ -830,7 +830,7 @@ const ContextStrip: React.FC<{ frameAttached: boolean; annotationCount: number }
       </span>
       <span className="text-[9px] text-spectrum-textFaint truncate flex-1 min-w-0">
         {isPlaying
-          ? 'playing — pause to lock a frame'
+          ? 'playing, pause to lock a frame'
           : target
             ? `target: ${target}`
             : 'no layer selected'}

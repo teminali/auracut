@@ -71,7 +71,7 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
           {signIn.phase === 'waiting' && (
             <>
               <p className="text-ui-lg text-spectrum-textMuted leading-relaxed">
-                Open the page below and enter this code. Kerf is watching for it —
+                Open the page below and enter this code. Kerf is watching for it, so
                 come back here when you are done.
               </p>
 

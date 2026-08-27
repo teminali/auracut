@@ -257,7 +257,7 @@ describe('computeViewport', () => {
     expect(o.y).toBeCloseTo(vp.offsetY, 9);
   });
 
-  it('viewDeltaToCanvas ignores pan — a drag is the same wherever it starts', () => {
+  it('viewDeltaToCanvas ignores pan. A drag is the same wherever it starts', () => {
     const a = computeViewport(1000, 1000, LANDSCAPE, 1.5, 0, 0);
     const b = computeViewport(1000, 1000, LANDSCAPE, 1.5, 400, -900);
     expect(viewDeltaToCanvas(100, 50, a)).toEqual(viewDeltaToCanvas(100, 50, b));
@@ -318,7 +318,7 @@ describe('getClipBaseSize fit modes', () => {
     }
   });
 
-  it('the cover assertions genuinely discriminate — `contain` fails them', () => {
+  it('the cover assertions genuinely discriminate, `contain` fails them', () => {
     // Negative control: swap the fit mode and the "covers" test must break.
     const s = getClipBaseSize(clip({ fitMode: 'contain' }), LANDSCAPE, WIDE);
     expect(s.width < 1920 || s.height < 1080).toBe(true);
@@ -482,7 +482,7 @@ describe('getClipBox', () => {
     });
     const b = getClipBox(c, LANDSCAPE, 1000, null);
     expect(b.cx).toBeCloseTo(960 + 100, 6); // keyframed
-    expect(b.opacity).toBeCloseTo(0.25, 6); // not keyframed — static wins
+    expect(b.opacity).toBeCloseTo(0.25, 6); // not keyframed. Static wins
   });
 });
 
@@ -597,7 +597,7 @@ describe('rotatedCursor', () => {
     expect(rotatedCursor(handle('n'), 45)).toBe('nesw-resize');
   });
 
-  it('is 180-degree periodic — a resize arrow is double-headed', () => {
+  it('is 180-degree periodic, a resize arrow is double-headed', () => {
     for (const h of RESIZE_HANDLES) {
       expect(rotatedCursor(h, 0), h.id).toBe(rotatedCursor(h, 180));
       expect(rotatedCursor(h, 30), h.id).toBe(rotatedCursor(h, 210));
@@ -754,8 +754,8 @@ describe('angle helpers', () => {
 
   it('snapAngle catches the step at exactly the tolerance and lets go past it', () => {
     // Boundary is the contract; the comparison is `<=`.
-    expect(snapAngle(19)).toBe(15); // 4 away — snaps
-    expect(snapAngle(20)).toBe(20); // 5 away — free
+    expect(snapAngle(19)).toBe(15); // 4 away. Snaps
+    expect(snapAngle(20)).toBe(20); // 5 away. Free
     expect(snapAngle(11)).toBe(15);
     expect(snapAngle(10)).toBe(10);
     expect(snapAngle(45)).toBe(45);

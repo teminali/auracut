@@ -58,7 +58,7 @@ export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         />
         <div className="flex items-center justify-between text-[10px] font-mono text-spectrum-textFaint">
           <span>{toDb(a.volume) <= -60 ? '−∞' : `${toDb(a.volume) >= 0 ? '+' : ''}${toDb(a.volume).toFixed(1)}`} dB</span>
-          {a.volume > 1 && <span className="text-spectrum-amber">Gain above unity — watch for clipping</span>}
+          {a.volume > 1 && <span className="text-spectrum-amber">Gain above unity, watch for clipping</span>}
         </div>
 
         <div className="grid grid-cols-4 gap-1 pt-0.5">

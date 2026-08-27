@@ -475,7 +475,7 @@ describe('getSourceProgress', () => {
     }
   });
 
-  it('is monotonic non-decreasing — the source never rewinds mid-clip', () => {
+  it('is monotonic non-decreasing. The source never rewinds mid-clip', () => {
     for (const preset of RAMPS) {
       let prev = -Infinity;
       for (let i = 0; i <= 128; i++) {

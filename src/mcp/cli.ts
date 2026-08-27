@@ -121,4 +121,4 @@ process.stdin.on('data', (chunk: string) => {
   }
 });
 
-process.stderr.write(`Kerf MCP server ready — ${KERF_TOOLS.length} tools exposed.\n`);
+process.stderr.write(`Kerf MCP server ready, ${KERF_TOOLS.length} tools exposed.\n`);

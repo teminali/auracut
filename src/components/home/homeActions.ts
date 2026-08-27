@@ -78,7 +78,7 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
         pushToast({
           kind: 'info',
           title: 'Opened the starter project',
-          detail: 'Kerf’s own brand film — 11.5s, thirteen cuts on detected beats. Edit it freely.',
+          detail: 'Kerf’s own brand film, 11.5s, thirteen cuts on detected beats. Edit it freely.',
         });
         return;
       }
@@ -111,7 +111,7 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
         pushToast({
           kind: 'info',
           title: `${result.relinkNeeded.length} file${result.relinkNeeded.length > 1 ? 's' : ''} need relinking`,
-          detail: 'Their original paths are gone — re-import them from the Media panel.',
+          detail: 'Their original paths are gone. Re-import them from the Media panel.',
         });
       }
       onEnterEditor();

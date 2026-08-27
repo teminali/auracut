@@ -168,7 +168,7 @@ export function unpreviewableAudio(a: ClipAudioSettings): UnpreviewableSetting[]
       why:
         "The export runs ffmpeg's afftdn spectral denoise, which has no WebAudio equivalent. " +
         'A gate and a shelf would produce something, and it would not be what the render ' +
-        'produces — which is the failure this is here to end, not a smaller version of it.',
+        'produces, which is the failure this is here to end, not a smaller version of it.',
     });
   }
 

@@ -176,7 +176,7 @@ export const ORDER_NOTES: Record<OrderBy, string> = {
     'which for footage straight off a card is usually when it was shot and after any ' +
     're-encode is not.',
   created:
-    'Filesystem CREATION time, oldest first — not EXIF capture time. Copying or ' +
+    'Filesystem CREATION time, oldest first. Not EXIF capture time. Copying or ' +
     'downloading a file resets it, and some filesystems keep none at all (those files ' +
     'sort first). If capture order matters, check the result against the filenames.',
   duration:
@@ -244,7 +244,7 @@ export async function assembleFromFolder(args: AssembleArgs): Promise<Record<str
   const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
   if (!api?.media?.listFolder) {
     throw new Error(
-      'Reading a folder needs the desktop app — the browser cannot enumerate a directory. ' +
+      'Reading a folder needs the desktop app. The browser cannot enumerate a directory. ' +
       '(fetch and XHR on a file:// directory both fail even with webSecurity off.)'
     );
   }
@@ -342,7 +342,7 @@ export async function assembleFromFolder(args: AssembleArgs): Promise<Record<str
       : `Video and audio keep their measured duration` +
         (args.maxClipMs !== undefined ? `, capped at ${args.maxClipMs}ms` : '') +
         (args.minClipMs !== undefined ? `, floored at ${args.minClipMs}ms` : '') +
-        `. Stills have no duration of their own, so each one is held for ${stillMs}ms — ` +
+        `. Stills have no duration of their own, so each one is held for ${stillMs}ms, ` +
         `that number is a choice, not a measurement.`;
 
   const audioPolicy = args.audio ?? 'bed';
@@ -400,7 +400,7 @@ export async function assembleFromFolder(args: AssembleArgs): Promise<Record<str
   if (!accounting.balances) {
     warnings.push(
       `ACCOUNTING DOES NOT BALANCE: ${filesSeen} entries seen but ${accountedFor} accounted for. ` +
-      `This is a bug in assemble_from_folder, not in your folder — do not trust the lists above.`
+      `This is a bug in assemble_from_folder, not in your folder. Do not trust the lists above.`
     );
   }
   if (undecodable.length > 0) {
@@ -598,7 +598,7 @@ export async function assembleFromFolder(args: AssembleArgs): Promise<Record<str
       stills, video: movies,
       note:
         `Stills and video are laid on one track in the same sequence. Each still is held for ` +
-        `${stillMs}ms — chosen, not measured — and both are fitted "${args.fitMode ?? 'cover'}".`,
+        `${stillMs}ms, chosen, not measured, and both are fitted "${args.fitMode ?? 'cover'}".`,
     },
     videoTrack: {
       trackId: videoTrackId,

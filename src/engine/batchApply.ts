@@ -389,7 +389,7 @@ export function runBatchApply(
       if (changed.length === 0 && same.length === 0) {
         skipped.push({
           ...row,
-          reason: `no requested property would apply to this ${clip.type} clip — `
+          reason: `no requested property would apply to this ${clip.type} clip, `
             + (refused.join('; ') || 'the validator reported nothing'),
         });
         continue;
@@ -408,7 +408,7 @@ export function runBatchApply(
     if (result.applied.length === 0) {
       skipped.push({
         ...row,
-        reason: `no requested property applied to this ${clip.type} clip — `
+        reason: `no requested property applied to this ${clip.type} clip, `
           + (result.errors.length ? result.errors.join('; ') : 'the store reported no writes'),
       });
       continue;

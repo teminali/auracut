@@ -71,7 +71,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
             Kerf hit an error and stopped drawing.
           </h1>
           <p className="text-ui-sm text-spectrum-textMuted mb-4">
-            Your project is still in memory — it has not been written over. Reloading the
+            Your project is still in memory. It has not been written over. Reloading the
             window recovers the last autosave.
           </p>
 

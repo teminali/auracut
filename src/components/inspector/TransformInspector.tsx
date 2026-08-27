@@ -294,7 +294,7 @@ export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               </select>
             </div>
             <p className="text-[10px] text-spectrum-textFaint">
-              {clip.motionPath.points.length} points — drag them in the program monitor.
+              {clip.motionPath.points.length} points. Drag them in the program monitor.
             </p>
           </>
         )}

@@ -165,7 +165,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'rgb_split',
     label: 'RGB Split',
     category: 'distort',
-    description: 'Chromatic aberration — offsets the red and cyan channels.',
+    description: 'Chromatic aberration, offsets the red and cyan channels.',
     params: [
       { key: 'offset', label: 'Offset', type: 'number', default: 8, min: 0, max: 80, step: 0.5, unit: 'px', animatable: true },
       { key: 'angle', label: 'Direction', type: 'angle', default: 0, min: -180, max: 180, step: 1, unit: '°', animatable: true },
@@ -352,7 +352,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     label: 'Displacement',
     category: 'distort',
     description:
-      'Warps the image through a moving noise field — heat haze, glass, water, liquid ' +
+      'Warps the image through a moving noise field. Heat haze, glass, water, liquid ' +
       'melt. Runs on the GPU; needs WebGL, and renders unwarped without it.',
     params: [
       { key: 'amount', label: 'Amount', type: 'number', default: 24, min: 0, max: 100, step: 1, animatable: true },
@@ -401,7 +401,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     label: 'Flag Wave',
     category: 'distort',
     description:
-      'Waves the clip like cloth on a pole — a travelling wave lifts the sheet out of the ' +
+      'Waves the clip like cloth on a pole. A travelling wave lifts the sheet out of the ' +
       'plane, and the light across it comes from the surface slope rather than a painted ' +
       'gradient. Runs on the GPU as a displaced mesh.',
     params: [
@@ -409,7 +409,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
       { key: 'waves', label: 'Waves', type: 'number', default: 2, min: 0.25, max: 12, step: 0.25, animatable: true,
         hint: 'How many crests fit across the frame along the direction.' },
       { key: 'speed', label: 'Speed', type: 'number', default: 45, min: 0, max: 100, step: 1, animatable: true,
-        hint: '0 freezes the wave. It still warps — it just stops moving.' },
+        hint: '0 freezes the wave. It still warps, it just stops moving.' },
       { key: 'angle', label: 'Direction', type: 'number', default: 0, min: 0, max: 360, step: 1, unit: '°', animatable: true },
       { key: 'anchor', label: 'Pin edge', type: 'number', default: 100, min: 0, max: 100, step: 1, unit: '%', animatable: true,
         hint: '100 pins the leading edge like a flagpole; 0 lets the whole sheet move.' },
@@ -425,7 +425,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     description:
       'Rings spreading from a point, pushing the image outward along the radius. Because it ' +
       'moves the mesh and not the texture read, the EDGE of the picture ripples too and ' +
-      'pixels land outside the rectangle they started in — which is the difference from ' +
+      'pixels land outside the rectangle they started in. Which is the difference from ' +
       'Displacement. Runs on the GPU as a displaced mesh.',
     params: [
       { key: 'amount', label: 'Amount', type: 'number', default: 35, min: 0, max: 100, step: 1, unit: '%', animatable: true },
@@ -446,7 +446,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'pixelate',
     label: 'Pixelate',
     category: 'distort',
-    description: 'Mosaic blocks — good for censoring or a retro look.',
+    description: 'Mosaic blocks, good for censoring or a retro look.',
     params: [
       { key: 'size', label: 'Block size', type: 'number', default: 16, min: 2, max: 120, step: 1, unit: 'px', animatable: true },
     ],
@@ -763,7 +763,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'particles',
     label: 'Particles',
     category: 'generate',
-    description: 'Drifting particle field — snow, embers, dust or bokeh.',
+    description: 'Drifting particle field, snow, embers, dust or bokeh.',
     params: [
       {
         key: 'preset', label: 'Look', type: 'select', default: 'dust',
@@ -873,7 +873,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'zoom_pulse',
     label: 'Beat Zoom Pulse',
     category: 'motion',
-    description: 'Rhythmic scale pump — lock the BPM to your track.',
+    description: 'Rhythmic scale pump, lock the BPM to your track.',
     params: [
       { key: 'bpm', label: 'BPM', type: 'number', default: 120, min: 40, max: 220, step: 1 },
       { key: 'depth', label: 'Depth', type: 'number', default: 0.06, min: 0, max: 0.6, step: 0.005, animatable: true },

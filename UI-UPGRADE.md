@@ -22,7 +22,7 @@ recorded under **F**, not deferred.
 - [ ] Focus-visible pass on every interactive element
 - [ ] Empty, loading and error states audited against the three-value rule
 
-## B · Icons — one premium set, platform-wide  ✅ DONE
+## B · Icons and copy  ✅ DONE
 - [x] **Phosphor**, not lucide. The upgrade is not nicer drawings: it is
       SIX WEIGHTS. A single-weight stroke set can only signal "selected"
       by changing colour, which is why every toolbar read flat. Idle is
@@ -37,6 +37,11 @@ recorded under **F**, not deferred.
 - [x] `stroke-[N]` utilities stripped: inert on a filled glyph
 - [x] **Every emoji gone** (46 across 4 files)
 - [x] Both rules are now TESTS (`ui/iconography.test.ts`), not notes
+- [x] **Em dashes swept.** 220 outside comments, across 39 files. Not a
+      blanket substitution: a long left clause becomes a full stop and a
+      capital, a short one becomes a comma, and a bare `—` standing in
+      for "no value" becomes a hyphen. Six results still read badly and
+      were fixed by hand. Enforced by a third test, proved able to fail.
 
 ## C · Real previews for effects and transitions
 The emoji in those two panels are not decoration — they are standing in
@@ -53,11 +58,23 @@ for a PREVIEW. A picture of a magnifying glass does not tell anyone what
 - [x] Per-key frame cache and in-flight de-duplication
 - [x] TransitionsPanel, 14 transitions
 - [x] EffectsPanel and EffectStackInspector, 23 effects
-- [ ] FiltersPanel, 10 colour looks
+- [x] FiltersPanel, 10 colour looks. The "swatch" was a hand-authored
+      CSS gradient: three colours somebody guessed would suggest the
+      result, free to drift from the real filter values for ever. It is
+      the grade itself now, over a full-range scene (sky, mid, warm
+      subject, near-black, specular) because a two-tone scene shows a
+      temperature shift and a black lift almost not at all.
 - [ ] TextPanel, 9 kinetic text animations
 
 ## D · The rest of the platform
 Every region gets the same pass as home.
+
+**Started at the system level, which is where the leverage is.** `.card`,
+`.card-interactive`, `.chip` and `.seg-item-active` lost their borders
+and shadows in `index.css`, so every panel that uses them improved at
+once rather than in sixty edits. `.well` KEEPS its border on purpose: it
+is darker than the panel rather than lighter, and a dark rectangle on
+dark chrome with no hairline reads as a hole rather than as an inset.
 
 - [ ] `header/` — HeaderBar, ExportModal, McpStatusModal, UpdateIndicator
 - [ ] `sidebar/` — SidebarNav + Media, Audio, Text, Captions,
@@ -124,8 +141,7 @@ Every region gets the same pass as home.
 - **D in full.** The platform-wide upscale has not begun. Home is done;
   header, sidebar panels, preview, timeline, inspector, copilot, canvas
   and the ui primitives are untouched by the material pass.
-- **Em dashes.** 965 in `src/`, 654 of them on non-comment lines across
-  94 files. Not swept. A blanket substitution would mangle the copy, so
-  this needs a pass with judgement per string, and `toolRegistry.ts`
-  alone holds 158.
-- **Filters and text-animation previews** (C, last two boxes).
+- **Text-animation previews** (C, last box).
+- **The per-component pass in D.** The shared classes are done, which
+  covers most panels; the layout-level work (type scale, spacing rhythm,
+  density) has not been done region by region.

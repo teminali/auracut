@@ -116,7 +116,7 @@ export function analyzeTranscriptForBroll(tracks: Track[], pool: MediaAsset[]): 
       suggestions: [],
       unmatched: [],
       note:
-        'The media pool has no video or image assets to cut away to. Import some footage first — ' +
+        'The media pool has no video or image assets to cut away to. Import some footage first, ' +
         'Kerf has no built-in stock library.',
     };
   }

@@ -50,7 +50,7 @@ export const HeroRow: React.FC<Props> = ({ onNewProject, onOpenCopilot, mostRece
   */
   const status = useClaudeAgentStore((s) => s.status);
   const runsOn = status?.installed
-    ? `Runs on your own ${status.label ?? 'Claude Code'} — already signed in`
+    ? `Runs on your own ${status.label ?? 'Claude Code'}, already signed in`
     : 'Runs on your own Claude Code or Codex';
 
   return (

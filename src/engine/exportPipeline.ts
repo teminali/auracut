@@ -102,7 +102,7 @@ export function unsupportedAudioSettings(tracks: Track[]): string[] {
   const ducked = audible.filter((c) => c.audio.ducking).length;
   if (ducked > 0 && ducked === audible.length) {
     found.add(
-      'Every audible clip is set to duck, so there is nothing to duck against — ' +
+      'Every audible clip is set to duck, so there is nothing to duck against, ' +
       'ducking was not applied. Clear it on whatever should stay at full level.'
     );
   }
@@ -390,7 +390,7 @@ export async function runHardwareExport(
 ): Promise<ExportResult> {
   const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
   if (!api?.exporter) {
-    throw new Error('Export needs the desktop app — a browser cannot write video files.');
+    throw new Error('Export needs the desktop app. A browser cannot write video files.');
   }
 
   const startedAt = Date.now();

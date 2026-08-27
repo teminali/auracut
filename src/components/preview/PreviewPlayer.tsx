@@ -465,7 +465,7 @@ const ScopesOverlay: React.FC<{ canvasRef: React.RefObject<HTMLCanvasElement | n
         // Downsample by reading a strided slice rather than the full frame.
         data = sctx.getImageData(0, 0, source.width, source.height);
       } catch {
-        return; // tainted canvas (cross-origin media) — scopes unavailable
+        return; // tainted canvas (cross-origin media). Scopes unavailable
       }
 
       const W = target.width;

@@ -227,7 +227,7 @@ export const SpeedInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
                 marginLeft: -5,
                 marginTop: -5,
               }}
-              title={`${point.speedMult.toFixed(2)}× at ${Math.round(point.timePct * 100)}% — right-click to remove`}
+              title={`${point.speedMult.toFixed(2)}× at ${Math.round(point.timePct * 100)}%. Right-click to remove`}
             />
           ))}
         </div>

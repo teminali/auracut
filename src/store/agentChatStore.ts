@@ -37,7 +37,7 @@ const WELCOME: ChatMessage = {
   id: 'msg_welcome',
   sender: 'agent',
   text: [
-    "I read your timeline directly — the exact frame you're parked on, every layer on it, and where each one sits in the frame.",
+    "I read your timeline directly. The exact frame you're parked on, every layer on it, and where each one sits in the frame.",
     '',
     'Ask me anything about the edit, or tell me what to change: “make this pop”, “move that to the corner”, “add snow”, “cut the silence”.',
     '',

@@ -66,7 +66,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
       pushToast({
         kind: 'success',
         title: `${result.beatsMs.length} beats detected`,
-        detail: `≈ ${Math.round(result.bpm)} BPM — markers added to the timeline.`,
+        detail: `≈ ${Math.round(result.bpm)} BPM. Markers added to the timeline.`,
       });
     } catch (err) {
       useUiStore.getState().dismissToast(id);
@@ -91,7 +91,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
           <button onClick={toggleSnapping} className={`seg-item ${snappingEnabled ? 'seg-item-on' : ''}`} title="Magnetic snapping (N)">
             <Magnet className="w-3 h-3" /> Snap
           </button>
-          <button onClick={toggleRippleEdit} className={`seg-item ${rippleEditMode ? 'seg-item-on' : ''}`} title="Ripple edit — downstream clips follow (R)">
+          <button onClick={toggleRippleEdit} className={`seg-item ${rippleEditMode ? 'seg-item-on' : ''}`} title="Ripple edit, downstream clips follow (R)">
             <ArrowLeftRight className="w-3 h-3" /> Ripple
           </button>
         </div>

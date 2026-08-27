@@ -393,7 +393,7 @@ defineTool({
   description:
     'Run the context protocol against a proposed instruction WITHOUT executing it. Returns the command family, ' +
     'what that family requires, and any blockers (playback running, no target layer, playhead off the clip). ' +
-    'Call this when an instruction is vague — it tells you precisely what to ask the user for.',
+    'Call this when an instruction is vague. It tells you precisely what to ask the user for.',
   schema: z.object({
     instruction: z.string().describe('The user instruction you are about to act on'),
   }),
@@ -507,7 +507,7 @@ defineTool({
   description:
     'Set any number of properties on a clip in one call, addressed by dotted path. ' +
     'Examples: {"transform.rotation": 45, "filters.saturation": 30, "textStyle.color": "#ff0000", "effects.glow.radius": 60}. ' +
-    'This is the primary editing tool — prefer it over narrow per-property tools.',
+    'This is the primary editing tool. Prefer it over narrow per-property tools.',
   schema: z.object({
     clipId: z.string().optional().describe('Clip id, clip name, or "selected"'),
     properties: z.record(z.any()).describe('Map of property path → new value'),
@@ -537,7 +537,7 @@ defineTool({
 defineTool({
   name: 'patch_clips',
   category: 'properties',
-  description: 'Apply the same property patch to many clips at once — e.g. grade every clip on a track identically.',
+  description: 'Apply the same property patch to many clips at once. E.g. grade every clip on a track identically.',
   schema: z.object({
     clipIds: z.array(z.string()).optional().describe('Explicit clip ids; omit to use the current selection'),
     trackId: z.string().optional().describe('Target every clip on this track instead'),
@@ -617,7 +617,7 @@ defineTool({
   category: 'effects',
   description:
     'Add a VFX effect to a clip. Call list_effects for the catalogue. ' +
-    'Params are optional — anything omitted uses the effect default.',
+    'Params are optional, anything omitted uses the effect default.',
   schema: z.object({
     clipId: z.string().optional(),
     effectType: z.string().describe('Registry key, e.g. glow, rgb_split, film_grain, particles, light_leak, shake'),
@@ -643,7 +643,7 @@ defineTool({
           `"${clip?.name ?? id}" is locked. Unlock it first, or clear the lock on its track.`
         );
       }
-      throw new Error(`Could not add "${effectType}" to clip ${id} — the clip was not found.`);
+      throw new Error(`Could not add "${effectType}" to clip ${id}, the clip was not found.`);
     }
     if (intensity !== undefined) timeline().setEffectIntensity(id, effectId, intensity);
     return { clipId: id, effectId, effectType, label: def.label };
@@ -690,7 +690,7 @@ defineTool({
       A union types it without narrowing what the editor accepts.
     */
     value: z.union([z.number(), z.string(), z.boolean()])
-      .describe('Number, colour string, or boolean — whichever the parameter takes'),
+      .describe('Number, colour string, or boolean. Whichever the parameter takes'),
   }),
   handler: ({ clipId, effect, param, value }) => {
     const id = resolveClipId(clipId);
@@ -715,7 +715,7 @@ defineTool({
   name: 'animate_effect_param',
   category: 'effects',
   description:
-    'Keyframe an effect parameter — pass two or more {timeOffsetMs, value} stops to animate it ' +
+    'Keyframe an effect parameter. Pass two or more {timeOffsetMs, value} stops to animate it ' +
     'over the clip. Each stop takes an optional easing, and bezierPoints for a custom curve; ' +
     'the easing on a stop governs the segment that LEAVES it, so the last stop\'s easing is ' +
     `never rendered. One of: ${EASINGS.join(', ')}.`,
@@ -773,7 +773,7 @@ defineTool({
 defineTool({
   name: 'copy_effects',
   category: 'effects',
-  description: 'Copy the whole effect stack from one clip onto others — the fastest way to make a sequence look consistent.',
+  description: 'Copy the whole effect stack from one clip onto others. The fastest way to make a sequence look consistent.',
   schema: z.object({
     sourceClipId: z.string().optional(),
     targetClipIds: z.array(z.string()).optional().describe('Omit to target every other clip on the same track'),
@@ -804,8 +804,8 @@ defineTool({
   category: 'graphics',
   description:
     'Create an animated text layer. Style it afterwards with patch_clip using textStyle.* paths. '
-    + 'NOTE: a new layer defaults to CAPTION styling — a 6px black outline (textStyle.strokeWidth) '
-    + 'and an 18px drop shadow — because that is what keeps burned-in text legible over footage. On a '
+    + 'NOTE: a new layer defaults to CAPTION styling. A 6px black outline (textStyle.strokeWidth) '
+    + 'and an 18px drop shadow, because that is what keeps burned-in text legible over footage. On a '
     + 'clean background it is wrong, and at small sizes the outline thickens the letterforms enough to '
     + 'look like a different typeface. Set strokeWidth and shadowBlur to 0 for titles and brand type.',
   schema: z.object({
@@ -879,7 +879,7 @@ defineTool({
 defineTool({
   name: 'add_adjustment_layer',
   category: 'graphics',
-  description: 'Add an adjustment layer — effects on it grade every layer beneath it for its duration.',
+  description: 'Add an adjustment layer, effects on it grade every layer beneath it for its duration.',
   schema: z.object({
     trackId: z.string().optional(),
     startTimeMs: z.number().optional(),
@@ -945,12 +945,12 @@ defineTool({
   description:
     'Animate a clip property with explicit keyframes. Accepts the transform names ' +
     '(positionX, positionY, scaleX, scaleY, rotation, opacity, anchorX, anchorY, volume) and the ' +
-    'dotted paths list_properties reports as animatable — filters.* (brightness, contrast, ' +
+    'dotted paths list_properties reports as animatable. Filters.* (brightness, contrast, ' +
     'saturation, exposure, temperature, tint, highlights, shadows, sharpen, vignette, grain, ' +
     'blur, hueRotate), mask.* (sizeX, sizeY, offsetX, offsetY, rotation, roundness, featherPx), ' +
     'textStyle.fontSize, textStyle.letterSpacing, and shapeStyle.* (strokeWidth, trimStart, ' +
     'trimEnd, cornerRadius). transform.x / transform.y and the other patch_clip paths are ' +
-    'accepted as aliases. NOTE: this APPENDS — calling it twice on one property stacks both ' +
+    'accepted as aliases. NOTE: this APPENDS, calling it twice on one property stacks both ' +
     'sets and reports success both times; upsert_keyframe is the idempotent one. Returns the ' +
     'ids it minted, which is what remove_keyframe / move_keyframe / set_keyframe_easing address.',
   schema: z.object({
@@ -1053,7 +1053,7 @@ defineTool({
   name: 'list_keyframes',
   category: 'discovery',
   description:
-    'Read a clip\'s keyframes WITH THEIR IDS — id, property, time, value and easing — plus the ' +
+    'Read a clip\'s keyframes WITH THEIR IDS. Id, property, time, value and easing. Plus the ' +
     'keyframes on its effect parameters. Every editing tool (remove_keyframe, move_keyframe, ' +
     'set_keyframe_easing, remove_effect_keyframe) addresses a keyframe by id, and ids are minted ' +
     'inside the editor, so call this first. describe_timeline reports only a keyframeCount.',
@@ -1112,7 +1112,7 @@ defineTool({
   category: 'graphics',
   description:
     'Delete one keyframe by id. Get ids from list_keyframes. Removing a middle key does not stop ' +
-    'the animation — the two keys either side interpolate straight through where it was.',
+    'the animation, the two keys either side interpolate straight through where it was.',
   schema: z.object({
     clipId: z.string().optional(),
     keyframeId: z.string().describe('From list_keyframes or add_keyframes'),
@@ -1130,7 +1130,7 @@ defineTool({
       removedAtMs: kf.timeOffsetMs,
       remainingOnProperty: left,
       ...(left < 2
-        ? { note: `${kf.property} has ${left} keyframe(s) left, so it no longer animates — it holds that value.` }
+        ? { note: `${kf.property} has ${left} keyframe(s) left, so it no longer animates. It holds that value.` }
         : {}),
     };
   },
@@ -1180,14 +1180,14 @@ defineTool({
   description:
     `Change how a keyframe eases into the NEXT one. Easings: ${EASINGS.join(', ')}. ` +
     'Easing describes the segment that FOLLOWS the keyframe, so setting it on the last keyframe ' +
-    'of a property changes nothing until a later one exists — the reply says when that is the case. ' +
+    'of a property changes nothing until a later one exists. The reply says when that is the case. ' +
     '`hold` freezes the value until the next key (a step, not a ramp).',
   schema: z.object({
     clipId: z.string().optional(),
     keyframeId: z.string(),
     easing: z.string().describe(`One of: ${EASINGS.join(', ')}`),
     bezier: z.array(z.number()).length(4).optional()
-      .describe('[p1x, p1y, p2x, p2y] control points — only with easing "bezier"'),
+      .describe('[p1x, p1y, p2x, p2y] control points. Only with easing "bezier"'),
   }),
   handler: ({ clipId, keyframeId, easing, bezier }) => {
     const { id, clip } = requireClip(clipId);
@@ -1227,7 +1227,7 @@ defineTool({
   name: 'clear_keyframes',
   category: 'graphics',
   description:
-    'Remove every keyframe on a clip, or every keyframe on ONE property when `property` is given — ' +
+    'Remove every keyframe on a clip, or every keyframe on ONE property when `property` is given, ' +
     'the other properties keep animating. The property keeps whatever its base value is, which is ' +
     'not necessarily the value it was showing at the playhead.',
   schema: z.object({
@@ -1377,7 +1377,7 @@ defineTool({
       pointCount: res.pointCount,
       pathDrivesLayer: (res.pointCount ?? 0) >= 2,
       ...((res.pointCount ?? 0) < 2
-        ? { note: 'One point is not a path — the layer still sits at transform.x/y. Add another.' }
+        ? { note: 'One point is not a path, the layer still sits at transform.x/y. Add another.' }
         : {}),
     };
   },
@@ -1388,7 +1388,7 @@ defineTool({
   category: 'graphics',
   description:
     'Move one existing motion-path point to new absolute canvas coordinates. Index is 0-based, in ' +
-    'path order — read the current points from list_properties (motionPath.points) or describe_timeline.',
+    'path order, read the current points from list_properties (motionPath.points) or describe_timeline.',
   schema: z.object({
     clipId: z.string().optional(),
     index: z.number().int().describe('0-based index of the point to move'),
@@ -1416,7 +1416,7 @@ defineTool({
   category: 'graphics',
   description:
     'Delete one point from a clip\'s motion path by 0-based index. Below two points the path stops ' +
-    'driving the layer and it returns to transform.x/y — the reply says when that has happened.',
+    'driving the layer and it returns to transform.x/y. The reply says when that has happened.',
   schema: z.object({
     clipId: z.string().optional(),
     index: z.number().int().describe('0-based index of the point to remove'),
@@ -1438,7 +1438,7 @@ defineTool({
       pointCount: left,
       pathDrivesLayer: left >= 2,
       ...(left < 2
-        ? { note: `${left} point(s) left, so the path no longer moves the layer — it sits at transform.x/y again.` }
+        ? { note: `${left} point(s) left, so the path no longer moves the layer. It sits at transform.x/y again.` }
         : {}),
     };
   },
@@ -1696,7 +1696,7 @@ defineTool({
   name: 'rename_track',
   category: 'timeline',
   description:
-    'Rename a track. Metadata only — it changes no pixel and no sample, but it is what '
+    'Rename a track. Metadata only, it changes no pixel and no sample, but it is what '
     + 'describe_timeline and every other tool\'s name lookup read, so it is worth getting right. '
     + 'A blank name is refused. Undoable.',
   schema: z.object({
@@ -1750,7 +1750,7 @@ defineTool({
   category: 'timeline',
   description:
     'Mute or unmute a track. Pass `muted` to set it outright, or leave it out to flip whatever '
-    + 'it is now — an agent that wants a track muted should not have to read the state first. '
+    + 'it is now, an agent that wants a track muted should not have to read the state first. '
     + 'A muted track is silent in playback AND in render_export; a muted VIDEO track also stops '
     + 'painting. Undoable.',
   schema: z.object({
@@ -1801,7 +1801,7 @@ defineTool({
   name: 'set_track_lock',
   category: 'timeline',
   description:
-    'Lock or unlock a track. A locked track refuses edits to the clips on it — split, trim, move '
+    'Lock or unlock a track. A locked track refuses edits to the clips on it. Split, trim, move '
     + 'and delete all decline and say the lock is why. Locking changes nothing about the render. '
     + 'Pass `locked` to set it outright, or leave it out to toggle. Undoable.',
   schema: z.object({
@@ -1824,7 +1824,7 @@ defineTool({
   description:
     'Set a track\'s output gain: 0 is silence, 1 is unity, 2 is double amplitude (+6dB). Values '
     + 'outside 0–2 are clamped and the reply says so rather than echoing what you asked for. '
-    + 'This is a gain on SOUND only — a video track\'s picture is untouched; use set_track_mute '
+    + 'This is a gain on SOUND only. A video track\'s picture is untouched; use set_track_mute '
     + 'to hide one. Counts as one undo step per call.',
   schema: z.object({
     trackId: z.string().describe('Track id, track name, or a track type like "audio"'),
@@ -1975,7 +1975,7 @@ defineTool({
   name: 'duplicate_clip',
   category: 'timeline',
   description:
-    'Copy a clip whole — transform, effects, keyframes, speed, audio — and drop the copy on the ' +
+    'Copy a clip whole: transform, effects, keyframes, speed, audio. Then drop the copy on the ' +
     'same track immediately after the original, so it is visible rather than hidden underneath. ' +
     'Returns the new id. The copy is an independent object: patching it leaves the original ' +
     'alone. Pass startTimeMs and/or targetTrackId to place it somewhere else in the SAME undo step.',
@@ -2038,7 +2038,7 @@ defineTool({
   category: 'timeline',
   description:
     'Delete every clip in the current selection, as one undo step. Call select_clips first. ' +
-    'With NOTHING selected this throws instead of reporting a successful deletion of nothing — ' +
+    'With NOTHING selected this throws instead of reporting a successful deletion of nothing, ' +
     'that no-op used to leave an undo entry behind as well. Locked clips and clips on locked ' +
     'tracks are refused individually and named in the result. Gap-closing follows the editor\'s ' +
     'ripple mode; use delete_clip when you need to choose per call.',
@@ -2059,7 +2059,7 @@ defineTool({
       if (deleted.length === 0) {
         throw new Error(
           `None of the ${selected.length} selected clip(s) could be deleted: ` +
-          refused.map((r) => `${r.clipId} — ${r.reason}`).join('; ')
+          refused.map((r) => `${r.clipId}, ${r.reason}`).join('; ')
         );
       }
 
@@ -2079,7 +2079,7 @@ defineTool({
   name: 'move_clips',
   category: 'timeline',
   description:
-    'Move several clips at once — one undo step and one report. The batch counterpart to ' +
+    'Move several clips at once. One undo step and one report. The batch counterpart to ' +
     'move_clip. A move that cannot be made (unknown id, locked clip, locked track) is listed in ' +
     '`refused`; by default ANY refusal rolls the whole batch back and throws, so a partial ' +
     'rearrangement is never mistaken for the whole one. Pass allowPartial to keep what landed.',
@@ -2108,13 +2108,13 @@ defineTool({
 
       if (moved.length === 0) {
         throw new Error(
-          `No clip moved. ${refused.map((r) => `${r.clipId} — ${r.reason}`).join('; ')}`
+          `No clip moved. ${refused.map((r) => `${r.clipId}, ${r.reason}`).join('; ')}`
         );
       }
       if (refused.length > 0 && !allowPartial) {
         throw new Error(
           `${moved.length} of ${resolved.length} moves would have landed; the batch was rolled back. ` +
-          `Refused: ${refused.map((r) => `${r.clipId} — ${r.reason}`).join('; ')}. ` +
+          `Refused: ${refused.map((r) => `${r.clipId}, ${r.reason}`).join('; ')}. ` +
           'Pass allowPartial: true to keep a partial move.'
         );
       }
@@ -2162,7 +2162,7 @@ defineTool({
         }
         throw new Error(
           `None of the ${attempted} selected clip(s) were cut at ${at}ms: ` +
-          selected.map((id) => `${id} — ${refuseReason(id, at)}`).join('; ')
+          selected.map((id) => `${id}, ${refuseReason(id, at)}`).join('; ')
         );
       }
 
@@ -2183,7 +2183,7 @@ defineTool({
   description:
     'Butt-join every clip on a track, closing the holes between them. The FIRST clip keeps its ' +
     'start, so a gap before it is deliberately left alone. Reports how many gaps were closed, ' +
-    'how many clips moved and how far in total — a track that was already gapless comes back ' +
+    'how many clips moved and how far in total. A track that was already gapless comes back ' +
     'with changed: false rather than a bare success for a tidy-up that never happened.',
   schema: z.object({
     trackId: z.string().optional().describe('Track id, name or type; defaults to the selected track'),
@@ -2204,7 +2204,7 @@ defineTool({
         gapsClosed: 0,
         clipsMoved: 0,
         totalShiftMs: 0,
-        note: `"${track.name}" has no gaps to close — its ${track.clips.length} clip(s) already run end to end.`,
+        note: `"${track.name}" has no gaps to close, its ${track.clips.length} clip(s) already run end to end.`,
       };
     }
 
@@ -2231,7 +2231,7 @@ defineTool({
     'Lift a video clip\'s sound onto an audio track so it can be trimmed, moved, ducked or ' +
     'replaced on its own. The video clip is left silent (audio.volume 0) and the new audio clip ' +
     'carries the sound. Refuses a clip that is not video, a clip with no media source, and a ' +
-    'SECOND detach of the same clip — that used to stack a duplicate of the same sound into the ' +
+    'SECOND detach of the same clip. That used to stack a duplicate of the same sound into the ' +
     'mix. Kerf cannot see whether the source FILE has an audio stream, so this reports the edit, ' +
     'not the presence of sound; render_export tells you what actually reached the mix.',
   schema: z.object({ clipId: z.string().optional() }),
@@ -2260,13 +2260,13 @@ defineTool({
   description:
     'Play a clip backwards, or turn it forwards again. It toggles by default and reports which ' +
     'way the clip now runs; pass `reversed` to set it explicitly. Reversal is applied by reading ' +
-    'the SOURCE back to front at render time. Picture AND sound are reversed in the export — a ' +
+    'the SOURCE back to front at render time. Picture AND sound are reversed in the export. A ' +
     'rising sweep comes back falling. Two things to know before promising a user a reversed ' +
-    'shot: it changes the PICTURE only for clips whose source moves — video; a still image, a ' +
-    'shape or a text layer renders identically reversed. And keyframes are NOT mirrored: they ' +
+    'shot: it changes the PICTURE only for clips whose source moves. Video; a still image, a ' +
+    'shape or a text layer renders identically reversed. Keyframes are NOT mirrored: they ' +
     'stay on the clip\'s own forward timeline. PLAYBACK cannot reverse sound (a media element ' +
     'cannot run at a negative rate), so the preview plays it forwards while the render plays it ' +
-    'backwards — call describe_audio_preview before telling a user it sounds right.',
+    'backwards, call describe_audio_preview before telling a user it sounds right.',
   schema: z.object({
     clipId: z.string().optional(),
     reversed: z.boolean().optional().describe('Set explicitly instead of toggling'),
@@ -2470,7 +2470,7 @@ defineTool({
   category: 'project',
   description:
     'Remove markers in bulk. With `kind` it removes only that kind and leaves the others exactly ' +
-    'where they are — clearing the beat grid without losing the chapter marks is the point of ' +
+    'where they are, clearing the beat grid without losing the chapter marks is the point of ' +
     'the argument. Without `kind` it removes them all. Reports how many went; a timeline with ' +
     'none to remove comes back with changed: false rather than a bare success.',
   schema: z.object({
@@ -2521,7 +2521,7 @@ defineTool({
    ─────────────────────────────────────────────────────────────────── */
 
 const IN_OUT_NOTE =
-  'Preview range only — render_export ignores in/out points and always writes the whole ' +
+  'Preview range only, render_export ignores in/out points and always writes the whole ' +
   'sequence. Use render_export durationMs, or trim the clips, to shorten a render.';
 
 function inOutReport(extra: Record<string, unknown> = {}) {
@@ -2541,7 +2541,7 @@ defineTool({
   name: 'set_in_point',
   category: 'project',
   description:
-    'Set the in point — where looped playback starts, and where a ranged render begins. ' +
+    'Set the in point, where looped playback starts, and where a ranged render begins. ' +
     'Pass useInOut to render_export to write only this range; picture AND sound follow it. ' +
     'Refuses an in point at or after the out point, which used to be accepted and ' +
     'left the transport seeking to a start it was already past.',
@@ -2562,7 +2562,7 @@ defineTool({
   name: 'set_out_point',
   category: 'project',
   description:
-    'Set the out point — where looped playback stops, and where a ranged render ends. ' +
+    'Set the out point, where looped playback stops, and where a ranged render ends. ' +
     'Pass useInOut to render_export to write only this range. Refuses an out point at or ' +
     'before the in point, which would make the range empty.',
   schema: z.object({
@@ -2776,7 +2776,7 @@ defineTool({
   category: 'ai',
   description:
     'Transcribe the timeline audio with on-device Whisper and lay the result out as a ' +
-    'synced caption track. Requires ffmpeg and openai-whisper installed locally — call ' +
+    'synced caption track. Requires ffmpeg and openai-whisper installed locally. Call ' +
     'check_transcription_ready first if you want to know before trying. Never returns ' +
     'invented text: if transcription is unavailable it fails and says why.',
   schema: z.object({
@@ -2790,7 +2790,7 @@ defineTool({
     const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
     if (!api?.stt) {
       throw new Error(
-        'Transcription needs the desktop app — it shells out to ffmpeg and Whisper, which a browser cannot reach.'
+        'Transcription needs the desktop app. It shells out to ffmpeg and Whisper, which a browser cannot reach.'
       );
     }
 
@@ -2979,7 +2979,7 @@ defineTool({
         ? {}
         : {
             warning:
-              'Nothing in this audio rises enough to be an onset — it reads as sustained ' +
+              'Nothing in this audio rises enough to be an onset. It reads as sustained ' +
               'material (a pad, a drone, room tone) rather than something with a beat. ' +
               'Every beat returned is the tempo prior talking, not a measurement. Cutting ' +
               'to this grid will not land on anything audible.',
@@ -2993,7 +2993,7 @@ defineTool({
   category: 'audio',
   description:
     'Measure the dead air on a track with ffmpeg and cut it out, closing the gaps. ' +
-    'The silence is detected from the audio itself, not estimated — call with dryRun ' +
+    'The silence is detected from the audio itself, not estimated. Call with dryRun ' +
     'first to see what it would cut before it cuts anything.',
   schema: z.object({
     trackId: z.string().optional(),
@@ -3008,7 +3008,7 @@ defineTool({
   handler: async ({ trackId, silenceThresholdDb, minSilenceMs, keepPaddingMs, dryRun }) => {
     const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
     if (!api?.stt) {
-      throw new Error('Removing silence needs the desktop app — it measures the audio with ffmpeg.');
+      throw new Error('Removing silence needs the desktop app. It measures the audio with ffmpeg.');
     }
 
     const state = timeline();
@@ -3102,7 +3102,7 @@ defineTool({
   description:
     'Match the caption text against the names and transcripts of the media already in the ' +
     'project, and propose cutaways where a line and an asset agree. Only ever suggests media ' +
-    'the project actually contains — Kerf has no stock library — and says which word matched ' +
+    'the project actually contains. Kerf has no stock library, and says which word matched ' +
     'what, so the basis is checkable. Returns nothing rather than guessing.',
   schema: z.object({ insert: z.boolean().optional().describe('Also place the suggestions on the overlay track') }),
   handler: ({ insert }) => {
@@ -3159,7 +3159,7 @@ defineTool({
   category: 'project',
   description:
     'Turn the GPU stage on or off, and report what it is doing. Off renders every shader ' +
-    'effect and every GPU transition through the 2D fallback instead — the same path a ' +
+    'effect and every GPU transition through the 2D fallback instead. The same path a ' +
     'machine with no WebGL takes. Use it to see exactly what such a machine sees, and to ' +
     'prove the fallback still produces a frame rather than a crash. Called with no argument ' +
     'it only reports.',
@@ -3338,7 +3338,7 @@ async function importMediaFromPath(
     durationMs: probed.durationMs,
     width: probed.width,
     height: probed.height,
-    fileSizeFormatted: '—',
+    fileSizeFormatted: '-',
   };
 
   timeline().addMediaAsset(asset);
@@ -3364,7 +3364,7 @@ defineTool({
     'Pre-render a media file through ffmpeg and import the result as a new asset. This is how ' +
     'Kerf does the things the real-time compositor cannot: stabilise shaky footage, interpolate ' +
     'to a higher frame rate, denoise, reverse, apply a .cube LUT. It writes a new file and leaves ' +
-    'the original untouched, so it is safe to try. Slower than real time on long clips — say so ' +
+    'the original untouched, so it is safe to try. Slower than real time on long clips. Say so ' +
     'before starting one. Operations: ' + FFMPEG_OPERATIONS.join(', ') + '. `custom` takes a raw ' +
     'ffmpeg filtergraph in `filtergraph`, which is the escape hatch for anything not listed.',
   schema: z.object({
@@ -3463,7 +3463,7 @@ defineTool({
         break;
       }
       case 'lut': {
-        if (!lutPath) throw new Error('operation "lut" needs `lutPath` — an absolute path to a .cube file.');
+        if (!lutPath) throw new Error('operation "lut" needs `lutPath`, an absolute path to a .cube file.');
         /* `lut` used to be a free-form string on ClipFilters with no
            vocabulary, no UI and no renderer, and was removed for it.
            This is the version that actually applies one. */
@@ -3513,7 +3513,7 @@ defineTool({
   category: 'project',
   description:
     'Write the current project to an absolute path as a .kerf file. The counterpart to ' +
-    'open_project, which existed alone — an agent could open a project and never save one. ' +
+    'open_project, which existed alone. An agent could open a project and never save one. ' +
     'Saves the EDL and the media pool, not the media itself: the file references media by ' +
     'path, so moving the footage breaks the link and open_project will say which.',
   schema: z.object({
@@ -3590,7 +3590,7 @@ defineTool({
   name: 'reset_project',
   category: 'project',
   description:
-    'Clear the timeline back to an empty project — every track, clip and marker — and ' +
+    'Clear the timeline back to an empty project: every track, clip and marker. And ' +
     'optionally set the canvas in the same call. Use before building a sequence from scratch, ' +
     'so an agent starts from a known state rather than on top of whatever was already open. ' +
     'This is destructive and is NOT undoable past the commit it makes; ask first unless the ' +
@@ -3649,7 +3649,7 @@ defineTool({
   name: 'open_starter_project',
   category: 'project',
   description:
-    "Build Kerf's bundled starter project — the brand film — into the timeline, replacing " +
+    "Build Kerf's bundled starter project, the brand film, into the timeline, replacing " +
     'whatever is open. It is constructed in code from ordinary shapes, text and keyframes, so ' +
     'it is also a worked example to read and edit. Destructive to the current project.',
   schema: z.object({}),
@@ -3684,7 +3684,7 @@ defineTool({
   description:
     'Apply a named colour grade across many clips in one call. Presets: '
     + LOOK_PRESETS.map((p) => `${p.id} (${p.description})`).join(' · ')
-    + '. Every value is a filters.* path the compositor is proven to render — nothing here is '
+    + '. Every value is a filters.* path the compositor is proven to render. Nothing here is '
     + 'stored-but-inert. Returns the exact grade, which clips got it, which were skipped and why, '
     + 'and what must change in the rendered frame if it worked, so you can check it with '
     + 'get_frame_context instead of trusting this result.',
@@ -3710,7 +3710,7 @@ defineTool({
     if (!preset) {
       throw new Error(
         `Kerf has no look preset called "${a.preset}". Available: `
-        + LOOK_PRESETS.map((p) => `${p.id} — ${p.label}`).join(', ') + '.'
+        + LOOK_PRESETS.map((p) => `${p.id}, ${p.label}`).join(', ') + '.'
       );
     }
     const strength = a.strength ?? 1;
@@ -3754,7 +3754,7 @@ defineTool({
     if (result.appliedTo === 0) {
       throw new Error(
         `"${preset.id}" reached no clip. ${result.skipped.length} candidate(s) were skipped: `
-        + result.skipped.map((s) => `${s.name} — ${s.reason}`).join('; ')
+        + result.skipped.map((s) => `${s.name}, ${s.reason}`).join('; ')
       );
     }
 
@@ -3765,7 +3765,7 @@ defineTool({
       rejectedByPredicate: selection.rejected.length,
       predicates: selection.predicates,
       verifyWith:
-        'get_frame_context({ includeImage: true }) — wait for mediaPending: 0, then check the '
+        'get_frame_context({ includeImage: true }). Wait for mediaPending: 0, then check the '
         + '`expect` rows above against the picture.',
     };
   },
@@ -3775,8 +3775,8 @@ defineTool({
   name: 'batch_apply',
   category: 'properties',
   description:
-    'Apply the same property patch to every clip matching a predicate — track, type, name, time '
-    + 'range or selection — in one call. Unlike patch_clips it reports EVERY clip individually: '
+    'Apply the same property patch to every clip matching a predicate. Track, type, name, time '
+    + 'range or selection, in one call. Unlike patch_clips it reports EVERY clip individually: '
     + 'the ones it changed with before/after values, the ones it matched but did not write and why '
     + '(locked clip, locked track, no valid property for that clip type), and the ones the predicate '
     + 'excluded with the predicate that did it. Locked clips are skipped by default; patch_clip '
@@ -3795,7 +3795,7 @@ defineTool({
     relative: z.boolean().optional().describe('Treat numbers as deltas on each clip\'s current value'),
     dryRun: z.boolean().optional().describe('Report what WOULD change without writing anything'),
     includeLocked: z.boolean().optional().describe('Write through locks. Default false.'),
-    includeHidden: z.boolean().optional().describe('Default true — hidden clips are still edited.'),
+    includeHidden: z.boolean().optional().describe('Default true, hidden clips are still edited.'),
     limit: z.number().int().min(1).optional().describe('Stop after this many clips; the rest are reported as skipped'),
   }),
   handler: (a) => {
@@ -3841,11 +3841,11 @@ defineTool({
   name: 'create_picture_in_picture',
   category: 'graphics',
   description:
-    'Place one clip as an inset over another — corner or explicit position, size as a fraction of '
+    'Place one clip as an inset over another. Corner or explicit position, size as a fraction of '
     + 'the frame, optional border, corner radius and drop shadow. The inset is scaled UNIFORMLY from '
     + 'its own source aspect ratio, so a portrait source in a landscape sequence is letterboxed by '
     + 'size rather than squashed to fit. Returns the measured box in project pixels and as a '
-    + 'percentage of the frame, plus where the aspect ratio came from — if the media has not decoded '
+    + 'percentage of the frame, plus where the aspect ratio came from. If the media has not decoded '
     + 'yet that is said out loud rather than guessed.',
   schema: z.object({
     insetClipId: z.string().optional().describe('An existing clip to turn into the inset'),
@@ -3859,7 +3859,7 @@ defineTool({
     marginPct: z.number().min(0).max(45).optional()
       .describe('Gap from the frame edge as % of the frame\'s short edge. Default 4.'),
     maxHeightPct: z.number().min(5).max(100).optional()
-      .describe('Ceiling on inset height as % of frame height. Default 80 — a tall source honours this over sizePct.'),
+      .describe('Ceiling on inset height as % of frame height. Default 80, a tall source honours this over sizePct.'),
     startTimeMs: z.number().optional().describe('Defaults to the background clip\'s start, else the playhead'),
     durationMs: z.number().optional().describe('Defaults to the background clip\'s duration'),
     cornerRadiusPx: z.number().min(0).optional().describe('Rounded corners, in project pixels'),
@@ -3873,7 +3873,7 @@ defineTool({
       offsetX: z.number().optional(),
       offsetY: z.number().optional(),
       color: z.string().optional(),
-    }).optional().describe('Cannot be combined with cornerRadiusPx — the mask clips the shadow away'),
+    }).optional().describe('Cannot be combined with cornerRadiusPx. The mask clips the shadow away'),
     muteInsetAudio: z.boolean().optional().describe('Default true; two beds at once is almost never wanted'),
     name: z.string().optional(),
   }),
@@ -4097,7 +4097,7 @@ defineTool({
   category: 'project',
   description:
     'Undo recent edits. Reports how many steps ACTUALLY moved, which is not always the number '
-    + 'you asked for — the stack simply runs out. `undone: 0` means nothing changed.',
+    + 'you asked for, the stack simply runs out. `undone: 0` means nothing changed.',
   schema: z.object({ steps: z.number().optional().describe('Default 1, capped at 20') }),
   handler: ({ steps }) => {
     /* This used to answer `{undone: n}` with n straight from the request,
@@ -4155,7 +4155,7 @@ defineTool({
     hardware: z
       .boolean()
       .optional()
-      .describe('Use Apple VideoToolbox where the codec supports it — much faster, slightly larger'),
+      .describe('Use Apple VideoToolbox where the codec supports it. Much faster, slightly larger'),
   }),
   handler: async ({ resolution, fps, codec, outputPath, hardware, durationMs, startMs, useInOut }) => {
     const proj = project();
@@ -4245,7 +4245,7 @@ defineTool({
         ...(result.timing ? { timing: result.timing } : {}),
         ...(warnings.length ? { warnings } : {}),
         ...(warnings.length
-          ? { tellTheUser: 'This render is not exactly what was asked for — repeat the warnings above to the user.' }
+          ? { tellTheUser: 'This render is not exactly what was asked for. Repeat the warnings above to the user.' }
           : {}),
       };
     } finally {
@@ -4295,7 +4295,7 @@ export async function executeTool(
   const parsed = tool.schema.safeParse(args ?? {});
   if (!parsed.success) {
     const error = `Invalid arguments for ${name}: ${parsed.error.issues
-      .map((i) => `${i.path.join('.') || '(root)'} — ${i.message}`)
+      .map((i) => `${i.path.join('.') || '(root)'}, ${i.message}`)
       .join('; ')}`;
     useMcpStore.getState().logToolExecution({
       toolName: name, parameters: args, result: { error }, status: 'error', durationMs: 0, agentName,
@@ -4435,7 +4435,7 @@ function probeMedia(url: string, type: ClipType): Promise<{
       img.onerror = () =>
         resolve({
           durationMs: 5000, thumbnailUrl: '', decoded: false,
-          reason: 'the image decoder refused it — wrong extension, or the file is corrupt',
+          reason: 'the image decoder refused it. Wrong extension, or the file is corrupt',
         });
       img.src = url;
       return;
@@ -4477,7 +4477,7 @@ function probeMedia(url: string, type: ClipType): Promise<{
     };
 
     el.onloadedmetadata = () => done(true);
-    el.onerror = () => done(false, 'the media decoder refused it — unsupported codec, or the file is corrupt');
+    el.onerror = () => done(false, 'the media decoder refused it. Unsupported codec, or the file is corrupt');
     // Never hang the tool call on a codec the browser cannot open.
     setTimeout(
       () => done(Number.isFinite(el.duration), 'timed out after 4s without metadata'),
@@ -4543,7 +4543,7 @@ defineTool({
   category: 'timeline',
   description:
     'Lay a montage whose cuts land on the beats of a music track. Detects the tempo and the ' +
-    'beat grid from the audio itself, then places each shot from one beat to another — this ' +
+    'beat grid from the audio itself, then places each shot from one beat to another. This ' +
     'BUILDS the edit, where detect_beats({snapCuts:true}) only nudges cuts that already exist. ' +
     'Takes media-pool assets, or re-lays the clips already on the target track. Every choice it ' +
     'is forced to make comes back in the result: which beats it cut on and how many of those ' +
@@ -4587,8 +4587,8 @@ defineTool({
   category: 'media',
   description:
     'Import a folder of media and build a sequence from it, in one call. Reports what it did ' +
-    'with EVERY file it found: the order it chose and why, the files it could not decode — by ' +
-    'name, with the reason, and they are not imported — the ones that were not media at all, ' +
+    'with EVERY file it found: the order it chose and why, the files it could not decode. By ' +
+    'name, with the reason, and they are not imported. The ones that were not media at all, ' +
     'and how each clip got its duration. The counts are checked against the number of files ' +
     'seen, so a folder of twelve cannot silently become a nine-clip sequence. Stills and video ' +
     'go on one track together; audio goes to an audio track. Follow it with ' +
@@ -4619,7 +4619,7 @@ defineTool({
   category: 'discovery',
   description:
     'List the font families this machine can actually render, measured rather than assumed. ' +
-    'Call before setting textStyle.fontFamily — it is a free-form string, so an unavailable ' +
+    'Call before setting textStyle.fontFamily. It is a free-form string, so an unavailable ' +
     'name is accepted, silently falls back to the default, and the text renders in the wrong face.',
   schema: z.object({
     filter: z.string().optional().describe('Only families containing this text'),
@@ -4645,7 +4645,7 @@ defineTool({
       source: complete ? 'enumerated' : 'probed',
       ...(complete ? {} : {
         note:
-          'This is a probed fallback, not the full system list — the machine almost ' +
+          'This is a probed fallback, not the full system list. The machine almost ' +
           'certainly has more. A family missing here may still exist; check it with a ' +
           'later call once the window has been shown.',
       }),
@@ -4657,7 +4657,7 @@ defineTool({
   name: 'generate_sound_effect',
   category: 'audio',
   description:
-    'Synthesise a sound effect and add it to the media pool as a real WAV file — whoosh, ' +
+    'Synthesise a sound effect and add it to the media pool as a real WAV file. Whoosh, ' +
     'impact, boom, riser, sub drop, click, pop, beep, glitch and more. They are GENERATED, ' +
     'not recordings, so they are always available, need no download, and carry no licensing ' +
     'question. Duration is a parameter, so the same kind at 0.3s and 1.5s are different sounds. ' +
@@ -4673,7 +4673,7 @@ defineTool({
     return asOneEditAsync('Generate sound effect', async () => {
       const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
       if (!api?.media) {
-        throw new Error('Generating audio needs the desktop app — the file has to reach the disk.');
+        throw new Error('Generating audio needs the desktop app. The file has to reach the disk.');
       }
 
       const wanted = oneOf(kind, SFX_CATALOGUE.map((s) => s.kind), 'sound effect');
@@ -4725,7 +4725,7 @@ defineTool({
   category: 'discovery',
   description:
     'The sound effects Kerf can synthesise, with what each is for. Kerf ships no ' +
-    'recorded audio library — these are generated on demand. For recorded music or SFX, ' +
+    'recorded audio library, these are generated on demand. For recorded music or SFX, ' +
     'find a file on disk and use import_media_from_path.',
   schema: z.object({}),
   handler: () => ({
@@ -4745,7 +4745,7 @@ defineTool({
   category: 'media',
   description:
     'Remove an asset from the media pool. Refuses while any clip still uses it, and names ' +
-    'those clips — an asset that vanishes from under a clip leaves the clip rendering the ' +
+    'those clips, an asset that vanishes from under a clip leaves the clip rendering the ' +
     'placeholder gradient forever. Use to prune a project down to the media it actually ' +
     'needs, which is what a template project has to be.',
   schema: z.object({
@@ -4807,7 +4807,7 @@ defineTool({
   description:
     'Record that the user asked for something Kerf cannot do. Call this WHENEVER you ' +
     'have to tell the user no, or had to substitute something different from what they ' +
-    'asked for — including when you found a workaround. This is how missing features ' +
+    'asked for, including when you found a workaround. This is how missing features ' +
     'reach the developer; a refusal you only speak aloud is lost the moment the panel ' +
     'scrolls. Then still tell the user plainly what you could not do and what you suggest.',
   schema: z.object({
@@ -4833,7 +4833,7 @@ defineTool({
   description:
     'Mark a logged capability gap as resolved, once the thing it describes actually works. ' +
     'Gaps could be recorded and never closed, so the log accumulated entries for things that had ' +
-    'since been built — and the next person to read it cannot tell those apart from the real ' +
+    'since been built, and the next person to read it cannot tell those apart from the real ' +
     'backlog. Only close one you have verified.',
   schema: z.object({
     gapId: z.string().optional().describe('Gap id from list_capability_gaps'),
@@ -5059,7 +5059,7 @@ defineTool({
   description:
     'Measure a clip\'s audio: loudness (LUFS), true peak, noise floor, dynamic range, ' +
     'clipping, and every silent region with timestamps. Fast (a second or two), needs no ' +
-    'model. Call this BEFORE promising anything about audio — it answers "is it too quiet", ' +
+    'model. Call this BEFORE promising anything about audio. It answers "is it too quiet", ' +
     '"is it clipping", "where are the dead patches", which transcription cannot.',
   schema: z.object({
     clipId: z.string().optional().describe('Defaults to the first clip with audio'),
@@ -5112,8 +5112,8 @@ defineTool({
     'Say which per-clip audio settings PLAYBACK reproduces and which it cannot, so the preview ' +
     'is never quietly different from the render. pitch, voice effects, noise reduction, ' +
     'ducking and REVERSAL are all applied by render_export; playback runs a WebAudio graph ' +
-    'and cannot do all of them — reversal in particular, because a media element cannot run ' +
-    'at a negative rate. Call before telling a user their edit sounds right — what you hear in the ' +
+    'and cannot do all of them, reversal in particular, because a media element cannot run ' +
+    'at a negative rate. Call before telling a user their edit sounds right. What you hear in the ' +
     'app is not automatically what the file will contain. Returns a MEASURED fingerprint of ' +
     'the preview chain (band gains and echo taps, rendered offline) rather than a claim.',
   schema: z.object({
@@ -5170,7 +5170,7 @@ defineTool({
       */
       if (clip.speed?.reversed) {
         notPreviewed.push(
-          'reversed — the export plays this clip\'s sound backwards; playback cannot, ' +
+          'reversed, the export plays this clip\'s sound backwards; playback cannot, ' +
           'because a media element cannot run at a negative rate. Render to hear it.'
         );
       }
@@ -5181,9 +5181,9 @@ defineTool({
       if (a.ducking && !duckingActive) {
         notPreviewed.push(
           duckedCount === audible.length
-            ? 'ducking — every audible clip is set to duck, so there is nothing to duck ' +
+            ? 'ducking, every audible clip is set to duck, so there is nothing to duck ' +
               'against. The export does the same thing: a plain mix'
-            : 'ducking — no other audible clip to key it from'
+            : 'ducking, no other audible clip to key it from'
         );
       }
 
@@ -5221,12 +5221,12 @@ defineTool({
          not belong in previewCannotApply, but "matches" would be too
          strong a word for either of them. */
       approximations: [
-        'pitch, deep and high — the render resamples and time-stretches (asetrate + atempo); ' +
+        'pitch, deep and high, the render resamples and time-stretches (asetrate + atempo); ' +
         'the preview runs a granular shifter in an AudioWorklet. The fundamental lands within ' +
         '~0.5% either way and the duration is unchanged, but they are not the same samples',
-        'robot — the render uses ffmpeg vibrato; the preview sweeps a delay line. Same rate ' +
+        'robot, the render uses ffmpeg vibrato; the preview sweeps a delay line. Same rate ' +
         'and depth, not the same samples',
-        'ducking — the render sidechains per sample; the preview measures the key bus once ' +
+        'ducking, the render sidechains per sample; the preview measures the key bus once ' +
         'per frame. Same threshold and ratio, coarser envelope',
       ],
     };
@@ -5245,7 +5245,7 @@ defineTool({
     'those cuts sit against the music\'s beat grid and at what subdivision, the grade (luminance, ' +
     'contrast, saturation, black point, colour temperature, dominant hues), how much the frame ' +
     'moves in each shot, any burnt-in overlay regions, and the format. Every figure is measured ' +
-    'off extracted frames — the cut list comes from comparing pixels, not from container ' +
+    'off extracted frames, the cut list comes from comparing pixels, not from container ' +
     'metadata, and the beat grid comes from the same detector detect_beats uses. Use this before ' +
     'trying to match a reference: it replaces a dozen improvised ffmpeg calls with one ' +
     'deterministic answer. It reads no text: overlay regions are reported as regions that hold ' +
@@ -5267,7 +5267,7 @@ defineTool({
   handler: async ({ source, cutSensitivity, analysisFps, maxFrames, includeGrade, includeMotion, includeOverlays, includeCadence }) => {
     const api = (window as any).electronAPI;
     if (!api?.ffmpeg?.process) {
-      throw new Error('Analysing a reference needs the desktop app — it extracts frames with ffmpeg.');
+      throw new Error('Analysing a reference needs the desktop app. It extracts frames with ffmpeg.');
     }
 
     /* Same resolution order as ffmpeg_process, so "the clip I am looking
@@ -5314,7 +5314,7 @@ defineTool({
   description:
     'Install what transcription needs (ffmpeg via Homebrew, openai-whisper via pip, and one ' +
     'Whisper model). Only call this after check_transcription_ready says something is missing, ' +
-    'and tell the user first — it installs software and can take several minutes.',
+    'and tell the user first, it installs software and can take several minutes.',
   schema: z.object({
     model: z.string().optional().describe('Whisper model to fetch; default "small" (~500MB)'),
   }),

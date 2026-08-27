@@ -20,6 +20,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { createClip, type Clip, type Track, type ProjectSettings, type TransitionType } from '../types/edl';
+import type { ClipFilters } from '../types/edl';
 import { captureFrame } from './frameCapture';
 import { getEffectDefinition } from './effectsRegistry';
 
@@ -192,4 +193,65 @@ export function effectPreview(type: string): Promise<string[]> {
 /** The scene with nothing applied, for a side-by-side "before". */
 export function neutralPreview(): Promise<string[]> {
   return render('neutral', scene('a', 0), 60, 1060);
+}
+
+/* ═══ Colour looks ══════════════════════════════════════════════════
+   A grade needs something to grade.
+
+   The looks panel used a hand-authored CSS gradient per look as a
+   "swatch": three colours somebody guessed would suggest the result.
+   That is the same problem the emoji were — an illustration standing in
+   for the thing — and it is worse here, because the guess and the
+   actual filter values can drift apart silently for ever.
+
+   Grading the two-tone scene above would show almost nothing: a
+   temperature shift needs both warm and cool in frame, and lifted
+   blacks need a black to lift. So this scene carries a full range:
+   a sky, a mid, a warm subject, a near-black foreground and a specular
+   highlight.
+   ═══════════════════════════════════════════════════════════════════ */
+
+function gradeScene(filters: Partial<ClipFilters>): Clip[] {
+  const base = { startTimeMs: 0, durationMs: CLIP_MS, sourceStartMs: 0, sourceDurationMs: CLIP_MS };
+  const f = { filters } as { filters: Partial<ClipFilters> };
+
+  const bar = (
+    id: string, trackId: string, fill: string,
+    t: { scaleX: number; scaleY: number; x?: number; y?: number }
+  ) =>
+    createClip({
+      id, trackId, type: 'shape', name: id, ...base, ...f,
+      shapeStyle: { kind: 'rectangle', fill, strokeWidth: 0 },
+      transform: t,
+    });
+
+  return [
+    // Sky, so a temperature shift has something cool to act on.
+    bar('g_sky', 'pv_base', '#4d84c4', { scaleX: 3, scaleY: 3 }),
+    // Mid ground.
+    bar('g_mid', 'pv_mid', '#7a8a6a', { scaleX: 2.4, scaleY: 0.9, y: 34 }),
+    // A warm subject, so skin does not go green under a heavy grade.
+    createClip({
+      id: 'g_subject', trackId: 'pv_mid2', type: 'shape', name: 'subject', ...base, ...f,
+      shapeStyle: { kind: 'ellipse', fill: '#d79a6a', strokeWidth: 0 },
+      transform: { scaleX: 0.62, scaleY: 0.78, x: -54, y: 10 },
+    }),
+    // Near-black, so lifted blacks and vignette are visible, and a
+    // specular, so highlight rolloff and bleach are visible.
+    createClip({
+      id: 'g_dark', trackId: 'pv_top', type: 'shape', name: 'dark', ...base, ...f,
+      shapeStyle: { kind: 'rectangle', fill: '#0c0f14', strokeWidth: 0 },
+      transform: { scaleX: 0.9, scaleY: 0.5, x: 96, y: 44 },
+    }),
+  ];
+}
+
+/**
+ * Frames of a colour look applied to a full-range scene.
+ *
+ * Several frames rather than one, because `grain` moves and a still of
+ * a grainy look is indistinguishable from a clean one.
+ */
+export function lookPreview(id: string, filters: Partial<ClipFilters>): Promise<string[]> {
+  return render(`l:${id}`, gradeScene(filters), 60, 700);
 }

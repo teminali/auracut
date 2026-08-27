@@ -91,7 +91,7 @@ export function hasModelEndpoint(): boolean {
 /* ── The system prompt the planner works from ───────────────────── */
 
 function buildSystemPrompt(): string {
-  const toolList = KERF_TOOLS.map((t) => `- ${t.name}(${describeArgs(t.name)}) — ${t.description}`).join('\n');
+  const toolList = KERF_TOOLS.map((t) => `- ${t.name}(${describeArgs(t.name)}), ${t.description}`).join('\n');
   const effectList = EFFECT_REGISTRY.map((e) => `${e.type} (${e.category})`).join(', ');
 
   return [
@@ -101,7 +101,7 @@ function buildSystemPrompt(): string {
     'Respond with ONLY a JSON object of the form:',
     '{"steps":[{"tool":"tool_name","args":{...},"why":"short reason"}],"summary":"what you did"}',
     '',
-    'CONTEXT PROTOCOL — read this before planning:',
+    'CONTEXT PROTOCOL, read this before planning:',
     '- The EDITOR CONTEXT block below is authoritative. It gives the exact timecode,',
     '  frame number, and every visible layer with its bounds in project pixels.',
     '- PRIMARY TARGET is the layer the user means. Steps that omit clipId act on it.',
@@ -708,7 +708,7 @@ const CHAT_SYSTEM_PROMPT = [
   'You can both discuss the edit AND change it. This particular turn is a',
   'conversation, not an edit: answer in prose, do not emit JSON or tool calls.',
   'If the user is asking you to change something, say briefly what you would',
-  'do and invite them to confirm — the edit runs on the next turn.',
+  'do and invite them to confirm. The edit runs on the next turn.',
   '',
   'Be concise and concrete. You can see their timeline, so refer to their',
   'actual clips, tracks and timecodes by name rather than speaking in general',
@@ -870,7 +870,7 @@ function localConversationReply(prompt: string): string {
   const selected = findClipById(state.tracks, state.selectedClipIds[0]);
 
   const projectLine =
-    `You have **${project.name}** open — ${state.tracks.length} track${state.tracks.length === 1 ? '' : 's'}, ` +
+    `You have **${project.name}** open, ${state.tracks.length} track${state.tracks.length === 1 ? '' : 's'}, ` +
     `${clipCount} clip${clipCount === 1 ? '' : 's'}, ${formatTimecode(project.durationMs, project.fps)} at ` +
     `${project.width}×${project.height} ${project.fps}fps.`;
 
@@ -880,7 +880,7 @@ function localConversationReply(prompt: string): string {
       '',
       selected ? `You have "${selected.name}" selected.` : 'Nothing is selected right now.',
       '',
-      'Ask me about the edit, or tell me what to change — "make this shot warmer", "cut the silence", "add captions". Try one of the chips above if you want a starting point.',
+      'Ask me about the edit, or tell me what to change, "make this shot warmer", "cut the silence", "add captions". Try one of the chips above if you want a starting point.',
     ].join('\n');
   }
 
@@ -888,30 +888,30 @@ function localConversationReply(prompt: string): string {
     return [
       'I can read your timeline and change it. Concretely:',
       '',
-      '• **Grade and colour** — "warmer", "more contrast", "cinematic teal-orange"',
-      '• **Effects** — glow, grain, blur, vignette, shake, light leaks',
-      '• **Cutting** — split at the playhead, trim, close gaps, remove silence',
-      '• **Motion** — keyframed moves, Ken Burns, fades',
-      '• **Audio** — levels, ducking, beat detection',
-      '• **Captions** — transcribe and style',
-      '• **Text and shapes** — titles, lower thirds, highlights',
+      '• **Grade and colour**, "warmer", "more contrast", "cinematic teal-orange"',
+      '• **Effects**, glow, grain, blur, vignette, shake, light leaks',
+      '• **Cutting**, split at the playhead, trim, close gaps, remove silence',
+      '• **Motion**, keyframed moves, Ken Burns, fades',
+      '• **Audio**, levels, ducking, beat detection',
+      '• **Captions**, transcribe and style',
+      '• **Text and shapes**, titles, lower thirds, highlights',
       '',
       projectLine,
       '',
-      'For anything visual, attach the frame you are looking at — then I act on what you actually see rather than guessing.',
+      'For anything visual, attach the frame you are looking at. Then I act on what you actually see rather than guessing.',
     ].join('\n');
   }
 
   if (/(what.*(timeline|project|have i|is on|loaded)|status|summar)/.test(p)) {
     const lines = state.tracks
       .filter((t) => t.clips.length > 0)
-      .map((t) => `• **${t.name}** (${t.type}) — ${t.clips.length} clip${t.clips.length === 1 ? '' : 's'}`);
+      .map((t) => `• **${t.name}** (${t.type}), ${t.clips.length} clip${t.clips.length === 1 ? '' : 's'}`);
     return [projectLine, '', ...(lines.length ? lines : ['No clips on any track yet.'])].join('\n');
   }
 
   // Anything else: be honest that this is the offline planner, and useful anyway.
   return [
-    'No model endpoint is linked, so I am answering from the built-in planner — I can still run edits, but I cannot hold an open-ended conversation.',
+    'No model endpoint is linked, so I am answering from the built-in planner. I can still run edits, but I cannot hold an open-ended conversation.',
     '',
     projectLine,
     '',
@@ -1015,7 +1015,7 @@ class AgentBridgeService {
           plannerLabel = modelEndpoint.model;
         } catch (err) {
           if (signal.aborted) throw err;
-          this.addThought('error', `Model planner unavailable (${(err as Error).message}) — using the built-in planner.`);
+          this.addThought('error', `Model planner unavailable (${(err as Error).message}). Using the built-in planner.`);
         }
       }
 
@@ -1058,7 +1058,7 @@ class AgentBridgeService {
             reply = await chatWithModel(prompt, signal, context, chatHistory);
           } catch (err) {
             if (signal.aborted) throw err;
-            this.addThought('error', `Chat unavailable (${(err as Error).message}) — answering locally.`);
+            this.addThought('error', `Chat unavailable (${(err as Error).message}). Answering locally.`);
             reply = localConversationReply(prompt);
           }
         } else {
@@ -1140,7 +1140,7 @@ class AgentBridgeService {
         this.activeRun.status = aborted ? 'cancelled' : 'error';
         this.activeRun.currentActivity = aborted ? 'Cancelled' : 'Failed';
         this.activeRun.finalResponse = aborted
-          ? 'Run cancelled. Nothing further was changed — use ⌘Z to undo anything already applied.'
+          ? 'Run cancelled. Nothing further was changed. Use ⌘Z to undo anything already applied.'
           : `Could not finish: ${(err as Error).message}`;
         this.notify();
       }
@@ -1175,7 +1175,7 @@ class AgentBridgeService {
     }
 
     if (succeeded.length > 0) {
-      lines.push('', 'Everything is on the timeline now — ⌘Z undoes the whole run.');
+      lines.push('', 'Everything is on the timeline now, ⌘Z undoes the whole run.');
     }
 
     return lines.join('\n');
@@ -1198,13 +1198,13 @@ class AgentBridgeService {
       `I could not map "${prompt}" onto an edit I know how to make.`,
       '',
       'Things I can do right now:',
-      '• Colour — "make it cinematic", "boost the saturation", "cool the temperature"',
-      '• VFX — "add glow", "add film grain", "snow particles", "camera shake", "VHS look"',
-      '• Motion — "fade in", "ken burns", "pop in", "animate a zoom", "enable motion blur"',
-      '• Structure — "cut the silence", "split here", "reverse this clip", "2x speed"',
-      '• Graphics — \'add text "SALE ENDS FRIDAY"\', "add a red circle"',
-      '• Audio — "detect beats and snap the cuts", "generate captions"',
-      '• Delivery — "make it vertical for TikTok", "export in 4K"',
+      '• Colour, "make it cinematic", "boost the saturation", "cool the temperature"',
+      '• VFX, "add glow", "add film grain", "snow particles", "camera shake", "VHS look"',
+      '• Motion, "fade in", "ken burns", "pop in", "animate a zoom", "enable motion blur"',
+      '• Structure, "cut the silence", "split here", "reverse this clip", "2x speed"',
+      '• Graphics, \'add text "SALE ENDS FRIDAY"\', "add a red circle"',
+      '• Audio, "detect beats and snap the cuts", "generate captions"',
+      '• Delivery, "make it vertical for TikTok", "export in 4K"',
       '',
       selected
         ? `Selected layer: "${selected.name}" (${selected.type}). Ask me to change any property of it.`

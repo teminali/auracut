@@ -72,7 +72,7 @@ export const EffectStackInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         <EmptyState
           icon={Sparkle}
           title="No effects on this layer"
-          detail="The VFX library has glow, grain, particles, light leaks, glitch, shake and more — all keyframable."
+          detail="The VFX library has glow, grain, particles, light leaks, glitch, shake and more. All keyframable."
           action={
             <button onClick={() => setBrowserOpen(true)} className="btn-primary h-7 px-3 gap-1.5 text-[11px] mt-1">
               <Plus className="w-3 h-3" /> Browse effects

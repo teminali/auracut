@@ -160,7 +160,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
                   ? annotations
                       .map((a, i) => `${i + 1}. ${a.targets[0]?.clipName ?? a.kind}`)
                       .join(' · ')
-                  : 'No marks — click the thumbnail to draw'}
+                  : 'No marks, click the thumbnail to draw'}
               </p>
             </div>
 

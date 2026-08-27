@@ -709,7 +709,32 @@ and how it was found is the part worth keeping.
   curve. Both fixed, measured at the MIDPOINT — the only place a curve
   is visible.
 
-**An intermittent nobody has explained yet:**
+**An intermittent nobody has explained yet, and it now has TWO data
+points, in two different suites:**
+
+- **`verify_clip_ops`**, in a full run:
+  `reverse: No clip matching "clip_mtbnrrt41h81qr"` — a clip id created
+  earlier in the same suite, gone by the time a later row used it. It
+  did NOT reproduce: the suite alone is 69/69 against a live instance,
+  and the very next full run was 16/16 · 534/534.
+
+  Same SHAPE as the `verify_keyframes` failure below: an id minted
+  during the suite is absent later, which means something reset the
+  project underneath it. Different suite, different id type (clip, not
+  track), and neither has ever repeated. That is now two, which is what
+  the note below asked for.
+
+  I cannot rule out that the session's UI work made it likelier, and say
+  so rather than claiming otherwise. What argues against it: the first
+  occurrence predates all of it, nothing added this session writes to
+  the timeline stores (the preview renderer and the poster capture both
+  take tracks as ARGUMENTS and render to their own canvas precisely so
+  they cannot), and the re-run was clean with the same build.
+
+  Next time this happens, log `describe_timeline` immediately before the
+  failing call. Both reports so far say only that the id is gone; what
+  is needed is whether the whole project is empty or only that one id.
+
 
 - `verify_keyframes` failed ONCE in a full run with
   `filters.highlights: ins: No track matching "track_mtbgd4qb1c3ms"` —

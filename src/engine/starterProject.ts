@@ -56,7 +56,7 @@ import { Easing, MediaAsset } from '../types/edl';
 const bedUrl = new URL('../assets/kerf_film_bed.wav', import.meta.url).href;
 
 export const STARTER_ID = 'starter:kerf-brand-film';
-export const STARTER_NAME = 'Kerf — Brand Film';
+export const STARTER_NAME = 'Kerf, Brand Film';
 export const STARTER_DURATION_MS = 11500;
 
 /* ── The beat grid ──────────────────────────────────────────────────
@@ -79,7 +79,7 @@ const BEATS_MS = [
   7500, 7988, 8499, 9009, 9497, 9985, 10495, 11030,
 ];
 const CUTS = BEATS_MS.slice(7, 20);       // the thirteen montage cuts
-const BUILD_END = CUTS[0];                // 3994 — the first cut
+const BUILD_END = CUTS[0];                // 3994. The first cut
 
 /* ── Palette ──────────────────────────────────────────────────────── */
 const INK = '#0a0d12';

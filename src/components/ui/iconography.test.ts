@@ -1,5 +1,6 @@
 /*
- * The iconography rules, as checks rather than as a note somebody reads.
+ * The house rules for what ships in the interface, as checks rather than
+ * as notes somebody reads.
  *
  * Both of these were true once, drifted, and were fixed by hand. A rule
  * that has already been broken once will be broken again unless
@@ -46,5 +47,35 @@ describe('iconography', () => {
         /from '(lucide-react|@phosphor-icons\/react)'/.test(readFileSync(f, 'utf8'))
     );
     expect(direct).toEqual([]);
+  });
+});
+
+/* ── Copy ────────────────────────────────────────────────────────── */
+
+/**
+ * Comments are allowed to contain anything; strings are not.
+ *
+ * Stripping them here rather than filtering line-by-line, because a
+ * block comment's continuation lines carry no marker of their own and a
+ * naive check reports every one of them as user-facing text.
+ */
+function stripComments(t: string): string {
+  return t
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => '\n'.repeat((m.match(/\n/g) ?? []).length))
+    .replace(/^[ \t]*\/\/.*$/gm, '');
+}
+
+describe('copy', () => {
+  it('uses no em dashes in anything the user or the agent reads', () => {
+    /*
+      Swept once, 220 of them across 39 files, and it will drift back
+      the first time somebody writes a tool description in a hurry.
+      Comments are exempt; string literals and JSX text are not.
+    */
+    const offenders = FILES
+      .map((f) => [f, stripComments(readFileSync(f, 'utf8'))] as const)
+      .filter(([, code]) => code.includes('\u2014'))
+      .map(([f]) => f);
+    expect(offenders).toEqual([]);
   });
 });

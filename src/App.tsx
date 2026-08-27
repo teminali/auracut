@@ -63,7 +63,7 @@ export const App: React.FC = () => {
 
   /*
     Tell main which screen is showing, so the window's close button can
-    mean "back to home" in the editor and "quit" on home. And listen for
+    mean "back to home" in the editor and "quit" on home. Also listen for
     main's request to go home, which is what it sends instead of closing.
   */
   useEffect(() => {

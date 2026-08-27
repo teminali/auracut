@@ -87,7 +87,7 @@ export const SkillsView: React.FC = () => {
           <div>
             <p className="text-ui-lg text-spectrum-text">The store is not reachable.</p>
             <p className="text-ui-sm text-spectrum-textDim leading-snug mt-0.5">
-              Skills you already own keep working — their licences are checked on this machine,
+              Skills you already own keep working. Their licences are checked on this machine,
               not on the network.
             </p>
           </div>
@@ -106,7 +106,7 @@ export const SkillsView: React.FC = () => {
             <p className="text-ui-lg text-spectrum-text font-medium">Nothing published yet.</p>
           </div>
           <p className="text-ui-lg text-spectrum-textDim leading-relaxed mt-2">
-            The store is running and the catalogue is empty — which is the honest state of it.
+            The store is running and the catalogue is empty, which is the honest state of it.
             A skill appears here once it has a verification run that passed.
           </p>
         </div>
@@ -128,7 +128,7 @@ export const SkillsView: React.FC = () => {
                     <span
                       className="flex items-center gap-1 h-[18px] px-1.5 rounded-full
                                  bg-spectrum-green/12 text-spectrum-green text-micro font-medium flex-shrink-0"
-                      title={`Verified against a fresh project — ${skill.verifiedBuild ?? 'build not recorded'}`}
+                      title={`Verified against a fresh project, ${skill.verifiedBuild ?? 'build not recorded'}`}
                     >
                       <BadgeCheck className="w-3 h-3" /> verified
                     </span>
@@ -148,7 +148,7 @@ export const SkillsView: React.FC = () => {
                     <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
                     <span className="text-micro leading-snug">
                       {mine.licenceState === 'expired'
-                        ? 'Licence needs refreshing — connect once to renew it.'
+                        ? 'Licence needs refreshing, connect once to renew it.'
                         : 'This licence did not verify on this machine.'}
                     </span>
                   </div>
@@ -189,7 +189,7 @@ export const SkillsView: React.FC = () => {
       {owned.length > 0 && (
         <p className="text-micro text-spectrum-textFaint mt-5 leading-snug">
           {owned.length} skill{owned.length > 1 ? 's' : ''} on this account. Downloading and
-          installing the package is not wired up yet — the entitlement is real, the install is
+          installing the package is not wired up yet. The entitlement is real, the install is
           the next piece.
         </p>
       )}

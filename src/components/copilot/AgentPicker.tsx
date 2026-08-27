@@ -245,7 +245,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                       title={
                         models[backend.id].source === 'queried'
                           ? 'This list came from the CLI itself.'
-                          : 'Suggestions — any model name this CLI accepts will work.'
+                          : 'Suggestions, any model name this CLI accepts will work.'
                       }
                     >
                       {models[backend.id].source === 'queried' ? 'listed' : 'suggested'}
@@ -277,7 +277,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                       value={keyDraft[backend.id] ?? ''}
                       onChange={(e) => setKeyDraft((d) => ({ ...d, [backend.id]: e.target.value }))}
                       onKeyDown={(e) => { if (e.key === 'Enter') void saveKey(backend); }}
-                      placeholder={backend.hasKey ? `${backend.needsKey} stored — paste to replace` : backend.needsKey}
+                      placeholder={backend.hasKey ? `${backend.needsKey} stored. Paste to replace` : backend.needsKey}
                       className="pro-input flex-1 h-[24px] px-1.5 text-[10px] font-mono min-w-0"
                     />
                     <button

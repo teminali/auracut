@@ -1175,7 +1175,7 @@ export function cadenceAgainstBeats(
       ? shotDurationsMs.map((d) => Number((d / period).toFixed(2))) : [],
     verdict:
       onBeatPct >= 75
-        ? `${onBeat} of ${offsets.length} cuts land within ${tolerance.toFixed(0)}ms of a beat — ` +
+        ? `${onBeat} of ${offsets.length} cuts land within ${tolerance.toFixed(0)}ms of a beat, ` +
           'this is cut to the music.'
         : onBeatPct >= 40
           ? `${onBeat} of ${offsets.length} cuts land on a beat. Partly beat-driven, partly not.`
@@ -1393,7 +1393,7 @@ export function findOverlayRegions(
   if (framePctStatic > 55) {
     return empty(
       'More than half the frame holds still across cuts, which is not what an overlay looks like ' +
-      '— it is what a repeated or barely-changing shot looks like. No regions reported.',
+      ',  it is what a repeated or barely-changing shot looks like. No regions reported.',
       framePctStatic, false);
   }
   if (framePctStatic < 0.5) return empty('No held region found.', framePctStatic, true);
@@ -1505,7 +1505,7 @@ export function findOverlayRegions(
       'a lower-third bar. A caption that moves or animates will not appear here. A region has to ' +
       `hold unchanged across ${spansNeeded} cut(s) to count` +
       (spansNeeded < 3
-        ? ', which is all this clip has — on so few cuts a held pixel is roughly a one-in-eight ' +
+        ? ', which is all this clip has. On so few cuts a held pixel is roughly a one-in-eight ' +
           'coincidence and these regions are weak evidence'
         : '') +
       `. Timing is resolved to ${sampleInterval}ms, the sampling interval.`,
@@ -1539,7 +1539,7 @@ function loadVideoMeta(url: string, timeoutMs = 12000): Promise<VideoMeta> {
       durationMs: Number.isFinite(el.duration) ? el.duration * 1000 : 0,
     }));
     el.onerror = () => finish(() => reject(new Error(
-      `Could not open "${url}" — the browser engine has no decoder for it, or the path is wrong.`)));
+      `Could not open "${url}", the browser engine has no decoder for it, or the path is wrong.`)));
     setTimeout(() => finish(() => reject(new Error(`Timed out opening "${url}".`))), timeoutMs);
     el.src = url;
   });
@@ -1664,7 +1664,7 @@ export async function readSheet(url: string, layout: TileLayout, timeoutMs = 200
 
   throw new Error(
     'The contact sheet decoded but nothing was painted: its magenta gutter is missing from the ' +
-    'canvas within six seconds. ffmpeg wrote the file correctly — read it with any other tool — ' +
+    'canvas within six seconds. ffmpeg wrote the file correctly. Read it with any other tool, ' +
     'so ' +
     'this is the browser engine declining to produce a frame. Refusing to measure a blank canvas ' +
     'rather than reporting a very dark video with no cuts.'

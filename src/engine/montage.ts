@@ -409,7 +409,7 @@ export function planMontage(
         fill = 'gap';
         warnings.push(
           `"${chosen.name}" is ${Math.round(chosen.sourceDurationMs)}ms and shot ${i + 1} is ` +
-          `${slotMs}ms — past the 0.05x slow-motion floor. It fills ${durationMs}ms and ` +
+          `${slotMs}ms, past the 0.05x slow-motion floor. It fills ${durationMs}ms and ` +
           `${gapMs}ms of the shot is background.`
         );
       } else {
@@ -439,7 +439,7 @@ export function planMontage(
     warnings.push(
       `${unmeasured.length} video source(s) reported no pixel dimensions when probed ` +
       `(${unmeasured.map((s) => s.name).join(', ')}). Their durations may be the import ` +
-      `default rather than a measurement — check them before trusting the shot lengths.`
+      `default rather than a measurement. Check them before trusting the shot lengths.`
     );
   }
 
@@ -628,7 +628,7 @@ export function applyMontage(
         : slot.durationMs,
       width: source.width,
       height: source.height,
-      fileSizeFormatted: '—',
+      fileSizeFormatted: '-',
     };
 
     const clipId = timeline().insertClip(trackId, asset, slot.startMs);
@@ -802,7 +802,7 @@ export async function autoMontageToBeats(args: AutoMontageArgs): Promise<Montage
           ? 'No material: the target track is empty and no assetIds were given. ' +
             'Pass assetIds, or import media and put it on the track first.'
           : `No material: the target track holds ${onTrack} clip(s) but none of them is ` +
-            'footage or a still — shapes, text and adjustment layers have nothing to cut. ' +
+            'footage or a still, shapes, text and adjustment layers have nothing to cut. ' +
             'Pass assetIds, or point trackId at the track with the media on it.'
       );
     }
@@ -1012,7 +1012,7 @@ export async function autoMontageToBeats(args: AutoMontageArgs): Promise<Montage
         applied.shots[0].startMs
       : 0,
     shots: applied.shots,
-    transitions: 'none — every cut is hard, which is what puts the edit on the beat',
+    transitions: 'none, every cut is hard, which is what puts the edit on the beat',
     ...(warnings.length ? { warnings } : {}),
   };
 }
