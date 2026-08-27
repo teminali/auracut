@@ -93,6 +93,25 @@ jobs:
       - name: Build
         run: yarn build
 
+      # Diagnostic, not a gate. This already answered its question once
+      # — a runner gives Electron a real WebGL2 context, verify_gpu 26/26
+      # — and it is kept so that if a future runner image quietly loses
+      # it, the verify_gpu failure comes with its explanation attached
+      # instead of looking like a code regression.
+      - name: gpu info
+        continue-on-error: true
+        run: |
+          cat > /tmp/gpuinfo.cjs <<'EOF'
+          const { app } = require('electron');
+          app.whenReady().then(async () => {
+            console.log(JSON.stringify(app.getGPUFeatureStatus(), null, 2));
+            try { console.log(JSON.stringify(await app.getGPUInfo('complete')).slice(0, 2000)); }
+            catch (e) { console.log('getGPUInfo failed:', e.message); }
+            app.quit();
+          });
+          EOF
+          npx electron /tmp/gpuinfo.cjs || echo 'electron could not start at all — that is the finding'
+
       - name: Run the twelve suites
         run: python3 tools/run_all_suites.py --built --log-dir "$RUNNER_TEMP/kerf-verify"
 
