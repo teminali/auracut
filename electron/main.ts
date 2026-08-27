@@ -269,6 +269,33 @@ function registerAgentIpc() {
     arbitrary paths is exactly the kind of surface that grows into
     something regrettable.
   */
+  /*
+    Writing a project back out.
+
+    There was a `project:read` and no counterpart, so an agent could open
+    a project and never save one — `serializeProject()` existed in the
+    renderer and nothing could get its output to disk. Found while
+    building the first skill by hand: a skill IS a template project plus
+    its assets, and there was no way to produce the template.
+
+    Refuses to create directories. A save that silently invents a path
+    is how work ends up somewhere nobody looks.
+  */
+  ipcMain.handle('project:write', async (_e, p: { path: string; json: string }) => {
+    const fs = await import('fs');
+    const path = await import('path');
+    try {
+      const dir = path.dirname(p.path);
+      if (!fs.existsSync(dir)) {
+        return { ok: false, error: `No such directory: ${dir}` };
+      }
+      fs.writeFileSync(p.path, p.json, 'utf8');
+      return { ok: true, bytes: Buffer.byteLength(p.json, 'utf8') };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
   ipcMain.handle('project:read', async (_e, p: { path: string }) => {
     const fs = await import('fs');
     try {

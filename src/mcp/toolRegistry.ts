@@ -42,7 +42,7 @@ import { loadFonts, isFontAvailable, fontsAreEnumerated } from '../engine/system
 import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
 import { followToolCall } from '../engine/agentPresence';
 import { buildStarterProject, STARTER_NAME } from '../engine/starterProject';
-import { deserializeProject } from '../engine/projectIO';
+import { deserializeProject, serializeProject } from '../engine/projectIO';
 import { autoMontageToBeats } from '../engine/montage';
 import { assembleFromFolder } from '../engine/folderAssembly';
 import {
@@ -1978,6 +1978,44 @@ defineTool({
       durationMs: imported.durationMs,
       filtergraph: vf ?? af ?? '(none)',
       ...(replaceClip && sourceClipId ? { replacedClip: sourceClipId } : {}),
+    };
+  },
+});
+
+defineTool({
+  name: 'save_project',
+  category: 'project',
+  description:
+    'Write the current project to an absolute path as a .kerf file. The counterpart to ' +
+    'open_project, which existed alone — an agent could open a project and never save one. ' +
+    'Saves the EDL and the media pool, not the media itself: the file references media by ' +
+    'path, so moving the footage breaks the link and open_project will say which.',
+  schema: z.object({
+    path: z.string().describe('Absolute path to write, including the filename'),
+  }),
+  handler: async ({ path: filePath }) => {
+    if (!filePath.startsWith('/')) {
+      throw new Error(`Path must be absolute, got "${filePath}"`);
+    }
+    const api = (window as unknown as { electronAPI?: {
+      project?: { write?: (p: string, j: string) => Promise<{ ok: boolean; bytes?: number; error?: string }> };
+    } }).electronAPI;
+    if (!api?.project?.write) throw new Error('Writing project files needs the desktop bridge.');
+
+    const json = serializeProject();
+    const res = await api.project.write(filePath, json);
+    if (!res.ok) throw new Error(res.error ?? 'Could not write that file.');
+
+    const t = timeline();
+    const p = project().project;
+    return {
+      saved: filePath,
+      bytes: res.bytes,
+      name: p.name,
+      tracks: t.tracks.length,
+      clips: t.tracks.reduce((n, tr) => n + tr.clips.length, 0),
+      mediaAssets: t.mediaPool.length,
+      durationMs: p.durationMs,
     };
   },
 });

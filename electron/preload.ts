@@ -73,6 +73,7 @@ export interface ElectronAPI {
 
   project: {
     read: (path: string) => Promise<{ ok: boolean; json?: string; error?: string }>;
+    write: (path: string, json: string) => Promise<{ ok: boolean; bytes?: number; error?: string }>;
   };
 
   ffmpeg: {
@@ -177,6 +178,7 @@ const api: ElectronAPI = {
 
   project: {
     read: (filePath) => ipcRenderer.invoke('project:read', { path: filePath }),
+    write: (filePath, json) => ipcRenderer.invoke('project:write', { path: filePath, json }),
   },
 
   ffmpeg: {
