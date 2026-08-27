@@ -534,6 +534,136 @@ what an install actually does.
 
 ---
 
+## 6c. THE CURRENT JOB — close the agent-tooling gap, and cover three platforms
+
+This is what the next session is for. Everything above it is done or
+blocked; this is not.
+
+### The goal, stated so it can be finished
+
+**Every capability the store already has must be reachable by a tool, on
+macOS and Linux, with Windows wired blind.** "Blind" is honest here:
+nobody has a Windows machine, so Windows gets the CI job, the build and
+the code paths, and the workflow says plainly that no human has watched
+it run. That is a different claim from "it works", and it must not be
+written as if it were.
+
+### The measured gap
+
+`105` store actions; **65 unreachable from any tool.** Filtering the ones
+`patch_clip` already covers through property paths, and the genuinely
+UI-only ones (zoom, snapping, transport), what is missing is about **35
+capabilities in 8 groups**. Reproduce the audit before starting — it is
+the definition of done:
+
+```python
+import re
+store = open('src/store/timelineStore.ts').read()
+tools = open('src/mcp/toolRegistry.ts').read()
+m = re.search(r"interface TimelineActions \{(.*?)\n\}", store, re.S)
+actions = re.findall(r"^\s{2}(\w+):\s*\(", m.group(1), re.M)
+missing = [a for a in sorted(set(actions)) if f".{a}(" not in tools]
+print(len(missing), missing)
+```
+
+| group | missing |
+|---|---|
+| **Tracks** | `removeTrack` `renameTrack` `reorderTrack` `toggleTrackMute` `toggleTrackSolo` `toggleTrackLock` `setTrackVolume` — entirely absent |
+| **Keyframes** | `removeKeyframe` `moveKeyframe` `setKeyframeEasing` `clearKeyframes` `upsertKeyframeAt` `removeEffectKeyframe` — you can add and never edit |
+| **Clips** | `duplicateClip` `renameClip` `deleteSelected` `moveClips` `splitAtPlayhead` `closeGapsOnTrack` `detachAudio` `reverseClip` |
+| **Effects** | `clearEffects` `toggleEffect` `reorderEffect` |
+| **Markers** | `removeMarker` `updateMarker` `clearMarkers` |
+| **In/out** | `setInPoint` `setOutPoint` `clearInOut` |
+| **Motion path** | `addMotionPathPoint` `updateMotionPathPoint` `removeMotionPathPoint` |
+| **History** | `redo` — `undo` has a tool and `redo` does not |
+
+These are thin wrappers over store actions that already work. The cost is
+schema, description and VERIFICATION, not engine code.
+
+### Three lanes, and the anchors that let them merge
+
+Four lanes merged last night with exactly one conflict (an import block),
+because each inserted its `defineTool` calls at a **different anchor** in
+`toolRegistry.ts`. Keep doing that.
+
+| lane | groups | insert before |
+|---|---|---|
+| 1 | Tracks, History (`redo`) | `defineTool({\n  name: 'add_track',` |
+| 2 | Keyframes, Motion path | `defineTool({\n  name: 'set_motion_blur',` |
+| 3 | Clips, Effects, Markers, In/out | `defineTool({\n  name: 'apply_transition',` |
+
+Each lane gets its own worktree, vite port and Kerf port — see the lane
+runbook in §6d. **Do not skip the isolation**: trap 5 means one lane's
+HMR reload hangs another lane's suite for thirty minutes.
+
+### What "verified" means for these
+
+Every one of them can be faked. `mask.rotation` was settable,
+keyframeable, listed and rendered nothing; `add_effect` reported success
+on a locked clip; a montage reported fifteen shots on the beat and
+rendered fifteen seconds of black. So:
+
+- **assert on the artifact.** A track that was muted must produce a
+  quieter exported waveform, not a `muted: true` in the store. A removed
+  keyframe must change a rendered frame. A reordered effect must change
+  the picture, because the order of a blur and a glow is visible.
+- **a threshold nobody has tried to fail is not a threshold** — every
+  suite here has a `--selftest` that holds the thing still and demands
+  the metric move LESS than its bar.
+- add checks to the suite that owns the area (`verify_tools.py` for the
+  new tools, `verify_keyframes.py` for keyframe editing) rather than
+  making a suite per lane, and register anything new in
+  `tools/run_all_suites.py` in ONE edit at merge time, not three.
+
+### Platforms
+
+- **macOS** — `.github/workflows/verify.yml` already runs all twelve
+  suites on `macos-latest` and has been executed. It answered its own two
+  unknowns: a runner DOES give Electron a window (RPC ready in 7.9s) and
+  `verify_gpu` DOES get a WebGL2 context (26/26).
+- **Linux** — add a job. `npm test` and `npm run typecheck` need no
+  display at all and should be a hard gate immediately. The twelve suites
+  need a display: try `xvfb-run -a` with `--disable-gpu-sandbox`; expect
+  `verify_gpu` to land on SwiftShader, which is FINE because those checks
+  assert what the picture looks like, not how fast it arrived. If a suite
+  genuinely cannot run there, say WHICH and WHY in the workflow — a CI
+  job that quietly skips the checks that matter is worse than no job.
+- **Windows — blind, and labelled blind.** Wire the build and a job that
+  runs `npm test` + `typecheck`. Attempt the suites; if they fail,
+  record what failed rather than deleting the job. `electron-builder`
+  already has a `package:win` script. **Nobody has run Kerf on Windows.**
+  Any status must say so, in the workflow file and in HANDOVER.
+
+### Done means
+
+`npm test`, `npm run verify` (12 suites, 324+ checks) and the audit
+above all green, the audit reporting only deliberate UI-only actions,
+CI green on macOS and Linux, Windows job present and honestly labelled.
+
+---
+
+## 6d. The lane runbook
+
+```bash
+# one per lane; N = 1,2,3
+git worktree add -b lane/tools-N ../auracut-laneN HEAD
+ln -s "$PWD/node_modules" ../auracut-laneN/node_modules   # electron is 100MB+
+(cd ../auracut-laneN && npm run build:electron)
+(cd ../auracut-laneN && nohup npx vite --port 520N --strictPort &)
+
+# the lane's own Kerf, and its own verify
+env -u ELECTRON_RUN_AS_NODE KERF_RPC_PORT=392N \
+  VITE_DEV_SERVER_URL=http://localhost:520N npx electron .
+npm run verify -- --vite http://localhost:520N --port 393N
+```
+
+**Killing a lane: by PORT or by launcher parent, never by the electron
+path** — trap 7. The symlinked `node_modules` makes every lane report the
+MAIN repo's binary, so `pkill -f auracut/node_modules/electron` kills all
+of them at once. It happened twice in one session.
+
+---
+
 ## 7. Do not redo these
 
 Each was tried, measured, and rejected. The numbers are in the code
