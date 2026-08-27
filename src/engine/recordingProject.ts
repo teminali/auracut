@@ -184,6 +184,16 @@ export const DEFAULT_ASSEMBLE = TUTORIAL_ASSEMBLE;
 
 export interface AssembleReport {
   projectName: string;
+  /**
+   * The screen clip this build produced.
+   *
+   * The anchor a background pass checks before writing anything. A
+   * project ID is NOT enough: `buildStarterProject` replaces every track
+   * in place without minting a new one, so an id comparison says "same
+   * project" about a timeline that has been entirely swapped. A clip id
+   * is minted per build and cannot survive that.
+   */
+  screenClipId: string;
   durationMs: number;
   width: number;
   height: number;
@@ -719,6 +729,7 @@ export async function assembleRecording(
 
   return {
     projectName,
+    screenClipId,
     durationMs: take.durationMs,
     width: canvas.width,
     height: canvas.height,

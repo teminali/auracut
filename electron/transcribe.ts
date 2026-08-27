@@ -155,14 +155,50 @@ export interface TranscribeOptions {
   mediaUrl: string;
   language?: string;
   model?: string;
+  /**
+   * Per-word times as well as per-segment ones.
+   *
+   * Off by default, and that default is the difference between a
+   * transcription that takes about as long as the take and one that
+   * takes several times longer: it is a second alignment pass over every
+   * window. Captions are built from segments and do not need it. Karaoke
+   * highlighting does, and asks.
+   */
+  wordTimestamps?: boolean;
   /** Called with 0..100 as Whisper reports frames. */
   onProgress?: (percent: number, note: string) => void;
+}
+
+/**
+ * The Whisper child, so it can be stopped.
+ *
+ * A twenty-minute take is twenty-plus minutes of transcription, and an
+ * edit that cannot be started until it finishes is an edit held hostage
+ * by an optional feature. Only one runs at a time.
+ */
+let running: ReturnType<typeof spawn> | null = null;
+let cancelled = false;
+
+/** Abandon a transcription in flight. The caller carries on without captions. */
+export function cancelTranscription(): boolean {
+  if (!running) return false;
+  cancelled = true;
+  running.kill('SIGTERM');
+  return true;
+}
+
+/** mm:ss, for a sentence about how long something will take. */
+function formatClock(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.max(0, seconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 export async function transcribeMedia(
   options: TranscribeOptions
 ): Promise<TranscribeResult | TranscribeFailure> {
   const startedAt = Date.now();
+  cancelled = false;
 
   const ff = ffmpeg();
   if (!ff) {
@@ -228,14 +264,54 @@ export async function transcribeMedia(
     }
 
     /* ── 2. Transcribe ── */
-    options.onProgress?.(15, `Transcribing with Whisper (${model})…`);
+    /*
+      Named and quantified, because this is the one step that can run for
+      minutes with nothing to show. Whisper reports nothing at all until
+      its first window is decoded, and a bar sitting on one number is
+      indistinguishable from a hang — which is exactly what somebody
+      reported.
+    */
+    const audioSeconds = Math.round(fs.statSync(wavPath).size / 32000);
+    options.onProgress?.(
+      15,
+      `Transcribing ${formatClock(audioSeconds)} with the ${model} model. `
+      + 'This runs on the processor and usually takes longer than the take itself.'
+    );
 
+    /*
+      ── `--word_timestamps` is opt-in, and it is NOT the slow part ──
+
+      It runs a separate cross-attention alignment pass per window, so
+      turning it off looked like the fix. Measured on the same 92 seconds
+      of audio with the same `small` model: 769s with, 709s without.
+      Eight percent, and the machine was busy for both runs, so treat
+      even that as approximate.
+
+      It stays off because captions are built from SEGMENTS, which carry
+      their own start and end, and nothing on that path reads per-word
+      times — only karaoke highlighting does, and it asks. Eight percent
+      free is worth having. It is not a solution.
+
+      **The slow part is that this runs on the CPU in FP32.** Whisper
+      itself says so on every run: `FP16 is not supported on CPU; using
+      FP32 instead`, decoding at 13 to 16 frames per second. That is why
+      92 seconds of narration takes twelve minutes, and why transcription
+      was moved off the critical path entirely rather than tuned. A
+      Metal-backed whisper.cpp would change the order of magnitude; no
+      flag here will.
+    */
     const args = [
       wavPath,
       '--model', model,
       '--output_format', 'json',
       '--output_dir', workDir,
-      '--word_timestamps', 'True',
+      ...(options.wordTimestamps ? ['--word_timestamps', 'True'] : []),
+      /*
+        `False`, not `None`. Whisper's own tqdm bar is disabled when
+        `verbose is not False`, so this is the setting that makes a
+        progress bar exist at all — and it is the only progress this
+        process ever reports.
+      */
       '--verbose', 'False',
       // Never let a missing model trigger a download mid-edit: it can hang
       // for minutes behind a TLS proxy and fail with an unrelated error.
@@ -245,23 +321,38 @@ export async function transcribeMedia(
 
     await new Promise<void>((resolve, reject) => {
       const child = spawn(wh, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      running = child;
       let stderr = '';
 
-      // Whisper writes a tqdm progress bar to stderr; scrape it for a percentage.
+      /*
+        Whisper writes a tqdm bar to stderr, redrawn with carriage
+        returns, so one chunk can carry several updates. Taking the FIRST
+        match reported the oldest number in the chunk, which is how a bar
+        ends up sitting on a stale percentage; the last one is the
+        current state.
+      */
       child.stderr.setEncoding('utf8');
       child.stderr.on('data', (chunk: string) => {
         stderr += chunk;
-        const match = /(\d{1,3})%\|/.exec(chunk);
-        if (match) {
-          const pct = Math.min(99, 15 + Number(match[1]) * 0.8);
-          options.onProgress?.(pct, `Transcribing… ${match[1]}%`);
-        }
+        const matches = [...chunk.matchAll(/(\d{1,3})%\|/g)];
+        if (matches.length === 0) return;
+        const percent = Number(matches[matches.length - 1][1]);
+        options.onProgress?.(
+          Math.min(99, 15 + percent * 0.8),
+          `Transcribing with the ${model} model, ${percent}%`
+        );
       });
 
-      child.on('error', reject);
-      child.on('close', (code) =>
-        code === 0 ? resolve() : reject(new Error(stderr.trim().slice(-500) || `whisper exited ${code}`))
-      );
+      child.on('error', (err) => { running = null; reject(err); });
+      child.on('close', (code) => {
+        running = null;
+        if (code === 0) { resolve(); return; }
+        reject(new Error(
+          cancelled
+            ? 'Transcription was cancelled.'
+            : stderr.trim().slice(-500) || `whisper exited ${code}`
+        ));
+      });
     });
 
     /* ── 3. Parse ── */

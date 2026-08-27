@@ -24,11 +24,12 @@ import { useAccountStore } from '../../store/accountStore';
 import { useUiStore } from '../../store/uiStore';
 import { formatPrice, type StoreSkill } from '../../services/storeClient';
 import { trialStatus } from '../../services/skillTrials';
+import { BUNDLED_SKILLS } from '../../services/bundledSkills';
 import type { TrialStatus } from '../../types/electron';
 import { SignInDialog } from './SignInDialog';
 import { BuySheet } from './BuySheet';
 import {
-  Blocks, BadgeCheck, Check, Loader2, WifiOff, ShieldAlert, Download, Timer,
+  Blocks, BadgeCheck, Check, Loader2, WifiOff, ShieldAlert, Download, Timer, Sparkle,
 } from '../ui/icons';
 
 export const SkillsView: React.FC = () => {
@@ -105,6 +106,71 @@ export const SkillsView: React.FC = () => {
         version; new projects are cloned from it and stay yours to edit by hand.
       </p>
 
+      {/* ── What is already installed ────────────────────────────────
+          Above the catalogue, because it is the part that is true right
+          now. A screen called Skills that lists none of the skills you
+          have is telling you something untrue about your own install,
+          and the Tutorial skill is offered by name after every take. */}
+      <div className="mt-5">
+        <div className="flex items-center gap-2">
+          <h3 className="text-ui-lg font-semibold text-spectrum-text">Included with Kerf</h3>
+          <span className="chip">{BUNDLED_SKILLS.length}</span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          {BUNDLED_SKILLS.map((skill) => (
+            <div key={skill.id} className="rounded-squircle-lg bg-spectrum-panel p-4 flex flex-col">
+              <div className="flex items-start gap-2">
+                <span className="w-7 h-7 rounded-[9px] bg-spectrum-accent/15 flex items-center
+                                 justify-center flex-shrink-0">
+                  <Sparkle className="w-3.5 h-3.5 text-spectrum-accent" />
+                </span>
+                <h4 className="text-ui-xl font-semibold text-spectrum-text flex-1 min-w-0">
+                  {skill.name}
+                </h4>
+                {skill.verified && (
+                  <span
+                    className="flex items-center gap-1 h-[18px] px-1.5 rounded-full
+                               bg-spectrum-green/12 text-spectrum-green flex-shrink-0"
+                    title="Ships with its own verification test, which is what makes it a skill
+                           rather than a prompt pack"
+                  >
+                    <BadgeCheck className="w-3 h-3" />
+                    <span className="text-micro font-medium">verified</span>
+                  </span>
+                )}
+              </div>
+
+              <p className="text-ui-sm text-spectrum-textMuted leading-snug mt-2 flex-1">
+                {skill.summary}
+              </p>
+
+              <p className="text-micro text-spectrum-textFaint mt-2">
+                v{skill.version}
+                {skill.provenance?.author ? ` · ${skill.provenance.author}` : ''}
+                {skill.slots.length > 0
+                  ? ` · ${skill.slots.length} setting${skill.slots.length === 1 ? '' : 's'}`
+                  : ''}
+              </p>
+
+              <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-line">
+                <span className="text-ui-sm text-spectrum-textDim">
+                  {/* Bundled skills declare `trial.uses: 0`, which means not
+                      gated. Counting runs of something that ships inside the
+                      app would be gating somebody out of what they have. */}
+                  {skill.trialUses > 0 ? `${skill.trialUses} trial runs` : 'No limit'}
+                </span>
+                <span className="flex items-center gap-1.5 text-ui-sm text-spectrum-green">
+                  <Check className="w-3.5 h-3.5" /> installed
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <h3 className="text-ui-lg font-semibold text-spectrum-text mt-8">From the store</h3>
+
       {reachable === false && (
         <div className="flex items-start gap-2.5 rounded-squircle-md bg-spectrum-panel p-3 mt-4">
           <WifiOff className="w-4 h-4 text-spectrum-textDim flex-shrink-0 mt-0.5" />
@@ -131,7 +197,8 @@ export const SkillsView: React.FC = () => {
           </div>
           <p className="text-ui-lg text-spectrum-textDim leading-relaxed mt-2">
             The store is running and the catalogue is empty, which is the honest state of it.
-            A skill appears here once it has a verification run that passed.
+            A skill appears here once it has a verification run that passed. The skills above
+            ship inside Kerf and do not come from here.
           </p>
         </div>
       ) : (

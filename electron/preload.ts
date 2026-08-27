@@ -74,7 +74,11 @@ export interface ElectronAPI {
   /** On-device speech-to-text (ffmpeg + Whisper, run in main). */
   stt: {
     status: () => Promise<{ ffmpeg: string | null; whisper: string | null; models: string[]; ready: boolean }>;
-    transcribe: (opts: { mediaUrl: string; language?: string; model?: string }) => Promise<any>;
+    transcribe: (opts: {
+      mediaUrl: string; language?: string; model?: string; wordTimestamps?: boolean;
+    }) => Promise<any>;
+    /** Stop a transcription in flight; the caller carries on without captions. */
+    cancel: () => Promise<boolean>;
     analyze: (opts: { mediaUrl: string; silenceThresholdDb?: number; minSilenceMs?: number }) => Promise<any>;
     setup: (opts?: { model?: string }) => Promise<any>;
     onProgress: (cb: (p: { percent: number; note: string }) => void) => () => void;
@@ -253,6 +257,7 @@ const api: ElectronAPI = {
   stt: {
     status: () => ipcRenderer.invoke('stt:status'),
     transcribe: (opts) => ipcRenderer.invoke('stt:transcribe', opts),
+    cancel: () => ipcRenderer.invoke('stt:cancel'),
     analyze: (opts) => ipcRenderer.invoke('audio:analyze', opts),
     setup: (opts) => ipcRenderer.invoke('stt:setup', opts ?? {}),
     onProgress: (cb) => {

@@ -6,29 +6,37 @@
    screen while you are talking rather than doing, click ticks, and
    captions in Inter Bold.
 
-   ── Why the words come first ───────────────────────────────────────
+   ── The edit lands first; the words catch up ───────────────────────
 
-   Transcription runs BEFORE the project is built, and that ordering is
-   the interesting decision in this file. The obvious arrangement is to
-   assemble the edit and then add captions to it, because captions are
-   the visible thing the transcript is for. But the transcript is not
-   only text: it is the only signal in the whole take that knows where a
-   SENTENCE ends.
+   This used to transcribe BEFORE building, because the transcript is
+   the only signal in a take that knows where a sentence ends, and two
+   edits are better for having it: the camera cuts land between
+   sentences rather than mid-word, and a stretch with no speech in it is
+   left alone, because a static face over dead air is worse than a
+   static screen.
 
-   Two edits depend on that and cannot be made without it:
+   That ordering was right about the edit and wrong about the person.
+   Measured on a real take: **1:32 of narration took 12 minutes 49 to
+   transcribe** — `small`, roughly eight times real time — and for all
+   of it the editor sat on a modal, unable to do anything at all. A
+   twenty-minute recording would be two hours. Nobody is going to wait,
+   and worse, they cannot tell a slow transcription from a hung one.
 
-     · The camera takeover. The pointer says when nothing is happening
-       on screen; it has nothing to say about whether somebody is
-       mid-word. `alignToSpeech` trims each stretch inward to the gaps
-       between cues, so the cut lands between sentences.
+   The eight-times figure is not a tuning problem to be fixed later.
+   Whisper prints `FP16 is not supported on CPU; using FP32 instead` on
+   every run: the Python implementation decodes on the CPU at 13 to 16
+   frames a second and does not touch the GPU. Turning off word
+   timestamps buys eight percent. Only a different backend changes the
+   order of magnitude, so the fix is to stop waiting for it.
 
-     · Whether a takeover happens at all. A stretch with no speech in it
-       is dead air, and a static face over dead air is worse than a
-       static screen. The camera takes over when somebody is TALKING and
-       not doing.
+   So the whole edit is built IMMEDIATELY, without the transcript, and
+   the transcription runs in the background against the project that is
+   now open. The captions arrive on their own track when they are ready.
 
-   Build first and caption afterwards and both of those become
-   impossible, because by then the cuts already exist.
+   What that costs, said plainly rather than hidden: the camera cuts are
+   placed from activity alone, which is exactly what already happened on
+   any machine without Whisper installed. What it buys is an editor you
+   can use in the second after you stop recording.
 
    ── When there is no transcript ────────────────────────────────────
 
@@ -42,11 +50,14 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { Take } from './screenCapture';
+import { useUiStore } from '../store/uiStore';
+import { useTimelineStore } from '../store/timelineStore';
+import { ClipTextStyle } from '../types/edl';
 import { runSkill, trialStatus } from '../services/skillTrials';
 import { TrialStatus } from '../types/electron';
 import {
   assembleRecording, AssembleOptions, AssembleReport, SpeechCue,
-  TUTORIAL_ASSEMBLE, RAW_ASSEMBLE,
+  TUTORIAL_ASSEMBLE, RAW_ASSEMBLE, CAPTION_STYLE,
 } from './recordingProject';
 
 /* ── Who this skill is, for the trial gate ──────────────────────── */
@@ -193,12 +204,31 @@ async function transcribe(
   try {
     const result = await api.stt.transcribe({
       mediaUrl: source.url,
+      /*
+        Segments only. Captions are built from them and nothing here
+        reads per-word times. Worth about eight percent, measured, which
+        is worth having and is not why this runs in the background.
+      */
+      wordTimestamps: false,
       ...(options.language ? { language: options.language } : {}),
       ...(options.model ? { model: options.model } : {}),
     });
 
     if (!result.ok) {
-      return { cues: [], notes: [`Transcription did not run: ${result.message}`] };
+      /*
+        Including the case where somebody pressed Skip. Cancelling is a
+        choice, not a fault, so it reads as one: the edit is built
+        without captions and says so, rather than reporting an error for
+        something the user asked for.
+      */
+      const skipped = /cancel/i.test(result.message ?? '');
+      return {
+        cues: [],
+        notes: [skipped
+          ? 'Captions were skipped, so the camera cuts fall on pauses in activity rather than '
+            + 'between sentences. Transcribe later from the Captions panel.'
+          : `Transcription did not run: ${result.message}`],
+      };
     }
 
     return {
@@ -253,9 +283,19 @@ export async function applyTutorialSkill(
     () => build(take, options, onProgress)
   );
 
-  return outcome.ok
-    ? { ok: true, report: outcome.result, status: outcome.status }
-    : { ok: false, status: outcome.status };
+  if (!outcome.ok) return { ok: false, status: outcome.status };
+
+  /*
+    Started here rather than inside `build`, and after the run has been
+    paid for: a transcription is only worth starting for a take that
+    actually became a project.
+  */
+  const o = { ...DEFAULT_TUTORIAL, ...options };
+  if (o.transcribe) {
+    captionInBackground(take, options, outcome.result.screenClipId);
+  }
+
+  return { ok: true, report: outcome.result, status: outcome.status };
 }
 
 async function build(
@@ -265,33 +305,154 @@ async function build(
 ): Promise<AssembleReport> {
   const o = { ...DEFAULT_TUTORIAL, ...options };
 
-  let speech: SpeechCue[] = [];
-  const notes: string[] = [];
+  onProgress({ phase: 'building', percent: 40, note: 'Building the edit' });
 
-  if (o.transcribe) {
-    onProgress({ phase: 'listening', percent: 2, note: 'Looking for narration' });
-    const result = await transcribe(take, o, (percent, note) => {
-      onProgress({
-        phase: 'transcribing',
-        // Transcription owns 5..85; the build owns the rest.
-        percent: 5 + Math.round((Math.max(0, Math.min(100, percent)) / 100) * 80),
-        note,
-      });
-    });
-    speech = result.cues;
-    notes.push(...result.notes);
-  }
-
-  onProgress({ phase: 'building', percent: 88, note: 'Building the edit' });
-
+  /*
+    No `speech`. The transcript is started after this returns and lands
+    on the project that is by then open — see `captionInBackground` and
+    the note at the top of this file on why waiting for it was wrong.
+  */
   const report = await assembleRecording(take, {
     ...TUTORIAL_ASSEMBLE,
     ...options,
-    speech,
+    speech: [],
   });
 
   onProgress({ phase: 'done', percent: 100, note: 'Done' });
-  return { ...report, notes: [...notes, ...report.notes] };
+
+  const notes = [...report.notes];
+  if (o.transcribe) {
+    notes.push(
+      'The narration is being transcribed in the background; the captions will land on their '
+      + 'own track when it finishes. Camera cuts were placed from activity rather than from '
+      + 'sentence boundaries, which is what happens without a transcript.'
+    );
+  }
+  return { ...report, notes };
+}
+
+/* ── The words, afterwards ──────────────────────────────────────── */
+
+const CAPTION_TOAST = 'tutorial-captions';
+
+/**
+ * Transcribe in the background and add the captions to the project that
+ * is already open.
+ *
+ * Deliberately NOT awaited by anything. It reports through a progress
+ * toast, it can be stopped from there, and it checks that the project it
+ * was started for is still the one on screen before it writes anything —
+ * somebody who records, opens the take, and then opens a different
+ * project entirely must not have a caption track appear over their work
+ * twelve minutes later.
+ */
+export function captionInBackground(
+  take: Take,
+  options: Partial<TutorialOptions>,
+  anchorClipId: string
+): void {
+  const ui = useUiStore.getState();
+  const api = window.electronAPI;
+  if (!api?.stt) return;
+
+  ui.pushToast({
+    id: CAPTION_TOAST,
+    kind: 'progress',
+    title: 'Transcribing the narration',
+    detail: 'The edit is ready. Captions will land on their own track when this finishes.',
+    progress: 0,
+    ttl: 0,
+  });
+
+  const off = api.stt.onProgress((p) => {
+    useUiStore.getState().updateToast(CAPTION_TOAST, {
+      progress: Math.max(0, Math.min(100, p.percent)),
+      detail: p.note,
+    });
+  });
+
+  void (async () => {
+    try {
+      const result = await transcribe(take, { ...DEFAULT_TUTORIAL, ...options }, () => undefined);
+      const ui2 = useUiStore.getState();
+      ui2.dismissToast(CAPTION_TOAST);
+
+      if (result.cues.length === 0) {
+        ui2.pushToast({
+          kind: 'info',
+          title: 'No captions were added',
+          detail: result.notes[0] ?? 'Nothing was transcribed.',
+          ttl: 9000,
+        });
+        return;
+      }
+
+      /*
+        The edit has to still be the one this was started for.
+
+        Anchored on the SCREEN CLIP, not on the project id. The id was
+        the first attempt and it does not work: `buildStarterProject`
+        rebuilds every track in place and leaves the id alone, so opening
+        the starter while a transcription ran put a caption track on it.
+        Measured, not reasoned about. A clip id is minted per build and
+        cannot survive the timeline being replaced.
+      */
+      const stillThere = useTimelineStore
+        .getState()
+        .tracks.some((track) => track.clips.some((clip) => clip.id === anchorClipId));
+
+      if (!stillThere) {
+        ui2.pushToast({
+          kind: 'info',
+          title: 'Captions were not added',
+          detail: `They were transcribed for "${take.dir.split('/').pop()}", and that take is `
+            + 'no longer open. Import them from the Captions panel if you want them.',
+          ttl: 12000,
+        });
+        return;
+      }
+
+      const added = addCaptionTrack(result.cues, options.captionStyle ?? CAPTION_STYLE);
+      ui2.pushToast({
+        kind: 'success',
+        title: `${added} caption${added === 1 ? '' : 's'} added`,
+        detail: 'On their own track, in Inter Bold. Undo removes them in one step.',
+        ttl: 6000,
+      });
+    } catch (err) {
+      const ui2 = useUiStore.getState();
+      ui2.dismissToast(CAPTION_TOAST);
+      ui2.pushToast({
+        kind: 'error',
+        title: 'Captions could not be transcribed',
+        detail: (err as Error).message,
+        ttl: 9000,
+      });
+    } finally {
+      off();
+    }
+  })();
+}
+
+/**
+ * Put the cues on a track of their own, as one undoable step.
+ *
+ * A transaction because `importCaptions` writes a clip per cue, and a
+ * hundred of them arriving as a hundred history entries would bury
+ * whatever the user did while waiting.
+ */
+function addCaptionTrack(cues: SpeechCue[], style: Partial<ClipTextStyle>): number {
+  const store = useTimelineStore.getState();
+  store.beginTransaction();
+  const trackId = store.addTrack('text', 'T1 · Captions');
+  const added = store.importCaptions(
+    cues.map((cue, index) => ({
+      index: index + 1, startMs: cue.startMs, endMs: cue.endMs, text: cue.text,
+    })),
+    { trackId, style, replaceExisting: true }
+  );
+  store.commitTransaction('Add captions');
+  return added;
 }
 
 /** The take, laid down and nothing else. */

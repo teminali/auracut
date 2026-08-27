@@ -9,7 +9,10 @@ import path from 'path';
 import http from 'http';
 import { initAutoUpdater } from './updater';
 import { initToolBridge, setBridgeWindow } from './toolBridge';
-import { transcribeMedia, transcriberStatus, analyzeAudio, setupTranscription, ffmpeg } from './transcribe';
+import {
+  transcribeMedia, transcriberStatus, analyzeAudio, setupTranscription, ffmpeg,
+  cancelTranscription,
+} from './transcribe';
 import { startExport, writeFrame, finishExport, cancelExport, ExportClipAudio, StartExportOptions } from './render';
 import { ffmpegSource } from './mediaPath';
 import { execFile } from 'child_process';
@@ -238,9 +241,14 @@ function registerAgentIpc() {
   /* Speech-to-text lives in main: it shells out to ffmpeg and Whisper,
      neither of which a renderer can reach. */
   ipcMain.handle('stt:status', () => transcriberStatus());
+  /* Abandon a transcription in flight. A long take must not be a trap. */
+  ipcMain.handle('stt:cancel', () => cancelTranscription());
+
   ipcMain.handle(
     'stt:transcribe',
-    async (_e, payload: { mediaUrl: string; language?: string; model?: string }) =>
+    async (_e, payload: {
+      mediaUrl: string; language?: string; model?: string; wordTimestamps?: boolean;
+    }) =>
       transcribeMedia({
         ...payload,
         onProgress: (percent, note) => {

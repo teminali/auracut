@@ -189,7 +189,10 @@ export interface KerfElectronAPI {
 
   stt: {
     status: () => Promise<{ ffmpeg: string | null; whisper: string | null; models: string[]; ready: boolean }>;
-    transcribe: (opts: { mediaUrl: string; language?: string; model?: string }) => Promise<
+    cancel: () => Promise<boolean>;
+    transcribe: (opts: {
+      mediaUrl: string; language?: string; model?: string; wordTimestamps?: boolean;
+    }) => Promise<
       | { ok: true; language: string; text: string; segments: { startMs: number; endMs: number; text: string }[];
           words: { word: string; startMs: number; endMs: number; confidence: number }[]; model: string; elapsedMs: number }
       | { ok: false; reason: string; message: string }

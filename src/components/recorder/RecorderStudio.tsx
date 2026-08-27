@@ -550,13 +550,32 @@ const Review: React.FC<{
 
         {building && progress && (
           <span className="flex items-center gap-2 min-w-0 flex-1 px-2">
-            <span className="flex-1 h-1 rounded-full bg-spectrum-sunken overflow-hidden max-w-[220px]">
+            <span className="flex-1 h-1 rounded-full bg-spectrum-sunken overflow-hidden max-w-[160px] flex-shrink-0">
               <span
                 className="block h-full bg-spectrum-accent transition-[width] duration-300"
                 style={{ width: `${progress.percent}%` }}
               />
             </span>
-            <span className="text-micro text-spectrum-textDim truncate">{progress.note}</span>
+            <span className="text-micro text-spectrum-textDim min-w-0 leading-snug">
+              {progress.note}
+            </span>
+
+            {/*
+              The way out. Transcription is the one step that can run for
+              longer than the take, and it is OPTIONAL — the edit does not
+              need it, only the captions and the sentence boundaries the
+              camera cuts to. Without this, choosing the skill on a
+              twenty-minute recording is a decision nobody can undo.
+            */}
+            {progress.phase === 'transcribing' && (
+              <button
+                onClick={() => void window.electronAPI?.stt.cancel()}
+                className="pro-btn-filled h-6 px-2 text-ui-xs flex-shrink-0"
+                title="Build the edit now, without captions"
+              >
+                Skip captions
+              </button>
+            )}
           </span>
         )}
 
