@@ -541,7 +541,25 @@ def preflight(vite_url, launching, suites):
         except OSError:
             pass
         if not os.path.exists(binary):
-            die(f'no Electron binary at {binary} — run `npm install`')
+            # `npm install` was the advice here and it does not work, which
+            # is worse than no advice: yarn's cached copy of `electron` is
+            # the bare npm tarball with no `dist` and no `path.txt`, and a
+            # reinstall restores that cache and reports "Building fresh
+            # packages ... Done" without ever fetching the 95MB binary.
+            # Measured after a `yarn install --frozen-lockfile` left
+            # `node_modules/electron/dist` holding one licence file.
+            die(
+                f'no Electron binary at {binary}.\n'
+                f'         `npm install` will NOT fix this: the package is installed, its '
+                f'binary is not.\n'
+                f'         Extract it from the download cache, which is where the postinstall '
+                f'left it:\n'
+                f'           rm -rf node_modules/electron/dist && mkdir -p node_modules/electron/dist\n'
+                f'           unzip -q ~/Library/Caches/electron/*/electron-v*-darwin-arm64.zip '
+                f'-d node_modules/electron/dist\n'
+                f'           printf Electron.app/Contents/MacOS/Electron > node_modules/electron/path.txt\n'
+                f'         Or clear the yarn cache for it: `yarn cache clean electron && yarn install`'
+            )
         main = os.path.join(ROOT, 'dist-electron', 'main.cjs')
         if not os.path.isfile(main):
             die('dist-electron/main.cjs is missing — run `npm run build:electron`')

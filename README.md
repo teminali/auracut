@@ -422,6 +422,25 @@ never overwrite a live release.
 > `ELECTRON_RUN_AS_NODE=1` is inherited from the editor and Electron will
 > start as plain Node. The app exits immediately with no output. Prefix with
 > `env -u ELECTRON_RUN_AS_NODE`, or use a standalone terminal.
+
+> **`yarn install` can leave you with no Electron binary, and reinstalling
+> does not fix it.** Yarn's cached copy of `electron` is the bare npm
+> tarball: no `dist`, no `path.txt`. Restoring it prints
+> `Building fresh packages… Done` without ever fetching the 95MB binary,
+> and `npm run verify` then dies with what looks like a missing install.
+> Observed after a `yarn install --frozen-lockfile` left
+> `node_modules/electron/dist` holding one licence file. The binary is
+> already on disk, in the download cache:
+>
+> ```bash
+> rm -rf node_modules/electron/dist && mkdir -p node_modules/electron/dist
+> unzip -q ~/Library/Caches/electron/*/electron-v*-darwin-arm64.zip \
+>   -d node_modules/electron/dist
+> printf 'Electron.app/Contents/MacOS/Electron' > node_modules/electron/path.txt
+> ```
+>
+> Or `yarn cache clean electron && yarn install`, which is slower but does
+> not need you to know the layout.
 >
 > **This applies to `open` as well, which is the surprising half.** `open`
 > propagates the calling shell's environment, so

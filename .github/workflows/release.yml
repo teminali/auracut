@@ -9,6 +9,18 @@
 # Pushing the tag IS the decision to ship: the moment all three jobs
 # finish, the release is live and installed clients will see it on their
 # next check. Tag only what you have actually run.
+#
+# THE RELEASE IS CREATED ONCE, BY `prepare`, BEFORE ANY BUILD RUNS.
+# That job looks pointless and is not. electron-builder creates the
+# GitHub release itself when it cannot find one, and three jobs starting
+# at the same second all find nothing: on v1.3.0 the macOS and Windows
+# jobs each logged `creating GitHub release reason=release doesn't exist`
+# 100ms apart and GitHub made TWO release objects on the same tag. The
+# tag then resolved to the one holding the Windows installer, so the
+# release page offered macOS users no download at all while every macOS
+# artifact sat on a release object nothing linked to. Both jobs reported
+# success, because from each job's point of view it had uploaded
+# everything it built.
 # ═══════════════════════════════════════════════════════════════════
 
 name: Release
@@ -22,7 +34,28 @@ permissions:
   contents: write
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create the release, once, before anything builds
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # From package.json rather than from the ref, because
+          # `workflow_dispatch` runs on a BRANCH and GITHUB_REF_NAME
+          # would be `main`. This is the same version electron-builder
+          # will look for when it publishes.
+          tag="v$(node -p "require('./package.json').version")"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "$tag already exists; the build jobs will upload into it"
+          else
+            gh release create "$tag" --title "${tag#v}" --generate-notes
+          fi
+
   build:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -43,6 +76,19 @@ jobs:
         with:
           node-version: 22
           cache: yarn
+
+      # `uiohook-napi` ships N-API prebuilds for every platform Kerf
+      # targets, and @electron/rebuild compiles it from source anyway.
+      # On Linux that needs the X11 headers, which the runner does not
+      # have: v1.3.0's Linux job died on `X11/keysym.h: No such file`
+      # forty-nine seconds in, having built the app perfectly first.
+      - name: X11 headers for the input hook (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev libxtst-dev libxt-dev libxinerama-dev \
+            libx11-xcb-dev libxkbcommon-dev libxkbcommon-x11-dev libxkbfile-dev
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
