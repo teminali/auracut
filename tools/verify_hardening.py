@@ -215,23 +215,27 @@ for tool, args in (('split_clip', {'clipId': c5, 'atMs': 1000}),
     check(f'5 · {tool} refuses a locked clip', refuses(tool, args), '')
 
 """
-RECORDED, not asserted — a finding, so it is not rediscovered.
+A lock now means ONE thing.
 
-`add_effect` and `patch_clip` write straight through a lock, while
-`split_clip`, `delete_clip`, `move_clip` and `trim_clip` all refuse it.
-Four tools honour the lock and two ignore it, so what "locked" protects
-depends on which tool you reach for.
+`add_effect` and `patch_clip` used to write straight through a lock while
+`split_clip`, `delete_clip`, `move_clip` and `trim_clip` all refused it —
+four tools honouring it and two ignoring it, so what "locked" protected
+depended on which tool you reached for. This file recorded that as a
+finding before it was fixed; the checks below are what the fix has to
+keep true.
 
-This is NOT the §8 no-op bug — those tools bailed silently and returned
-void, and these two really do apply the edit. It is a consistency
-defect, found while writing this file, and left alone deliberately:
-`batch_apply`'s `includeLocked` option calls `patch_clip` expecting it to
-write through, so making the lock uniform means giving that option
-another way in. Worth doing, not worth doing blind.
+`batch_apply` and `apply_look_preset` still reach locked clips when asked
+— they decide first and pass `allowLocked` — which is why the store takes
+an explicit override rather than being made absolute.
 """
-locked_effect = call('add_effect', {'clipId': c5, 'effectType': 'glow'})['result'].get('success')
-check('5 · RECORDED: add_effect still writes through a lock', locked_effect is True,
-      'four edit tools refuse a locked clip; add_effect and patch_clip do not — see NEXT.md §8')
+check('5 · add_effect refuses a locked clip',
+      refuses('add_effect', {'clipId': c5, 'effectType': 'glow'}),
+      'was the last edit path that wrote through a lock')
+check('5 · patch_clip refuses a locked clip',
+      refuses('patch_clip', {'clipId': c5, 'properties': {'opacity': 0.5}}), '')
+check('5 · ...but unlocking through patch_clip still works',
+      call('patch_clip', {'clipId': c5, 'properties': {'locked': False}})['result'].get('success'),
+      'a lock you cannot clear is a clip you have lost')
 
 # ── 6. a 9:16 project exports portrait and undistorted ──────────────
 ok(call('reset_project', {'name': 'h6', 'aspectRatio': '9:16', 'fps': 30,

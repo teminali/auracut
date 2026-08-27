@@ -161,7 +161,7 @@ Note also that Vite HMR full-reloads the page on some edits, which resets
 ### Verifying
 
 ```bash
-npm run verify          # all twelve suites, 322 checks, own Kerf, exits non-zero
+npm run verify          # all twelve suites, 324 checks, own Kerf, exits non-zero
 npm test                # 166 unit tests, no app needed
 ```
 
@@ -406,18 +406,18 @@ the same as covered on purpose: narrow `verify_keyframes` and `shadows`
 stops being checked with nobody the wiser. Each of the six is now
 asserted in §8's own words, against the artifact.
 
-**A lock means different things depending on which tool you reach for.**
-`split_clip`, `delete_clip`, `move_clip` and `trim_clip` refuse a locked
-clip. `add_effect` and `patch_clip` write straight through it. This is
-NOT the §8 no-op bug — those tools bailed silently and returned void,
-and these two really do apply the edit — it is a consistency defect,
-found while writing that suite and pinned there as RECORDED rather than
-asserted, so `npm run verify` stays honest about it.
+**A lock meant different things depending on which tool you reached
+for — fixed.** `split_clip`, `delete_clip`, `move_clip` and `trim_clip`
+refused a locked clip; `add_effect` and `patch_clip` wrote straight
+through it. Both refuse now, in the STORE rather than in the tools, so
+the rule holds for the UI too.
 
-Fixing it is not free: `batch_apply`'s `includeLocked` option calls
-`patch_clip` expecting it to write through, so making the lock uniform
-means giving that option another way in. Worth doing, not worth doing
-blind.
+The reason it was recorded rather than fixed on the spot is the reason it
+took care: `batch_apply` and `apply_look_preset` legitimately reach
+locked clips when asked. They decide first — skipping locked clips unless
+`includeLocked` was passed — and now say so with an explicit
+`allowLocked` on the store call. A patch touching ONLY `locked` is also
+still allowed through, or a locked clip could never be unlocked again.
 
 ## 6. Still not started, from the original plan
 

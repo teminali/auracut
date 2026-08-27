@@ -232,7 +232,17 @@ export interface TimelineActions {
   setClipProperty: (clipId: string, path: string, value: unknown) => { ok: boolean; error?: string };
   patchClip: (
     clipId: string,
-    patch: Record<string, unknown>
+    patch: Record<string, unknown>,
+    /**
+     * Write through a lock.
+     *
+     * `patchClip` used to ignore locks entirely, while `splitClip`,
+     * `trimClip`, `moveClip` and `deleteClip` all refused a locked clip
+     * — so what "locked" protected depended on which tool you reached
+     * for. It refuses by default now, and the callers that genuinely
+     * mean to override say so here.
+     */
+    opts?: { allowLocked?: boolean }
   ) => {
     applied: string[];
     errors: string[];
@@ -1359,6 +1369,18 @@ export const useTimelineStore = create<TimelineStore>()(
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        /*
+          A locked clip refuses an effect, the same way it refuses a
+          split, a trim, a move, a delete and now a patch. This was the
+          last edit path that wrote through a lock: `add_effect` reported
+          success and really did apply the effect, so "locked" meant
+          different things depending on which tool you reached for.
+
+          `added` stays false, and the caller already treats that as the
+          failure it is — the comment below is about exactly this.
+        */
+        const track = s.tracks.find((t) => t.clips.some((c) => c.id === clipId));
+        if (found.clip.locked || track?.locked) return;
         const instance = createEffectInstance(type, effectId, params);
         if (!instance) return;
         found.clip.effects.push(instance);
@@ -1527,7 +1549,7 @@ export const useTimelineStore = create<TimelineStore>()(
       return outcome;
     },
 
-    patchClip: (clipId, patch) => {
+    patchClip: (clipId, patch, opts) => {
       const applied: string[] = [];
       const errors: string[] = [];
       /*
@@ -1545,6 +1567,28 @@ export const useTimelineStore = create<TimelineStore>()(
           errors.push(`No clip with id "${clipId}"`);
           return;
         }
+
+        /*
+          Honour the lock, the way every other edit path does.
+
+          `locked` is also a property this function can SET, so unlocking
+          has to stay possible — a patch that only touches `locked` is
+          allowed through, or a locked clip could never be unlocked
+          through this path again.
+        */
+        const track = s.tracks.find((t) => t.clips.some((c) => c.id === clipId));
+        const onlyUnlocking = Object.keys(patch).every((k) => k === 'locked');
+        if (!opts?.allowLocked && !onlyUnlocking) {
+          if (found.clip.locked) {
+            errors.push(`"${found.clip.name}" is locked. Unlock it first.`);
+            return;
+          }
+          if (track?.locked) {
+            errors.push(`"${found.clip.name}" is on locked track "${track.name}". Unlock it first.`);
+            return;
+          }
+        }
+
         for (const [rawPath, value] of Object.entries(patch)) {
           const path = rawPath.includes('.') || rawPath === 'name'
             ? rawPath

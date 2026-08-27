@@ -629,6 +629,15 @@ defineTool({
     const id = resolveClipId(clipId);
     const effectId = timeline().addEffect(id, effectType, params ?? {});
     if (!effectId) {
+      /* `addEffect` returns null for both causes, and "not found" would
+         be a wrong answer for the far more likely one. */
+      const clip = findClipById(timeline().tracks, id);
+      const track = timeline().tracks.find((t) => t.clips.some((c) => c.id === id));
+      if (clip?.locked || track?.locked) {
+        throw new Error(
+          `"${clip?.name ?? id}" is locked. Unlock it first, or clear the lock on its track.`
+        );
+      }
       throw new Error(`Could not add "${effectType}" to clip ${id} — the clip was not found.`);
     }
     if (intensity !== undefined) timeline().setEffectIntensity(id, effectId, intensity);
@@ -2166,7 +2175,13 @@ defineTool({
       preset,
       selection.matched,
       { strength, mode: a.mode ?? 'replace', includeLocked: a.includeLocked === true, gradableTypes },
-      (id, values) => timeline().patchClip(id, values)
+      /*
+        `patchClip` refuses a locked clip now. `applyLookToClips` has
+        already done the deciding — it skips locked clips unless
+        `includeLocked` was passed — so when a clip reaches this setter
+        the caller meant it.
+      */
+      (id, values) => timeline().patchClip(id, values, { allowLocked: a.includeLocked === true })
     );
 
     if (result.appliedTo === 0) {
@@ -2251,7 +2266,7 @@ defineTool({
       includeLocked: a.includeLocked,
       includeHidden: a.includeHidden,
       limit: a.limit,
-    }, (id, values) => timeline().patchClip(id, values));
+    }, (id, values) => timeline().patchClip(id, values, { allowLocked: a.includeLocked === true }));
   },
 });
 
