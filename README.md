@@ -20,6 +20,38 @@ Download the build for your platform from
 | Windows | `Kerf-Setup-<version>.exe` |
 | Linux | `Kerf-<version>-x64.AppImage` |
 
+### Installing a locally built copy
+
+`yarn package:mac` writes `release/mac-arm64/Kerf.app`. Copy it with
+`ditto`, not `cp -R`, so bundle symlinks and permissions survive:
+
+```bash
+ditto release/mac-arm64/Kerf.app /Applications/Kerf.app
+```
+
+**Do not leave an old copy beside it.** Renaming the previous install to
+`Kerf.app.bak` rather than deleting it puts TWO bundles with the
+identifier `com.kerf.editor` in `/Applications`, and LaunchServices then
+refuses to open either from Finder. `open` exits 0, nothing starts, and
+nothing is logged. The app itself is fine, and running the binary
+directly proves it:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE /Applications/Kerf.app/Contents/MacOS/Kerf
+```
+
+If you hit it, remove the duplicate and re-register:
+
+```bash
+rm -rf /Applications/Kerf.app.bak-*
+/System/Library/Frameworks/CoreServices.framework/Frameworks/\
+LaunchServices.framework/Support/lsregister -f /Applications/Kerf.app
+```
+
+Note that `spctl --assess` reports **rejected** for these builds and
+always will: the signature is ad-hoc, with no team identifier. That is
+not what stops it launching, and it is not a fault to chase.
+
 ### First launch on macOS
 
 Current builds are **not notarised by Apple**, so Gatekeeper refuses the first
