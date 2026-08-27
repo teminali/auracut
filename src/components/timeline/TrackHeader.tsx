@@ -27,9 +27,9 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
   const allTracks = useTimelineStore((s) => s.tracks);
   const selectedTrackId = useTimelineStore((s) => s.selectedTrackId);
   const setSelectedTrackId = useTimelineStore((s) => s.setSelectedTrackId);
-  const toggleTrackMute = useTimelineStore((s) => s.toggleTrackMute);
-  const toggleTrackSolo = useTimelineStore((s) => s.toggleTrackSolo);
-  const toggleTrackLock = useTimelineStore((s) => s.toggleTrackLock);
+  const setTrackMute = useTimelineStore((s) => s.setTrackMute);
+  const setTrackSolo = useTimelineStore((s) => s.setTrackSolo);
+  const setTrackLock = useTimelineStore((s) => s.setTrackLock);
   const setTrackVolume = useTimelineStore((s) => s.setTrackVolume);
   const setTrackHeight = useTimelineStore((s) => s.setTrackHeight);
   const renameTrack = useTimelineStore((s) => s.renameTrack);
@@ -170,7 +170,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
       <div className="flex items-center gap-0.5 flex-shrink-0">
         {isAudio ? (
           <button
-            onClick={(e) => { e.stopPropagation(); toggleTrackSolo(track.id); }}
+            onClick={(e) => { e.stopPropagation(); setTrackSolo(track.id); }}
             className={`pro-btn w-[22px] h-[22px] ${track.solo ? 'pro-btn-active' : ''}`}
             title={track.solo ? 'Un-solo track' : 'Solo track'}
           >
@@ -181,7 +181,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
         )}
 
         <button
-          onClick={(e) => { e.stopPropagation(); toggleTrackMute(track.id); }}
+          onClick={(e) => { e.stopPropagation(); setTrackMute(track.id); }}
           className={`pro-btn w-[22px] h-[22px] ${track.muted ? '!text-spectrum-red' : ''}`}
           title={isAudio ? (track.muted ? 'Unmute' : 'Mute') : track.muted ? 'Show track' : 'Hide track'}
         >
@@ -191,7 +191,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
         </button>
 
         <button
-          onClick={(e) => { e.stopPropagation(); toggleTrackLock(track.id); }}
+          onClick={(e) => { e.stopPropagation(); setTrackLock(track.id); }}
           className={`pro-btn w-[22px] h-[22px] ${track.locked ? 'pro-btn-active !text-spectrum-amber' : ''}`}
           title={track.locked ? 'Unlock track' : 'Lock track'}
         >
