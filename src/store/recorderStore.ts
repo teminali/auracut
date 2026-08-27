@@ -122,6 +122,8 @@ interface RecorderState {
   sources: RecorderSource[];
   sourcesLoading: boolean;
   selectedSourceId: string | null;
+  /** macOS says the permission is granted and hands back no displays. */
+  screenGrantStale: boolean;
 
   permissions: RecorderPermissions | null;
   cameras: DeviceOption[];
@@ -151,6 +153,8 @@ interface RecorderState {
   refreshDevices: () => Promise<void>;
   refreshPermissions: () => Promise<void>;
   requestPermission: (kind: 'camera' | 'microphone' | 'screen' | 'accessibility') => Promise<void>;
+  /** Clear the stale grant and restart, so macOS asks again. */
+  repairScreenPermission: () => Promise<void>;
 
   selectSource: (id: string) => void;
   set: <K extends keyof StickySettings>(key: K, value: StickySettings[K]) => void;
@@ -195,6 +199,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
   sources: [],
   sourcesLoading: false,
   selectedSourceId: null,
+  screenGrantStale: false,
 
   permissions: null,
   cameras: [],
@@ -243,6 +248,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     set((s) => ({
       sources,
       sourcesLoading: false,
+      screenGrantStale: Boolean(result.deniedDespiteSettings),
       error: result.ok ? s.error : (result.error ?? 'The screen list could not be read.'),
       // Keep the current pick if it still exists; otherwise take the primary display.
       selectedSourceId:
@@ -284,6 +290,24 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     await get().refreshPermissions();
     // Labels only appear once access has been granted at least once.
     await get().refreshDevices();
+  },
+
+  /*
+    The switch is already on, so sending somebody back to System Settings
+    would be sending them to look at a thing that is not the problem.
+    Clearing the row is, and it needs a restart to take effect.
+  */
+  repairScreenPermission: async () => {
+    const api = window.electronAPI?.recorder;
+    if (!api) return;
+    const result = await api.resetScreenPermission();
+    useUiStore.getState().pushToast({
+      kind: result.ok ? 'success' : 'error',
+      title: result.ok ? 'Restarting Kerf' : 'Could not reset the permission',
+      detail: result.message,
+      ttl: result.ok ? 2500 : 8000,
+    });
+    if (result.ok) window.setTimeout(() => void api.relaunch(), 1200);
   },
 
   selectSource: (id) => set({ selectedSourceId: id }),

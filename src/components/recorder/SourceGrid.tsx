@@ -78,8 +78,13 @@ export const SourceGrid: React.FC<Props> = ({ sources, loading, selectedId, onSe
             <p className="text-ui-sm text-spectrum-textDim leading-relaxed">
               {tab === 'window'
                 ? 'No other windows are open.'
-                : 'No displays were offered. On macOS this usually means screen recording has not been '
-                  + 'allowed for Kerf yet.'}
+                /* Not "you have not allowed it yet". The commonest reason
+                   for zero displays on a machine that HAS allowed it is
+                   that the grant went stale when Kerf updated, and the
+                   footer offers the one button that fixes that. */
+                : 'No displays were offered. Either screen recording has not been allowed for '
+                  + 'Kerf, or it was allowed for an earlier version and stopped matching when '
+                  + 'Kerf updated. The bar below says which and can fix it.'}
             </p>
           </div>
         ) : (

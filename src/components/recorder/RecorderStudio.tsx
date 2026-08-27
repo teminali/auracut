@@ -227,7 +227,30 @@ const SetupFooter: React.FC = () => {
   return (
     <div className="flex-shrink-0 border-t border-line px-3 py-2.5 flex items-center gap-3">
       <div className="min-w-0 flex-1">
-        {screenBlocked ? (
+        {/*
+          The stale grant comes FIRST, before the ordinary denied case,
+          because the two need opposite advice and only one of them is
+          ever true at a time. Sending somebody to System Settings when
+          the switch there is already on is sending them to look at the
+          thing that is not the problem.
+        */}
+        {store.screenGrantStale ? (
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-spectrum-amber flex-shrink-0" />
+            <span className="text-ui-sm text-spectrum-textMuted truncate"
+              title={'Kerf is not signed by Apple, so macOS ties the permission to the exact '
+                + 'build. Updating replaces the build and the permission stops matching, '
+                + 'without the switch changing.'}>
+              Screen recording looks enabled but macOS is refusing it. Updating Kerf does this.
+            </span>
+            <button
+              onClick={() => void store.repairScreenPermission()}
+              className="btn-primary h-6 px-2 text-ui-xs flex-shrink-0"
+            >
+              Fix and restart
+            </button>
+          </div>
+        ) : screenBlocked ? (
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-spectrum-amber flex-shrink-0" />
             <span className="text-ui-sm text-spectrum-textMuted truncate">

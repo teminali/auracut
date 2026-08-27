@@ -140,7 +140,12 @@ export interface ElectronAPI {
    * the floating control bar.
    */
   recorder: {
-    sources: (thumbWidth?: number) => Promise<{ ok: boolean; error?: string; sources: RecorderSource[] }>;
+    sources: (thumbWidth?: number) => Promise<{
+      ok: boolean; error?: string; deniedDespiteSettings?: boolean; sources: RecorderSource[];
+    }>;
+    /** Clear a stale macOS screen-recording grant so it is asked for again. */
+    resetScreenPermission: () => Promise<{ ok: boolean; message: string }>;
+    relaunch: () => Promise<boolean>;
     permissions: () => Promise<RecorderPermissions>;
     requestPermission: (kind: 'camera' | 'microphone' | 'screen' | 'accessibility')
       => Promise<{ granted: boolean; opened: boolean }>;
@@ -284,6 +289,8 @@ const api: ElectronAPI = {
   },
   recorder: {
     sources: (thumbWidth) => ipcRenderer.invoke('recorder:sources', { thumbWidth }),
+    resetScreenPermission: () => ipcRenderer.invoke('recorder:resetScreenPermission'),
+    relaunch: () => ipcRenderer.invoke('recorder:relaunch'),
     permissions: () => ipcRenderer.invoke('recorder:permissions'),
     requestPermission: (kind) => ipcRenderer.invoke('recorder:requestPermission', { kind }),
     begin: (opts) => ipcRenderer.invoke('recorder:begin', opts),

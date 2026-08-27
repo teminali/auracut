@@ -161,6 +161,27 @@ macOS asks for screen recording, camera and microphone access separately.
 The recorder reports each one and opens the right settings pane rather than
 failing into a black stream.
 
+> **Updating Kerf breaks screen recording, and macOS will tell you it
+> hasn't.** These builds are ad-hoc signed with no Team ID, so macOS ties
+> the screen-recording grant to the exact binary. Every update is a
+> different binary, the grant stops matching, and because a row for
+> `com.kerf.editor` already exists macOS never asks again: the switch in
+> **Screen & System Audio Recording** stays on, `getMediaAccessStatus`
+> still answers `granted`, and `desktopCapturer` returns **zero displays**.
+>
+> The recorder detects it — a Mac cannot have zero displays, so that count
+> is the only trustworthy signal — and offers **Fix and restart**, which
+> clears Kerf's own row so macOS asks again:
+>
+> ```bash
+> tccutil reset ScreenCapture com.kerf.editor
+> ```
+>
+> This will keep happening on every update until the macOS builds carry a
+> Developer ID. With one, the grant is tied to the team identifier instead
+> of a hash and survives updates. It is the same missing signature that
+> stops the app self-updating.
+
 When the take stops you are offered two ways in: **Open raw**, which lays
 the clips down and stops, or **Open with the Tutorial skill**, which is
 everything below. Both leave a project made of ordinary clips, so choosing

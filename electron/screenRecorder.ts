@@ -412,8 +412,17 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
     const displays = screen.getAllDisplays();
     const primaryId = screen.getPrimaryDisplay().id;
 
+    /*
+      A Mac always has at least one display. Zero of them is not a state
+      the machine can be in, so it is the one RELIABLE signal that screen
+      recording is denied — `getMediaAccessStatus` answers `granted` from
+      a stale row and cannot be trusted for this.
+    */
+    const screens = sources.filter((source) => source.id.startsWith('screen:')).length;
+
     return {
       ok: true,
+      deniedDespiteSettings: process.platform === 'darwin' && screens === 0,
       sources: sources.map((source) => {
         const display = source.display_id
           ? displays.find((d) => String(d.id) === source.display_id)
@@ -464,6 +473,55 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
       barHiddenFromCapture: true,
       input,
     };
+  });
+
+  /*
+    ── The permission that says it is granted and is not ─────────────
+
+    Kerf's macOS builds are AD-HOC SIGNED with no Team ID, and TCC binds
+    a screen-recording grant to the binary's cdhash. Every rebuild is a
+    different cdhash. So after an update the switch in System Settings is
+    still on, `getMediaAccessStatus('screen')` still answers `granted`,
+    and `desktopCapturer` returns ZERO displays — macOS never re-asks,
+    because a row for the bundle id already exists.
+
+    Seen for real: permission visibly enabled in Screen and System Audio
+    Recording, `Displays (0)` in the studio, and a take that wrote a
+    zero-byte file. Every user who updates will meet it.
+
+    `tccutil reset` deletes Kerf's own row so macOS asks again on the
+    next launch. It is scoped to this bundle and this one service, and
+    the worst it can do is make somebody tick a box they had already
+    ticked. It will keep being needed on every update until these builds
+    carry a Developer ID, at which point the requirement is the team
+    identifier rather than a hash and survives.
+  */
+  ipcMain.handle('recorder:resetScreenPermission', async () => {
+    if (process.platform !== 'darwin') {
+      return { ok: false, message: 'Only macOS keeps a grant that can go stale like this.' };
+    }
+    return new Promise<{ ok: boolean; message: string }>((resolve) => {
+      execFile('tccutil', ['reset', 'ScreenCapture', 'com.kerf.editor'], (err, _out, stderr) => {
+        if (err) {
+          resolve({
+            ok: false,
+            message: `Could not reset it: ${(stderr || '').trim() || err.message}`,
+          });
+          return;
+        }
+        resolve({
+          ok: true,
+          message: 'Cleared. Kerf will ask for screen recording again when it restarts.',
+        });
+      });
+    });
+  });
+
+  /** Quit and come back, so a fresh permission is asked for on launch. */
+  ipcMain.handle('recorder:relaunch', () => {
+    app.relaunch();
+    app.exit(0);
+    return true;
   });
 
   ipcMain.handle('recorder:requestPermission', async (_e, p: {

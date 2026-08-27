@@ -252,7 +252,20 @@ export interface KerfElectronAPI {
    * renderer half and `electron/screenRecorder.ts` for this one.
    */
   recorder: {
-    sources: (thumbWidth?: number) => Promise<{ ok: boolean; error?: string; sources: RecorderSource[] }>;
+    sources: (thumbWidth?: number) => Promise<{
+      ok: boolean;
+      error?: string;
+      /**
+       * macOS reported zero displays, which cannot be true of a Mac.
+       * The grant is stale: an ad-hoc signature changes on every update
+       * and TCC binds to it, so the switch stays on and the capture is
+       * refused. `resetScreenPermission` is the way out.
+       */
+      deniedDespiteSettings?: boolean;
+      sources: RecorderSource[];
+    }>;
+    resetScreenPermission: () => Promise<{ ok: boolean; message: string }>;
+    relaunch: () => Promise<boolean>;
     permissions: () => Promise<RecorderPermissions>;
     requestPermission: (kind: 'camera' | 'microphone' | 'screen' | 'accessibility')
       => Promise<{ granted: boolean; opened: boolean }>;
