@@ -286,12 +286,11 @@ export async function applyTutorialSkill(
   if (!outcome.ok) return { ok: false, status: outcome.status };
 
   /*
-    Started here rather than inside `build`, and after the run has been
-    paid for: a transcription is only worth starting for a take that
-    actually became a project.
+    Only when the build could not wait. Started here rather than inside
+    `build` because a transcription is worth running only for a take
+    that actually became a project.
   */
-  const o = { ...DEFAULT_TUTORIAL, ...options };
-  if (o.transcribe) {
+  if (outcome.result.transcribedInBackground) {
     captionInBackground(take, options, outcome.result.screenClipId);
   }
 
@@ -304,31 +303,64 @@ async function build(
   onProgress: (progress: TutorialProgress) => void
 ): Promise<AssembleReport> {
   const o = { ...DEFAULT_TUTORIAL, ...options };
+  const notes: string[] = [];
+  let speech: SpeechCue[] = [];
+  let background = false;
 
-  onProgress({ phase: 'building', percent: 40, note: 'Building the edit' });
+  if (o.transcribe) {
+    /*
+      ── Wait for the words, or not, decided by which Whisper is here ──
 
-  /*
-    No `speech`. The transcript is started after this returns and lands
-    on the project that is by then open — see `captionInBackground` and
-    the note at the top of this file on why waiting for it was wrong.
-  */
+      The transcript is worth waiting for: it is the only signal in a
+      take that knows where a SENTENCE ends, and two edits are better
+      for having it before the build rather than after. The camera cuts
+      land between sentences instead of mid-word, and a stretch with no
+      speech in it is left alone, because a static face over dead air is
+      worse than a static screen.
+
+      Whether waiting is reasonable is not a matter of taste, it is a
+      property of the machine. Measured on the same 92 seconds of
+      narration with the same small model:
+
+          whisper.cpp, Metal      2.2 seconds
+          Python whisper, CPU     769 seconds
+
+      So: with the fast backend the words come first, and with the slow
+      one they arrive afterwards on their own track. Nobody is asked to
+      choose, and the report says which happened.
+    */
+    const status = await window.electronAPI?.stt.status();
+    if (status?.fast) {
+      onProgress({ phase: 'transcribing', percent: 10, note: 'Listening to the narration' });
+      const result = await transcribe(take, o, (percent, note) => {
+        onProgress({ phase: 'transcribing', percent: 10 + Math.round(percent * 0.3), note });
+      });
+      speech = result.cues;
+      notes.push(...result.notes);
+    } else {
+      background = true;
+    }
+  }
+
+  onProgress({ phase: 'building', percent: 45, note: 'Building the edit' });
+
   const report = await assembleRecording(take, {
     ...TUTORIAL_ASSEMBLE,
     ...options,
-    speech: [],
+    speech,
   });
 
   onProgress({ phase: 'done', percent: 100, note: 'Done' });
 
-  const notes = [...report.notes];
-  if (o.transcribe) {
+  if (background) {
     notes.push(
-      'The narration is being transcribed in the background; the captions will land on their '
-      + 'own track when it finishes. Camera cuts were placed from activity rather than from '
-      + 'sentence boundaries, which is what happens without a transcript.'
+      'Only the CPU version of Whisper is installed, which takes several times longer than the '
+      + 'take itself, so the narration is being transcribed in the background and the captions '
+      + 'will land on their own track. Camera cuts were placed from activity rather than from '
+      + 'sentence boundaries. `brew install whisper-cpp` makes this near-instant.'
     );
   }
-  return { ...report, notes };
+  return { ...report, notes: [...notes, ...report.notes], transcribedInBackground: background };
 }
 
 /* ── The words, afterwards ──────────────────────────────────────── */

@@ -8,12 +8,21 @@
    Every tile carries a frame rendered from that project on the way out
    of the editor. That is the reason this screen exists rather than a
    file dialog, and it is the one thing not to trade away for density.
+
+   The view-mode control is still a real `<select>`. It is drawn as one
+   of ours — `appearance: none` and our own caret — because the native
+   macOS popup renders a blue-tinted chrome control with its own idea
+   of a corner radius, and one OS widget in a screen of drawn ones is
+   more obviously foreign than eight of them would be. What it is NOT
+   is a div pretending: a select gets keyboard, type-ahead and the
+   platform popup for free, and every hand-rolled replacement in this
+   repo's history lost at least one of the three.
    ═══════════════════════════════════════════════════════════════════ */
 
 import React from 'react';
 import { RecentProject } from '../../store/recentsStore';
 import { formatDuration } from '../../utils/time';
-import { Search, Film, Clapperboard, X } from '../ui/icons';
+import { Search, Film, Clapperboard, X, ChevronDown } from '../ui/icons';
 
 interface Props {
   recents: RecentProject[];
@@ -58,7 +67,14 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
 
   return (
     <section className="rise-in rise-4">
-      <div className="flex items-center gap-3">
+      <div className="section-rule" aria-hidden="true" />
+
+      {/* The controls sit ON the heading's line, not above or below it.
+          A header row whose left half is 21px display type and whose
+          right half is 30px controls has no shared baseline to hang
+          from, so the two ends are centred against each other instead
+          and the row is given the control's height. */}
+      <div className="flex items-center gap-3 mt-7 h-[30px]">
         <h2 className="section-head">Projects</h2>
         {filtered.length > 1 && (
           <span className="section-note tabular">
@@ -68,7 +84,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
         <span className="flex-1" />
 
         {searching || query ? (
-          <div className="pro-input h-[30px] flex items-center gap-1.5 px-2.5 w-[220px]">
+          <div className="pro-input h-[30px] flex items-center gap-1.5 px-2.5 w-[230px]">
             <Search className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
             <input
               ref={inputRef}
@@ -97,15 +113,22 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           </button>
         )}
 
-        <select
-          value={mode}
-          onChange={(e) => setMode(e.target.value as ViewMode)}
-          className="pro-input h-[30px] text-ui-sm pl-2.5 pr-6"
-          title="How to lay the projects out"
-        >
-          <option value="grid">Grid</option>
-          <option value="list">List</option>
-        </select>
+        <div className="relative">
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as ViewMode)}
+            className="pro-input appearance-none h-[30px] text-ui-sm pl-2.5 pr-7 cursor-pointer"
+            title="How to lay the projects out"
+            aria-label="How to lay the projects out"
+          >
+            <option value="grid">Grid</option>
+            <option value="list">List</option>
+          </select>
+          <ChevronDown
+            className="w-3 h-3 text-spectrum-textDim absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            aria-hidden="true"
+          />
+        </div>
       </div>
 
       {filtered.length === 0 ? (
@@ -122,7 +145,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           </p>
         </div>
       ) : mode === 'grid' ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(232px,1fr))] gap-4 mt-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-4 mt-6">
           {filtered.map((entry) => (
             <div key={entry.id} data-home="project-tile" className="group relative">
               <button
@@ -133,17 +156,21 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
                   {entry.posterUrl ? (
                     <img src={entry.posterUrl} alt="" className="poster-zoom w-full h-full object-cover" />
                   ) : (
-                    <span className="w-full h-full flex items-center justify-center"
-                          style={{ background: 'linear-gradient(158deg,#1a212c 0%,#0d1116 100%)' }}>
-                      <Film className="w-5 h-5 text-white/12" />
+                    <span className="poster-empty w-full h-full flex items-center justify-center">
+                      <Film className="w-5 h-5 text-white/[0.10]" />
                     </span>
                   )}
                   {/* Grounds the poster against the card body below it;
                       a hard cut between image and chrome is what makes a
                       thumbnail look pasted on. */}
-                  <span className="absolute inset-x-0 bottom-0 h-10 pointer-events-none"
-                        style={{ background: 'linear-gradient(to top,rgba(6,8,12,0.55),transparent)' }} />
-                  <span className="media-pill absolute bottom-2 right-2 h-[17px] px-1.5 rounded-[5px] flex items-center">
+                  <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
+                        style={{ background: 'linear-gradient(to top,rgba(6,8,12,0.6),transparent)' }} />
+                  {/* And a hairline along the bottom of the frame, so
+                      the image has a cut edge rather than dissolving
+                      into the card it sits in. */}
+                  <span aria-hidden="true"
+                        className="absolute inset-x-0 bottom-0 h-px bg-white/[0.05] pointer-events-none" />
+                  <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center">
                     {formatDuration(entry.durationMs)}
                   </span>
                 </span>
@@ -173,21 +200,27 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           ))}
         </div>
       ) : (
-        <div className="mt-4 flex flex-col">
+        /* One hairline between rows, none above the first and none
+           below the last. A list that closes itself top and bottom is
+           a table, and a table has a header and columns this does not
+           have. */
+        <div className="mt-5 flex flex-col divide-y divide-line-soft">
           {filtered.map((entry) => (
             <div key={entry.id} data-home="project-tile"
-                 className="group flex items-center gap-3 py-2 px-2.5 rounded-squircle-md
-                            hover:bg-white/[0.04] transition-colors duration-fast">
-              <button onClick={() => onOpen(entry)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-                <span className="w-[64px] h-[36px] rounded-[5px] bg-spectrum-sunken overflow-hidden flex-shrink-0
-                                 flex items-center justify-center border border-line">
+                 className="group flex items-center gap-3.5 py-2.5 px-2.5 rounded-squircle-md
+                            hover:bg-white/[0.035] transition-colors duration-fast">
+              <button onClick={() => onOpen(entry)} className="flex items-center gap-3.5 flex-1 min-w-0 text-left">
+                <span className="w-[68px] h-[38px] rounded-[6px] bg-spectrum-sunken overflow-hidden flex-shrink-0
+                                 flex items-center justify-center shadow-[inset_0_0_0_1px_rgba(255,255,255,0.045)]">
                   {entry.posterUrl
                     ? <img src={entry.posterUrl} alt="" className="poster-zoom w-full h-full object-cover" />
-                    : <Film className="w-3.5 h-3.5 text-spectrum-textFaint" />}
+                    : <span className="poster-empty w-full h-full flex items-center justify-center">
+                        <Film className="w-3.5 h-3.5 text-white/[0.10]" />
+                      </span>}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-ui-lg font-medium text-spectrum-text truncate">{entry.name}</span>
-                  <span className="block text-micro font-mono text-spectrum-textFaint tabular">{meta(entry)}</span>
+                  <span className="block text-micro font-mono text-spectrum-textFaint tabular mt-0.5">{meta(entry)}</span>
                 </span>
               </button>
               {!entry.starter && (

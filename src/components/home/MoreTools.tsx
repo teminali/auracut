@@ -9,12 +9,21 @@
    The generic version of this row — an outlined square with a
    centred icon, repeated eight times — is the single most recognisable
    AI-generated layout there is, and giving each square a border and a
-   shadow makes it worse rather than better: eight bordered boxes in a
-   row is eight things competing with the one thing above them.
+   shadow makes it worse rather than better.
 
-   So they are `.ghost-tile`. No border, no fill and no shadow until
-   the cursor arrives. At rest this row is eight icons and eight words
-   on the page, which is what it actually is.
+   The fix is not to shrink the container, which is what was tried
+   first: a 64px box centred in a 130px column leaves 66px of dead
+   space between every tile and its neighbour, the eight boxes stop
+   touching the grid they are laid out on, and the row reads as eight
+   objects scattered across a band rather than as one band. THE CELL IS
+   THE TILE now. The hover target, the fill and the label share one
+   rectangle, the rectangles are the grid columns, and the row lines up
+   with the hero above it and the projects wall below it because all
+   three are measured from the same edges.
+
+   What keeps it quiet is weight, not size: 1.8% of white and the
+   faintest of the three hairlines. This is chrome, so it stays behind
+   the hero until the cursor arrives.
 
    The AI badge is on the two panels that genuinely run a model:
    captions (Whisper transcription) and the AI tool recipes. Badging
@@ -47,9 +56,10 @@ const TOOLS: Tool[] = [
 
 export const MoreTools: React.FC<{ onOpenPanel: (tab: SidebarTab) => void }> = ({ onOpenPanel }) => (
   <section className="rise-in rise-3">
-    <h2 className="section-head">More tools</h2>
+    <div className="section-rule" aria-hidden="true" />
+    <h2 className="section-head mt-7">More tools</h2>
 
-    <div className="grid grid-cols-8 gap-2.5 mt-5">
+    <div className="grid grid-cols-8 gap-3 mt-5">
       {TOOLS.map((tool) => {
         const Icon = tool.icon;
         return (
@@ -60,37 +70,29 @@ export const MoreTools: React.FC<{ onOpenPanel: (tab: SidebarTab) => void }> = (
             onClick={() => onOpenPanel(tool.id)}
             title={`Open the ${tool.label} panel`}
             aria-label={`Open the ${tool.label} panel`}
-            className="group flex flex-col items-center gap-2.5 pt-1"
+            className="tool-tile group relative rounded-squircle-lg h-[92px]
+                       flex flex-col items-center justify-center gap-3 px-2"
           >
-            {/* The container belongs to the ICON, which is what needs
-                grouping — a bare glyph floating over the page has
-                nothing holding it to its label. Wrapping the whole
-                tile instead put eight bordered boxes in a row and made
-                the section shout louder than the hero above it. */}
-            <span
-              className="w-16 h-16 rounded-squircle-lg bg-[#16191f] flex items-center justify-center
-                         relative transition-colors duration-base ease-snap group-hover:bg-[#1f242c]"
-            >
-              <Icon
-                className="w-6 h-6 text-spectrum-textMuted
-                           transition-colors duration-fast group-hover:text-spectrum-text"
-              />
-              {tool.ai && (
-                <span
-                  className="absolute top-1.5 right-1.5 h-[14px] px-[5px] rounded-[4px]
-                             bg-spectrum-blue/16 text-spectrum-blue text-[8.5px] font-bold
-                             tracking-[0.06em] flex items-center"
-                  aria-hidden="true"
-                >
-                  AI
-                </span>
-              )}
-            </span>
+            <Icon
+              className="w-[22px] h-[22px] text-spectrum-textMuted flex-shrink-0
+                         transition-colors duration-fast group-hover:text-spectrum-text"
+            />
 
-            <span className="text-ui font-medium text-spectrum-textDim text-center leading-tight
+            <span className="text-ui font-medium text-spectrum-textDim text-center leading-tight truncate max-w-full
                              transition-colors duration-fast group-hover:text-spectrum-text">
               {tool.label}
             </span>
+
+            {tool.ai && (
+              <span
+                className="absolute top-2 right-2 h-[15px] px-[5px] rounded-[4px]
+                           bg-spectrum-blue/[0.14] text-spectrum-blue text-[8.5px] font-bold
+                           tracking-[0.06em] flex items-center"
+                aria-hidden="true"
+              >
+                AI
+              </span>
+            )}
           </button>
         );
       })}

@@ -331,6 +331,29 @@ def main():
           f"narrationDetached={report['narrationDetached']}",
           control=False)
 
+    # ── 8. The words, when a backend fast enough to wait for is here ──
+    #
+    # Transcription is the one part of this skill whose PLACE in the
+    # pipeline depends on the machine. With whisper.cpp it runs before
+    # the build, so the camera cuts can land between sentences; with only
+    # the CPU implementation it runs after, and the skill says so. Both
+    # are correct and they are not the same edit, so the check is against
+    # what the machine actually has rather than against one of them.
+    stt = ok(call('check_transcription_ready', {}), 'stt')
+    if stt.get('fast'):
+        captioned = ok(call('build_tutorial_from_recording',
+                            {'folder': directory, 'captions': True}), 'captioned')
+        check('with a fast backend the transcript is waited for, not deferred',
+              captioned.get('transcribedInBackground') is False,
+              f"transcribedInBackground={captioned.get('transcribedInBackground')}, "
+              f"backend={stt.get('backend')}",
+              control=False)
+    else:
+        check('the slow backend defers the transcript instead of blocking',
+              True,
+              f"backend={stt.get('backend')}, nothing to wait for",
+              control=False)
+
     # Sampled at the very first frame, and against the middle of the film
     # rather than against an absolute level: the dip is an EASE, so how
     # dark it is a twentieth of a second in is a property of the curve

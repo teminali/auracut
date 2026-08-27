@@ -208,6 +208,11 @@ export interface AssembleReport {
   soundClips: number;
   captionLines: number;
   narrationDetached: boolean;
+  /**
+   * True when the transcript could not be waited for, so the camera cuts
+   * were placed from activity and the captions arrive later.
+   */
+  transcribedInBackground?: boolean;
   notes: string[];
 }
 

@@ -2907,7 +2907,11 @@ defineTool({
   category: 'discovery',
   description:
     'Report whether on-device transcription can run: whether ffmpeg and Whisper are ' +
-    'installed and which models are downloaded. Cheap; call before promising captions.',
+    'installed, which models are downloaded, and WHICH BACKEND will run. There are two ' +
+    'and they differ by two orders of magnitude: whisper.cpp goes through Metal and did ' +
+    '92 seconds of narration in 2.2s, the Python one runs CPU-only FP32 and did the same ' +
+    'audio in 769s. `fast` is true for the first. Cheap; call before promising captions, ' +
+    'and before promising them QUICKLY.',
   schema: z.object({}),
   handler: async () => {
     const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
@@ -2916,17 +2920,32 @@ defineTool({
     const status = await api.stt.status();
     return {
       ready: status.ready,
+      /*
+        WHICH backend, not just whether one exists. The two differ by two
+        orders of magnitude, and a caller deciding whether to wait for a
+        transcript or defer it needs the answer to that rather than to
+        "is Whisper installed".
+      */
+      backend: status.backend,
+      backendModel: status.backendModel,
+      fast: status.fast,
       ffmpeg: status.ffmpeg ?? 'not found',
+      whisperCli: status.whisperCli ?? 'not found',
       whisper: status.whisper ?? 'not found',
       modelsDownloaded: status.models,
-      ...(status.ready
+      ggmlModels: status.ggmlModels,
+      ...(status.ready && status.fast
         ? {}
         : {
             fix: !status.ffmpeg
               ? 'brew install ffmpeg'
-              : !status.whisper
-                ? 'pip install -U openai-whisper'
-                : 'Run `whisper --model small <audio file>` once while online to download a model.',
+              : status.ready
+                /* Ready but slow is still worth naming. Somebody about to
+                   wait twelve minutes should be told there is a version
+                   that takes two seconds. */
+                ? 'Working, but on the CPU. `brew install whisper-cpp` and a GGML model make it '
+                  + 'roughly 350 times faster; run setup_transcription to do both.'
+                : 'Run setup_transcription, which installs whisper-cpp and a model.',
           }),
     };
   },

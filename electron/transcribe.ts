@@ -108,6 +108,86 @@ export function whisper(): string | null {
   return whisperPath;
 }
 
+/* ══ Which Whisper ═══════════════════════════════════════════════════
+
+   There are two, they are not interchangeable, and the difference is
+   two orders of magnitude rather than a preference.
+
+   `whisper`     the reference Python implementation. Runs on the CPU in
+                 FP32 and says so on every launch: `FP16 is not supported
+                 on CPU; using FP32 instead`. Measured on this machine,
+                 92 seconds of narration with `small`: 12 minutes 49.
+                 Models are `.pt` files.
+
+   `whisper-cli` whisper.cpp, which on Apple Silicon runs the same
+                 weights through Metal. Models are `.bin` (GGML) files
+                 and are a separate download.
+
+   whisper.cpp is preferred when it is present AND has a model, and the
+   Python one is the fallback rather than the other way round, because
+   the fallback is the slow path and a slow path should never be the
+   default. Everything downstream sees one shape: `transcribeMedia`
+   returns the same segments either way.                              */
+
+export type WhisperBackend = 'whisper.cpp' | 'python' | null;
+
+let cliPath: string | null | undefined;
+
+export function whisperCli(): string | null {
+  if (cliPath === undefined) cliPath = findBinary('whisper-cli');
+  return cliPath;
+}
+
+/** GGML models on disk, as whisper.cpp names them. */
+export function ggmlModels(): string[] {
+  const dir = path.join(os.homedir(), '.cache', 'whisper');
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((f) => /^ggml-.+\.bin$/.test(f))
+      .map((f) => f.replace(/^ggml-/, '').replace(/\.bin$/, ''));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The backend that will actually run, and why.
+ *
+ * A binary with no model is not a usable backend, so both halves are
+ * checked. Reported rather than inferred, because "why is this taking
+ * twelve minutes" has exactly one answer and the UI should be able to
+ * give it.
+ */
+export function chooseBackend(): { backend: WhisperBackend; model: string | null } {
+  const ggml = ggmlModels();
+  if (whisperCli() && ggml.length > 0) {
+    return { backend: 'whisper.cpp', model: pickGgml(ggml) };
+  }
+  const pt = cachedModels();
+  if (whisper() && pt.length > 0) return { backend: 'python', model: pickModel() };
+  return { backend: null, model: null };
+}
+
+/**
+ * `.en` models first, then size.
+ *
+ * The English-only weights are both faster and more accurate on English
+ * than the multilingual ones of the same size, and narration for a
+ * screen tutorial is overwhelmingly English. A multilingual model is
+ * still picked when it is what is there.
+ */
+function pickGgml(available: string[], preferred?: string): string | null {
+  if (preferred && available.includes(preferred)) return preferred;
+  for (const candidate of [
+    'small.en', 'small', 'medium.en', 'medium', 'base.en', 'base',
+    'large-v3', 'large-v2', 'large', 'tiny.en', 'tiny',
+  ]) {
+    if (available.includes(candidate)) return candidate;
+  }
+  return available[0] ?? null;
+}
+
 /**
  * Which Whisper models are already downloaded.
  *
@@ -142,11 +222,23 @@ function pickModel(preferred?: string): string | null {
 
 export function transcriberStatus() {
   const models = cachedModels();
+  const ggml = ggmlModels();
+  const chosen = chooseBackend();
   return {
     ffmpeg: ffmpeg(),
     whisper: whisper(),
+    whisperCli: whisperCli(),
     models,
-    ready: Boolean(ffmpeg() && whisper() && models.length > 0),
+    ggmlModels: ggml,
+    /* Which one will actually run, and how fast it is. Measured on this
+       machine, 92 seconds of narration with the small model: 2.2 seconds
+       through whisper.cpp on Metal, 769 through the Python one on the
+       CPU. That is not a tuning difference and the UI should be able to
+       say which one the user has. */
+    backend: chosen.backend,
+    backendModel: chosen.model,
+    fast: chosen.backend === 'whisper.cpp',
+    ready: Boolean(ffmpeg() && chosen.backend),
   };
 }
 
@@ -194,6 +286,172 @@ function formatClock(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+interface PythonWhisperJson {
+  text?: string;
+  language?: string;
+  segments?: {
+    start: number; end: number; text: string;
+    words?: { word: string; start: number; end: number; probability?: number }[];
+  }[];
+}
+
+/** whisper.cpp's JSON. Offsets are already milliseconds, which is the shape we want. */
+interface WhisperCppJson {
+  result?: { language?: string };
+  transcription?: {
+    offsets: { from: number; to: number };
+    text: string;
+    tokens?: { text: string; offsets?: { from: number; to: number }; p?: number }[];
+  }[];
+}
+
+/**
+ * Caption-length lines, not thirty-second blocks.
+ *
+ * whisper.cpp emits ONE SEGMENT PER 30-SECOND WINDOW by default, which
+ * is right for a transcript and useless for everything this is for: a
+ * caption you can read, and a sentence boundary a cut can land between.
+ * `--max-len` with `--split-on-word` breaks it at word boundaries near
+ * that length. Measured on 92 seconds of narration: 4 segments without
+ * these, 16 with.
+ */
+const CPP_MAX_LEN = '70';
+
+async function runWhisperCpp(
+  wavPath: string,
+  workDir: string,
+  model: string,
+  options: TranscribeOptions
+): Promise<{ segments: TranscriptSegment[]; words: TranscriptWordOut[]; language: string }> {
+  const cli = whisperCli()!;
+  const outBase = path.join(workDir, 'out');
+  const args = [
+    '-m', path.join(os.homedir(), '.cache', 'whisper', `ggml-${model}.bin`),
+    '-f', wavPath,
+    '-oj',
+    '-of', outBase,
+    '-ml', CPP_MAX_LEN,
+    '-sow',
+    '-pp',
+    ...(options.wordTimestamps ? ['-ojf'] : []),
+    ...(options.language && options.language !== 'auto' ? ['-l', options.language] : []),
+  ];
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(cli, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    running = child;
+    let stderr = '';
+
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
+      const matches = [...chunk.matchAll(/progress\s*=\s*(\d{1,3})%/g)];
+      if (matches.length === 0) return;
+      /*
+        Clamped. whisper.cpp reports progress per window against the
+        whole file and can overshoot: this run printed 32, 65, 97, then
+        130. A bar that goes past the end is a bar nobody trusts.
+      */
+      const percent = Math.min(100, Number(matches[matches.length - 1][1]));
+      options.onProgress?.(Math.min(99, 15 + percent * 0.8), `Transcribing, ${percent}%`);
+    });
+
+    child.on('error', (err) => { running = null; reject(err); });
+    child.on('close', (code) => {
+      running = null;
+      if (code === 0) { resolve(); return; }
+      reject(new Error(
+        cancelled ? 'Transcription was cancelled.'
+          : stderr.trim().slice(-500) || `whisper-cli exited ${code}`
+      ));
+    });
+  });
+
+  const jsonPath = `${outBase}.json`;
+  if (!fs.existsSync(jsonPath)) throw new Error('whisper.cpp produced no output file.');
+
+  const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as WhisperCppJson;
+  const segments: TranscriptSegment[] = (parsed.transcription ?? []).map((seg) => ({
+    startMs: seg.offsets.from,
+    endMs: seg.offsets.to,
+    text: seg.text.trim(),
+  }));
+
+  const words: TranscriptWordOut[] = (parsed.transcription ?? []).flatMap((seg) =>
+    (seg.tokens ?? [])
+      .filter((tok) => tok.offsets && tok.text.trim() && !tok.text.startsWith('['))
+      .map((tok) => ({
+        word: tok.text.trim(),
+        startMs: tok.offsets!.from,
+        endMs: tok.offsets!.to,
+        confidence: tok.p ?? 1,
+      }))
+  );
+
+  return { segments, words, language: parsed.result?.language ?? 'unknown' };
+}
+
+async function runPythonWhisper(
+  wavPath: string,
+  workDir: string,
+  model: string,
+  options: TranscribeOptions
+): Promise<void> {
+  const wh = whisper()!;
+
+  /*
+    The fallback, and it is a distant one. Kept because a machine may
+    have the Python implementation and not whisper.cpp, and losing
+    captions entirely on that machine would be worse than losing them
+    slowly. Everything about it is slow: CPU, FP32, and it says so.
+  */
+  const args = [
+    wavPath,
+    '--model', model,
+    '--output_format', 'json',
+    '--output_dir', workDir,
+    ...(options.wordTimestamps ? ['--word_timestamps', 'True'] : []),
+    /* `False`, not `None`: whisper disables its own tqdm bar when
+       `verbose is not False`, so this is what makes progress exist. */
+    '--verbose', 'False',
+    // Never let a missing model trigger a download mid-edit: it can hang
+    // for minutes behind a TLS proxy and fail with an unrelated error.
+    '--model_dir', path.join(os.homedir(), '.cache', 'whisper'),
+  ];
+  if (options.language && options.language !== 'auto') args.push('--language', options.language);
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(wh, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    running = child;
+    let stderr = '';
+
+    /*
+      One stderr chunk carries several tqdm redraws, separated by
+      carriage returns. Taking the FIRST match reports the oldest number
+      in the chunk, and the first chunk always contains `0%|` — which is
+      how a bar ends up frozen on zero for twelve minutes.
+    */
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk: string) => {
+      stderr += chunk;
+      const matches = [...chunk.matchAll(/(\d{1,3})%\|/g)];
+      if (matches.length === 0) return;
+      const percent = Math.min(100, Number(matches[matches.length - 1][1]));
+      options.onProgress?.(Math.min(99, 15 + percent * 0.8), `Transcribing, ${percent}%`);
+    });
+
+    child.on('error', (err) => { running = null; reject(err); });
+    child.on('close', (code) => {
+      running = null;
+      if (code === 0) { resolve(); return; }
+      reject(new Error(
+        cancelled ? 'Transcription was cancelled.'
+          : stderr.trim().slice(-500) || `whisper exited ${code}`
+      ));
+    });
+  });
+}
+
 export async function transcribeMedia(
   options: TranscribeOptions
 ): Promise<TranscribeResult | TranscribeFailure> {
@@ -209,24 +467,26 @@ export async function transcribeMedia(
     };
   }
 
-  const wh = whisper();
-  if (!wh) {
-    return {
-      ok: false,
-      reason: 'no-whisper',
-      message: 'Whisper was not found. Install it with `pip install -U openai-whisper` to enable transcription.',
-    };
+  const chosen = chooseBackend();
+  if (!chosen.backend) {
+    return whisper()
+      ? {
+        ok: false,
+        reason: 'no-model',
+        message:
+          'No Whisper model is downloaded. Install whisper.cpp (`brew install whisper-cpp`) and a '
+          + 'GGML model for the fast path, or run `whisper --model small <any audio file>` once '
+          + 'while online for the slow one.',
+      }
+      : {
+        ok: false,
+        reason: 'no-whisper',
+        message:
+          'No Whisper was found. `brew install whisper-cpp` gives the Metal-accelerated one, '
+          + 'which is what this is built for; `pip install -U openai-whisper` gives the CPU one.',
+      };
   }
-
-  const model = pickModel(options.model);
-  if (!model) {
-    return {
-      ok: false,
-      reason: 'no-model',
-      message:
-        'No Whisper model is downloaded. Run `whisper --model small <any audio file>` once while online to fetch one.',
-    };
-  }
+  const model = chosen.model!;
 
   const workDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'kerf-stt-'));
   const wavPath = path.join(workDir, 'audio.wav');
@@ -264,133 +524,80 @@ export async function transcribeMedia(
     }
 
     /* ── 2. Transcribe ── */
-    /*
-      Named and quantified, because this is the one step that can run for
-      minutes with nothing to show. Whisper reports nothing at all until
-      its first window is decoded, and a bar sitting on one number is
-      indistinguishable from a hang — which is exactly what somebody
-      reported.
-    */
+
     const audioSeconds = Math.round(fs.statSync(wavPath).size / 32000);
     options.onProgress?.(
       15,
-      `Transcribing ${formatClock(audioSeconds)} with the ${model} model. `
-      + 'This runs on the processor and usually takes longer than the take itself.'
+      chosen.backend === 'whisper.cpp'
+        ? `Transcribing ${formatClock(audioSeconds)} with ${model} on the GPU`
+        : `Transcribing ${formatClock(audioSeconds)} with the ${model} model. `
+          + 'This one runs on the processor and takes longer than the take itself.'
     );
 
-    /*
-      ── `--word_timestamps` is opt-in, and it is NOT the slow part ──
+    const segments: TranscriptSegment[] = [];
+    const words: TranscriptWordOut[] = [];
+    let language = options.language ?? 'unknown';
 
-      It runs a separate cross-attention alignment pass per window, so
-      turning it off looked like the fix. Measured on the same 92 seconds
-      of audio with the same `small` model: 769s with, 709s without.
-      Eight percent, and the machine was busy for both runs, so treat
-      even that as approximate.
-
-      It stays off because captions are built from SEGMENTS, which carry
-      their own start and end, and nothing on that path reads per-word
-      times — only karaoke highlighting does, and it asks. Eight percent
-      free is worth having. It is not a solution.
-
-      **The slow part is that this runs on the CPU in FP32.** Whisper
-      itself says so on every run: `FP16 is not supported on CPU; using
-      FP32 instead`, decoding at 13 to 16 frames per second. That is why
-      92 seconds of narration takes twelve minutes, and why transcription
-      was moved off the critical path entirely rather than tuned. A
-      Metal-backed whisper.cpp would change the order of magnitude; no
-      flag here will.
-    */
-    const args = [
-      wavPath,
-      '--model', model,
-      '--output_format', 'json',
-      '--output_dir', workDir,
-      ...(options.wordTimestamps ? ['--word_timestamps', 'True'] : []),
-      /*
-        `False`, not `None`. Whisper's own tqdm bar is disabled when
-        `verbose is not False`, so this is the setting that makes a
-        progress bar exist at all — and it is the only progress this
-        process ever reports.
-      */
-      '--verbose', 'False',
-      // Never let a missing model trigger a download mid-edit: it can hang
-      // for minutes behind a TLS proxy and fail with an unrelated error.
-      '--model_dir', path.join(os.homedir(), '.cache', 'whisper'),
-    ];
-    if (options.language && options.language !== 'auto') args.push('--language', options.language);
-
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(wh, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-      running = child;
-      let stderr = '';
-
-      /*
-        Whisper writes a tqdm bar to stderr, redrawn with carriage
-        returns, so one chunk can carry several updates. Taking the FIRST
-        match reported the oldest number in the chunk, which is how a bar
-        ends up sitting on a stale percentage; the last one is the
-        current state.
-      */
-      child.stderr.setEncoding('utf8');
-      child.stderr.on('data', (chunk: string) => {
-        stderr += chunk;
-        const matches = [...chunk.matchAll(/(\d{1,3})%\|/g)];
-        if (matches.length === 0) return;
-        const percent = Number(matches[matches.length - 1][1]);
-        options.onProgress?.(
-          Math.min(99, 15 + percent * 0.8),
-          `Transcribing with the ${model} model, ${percent}%`
-        );
-      });
-
-      child.on('error', (err) => { running = null; reject(err); });
-      child.on('close', (code) => {
-        running = null;
-        if (code === 0) { resolve(); return; }
-        reject(new Error(
-          cancelled
-            ? 'Transcription was cancelled.'
-            : stderr.trim().slice(-500) || `whisper exited ${code}`
-        ));
-      });
-    });
-
-    /* ── 3. Parse ── */
-    const jsonPath = path.join(workDir, 'audio.json');
-    if (!fs.existsSync(jsonPath)) {
-      cleanup();
-      return { ok: false, reason: 'transcribe-failed', message: 'Whisper produced no output.' };
+    if (chosen.backend === 'whisper.cpp') {
+      const parsed = await runWhisperCpp(wavPath, workDir, model, options);
+      segments.push(...parsed.segments);
+      words.push(...parsed.words);
+      language = parsed.language;
+    } else {
+      await runPythonWhisper(wavPath, workDir, model, options);
+      const jsonPath = path.join(workDir, 'audio.json');
+      if (!fs.existsSync(jsonPath)) {
+        cleanup();
+        return { ok: false, reason: 'transcribe-failed', message: 'Whisper produced no output.' };
+      }
+      const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as PythonWhisperJson;
+      language = parsed.language ?? language;
+      for (const seg of parsed.segments ?? []) {
+        segments.push({
+          startMs: Math.round(seg.start * 1000),
+          endMs: Math.round(seg.end * 1000),
+          text: seg.text.trim(),
+        });
+        for (const w of seg.words ?? []) {
+          words.push({
+            word: w.word.trim(),
+            startMs: Math.round(w.start * 1000),
+            endMs: Math.round(w.end * 1000),
+            confidence: w.probability ?? 1,
+          });
+        }
+      }
     }
 
-    const parsed = JSON.parse(fs.readFileSync(jsonPath, 'utf8')) as {
-      text?: string;
-      language?: string;
-      segments?: { start: number; end: number; text: string; words?: { word: string; start: number; end: number; probability?: number }[] }[];
-    };
+    /* ── 3. What came back ── */
 
-    const segments: TranscriptSegment[] = (parsed.segments ?? []).map((s) => ({
-      startMs: Math.round(s.start * 1000),
-      endMs: Math.round(s.end * 1000),
-      text: s.text.trim(),
-    }));
-
-    const words: TranscriptWordOut[] = (parsed.segments ?? []).flatMap((s) =>
-      (s.words ?? []).map((w) => ({
-        word: w.word.trim(),
-        startMs: Math.round(w.start * 1000),
-        endMs: Math.round(w.end * 1000),
-        confidence: w.probability ?? 1,
-      }))
+    /*
+      Non-speech markers out. whisper emits `[Music]`, `(silence)` and
+      similar for stretches with no words in them, which are correct
+      observations and terrible captions: a tutorial does not want a line
+      on screen reading "[Music]" over its own title sequence.
+    */
+    const speech = segments.filter(
+      (seg) => seg.text.length > 0 && !/^[[(][^\])]*[\])]$/.test(seg.text)
     );
+
+    if (speech.length === 0) {
+      cleanup();
+      return {
+        ok: false,
+        reason: 'transcribe-failed',
+        message: 'Nothing that sounded like speech was found in that audio.',
+      };
+    }
 
     cleanup();
     options.onProgress?.(100, 'Done');
 
     return {
       ok: true,
-      language: parsed.language ?? options.language ?? 'unknown',
-      text: (parsed.text ?? '').trim(),
-      segments,
+      language,
+      text: speech.map((seg) => seg.text).join(' ').trim(),
+      segments: speech,
       words,
       model,
       elapsedMs: Date.now() - startedAt,
@@ -604,6 +811,48 @@ function findPython(): string | null {
   ]);
 }
 
+/** The GGML file name for a model, preferring the English-only weights. */
+function ggmlNameFor(model: string): string {
+  const base = model.replace(/^ggml-/, '').replace(/\.bin$/, '');
+  /* `.en` is both faster and more accurate on English than the
+     multilingual weights of the same size, and narration for a screen
+     tutorial is overwhelmingly English. The large models have no
+     English-only build. */
+  return /^(tiny|base|small|medium)$/.test(base) ? `${base}.en` : base;
+}
+
+/**
+ * Fetch one GGML model into the same cache the Python models use.
+ *
+ * Written to a `.part` file and renamed only once complete: a truncated
+ * model is not a failure anybody sees at download time, it is a failure
+ * at transcription time, days later, that looks like a broken app.
+ */
+async function fetchGgmlModel(name: string): Promise<{ ok: boolean; message: string; log?: string }> {
+  const dir = path.join(os.homedir(), '.cache', 'whisper');
+  const target = path.join(dir, `ggml-${name}.bin`);
+  const partial = `${target}.part`;
+  const url = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${name}.bin`;
+
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const response = await fetch(url);
+    if (!response.ok || !response.body) {
+      return { ok: false, message: `Could not download the ${name} model (HTTP ${response.status}).` };
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.byteLength < 1024 * 1024) {
+      return { ok: false, message: `The ${name} model came back too small to be real.` };
+    }
+    fs.writeFileSync(partial, buffer);
+    fs.renameSync(partial, target);
+    return { ok: true, message: `Downloaded the ${name} model.` };
+  } catch (err) {
+    try { fs.rmSync(partial, { force: true }); } catch { /* nothing to remove */ }
+    return { ok: false, message: `Could not download the ${name} model.`, log: (err as Error).message };
+  }
+}
+
 export async function setupTranscription(model = 'small'): Promise<SetupResult> {
   const run = (bin: string, args: string[], timeout: number) =>
     new Promise<{ code: number; out: string }>((resolve) => {
@@ -628,13 +877,51 @@ export async function setupTranscription(model = 'small'): Promise<SetupResult> 
     }
   }
 
+  /*
+    ── whisper.cpp FIRST, and it is not a preference ─────────────────
+
+    Measured on this machine, 92 seconds of narration, the same small
+    model: 2.2 seconds through whisper.cpp on Metal against 769 through
+    the Python one on the CPU. Installing the slow one when the fast one
+    is a brew formula away would be setting somebody up to wait twelve
+    minutes for every take and never know why.
+
+    The whole install is a bottled formula and one model file. It is
+    tried first and the Python path is only reached if it fails.
+  */
+  if (!whisperCli() || ggmlModels().length === 0) {
+    const brew = findBinary('brew');
+    if (brew) {
+      if (!whisperCli()) {
+        await run(brew, ['install', 'whisper-cpp'], 900_000);
+        cliPath = undefined; // re-detect
+      }
+      if (whisperCli() && ggmlModels().length === 0) {
+        const ok = await fetchGgmlModel(ggmlNameFor(model));
+        if (!ok.ok) {
+          return { ok: false, step: 'model', message: ok.message, log: ok.log };
+        }
+      }
+    }
+  }
+
+  if (whisperCli() && ggmlModels().length > 0) {
+    const chosen = chooseBackend();
+    return {
+      ok: true,
+      step: 'done',
+      message: `Ready. whisper.cpp with ${chosen.model}, which runs on the GPU.`,
+    };
+  }
+
   if (!whisper()) {
     const python = findPython();
     if (!python) {
       return {
         ok: false,
         step: 'whisper',
-        message: 'Python 3 was not found, so Whisper cannot be installed. Install Python 3, then retry.',
+        message: 'Neither whisper.cpp nor Python 3 was found. `brew install whisper-cpp` is the '
+          + 'one worth having; it is what makes transcription take seconds rather than minutes.',
       };
     }
     const r = await run(python, ['-m', 'pip', 'install', '-U', 'openai-whisper'], 900_000);

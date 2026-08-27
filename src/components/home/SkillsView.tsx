@@ -86,7 +86,7 @@ export const SkillsView: React.FC = () => {
   return (
     <section className="max-w-[860px]">
       <div className="flex items-center gap-3">
-        <h2 className="text-display font-semibold text-spectrum-text flex-1">Skills</h2>
+        <h2 className="section-head flex-1">Skills</h2>
 
         {status === 'unknown' && (
           <span className="flex items-center gap-1.5 text-ui-sm text-spectrum-textDim">

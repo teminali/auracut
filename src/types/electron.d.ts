@@ -188,7 +188,18 @@ export interface KerfElectronAPI {
   };
 
   stt: {
-    status: () => Promise<{ ffmpeg: string | null; whisper: string | null; models: string[]; ready: boolean }>;
+    status: () => Promise<{
+      ffmpeg: string | null;
+      whisper: string | null;
+      whisperCli: string | null;
+      models: string[];
+      ggmlModels: string[];
+      /** Which one will actually run. `whisper.cpp` is the fast, Metal one. */
+      backend: 'whisper.cpp' | 'python' | null;
+      backendModel: string | null;
+      fast: boolean;
+      ready: boolean;
+    }>;
     cancel: () => Promise<boolean>;
     transcribe: (opts: {
       mediaUrl: string; language?: string; model?: string; wordTimestamps?: boolean;

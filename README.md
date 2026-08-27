@@ -267,6 +267,33 @@ The narration is transcribed on device with Whisper and captioned in
 **Inter Bold** on a chip, which is what stays readable over screen content
 where an outline would compete with the type underneath.
 
+**Install whisper.cpp.** There are two Whispers and they are not a
+preference, they are two orders of magnitude. Measured on the same 92
+seconds of narration with the same `small` model class:
+
+| | |
+| --- | --- |
+| `whisper-cli` (whisper.cpp, Metal) | **2.2 s** |
+| `whisper` (Python, CPU, FP32) | **769 s** |
+
+The Python one prints `FP16 is not supported on CPU; using FP32 instead`
+on every run and decodes at 13–16 frames/sec. `setup_transcription`
+installs the fast one and a model; `check_transcription_ready` reports
+which you have and says so when you are on the slow path.
+
+That gap decides where transcription sits in the pipeline. **With the fast
+backend the words come first**, so the camera cuts land between sentences
+and a stretch with no speech in it is left alone. With the slow one they
+would take longer than the recording, so the edit is built immediately and
+the captions arrive on their own track afterwards — the camera cuts then
+fall on activity instead, and the report says so. Nobody is asked to
+choose; the machine decides and the result tells you what happened.
+
+The background pass is anchored on the **screen clip id**, not the project
+id: `buildStarterProject` replaces every track in place and leaves the id
+alone, so opening the starter mid-transcription used to drop a caption
+track onto it.
+
 ---
 
 ## The Copilot

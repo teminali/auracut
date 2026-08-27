@@ -133,32 +133,56 @@
    HOME SURFACE
    The launcher is the one screen in the app that is looked AT rather
    than worked THROUGH, so it gets a material system the tool panels
-   deliberately do not: a light source, real elevation, and grain.
+   deliberately do not: a lit stage, one edge per plane, and grain.
 
-   Three things separate a surface that reads as considered from one
-   that reads as generated, and none of them is colour:
+   The screen is composed like a FRAME, not like a document. Four
+   things do that work, and only one of them is colour:
 
-     1. A LIGHT SOURCE. Every raised plane has an inner highlight on
-        its top edge and a cast shadow below it, both consistent with
-        light from above. Flat fills with a 1px border are the tell.
-     2. GRAIN. Perfectly smooth gradients band on an OLED panel and
+     1. A KEY AND A FILL. One warm source above the hero, one cold
+        bounce from the far corner. Two temperatures, so the stage has
+        a direction instead of an even wash.
+     2. A VIGNETTE. The corners of a lit frame are always darker than
+        its centre. Without one, a dark UI is a uniformly grey
+        rectangle and every card floats at the same depth.
+     3. ONE EDGE. A plane gets a single hairline, not a border AND a
+        shadow AND a highlight. Three edges is what makes a surface
+        read as drawn; one is what makes it read as cut.
+     4. GRAIN. Perfectly smooth gradients band on an OLED panel and
         read as vector art. A few percent of noise is what makes a
         dark surface look like a material instead of a fill.
-     3. RESPONSE. Weight under the cursor — a lift, a shadow that
-        grows, a border that warms — on one easing curve.
    ═══════════════════════════════════════════════════════════════ */
 @layer components {
   :root {
     /* feTurbulence, inlined. ~700 bytes and no network. */
     --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+
+    /* The one hairline the launcher uses, at three strengths. Named
+       here because six components have to agree on it: an edge that
+       drifts between 0.03 and 0.06 across a screen reads as six
+       different materials rather than one. */
+    --edge: rgba(255, 255, 255, 0.045);
+    --edge-hover: rgba(255, 255, 255, 0.085);
+    --edge-faint: rgba(255, 255, 255, 0.028);
   }
 
-  /* The page. A cool light from above the top edge, so the screen has
-     a direction and the cards below have something to catch. */
+  /* ── The stage ────────────────────────────────────────────────
+     Lit, then vignetted. The key is anchored over the hero rather
+     than centred on the window: light that lands where the brightest
+     object is makes that object part of the scene, and a centred wash
+     makes it a sticker on a backdrop.
+
+     Layer order is the physical one, top first: the sources sit over
+     the vignette, so the corners fall away without also killing the
+     key light that reaches the top of the frame. */
   .home-stage {
     position: relative;
     background:
-      radial-gradient(145% 70% at 50% -18%, rgba(255, 190, 165, 0.05) 0%, transparent 62%),
+      radial-gradient(88% 56% at 27% -16%,
+        rgba(217, 119, 87, 0.14) 0%, rgba(217, 119, 87, 0.04) 44%, transparent 74%),
+      radial-gradient(64% 58% at 106% 4%,
+        rgba(104, 140, 200, 0.075) 0%, transparent 62%),
+      radial-gradient(128% 100% at 50% 32%,
+        transparent 34%, rgba(0, 0, 0, 0.34) 76%, rgba(0, 0, 0, 0.6) 100%),
       var(--stage);
   }
 
@@ -167,7 +191,7 @@
     position: absolute;
     inset: 0;
     background-image: var(--grain);
-    opacity: 0.022;
+    opacity: 0.026;
     pointer-events: none;
     z-index: 0;
   }
@@ -178,36 +202,46 @@
   }
 
   /* ── The plane ────────────────────────────────────────────────
-     A FILL, not a frame. This started as a bordered, shadowed,
+     A FILL with ONE edge. This started as a bordered, shadowed,
      inner-highlighted surface on the theory that a light source is
-     what separates a considered UI from a flat one. Held against the
-     reference, that was wrong for this screen: CapCut's cards are a
-     solid rectangle about sixteen RGB points lighter than the page,
-     with no border, no shadow and no highlight — one edge where mine
-     had three, and it reads dramatically calmer at a glance.
+     what separates a considered UI from a flat one, and that was
+     three edges where the eye only ever wanted one. It then went the
+     other way, to a flat fill with no edge at all, which is calm but
+     leaves a card and the page it sits on meeting at a seam you
+     cannot quite find.
 
-     The theory is not wrong in general; it is wrong HERE. Elevation
-     earns its cost when surfaces overlap and you have to read which
-     is in front. A launcher is a flat grid of tiles that never
-     overlap, so every shadow is noise with no question to answer.
-     Depth stays on the things that genuinely float — the hero, and
-     anything hovered. */
+     One hairline is the answer to both. It costs nothing at a glance
+     and it CUTS the card out of the stage instead of tinting a
+     rectangle on it. The vertical gradient in the fill is the other
+     half: a plane under a key light is not one colour top to bottom,
+     and two RGB points of ramp is the difference between a lit
+     surface and a swatch.
+
+     Depth still stays off resting cards. A launcher is a flat grid of
+     tiles that never overlap, so a cast shadow is answering a
+     question nobody asked. It arrives on hover, where there IS a
+     question: which one is under the cursor. */
   .surface-card {
-    background: #16191f;
-    border: 1px solid transparent;
+    background-color: #171b22;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0%, transparent 62%);
+    box-shadow: inset 0 0 0 1px var(--edge);
     transition:
       transform var(--t-base) var(--ease),
-      background-color var(--t-base) var(--ease);
+      background-color var(--t-base) var(--ease),
+      box-shadow var(--t-base) var(--ease);
   }
 
   .surface-card-hover:hover {
-    transform: translateY(-1px);
-    background: #1c2028;
+    transform: translateY(-2px);
+    background-color: #1d222b;
+    box-shadow:
+      inset 0 0 0 1px var(--edge-hover),
+      0 18px 38px -26px rgba(0, 0, 0, 0.95);
   }
 
   .surface-card-hover:active {
     transform: translateY(0);
-    background: #1f242c;
+    background-color: #21262f;
     transition-duration: var(--t-fast);
   }
 
@@ -228,9 +262,10 @@
       carries the light, and white type sits on it the way it does on
       every other surface in the app.
 
-      Three layers, and each does one job:
+      Four layers, and each does one job:
         · a tight specular sheen from above the top-left corner
         · a deep shadow pooling into the bottom-right
+        · a soft floor shadow, so the slab has a bottom as well as a top
         · the body gradient, which never gets lighter than #1e9fc0
     */
     background:
@@ -240,6 +275,7 @@
          turned the right side brown rather than deep amber — a muddy
          end to a gradient reads as a badly exported JPEG. */
       radial-gradient(70% 110% at 108% 150%, rgba(46, 15, 6, 0.62) 0%, transparent 62%),
+      linear-gradient(0deg, rgba(38, 12, 5, 0.28) 0%, transparent 34%),
       linear-gradient(102deg, #b35a37 0%, #dd8560 44%, #a85332 100%);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.28),
@@ -259,6 +295,35 @@
     pointer-events: none;
   }
 
+  /* A specular sweep, once, on arrival. This is the one piece of
+     motion on the screen that exists purely to say a surface is
+     glossy — which is a claim about MATERIAL, and the hero is the
+     only thing here made of anything. Everything else moves because
+     something happened. */
+  .hero-tile::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    bottom: -20%;
+    left: -40%;
+    width: 26%;
+    transform: skewX(-16deg);
+    background: linear-gradient(90deg,
+      transparent 0%, rgba(255, 255, 255, 0.17) 50%, transparent 100%);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .hero-tile:hover::before {
+    animation: hero-sweep 0.72s var(--ease);
+  }
+
+  @keyframes hero-sweep {
+    from { opacity: 0.9; left: -40%; }
+    to   { opacity: 0; left: 116%; }
+  }
+
   .hero-tile:hover {
     transform: translateY(-2px);
     box-shadow:
@@ -269,6 +334,75 @@
 
   .hero-tile:active {
     transform: translateY(0) scale(0.997);
+    transition-duration: var(--t-fast);
+  }
+
+  /* ── Frame ticks ──────────────────────────────────────────────
+     A ruler, not a texture. Kerf's whole subject is a strip of frames
+     with a scale under it, and the hero is the way into one, so the
+     empty half of the slab holds the thing the product is about
+     rather than a gradient nobody chose.
+
+     Masked at both ends so it never collides with the type on its
+     left or the arrow on its right, and every fourth tick is taller
+     the way a real ruler marks a second. */
+  .frame-ticks,
+  .frame-ticks-tall,
+  .frame-baseline {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 17%, #000 83%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 17%, #000 83%, transparent 100%);
+  }
+
+  .frame-ticks {
+    background-image:
+      repeating-linear-gradient(90deg,
+        rgba(255, 255, 255, 0.34) 0 1px, transparent 1px 16px);
+  }
+
+  .frame-ticks-tall {
+    background-image:
+      repeating-linear-gradient(90deg,
+        rgba(255, 255, 255, 0.44) 0 1px, transparent 1px 64px);
+  }
+
+  /* The line the marks stand on. Without it they are dashes floating
+     at a height, which is texture; with it they are a scale, which is
+     a picture of the thing the button opens. */
+  .frame-baseline {
+    background: rgba(255, 255, 255, 0.26);
+  }
+
+  /* ── Tool tiles ───────────────────────────────────────────────
+     The cell IS the tile. Eight 64px squares centred in eight 130px
+     columns is eight objects floating in a row with 66px of nothing
+     between each of them and its neighbour, and the row stops reading
+     as one control surface. Filling the column instead means the
+     hover target, the fill and the label all share one rectangle, and
+     eight of those in a row read as a band.
+
+     Almost nothing at rest, on purpose. This is chrome: a launcher
+     for a panel, not content. It gets the faintest of the three
+     hairlines and 1.8% of white, which on the stage is a shape you
+     can find and not one you have to look past. */
+  .tool-tile {
+    background-color: rgba(255, 255, 255, 0.018);
+    box-shadow: inset 0 0 0 1px var(--edge-faint);
+    transition:
+      transform var(--t-base) var(--ease),
+      background-color var(--t-base) var(--ease),
+      box-shadow var(--t-base) var(--ease);
+  }
+
+  .tool-tile:hover {
+    transform: translateY(-2px);
+    background-color: rgba(255, 255, 255, 0.052);
+    box-shadow:
+      inset 0 0 0 1px var(--edge-hover),
+      0 14px 30px -22px rgba(0, 0, 0, 0.9);
+  }
+
+  .tool-tile:active {
+    transform: translateY(0);
     transition-duration: var(--t-fast);
   }
 
@@ -289,6 +423,7 @@
   .rise-2 { animation-delay: 0.07s; }
   .rise-3 { animation-delay: 0.12s; }
   .rise-4 { animation-delay: 0.17s; }
+  .rise-5 { animation-delay: 0.22s; }
 
   /* ── Section headings ─────────────────────────────────────────
      Display size, tight tracking, and an optical nudge left so the
@@ -296,9 +431,9 @@
      glyph's own side bearing. */
   .section-head {
     @apply font-semibold text-spectrum-text;
-    font-size: 22px;
-    line-height: 28px;
-    letter-spacing: -0.022em;
+    font-size: 21px;
+    line-height: 27px;
+    letter-spacing: -0.021em;
     margin-left: -0.5px;
   }
 
@@ -306,6 +441,43 @@
   .section-note {
     @apply text-ui-sm text-spectrum-textDim;
     letter-spacing: 0.002em;
+  }
+
+  /* ── Section rule ─────────────────────────────────────────────
+     One hairline above each section, running the full width of the
+     content column and fading out to the right.
+
+     This is the only piece of pure structure on the screen and it
+     earns its place: three stacked sections separated by nothing but
+     56px of black have no registration, so the eye cannot tell
+     whether the projects wall is a new thought or the bottom of the
+     tool row. A line it all starts from is what makes the spacing
+     read as composed rather than as leftover. It fades because a rule
+     that reaches the far edge closes a box, and nothing here is a box. */
+  .section-rule {
+    height: 1px;
+    background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.085) 0%,
+      rgba(255, 255, 255, 0.045) 38%,
+      rgba(255, 255, 255, 0.012) 78%,
+      transparent 100%);
+  }
+
+  /* ── The seam ─────────────────────────────────────────────────
+     One hairline between the rail and the stage, faded out at both
+     ends so it never closes the window into a box.
+
+     The rail and the content column were separated by 56px of black
+     and nothing else, which is enough to keep them apart and not
+     enough to say they are different KINDS of thing: one is a fixed
+     frame of navigation, the other scrolls. A single edge says that,
+     and it is the same edge every card on this screen uses. */
+  .rail-seam {
+    background: linear-gradient(180deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.055) 14%,
+      rgba(255, 255, 255, 0.055) 74%,
+      transparent 100%);
   }
 
   /* ── Media ────────────────────────────────────────────────────
@@ -325,6 +497,17 @@
     @apply text-micro font-mono tabular text-white/90;
     background: rgba(6, 8, 12, 0.66);
     backdrop-filter: blur(10px) saturate(1.3);
+  }
+
+  /* A frame with no poster yet. Perforations and a frame line rather
+     than one centred glyph on a void: it has to read as "no frame
+     captured", which is a state, and not as a broken image, which is
+     a fault. */
+  .poster-empty {
+    background-image:
+      repeating-linear-gradient(90deg,
+        rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 26px),
+      linear-gradient(158deg, #1b2330 0%, #0c1015 100%);
   }
 }
 

@@ -146,17 +146,27 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
         />
 
         {/*
+          One hairline between the fixed rail and the scrolling stage.
+          56px of black separated them before, which keeps them apart
+          without saying they are different KINDS of surface.
+        */}
+        <div aria-hidden="true" className="rail-seam w-px flex-shrink-0 my-2" />
+
+        {/*
           Capped rather than fluid. Eight tool tiles spread across a 27"
           display land a hand's width apart and the row stops reading as
           a group — the Gestalt breaks long before the pixels run out.
         */}
-        <main className="flex-1 min-w-0 overflow-y-auto pl-9 pr-12 pb-16">
-          <div className="max-w-[1180px]">
+        <main className="flex-1 min-w-0 overflow-y-auto pl-8 pr-12 pb-16 pt-1">
+          <div className="max-w-[1240px]">
           {view === 'home' ? (
-            /* Rhythm, not a constant. The hero block and the tool row
-               are one thought and sit closer together; the projects
-               wall is a different one and gets air before it. */
-            <div className="flex flex-col gap-14">
+            /* Rhythm, and the sections carry their own rule now, so the
+               gap between them is doing one job instead of two: it used
+               to be the ONLY thing saying where one thought ended, and
+               a gap large enough to do that is larger than the screen
+               wants. 48px plus a hairline reads as more separation than
+               56px of nothing did. */
+            <div className="flex flex-col gap-12">
               <HeroRow
                 onNewProject={() => setNewSheetOpen(true)}
                 onOpenCopilot={actions.openCopilot}

@@ -111,9 +111,9 @@ export const HomeSidebar: React.FC<Props> = ({
       {/* ── Nav ── */}
       {/* Sentence case, like CapCut's. `panel-title` is the editor's
           uppercase tracking, which belongs on a tool panel, not here. */}
-      <p className="text-ui-sm font-medium text-spectrum-textDim mt-7 mb-2.5 px-1">Video editing</p>
+      <p className="text-ui-sm font-medium text-spectrum-textDim mt-8 mb-3 px-1">Video editing</p>
 
-      <nav className="flex flex-col gap-1">
+      <nav className="flex flex-col gap-0.5">
         {NAV.map((item) => {
           const Icon = item.icon;
           const active = view === item.id;
@@ -127,8 +127,13 @@ export const HomeSidebar: React.FC<Props> = ({
                  a raised gradient pill and an inset ring — which is how
                  a nav with two items ends up looking like a control
                  panel. A quiet fill plus the accent on the icon is
-                 enough, and the icon is what the eye reads first anyway. */
-              className={`h-[36px] px-3 rounded-squircle-md flex items-center gap-2.5 text-ui-lg
+                 enough, and the icon is what the eye reads first anyway.
+
+                 Set at the launcher's type size, not the editor's. 13px
+                 is what a tool panel dense with controls needs; a rail
+                 with two items in it beside a 30px hero just looks
+                 timid at that size. */
+              className={`h-[40px] px-3 rounded-squircle-md flex items-center gap-3 text-ui-xl
                           transition-colors duration-fast ${
                 active
                   ? 'text-spectrum-text font-medium bg-white/[0.055]'
@@ -136,7 +141,7 @@ export const HomeSidebar: React.FC<Props> = ({
               }`}
             >
               <Icon
-                className={`w-4 h-4 flex-shrink-0 ${active ? 'text-spectrum-accent' : ''}`}
+                className={`w-[18px] h-[18px] flex-shrink-0 ${active ? 'text-spectrum-accent' : ''}`}
                 weight={active ? 'fill' : 'regular'}
               />
               {item.label}
@@ -150,7 +155,12 @@ export const HomeSidebar: React.FC<Props> = ({
       {/* ── Bottom card. CapCut runs advertisements here; §7 rule 3 says
              never, so it holds the one thing that is genuinely waiting
              for you — and otherwise says how saving works. ── */}
-      <div>
+      <div className="pt-4">
+        {/* A floor for the rail. Without it the bottom card hangs in
+            the corner with nothing under it, and a notice that is
+            already competing with the hero for attention should at
+            least be visibly parked rather than floating. */}
+        <div aria-hidden="true" className="section-rule mb-4" />
         {recoverable ? (
           /* A notice, not a card. A tinted, bordered, shadowed box in
              the corner of a launcher competes with the primary action
