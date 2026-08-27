@@ -1,0 +1,56 @@
+# ═══════════════════════════════════════════════════════════════════
+# The gate: typecheck and unit tests, on all three platforms.
+#
+# Neither needs a display, an audio device, ffmpeg or a running app, so
+# this is the one part of the verification apparatus that can be a hard
+# gate on every platform from day one — including Windows, where nobody
+# has ever watched the app itself run.
+#
+# 167 unit tests and two typechecks (`tsc --noEmit` for the renderer,
+# `tsconfig.electron.json` for the main process — the main process had
+# no typecheck once, and it hid a permission handler that denied every
+# permission and an ffmpeg path that could be null).
+#
+# The live-app suites are in verify.yml. They need a window, and what
+# they do on each platform is a different and much less settled
+# question — read that file's header before believing anything about it.
+# ═══════════════════════════════════════════════════════════════════
+
+name: Gate (typecheck + unit tests)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gate:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      # --ignore-scripts would skip Electron's postinstall, and nothing
+      # here needs the 100MB binary — but the install is cached and the
+      # skip has bitten this repo before (trap 6: a postinstall that
+      # reported success and extracted one licence file), so leave the
+      # real install in place and let a broken one be visible here
+      # rather than in the suites.
+      - run: yarn install --frozen-lockfile
+
+      - name: Typecheck (renderer and main process)
+        run: yarn typecheck
+
+      - name: Unit tests
+        run: yarn test

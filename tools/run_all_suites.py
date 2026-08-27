@@ -89,7 +89,9 @@ import argparse
 import atexit
 import json
 import os
+import pathlib
 import re
+import shlex
 import shutil
 import signal
 import socket
@@ -97,6 +99,7 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 TOOLS = os.path.dirname(os.path.abspath(__file__))
@@ -141,6 +144,31 @@ NOISE_RE = re.compile(
     r'|For more information and help|exposes users of this app|security risks'
     r'|Policy set or a policy with|Download the React DevTools')
 
+IS_WINDOWS = sys.platform == 'win32'
+
+
+def _signal_group(proc, hard):
+    """Kill the app and everything it spawned, on either platform.
+
+    `os.killpg`, `os.getpgid` and `SIGKILL` do not merely behave
+    differently on Windows — they do not EXIST there, so the POSIX
+    teardown raised AttributeError and left an Electron running with the
+    port still held. Trap 3 says believe `ps`, not the signal; on Windows
+    the equivalent is `taskkill /T`, which walks the child tree the way
+    killpg walks the group.
+    """
+    if IS_WINDOWS:
+        subprocess.run(
+            ['taskkill', '/PID', str(proc.pid), '/T'] + (['/F'] if hard else []),
+            capture_output=True)
+        return
+    try:
+        os.killpg(os.getpgid(proc.pid),
+                  signal.SIGKILL if hard else signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        pass
+
+
 GREEN, RED, YELLOW, DIM, OFF = '\033[32m', '\033[31m', '\033[33m', '\033[2m', '\033[0m'
 if not sys.stdout.isatty() or os.environ.get('NO_COLOR'):
     GREEN = RED = YELLOW = DIM = OFF = ''
@@ -173,10 +201,23 @@ class Kerf:
         # that wrapper spawns the app as a CHILD, so killing the wrapper
         # leaves the app running. start_new_session puts the whole tree in
         # one process group we can signal as a unit (trap 3).
+        # POSIX: setsid, so the whole tree is one process group we can
+        # signal as a unit (trap 3). Windows has no setsid and no process
+        # groups in that sense — CREATE_NEW_PROCESS_GROUP is the nearest
+        # thing, and teardown there goes through taskkill /T instead.
+        extra = ({'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP}
+                 if IS_WINDOWS else {'start_new_session': True})
+        # Chromium's sandbox needs unprivileged user namespaces, which
+        # Ubuntu 24.04 restricts by default and container runners disable
+        # outright — Electron then dies before it ever opens a window.
+        # Passed in rather than hardcoded in main.ts, because a developer
+        # machine should keep its sandbox.
+        argv = [self.binary(), '.'] + shlex.split(
+            os.environ.get('KERF_ELECTRON_ARGS', ''))
         self.proc = subprocess.Popen(
-            [self.binary(), '.'], cwd=ROOT, env=env,
+            argv, cwd=ROOT, env=env,
             stdout=self._log, stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL, start_new_session=True)
+            stdin=subprocess.DEVNULL, **extra)
         return self.proc.pid
 
     def alive(self):
@@ -208,18 +249,12 @@ class Kerf:
         if self.proc is None:
             return
         if self.proc.poll() is None:
-            try:
-                os.killpg(os.getpgid(self.proc.pid), signal.SIGTERM)
-            except (ProcessLookupError, PermissionError):
-                pass
+            _signal_group(self.proc, hard=False)
             deadline = time.time() + 8
             while time.time() < deadline and self.proc.poll() is None:
                 time.sleep(0.2)
             if self.proc.poll() is None:
-                try:
-                    os.killpg(os.getpgid(self.proc.pid), signal.SIGKILL)
-                except (ProcessLookupError, PermissionError):
-                    pass
+                _signal_group(self.proc, hard=True)
                 try:
                     self.proc.wait(timeout=5)
                 except subprocess.TimeoutExpired:
@@ -248,7 +283,15 @@ def port_in_use(port):
     cleanly. TIME_WAIT does not block a bind with the flag; a live
     listener still does, which is the distinction wanted."""
     s = socket.socket()
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    # SO_REUSEADDR means the OPPOSITE thing on Windows: there it lets a
+    # second socket bind a port that already has a LIVE listener, so this
+    # probe would call every busy port free and the runner would launch
+    # onto an occupied one. SO_EXCLUSIVEADDRUSE is the flag that asks the
+    # question this function means to ask.
+    if IS_WINDOWS:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+    else:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
         s.bind(('127.0.0.1', port))
         return False
@@ -468,8 +511,13 @@ def preflight(vite_url, launching, suites):
         age = (time.time() - os.path.getmtime(main)) / 60
         print(f'  main bundle   dist-electron/main.cjs, built {age:.0f} min ago '
               f'{DIM}(trap 2: this runner does not rebuild it){OFF}')
+        print(f'  platform      {sys.platform}')
+        flags = os.environ.get('KERF_ELECTRON_ARGS', '')
+        if flags:
+            print(f'  electron args {flags} {DIM}(KERF_ELECTRON_ARGS){OFF}')
         if vite_url.startswith('file://'):
-            path = vite_url[len('file://'):]
+            path = urllib.request.url2pathname(
+                urllib.parse.urlparse(vite_url).path)
             if not os.path.isfile(path):
                 die(f'--built needs a renderer build at {path} — run `npm run build:renderer`.\n'
                     f'            (It is shared state; if another process owns it, '
@@ -538,7 +586,11 @@ def main():
     args = ap.parse_args()
 
     suites = args.suites or list(SUITES)
-    vite_url = ('file://' + os.path.join(ROOT, 'dist', 'index.html')
+    # as_uri() rather than 'file://' + path: on Windows the latter
+    # produces file://C:\...\index.html — backslashes, and one slash
+    # short — which Chromium will not load. This is the difference
+    # between --built being attempted on Windows and failing on a path.
+    vite_url = (pathlib.Path(ROOT, 'dist', 'index.html').resolve().as_uri()
                 if args.built else args.vite)
     log_dir = args.log_dir or os.path.join(
         os.environ.get('TMPDIR', '/tmp'), f'kerf-verify-{int(time.time())}')

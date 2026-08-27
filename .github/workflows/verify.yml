@@ -1,52 +1,57 @@
 # ═══════════════════════════════════════════════════════════════════
-# The eight verification suites, in CI.
+# The twelve verification suites, in CI, on three platforms.
 #
-# 107 checks, every one of them measured on an artifact — rendered
+# 324 checks, every one of them measured on an artifact — rendered
 # pixels, an exported waveform, a file on disk — by driving a real
 # running Kerf over its local RPC. `tools/run_all_suites.py` boots the
-# app on a free port, waits for the RPC to answer, runs all eight, kills
-# it, and exits non-zero if anything failed or could not run.
+# app on a free port, waits for the RPC to answer, runs the suites,
+# kills it, and exits non-zero if anything failed OR COULD NOT RUN.
+# That last part is the point: six of the suites do not set an exit
+# code at all, so a runner that trusted `returncode == 0` would report
+# twelve green suites on a build where every check failed.
 #
-# ─── READ THIS BEFORE TRUSTING A GREEN TICK ───────────────────────
+# ─── WHAT IS ACTUALLY KNOWN, PER PLATFORM ─────────────────────────
 #
-# **This workflow has never been executed on a GitHub runner.** It was
-# written and its runner was proven on an Apple-silicon laptop (107/107,
-# 22s). Two things about a macOS runner are genuinely unknown, and both
-# are stated rather than papered over:
+# These three jobs are NOT equally trustworthy, and the difference is
+# not a detail. Read this before quoting a green tick at anyone.
 #
-#   1. **A window.** Kerf is an Electron GUI app. Every pixel check goes
-#      through the compositor in a real renderer process. GitHub's macOS
-#      runners do have a window server, and Electron apps are routinely
-#      tested on them — but this app has never been one of them.
+#   macOS    PROVEN. Has been executed on a GitHub runner and was
+#            green. It answered the two things this file used to list
+#            as unknown: a runner DOES give Electron a window (the RPC
+#            answered in 7.9s), and `verify_gpu` DOES get a WebGL2
+#            context (26/26). Also green locally on Apple silicon,
+#            12/12 suites, 324/324, ~136s.
 #
-#   2. **WebGL, for `verify_gpu`.** `src/engine/gpuStage.ts` needs a
-#      WebGL2 context. macOS runners are virtual machines; Chromium may
-#      use ANGLE over Apple's paravirtualised Metal device, or fall back
-#      to SwiftShader, or blocklist the GPU entirely. The first two are
-#      fine — the checks assert what the picture looks like, not how
-#      fast it arrived. The third is not. The `gpu info` step below
-#      exists to answer this on the first run instead of guessing.
+#   Linux    WIRED, NEVER RUN. The job below is written from the
+#            documented behaviour of xvfb and Electron on Ubuntu, not
+#            from a run anybody watched. Expect `verify_gpu` to land
+#            on SwiftShader; that is FINE — those checks assert what
+#            the picture looks like, not how fast it arrived. If a
+#            suite genuinely cannot run here, the honest fix is to say
+#            WHICH and WHY in this file, not to drop it from the list.
 #
-# `verify_audio`, `verify_ffmpeg_bridge`, `verify_playback_audio` and
-# `verify_frame_context` shell out to ffmpeg, which is NOT preinstalled;
-# it is installed below. No audio *device* is needed — every measurement
-# is an offline render, either through ffmpeg or through an
-# OfflineAudioContext.
+#   Windows  BLIND. **Nobody has ever run Kerf on Windows.** Not this
+#            job, not the app, not once. The build is wired, the suites
+#            are attempted, and the suite step is `continue-on-error`
+#            for exactly one reason: a red nobody can diagnose would
+#            block every PR while telling us nothing. A green tick on
+#            this job means "the attempt was made and the logs were
+#            kept". It does not mean the app works, and it must never
+#            be written up as if it did.
 #
-# **Nothing here is excluded.** If a suite cannot run on this machine
-# the runner reports it as a FAILURE and the job goes red, which is the
-# point: a CI job that quietly drops the checks that matter is worse
-# than no CI job. If `verify_gpu` turns out to be impossible on a
-# runner, the honest fix is to say so here in writing, not to delete it
-# from the list.
+# Three portability fixes were needed before Windows could even be
+# attempted honestly, and they are in `tools/run_all_suites.py`:
+# `os.killpg`/`SIGKILL` do not exist there (teardown raised
+# AttributeError and leaked an Electron holding the port), `'file://' +
+# path` produced `file://C:\...` which Chromium will not load, and
+# SO_REUSEADDR means the opposite thing on Windows so the free-port
+# probe called every busy port free.
 #
-# Trigger is `workflow_dispatch` on purpose: run it by hand once, and if
-# it is green, add
+# Typecheck and unit tests are NOT here — they need no display and are
+# a hard gate on all three platforms in gate.yml.
 #
-#     pull_request:
-#     push: { branches: [main] }
-#
-# to the triggers. Do not gate PRs on a job nobody has watched finish.
+# Trigger is `workflow_dispatch` on purpose. Do not gate PRs on a job
+# nobody has watched finish; gate.yml is the one that gates.
 # ═══════════════════════════════════════════════════════════════════
 
 name: Verify (live app)
@@ -55,25 +60,24 @@ on:
   workflow_dispatch:
 
 jobs:
-  verify:
+  # ── macOS — proven ────────────────────────────────────────────────
+  verify-macos:
     runs-on: macos-latest
     timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: yarn
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - run: yarn install --frozen-lockfile
 
-      # Four suites shell out to it, and the main process resolves it
+      # Seven suites shell out to it, and the main process resolves it
       # from /opt/homebrew/bin or /usr/local/bin explicitly (see
       # `findBinary` in electron/transcribe.ts), so both runner
       # architectures are covered.
@@ -86,16 +90,69 @@ jobs:
       - name: Install python deps
         run: python3 -m pip install --upgrade numpy pillow
 
-      # Builds the renderer into dist/ and the main process into
-      # dist-electron/. The runner is pointed at dist/ with --built, so
-      # no Vite dev server has to be kept alive alongside it — and there
-      # is no HMR client, which on a developer machine reloads the window
-      # mid-suite and hangs the run.
       - name: Build
         run: yarn build
 
-      # Diagnostic, not a gate. It answers uncertainty (2) above on the
-      # first run: what GL backend Electron actually gets here.
+      - name: Run the twelve suites
+        run: python3 tools/run_all_suites.py --built --log-dir "$RUNNER_TEMP/kerf-verify"
+
+      - name: Upload suite logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-logs-macos
+          path: ${{ runner.temp }}/kerf-verify
+          if-no-files-found: warn
+
+  # ── Linux — wired, never run ──────────────────────────────────────
+  verify-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: yarn install --frozen-lockfile
+
+      # Electron is not self-contained on Linux: it dynamically links
+      # GTK, NSS, ALSA and friends, and a headless runner has almost
+      # none of them. Missing one of these is not a graceful failure —
+      # the binary dies before it prints anything an error message
+      # would help with.
+      # Ubuntu 24.04 renamed several of these in the 64-bit-time_t
+      # transition (libasound2 -> libasound2t64, and so on). Pinning
+      # either spelling breaks on the other release, and `ubuntu-latest`
+      # moves underneath you — so try the t64 name and fall back. A job
+      # nobody has run should not fail on a package rename.
+      - name: Install Electron's runtime libraries, xvfb and ffmpeg
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb ffmpeg \
+            libnss3 libdrm2 libgbm1 libxshmfence1 libxdamage1 \
+            libxfixes3 libxrandr2 libxcomposite1 libxkbcommon0
+          for pkg in libatk1.0-0 libatk-bridge2.0-0 libcups2 libgtk-3-0 libasound2; do
+            sudo apt-get install -y --no-install-recommends "${pkg}t64" \
+              || sudo apt-get install -y --no-install-recommends "$pkg"
+          done
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      - name: Install python deps
+        run: python3 -m pip install --upgrade numpy pillow
+
+      - name: Build
+        run: yarn build
+
+      # Diagnostic, not a gate. Says which GL backend Electron got here
+      # — SwiftShader is expected and is fine for these checks.
       - name: gpu info
         continue-on-error: true
         run: |
@@ -108,17 +165,89 @@ jobs:
             app.quit();
           });
           EOF
-          npx electron /tmp/gpuinfo.cjs || echo 'electron could not start at all — that is finding (1)'
+          xvfb-run -a npx electron /tmp/gpuinfo.cjs \
+            || echo 'electron could not start at all — that is the finding'
 
-      # The whole point: one command, all eight suites, non-zero on any
-      # failure or on any suite that could not run.
-      - name: Run the eight suites
-        run: python3 tools/run_all_suites.py --built --log-dir "$RUNNER_TEMP/kerf-verify"
+      # Chromium's sandbox needs unprivileged user namespaces. Ubuntu
+      # 24.04 restricts them by default via AppArmor, and the failure
+      # mode is the app dying before it opens a window. Loosening the
+      # sysctl is attempted first because it keeps the sandbox; the
+      # --no-sandbox flags are the fallback that makes the run happen
+      # either way. `KERF_ELECTRON_ARGS` is passed through to the child
+      # by the runner rather than hardcoded in main.ts, so a developer
+      # machine keeps its sandbox.
+      - name: Run the twelve suites under xvfb
+        env:
+          KERF_ELECTRON_ARGS: --no-sandbox --disable-gpu-sandbox
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            python3 tools/run_all_suites.py --built --log-dir "$RUNNER_TEMP/kerf-verify"
 
       - name: Upload suite logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: verify-logs
+          name: verify-logs-linux
+          path: ${{ runner.temp }}/kerf-verify
+          if-no-files-found: warn
+
+  # ── Windows — blind, and labelled blind ───────────────────────────
+  verify-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: yarn install --frozen-lockfile
+
+      - name: Install ffmpeg
+        run: |
+          choco install ffmpeg -y --no-progress
+          ffmpeg -version | Select-Object -First 1
+          ffprobe -version | Select-Object -First 1
+
+      - name: Install python deps
+        run: python -m pip install --upgrade numpy pillow
+
+      - name: Build
+        run: yarn build
+
+      # Proves the packaged Windows target at least assembles. It has
+      # never been installed or launched by a human.
+      - name: Package (unverified by any human)
+        run: npx electron-builder --win --dir --publish never
+
+      # continue-on-error: this is the FIRST attempt ever made to run
+      # the app on Windows. A failure here is information to be read in
+      # the uploaded logs, not a signal that main is broken — and the
+      # honest response to a red is to write down what failed in this
+      # file, not to delete the step.
+      - name: Attempt the twelve suites — NOBODY HAS EVER RUN KERF ON WINDOWS
+        continue-on-error: true
+        run: python tools/run_all_suites.py --built --log-dir "$env:RUNNER_TEMP/kerf-verify"
+
+      - name: Say plainly what this job did and did not prove
+        if: always()
+        run: |
+          echo "This job builds and packages Kerf for Windows and ATTEMPTS the"
+          echo "twelve live-app suites. The suite step is continue-on-error."
+          echo "A green tick on this job means the attempt ran and the logs"
+          echo "were kept. It does NOT mean Kerf works on Windows. No human"
+          echo "has ever launched this app on Windows."
+
+      - name: Upload suite logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-logs-windows
           path: ${{ runner.temp }}/kerf-verify
           if-no-files-found: warn
