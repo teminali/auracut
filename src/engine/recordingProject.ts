@@ -61,7 +61,7 @@ import { computePipGeometry, buildPipPatch, PIP_FIT_MODE } from './pictureInPict
 import { Take } from './screenCapture';
 import {
   detectMoments, findQuietStretches, keepClearOfZooms, zoomKeyframes,
-  ZoomMoment, ZoomShape, QuietStretch, DEFAULT_SHAPE,
+  ZoomMoment, ZoomShape, QuietStretch, DEFAULT_SHAPE, CUT_SHAPE,
 } from './cursorZoom';
 import {
   LookOptions, DEFAULT_LOOK, addBackdrop, applyScreenLook, addFades,
@@ -166,10 +166,20 @@ export const RAW_ASSEMBLE: AssembleOptions = {
   speech: [],
 };
 
-/** The skill: everything on. */
+/**
+ * The skill: everything on, and cutting rather than pushing.
+ *
+ * `zoomShape` is the one field here that is not simply a switch, and it
+ * is the whole difference between this and what the skill used to build.
+ * `CUT_SHAPE` is the reference video's grammar — hard cuts between
+ * framings, a slow creep under each one, and one long move back to rest
+ * at the end — with every number in it measured off that file. The
+ * comment on `CUT_SHAPE` is where the measurements are.
+ */
 export const TUTORIAL_ASSEMBLE: AssembleOptions = {
   ...RAW_ASSEMBLE,
   autoZoom: true,
+  zoomShape: CUT_SHAPE,
   motionBlur: true,
   markMoments: true,
   cinematic: true,
@@ -541,7 +551,19 @@ export async function assembleRecording(
                which reads as a rendering fault rather than as framing. */
             edgeOverhang: o.cinematic && o.look.backdrop !== 'none' ? 0.16 : 0,
           },
-          o.zoomShape
+          o.zoomShape,
+          /*
+            The frame has to be back at rest before the dip to black
+            starts, not by the last frame of the film.
+
+            With the pushing grammar this never mattered — the pull-out
+            is 560ms and lands long before the tail. The cutting
+            grammar's closing move is 2100ms, which is more than three
+            times the fade, so without this the film dips to black in the
+            middle of a camera move. It is the kind of thing that reads
+            as "the render broke" rather than as a choice.
+          */
+          Math.max(1, take.durationMs - (o.cinematic ? o.look.fadeOutMs : 0))
         );
         for (const keyframe of keyframes) {
           store().addKeyframe(screenClipId, {

@@ -29,6 +29,12 @@ Then:
     frame at 2.1s than at 0.7s;
   · a zoom that was really AIMED puts the green near the middle, not
     merely larger somewhere;
+  · a CUT really being a cut means the whole change lands between two
+    frames rendered 17ms apart, and nothing at all moves in the 17ms
+    before them;
+  · the one MOVE in the film really being a move means its midpoint is
+    genuinely between its ends, which is the same measurement run the
+    other way;
   · a camera takeover that really happened makes the frame blue at 6s
     and not blue at 1s or 11.5s;
   · an inset frame really being inset means the backdrop is visible at
@@ -49,6 +55,7 @@ measuring something the skill did not do.
 import base64
 import io
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -339,14 +346,28 @@ def main():
     # the CPU implementation it runs after, and the skill says so. Both
     # are correct and they are not the same edit, so the check is against
     # what the machine actually has rather than against one of them.
+    #
+    # AND IT DOES NOT RUN UNDER --selftest, which was a real bug rather
+    # than a tidy-up. This branch BUILDS AGAIN, without `raw`, so from
+    # here on the timeline held a full tutorial assembly — and every
+    # control after it was quietly measuring the thing it was supposed to
+    # be the control for. `the film opens from black` had been reported
+    # as "STILL PASSED, proves nothing" for exactly that reason, on a
+    # build where the raw assembly genuinely has no fade. The rebuild is
+    # `control=False`, so skipping it costs the selftest nothing.
     stt = ok(call('check_transcription_ready', {}), 'stt')
-    if stt.get('fast'):
+    if stt.get('fast') and not SELFTEST:
         captioned = ok(call('build_tutorial_from_recording',
                             {'folder': directory, 'captions': True}), 'captioned')
         check('with a fast backend the transcript is waited for, not deferred',
               captioned.get('transcribedInBackground') is False,
               f"transcribedInBackground={captioned.get('transcribedInBackground')}, "
               f"backend={stt.get('backend')}",
+              control=False)
+    elif stt.get('fast'):
+        check('with a fast backend the transcript is waited for, not deferred',
+              True,
+              f"backend={stt.get('backend')}, not re-run under --selftest",
               control=False)
     else:
         check('the slow backend defers the transcript instead of blocking',
@@ -363,6 +384,103 @@ def main():
     check('the film opens from black rather than starting flat',
           opening > 0.9 and middle < 0.1,
           f'{opening * 100:.0f}% black at 0.02s against {middle * 100:.0f}% at 5.0s')
+
+    # ── 9. The transitions, and they are the reference's ─────────────
+    #
+    # The skill cuts between framings rather than pushing into them, and
+    # every number behind that decision was measured off
+    # `252d89a9da0a6a67df21c59e80013eb7.mp4` — see `CUT_SHAPE`. What is
+    # measured HERE is not that the numbers are right, it is that the
+    # rendered film has the property the numbers claim.
+    #
+    # The keyframes are read off the timeline rather than recomputed, so
+    # these render either side of the cut the build ACTUALLY made. A
+    # check that works out where the cut ought to be and looks there is
+    # checking its own arithmetic.
+    scale_keys = sorted(
+        (k for k in keys['keyframes'] if k['property'] == 'scaleX'),
+        key=lambda k: k['timeOffsetMs'])
+    cuts = [
+        (a, b) for a, b in zip(scale_keys, scale_keys[1:])
+        if a['easing'] == 'hold' and b['value'] > a['value'] * 1.5
+    ]
+    check('the framing arrives on a cut, not on a push',
+          len(cuts) > 0,
+          f'{len(cuts)} hold-then-jump pairs among {len(scale_keys)} scale keyframes')
+
+    # Every check below runs whether or not a cut was found, and reports
+    # what it could not measure. Skipping them on the raw build would
+    # leave them out of `results` entirely, and a check with no control is
+    # a check nobody has shown measures anything.
+    held, arrived = cuts[0] if cuts else (None, None)
+
+    # Three samples, one span apart: two before the cut and one after.
+    # The pair that straddles it must carry essentially all of the change,
+    # and the pair that does not must carry essentially none.
+    if arrived is not None:
+        span = arrived['timeOffsetMs'] - held['timeOffsetMs']
+        lead = share(frame(held['timeOffsetMs'] - span), 'green')
+        pre = share(frame(held['timeOffsetMs']), 'green')
+        post = share(frame(arrived['timeOffsetMs']), 'green')
+        across, before = abs(post - pre), abs(pre - lead)
+        check('the whole transition happens inside one frame',
+              span <= math.ceil(1000 / 60) and across > 0.02 and across > before * 20,
+              f'green {lead * 100:.3f}% -> {pre * 100:.3f}% -> {post * 100:.3f}% '
+              f'across two {span}ms steps')
+    else:
+        check('the whole transition happens inside one frame', False, 'no cut to measure')
+
+    # The same measurement run the other way, on the one move the film
+    # does have. A cut's midpoint equals one end; a move's does not, and
+    # that difference is the whole of what was copied.
+    close = scale_keys[-1] if scale_keys else None
+    launch = scale_keys[-2] if len(scale_keys) > 1 else None
+    if launch is not None and close['value'] < launch['value']:
+        a_ms, b_ms = launch['timeOffsetMs'], close['timeOffsetMs']
+        mid_ms = (a_ms + b_ms) // 2
+        a = share(frame(a_ms), 'red')
+        m = share(frame(mid_ms), 'red')
+        b = share(frame(b_ms), 'red')
+        travel = a - b
+        check('the closing pull-back is a move, not another cut',
+              b_ms - a_ms > 400 and travel > 0.05
+              and (a - m) > travel * 0.15 and (m - b) > travel * 0.15,
+              f'the recording covers {a * 100:.1f}% of the frame at {a_ms}ms, '
+              f'{m * 100:.1f}% at {mid_ms}ms, {b * 100:.1f}% at {b_ms}ms')
+    else:
+        check('the closing pull-back is a move, not another cut', False,
+              'no closing move in the keyframe track')
+
+    # Every one of the reference's four shots creeps. A cut edit whose
+    # shots hold still is a slideshow, and this is the difference. 3%/s of
+    # scale is 6.1% of AREA over a second, which is what the green
+    # square's share of the frame measures.
+    settled = (arrived['timeOffsetMs'] + 20) if arrived is not None else 700
+    crept = share(frame(settled), 'green')
+    later = share(frame(settled + 1000), 'green')
+    growth = (later / crept - 1) * 100 if crept > 0 else 0
+    check('the held framing creeps rather than sitting still',
+          4.0 < growth < 9.0,
+          f'green {crept * 100:.3f}% -> {later * 100:.3f}% over 1.0s, {growth:+.1f}%')
+
+    # The reference's last frame is its first: matched against each other
+    # they fit at scale 1.000 on 394 of 411 inlying features. Here the
+    # film has to land back on the framing it opened on, and to do it
+    # before the dip to black rather than under it.
+    #
+    # NOT a control. The raw build never leaves the resting framing at
+    # all, so it lands where it opened for the least interesting reason
+    # there is; what this catches is a closing move that overshoots,
+    # stops short, or runs on into the fade.
+    rest_by = report['durationMs'] - 620
+    opened = share(frame(600), 'green')
+    landed = share(frame(rest_by), 'green')
+    apart = abs(landed - opened) / opened if opened > 0 else 1
+    check('the film lands on the framing it opened on',
+          apart < 0.06,
+          f'green {opened * 100:.3f}% at 0.6s against {landed * 100:.3f}% '
+          f'at {rest_by}ms, {apart * 100:.1f}% apart',
+          control=False)
 
     shutil.rmtree(directory, ignore_errors=True)
 

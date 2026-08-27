@@ -187,8 +187,18 @@ export function placeSoundDesign(
         Slightly AHEAD of the push, not on it. A whoosh that starts when
         the frame starts moving arrives late — the ear leads the eye, and
         the sound has to be underway before the picture is.
+
+        Unless there is no push. Under the cutting grammar the frame
+        changes in one frame, and a sound that is already underway when
+        it does reads as a mistake rather than as a lead — the transient
+        wants to land ON the cut, which is how cuts have been scored
+        since anybody scored one. So the lead is a property of there
+        being a move to lead, not a constant.
       */
-      place(kit.whoosh, moment.atMs - shape.leadMs - 120, o.whooshVolume, 'Zoom air');
+      const at = shape.cutIn
+        ? moment.atMs - shape.leadMs
+        : moment.atMs - shape.leadMs - 120;
+      place(kit.whoosh, at, o.whooshVolume, 'Zoom air');
     }
   }
 

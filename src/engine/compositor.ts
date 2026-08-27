@@ -1539,10 +1539,11 @@ function renderClip(
   if (mb?.enabled && mb.samples > 1) {
     const shutterMs = (mb.shutterAngle / 360) * (1000 / project.fps);
     const samples = Math.min(16, Math.max(2, Math.round(mb.samples)));
+    const { lo, hi } = shutterWindow(clip, playheadMs, shutterMs);
     ctx.save();
     ctx.globalAlpha = 1;
     for (let i = 0; i < samples; i++) {
-      const t = playheadMs - shutterMs / 2 + (shutterMs * i) / (samples - 1);
+      const t = samples > 1 ? lo + ((hi - lo) * i) / (samples - 1) : playheadMs;
       ctx.save();
       ctx.globalAlpha = 1 / samples;
       renderClipPass(ctx, clip, project, t, offsetMs + (t - playheadMs), canvasWidth, canvasHeight);
@@ -1553,6 +1554,61 @@ function renderClip(
   }
 
   renderClipPass(ctx, clip, project, playheadMs, offsetMs, canvasWidth, canvasHeight);
+}
+
+/**
+ * The shutter interval, pulled in so it cannot straddle a CUT.
+ *
+ * Motion blur averages the clip over `shutterMs` around the playhead,
+ * which is right for a move and wrong for a discontinuity: a cut inside
+ * that window comes out as a one-frame 50/50 dissolve of the two
+ * framings. It is subtle enough to miss — one frame in a whole film —
+ * and it is exactly the artefact `planCuts` exists to avoid, since the
+ * reference video's own cuts are measurably 0 frames wide.
+ *
+ * A discontinuity is where a keyframe's immediate predecessor on the
+ * same property carries `hold` easing, which is the only way the format
+ * can express one. That is an exact test rather than a threshold on how
+ * fast a value is changing, which matters: a steep linear ramp is not a
+ * cut and must still blur.
+ *
+ * The scan is O(keyframes) only for the keyframes that actually land
+ * inside the window — normally none, so an ordinary blurred frame pays
+ * one pass over the array and nothing else.
+ */
+function shutterWindow(
+  clip: Clip,
+  playheadMs: number,
+  shutterMs: number
+): { lo: number; hi: number } {
+  let lo = playheadMs - shutterMs / 2;
+  let hi = playheadMs + shutterMs / 2;
+
+  const keys = clip.keyframes;
+  if (!keys || keys.length === 0) return { lo, hi };
+
+  const loOffset = lo - clip.startTimeMs;
+  const hiOffset = hi - clip.startTimeMs;
+
+  for (const key of keys) {
+    if (key.timeOffsetMs <= loOffset || key.timeOffsetMs > hiOffset) continue;
+
+    let prev: typeof key | null = null;
+    for (const other of keys) {
+      if (other.property !== key.property) continue;
+      if (other.timeOffsetMs >= key.timeOffsetMs) continue;
+      if (!prev || other.timeOffsetMs > prev.timeOffsetMs) prev = other;
+    }
+    if (!prev || prev.easing !== 'hold' || prev.value === key.value) continue;
+
+    const at = clip.startTimeMs + key.timeOffsetMs;
+    /* The value AT the boundary is the incoming one, so the playhead
+       sitting exactly on it belongs to the shot after the cut. */
+    if (at <= playheadMs) lo = Math.max(lo, at);
+    else hi = Math.min(hi, at - 1e-3);
+  }
+
+  return { lo, hi: Math.max(lo, hi) };
 }
 
 function renderClipPass(

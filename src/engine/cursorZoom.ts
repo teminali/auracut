@@ -53,10 +53,25 @@
    zoom that arrives. Optional, because on very dense text it can read
    as a wobble.
 
+   ── And a second grammar, which does not animate at all ────────────
+
+   `cutIn` swaps all of the above for the way the reference video edits:
+   hard CUTS between framings, a slow creep while each one is held, and
+   one animated move in the whole film — the pull back to rest at the
+   end. `planCuts` is that, `CUT_SHAPE` is its numbers, and every one of
+   those numbers was measured off the reference rather than chosen.
+
+   The two are different edits rather than two settings of one, which is
+   why half of `ZoomShape` goes inert under `cutIn`: a push has a
+   duration and a curve and an overshoot to settle, and a cut has none
+   of the three.
+
    Everything lands as ordinary keyframes on the clip's own transform.
    No hidden state, no special clip type: the result is something the
    user can drag, retime, or delete key by key in the editor. That is
    the whole point of generating an EDIT rather than a rendered effect.
+   A cut is no exception — it is two keyframes with `hold` easing on the
+   first, which the format already had and nothing had yet emitted.
    ═══════════════════════════════════════════════════════════════════ */
 
 import { CursorSample, InputEvent } from '../types/electron';
@@ -572,21 +587,88 @@ export const PULL_CURVE: [number, number, number, number] = [0.45, 0, 0.15, 1];
 /** The overshoot settling back. Gentler than the push, or it snaps. */
 export const SETTLE_CURVE: [number, number, number, number] = [0.33, 0, 0.2, 1];
 
+/**
+ * The closing move, and it is the one curve here that was MEASURED
+ * rather than chosen.
+ *
+ * `~/Downloads/252d89a9da0a6a67df21c59e80013eb7.mp4` ends on one long
+ * pull back from a close framing to the framing it opened on. Each of
+ * its 564 frames was matched against the frame it settles on with
+ * SIFT + RANSAC — an estimator checked first against synthetic zooms of
+ * known scale, which it recovered exactly — and a cubic bezier fitted to
+ * the resulting scale trajectory. This is that fit, over the full 2100ms
+ * of the move:
+ *
+ *     measured          [0.53, 0.47, 0.00, 1.00]   RMS 0.053
+ *     SETTLE_CURVE      [0.33, 0,    0.2,  1   ]   RMS 0.114
+ *     PULL_CURVE        [0.45, 0,    0.15, 1   ]   RMS 0.135
+ *     PUSH_CURVE        [0.16, 1,    0.3,  1   ]   RMS 0.164
+ *
+ * So none of the three already here is the same curve, and the shape is
+ * why: expo-out is 90% done in its first third, whereas this move is 50%
+ * done at 583ms, 90% at 917ms and 98% at 1717ms. It leaves unhurriedly,
+ * covers most of the ground in the middle, and then has a long
+ * asymptotic tail — a hand letting something coast to a stop rather than
+ * an operator arriving.
+ *
+ * 20 consecutive frames in the middle of that move are too motion-blurred
+ * for a feature matcher to place at all, which is the other half of why
+ * it reads as fast: the fit is interpolated across them and the curve is
+ * quoted with that stated rather than hidden.
+ */
+export const CLOSE_CURVE: [number, number, number, number] = [0.53, 0.47, 0, 1];
+
+/**
+ * One frame at 60fps, and it is NOT what makes a cut instantaneous.
+ *
+ * `hold` easing is: `applyEasing` returns 0 for the whole span, so the
+ * value stays on the outgoing keyframe until the incoming one and then
+ * jumps, whatever the gap. The gap exists so the two keyframes are
+ * separately grabbable in the editor — a cut written as two keys at the
+ * same millisecond is a cut nobody can take apart, which is the one
+ * thing this whole file is built not to produce.
+ */
+export const CUT_GAP_MS = Math.ceil(1000 / 60);
+
+/** Ceiling on what a single held framing may drift, as a fraction. */
+const MAX_DRIFT = 0.12;
+
 export interface ZoomShape {
   /** How far before the moment the push begins. */
   leadMs: number;
-  /** How long the push takes. */
+  /** How long the push takes. Ignored when `cutIn` is set. */
   inMs: number;
   /** How long it stays there, on top of whatever the moment spanned. */
   holdMs: number;
-  /** How long the pull back out takes. */
+  /** How long the pull back out takes. Ignored when `cutIn` is set. */
   outMs: number;
   /** Multiplier on the clip's resting scale, before the per-source strength. */
   factor: number;
-  /** How far past the target the push goes before settling. 0 turns it off. */
+  /** How far past the target the push goes before settling. 0 turns it off. Ignored when `cutIn` is set. */
   overshoot: number;
-  /** How long the settle back from the overshoot takes. */
+  /** How long the settle back from the overshoot takes. Ignored when `cutIn` is set. */
   settleMs: number;
+  /**
+   * CUT to each framing instead of pushing into it.
+   *
+   * The two grammars are genuinely different edits rather than two
+   * settings of one, which is why half the fields above go inert here.
+   * A push is a move with a duration and a curve; a cut has neither, and
+   * everything that follows from that — no overshoot to settle, no
+   * pull-out between framings, one move in the whole film — changes with
+   * it. See `planCuts`.
+   */
+  cutIn: boolean;
+  /**
+   * How fast a held framing creeps in, in per cent of scale per second.
+   * 0 is locked off.
+   */
+  driftPctPerSec: number;
+  /**
+   * How long the one closing move back to rest takes. 0 falls back to
+   * `outMs`, which is what the pushing grammar uses.
+   */
+  closeMs: number;
 }
 
 export const DEFAULT_SHAPE: ZoomShape = {
@@ -597,6 +679,64 @@ export const DEFAULT_SHAPE: ZoomShape = {
   factor: 1.55,
   overshoot: 0.03,
   settleMs: 150,
+  cutIn: false,
+  driftPctPerSec: 0,
+  closeMs: 0,
+};
+
+/**
+ * The reference video's grammar, as numbers.
+ *
+ * Every field below that differs from `DEFAULT_SHAPE` was measured off
+ * `~/Downloads/252d89a9da0a6a67df21c59e80013eb7.mp4` — 9.400s, 1280x960,
+ * 60fps, 564 frames — rather than chosen. What the measurements were:
+ *
+ * · **Three cuts, at 1267 / 3600 / 5333ms, and every one is HARD.** The
+ *   mean absolute frame difference goes 0.22 -> 47.05 -> 0.85 across the
+ *   first, 0.01 -> 34.54 -> 0.34 across the second, 0.01 -> 24.73 -> 0.26
+ *   across the third. One frame each. No blend, no dip through black or
+ *   white, no directional smear, no flash: `analyze_reference_video`
+ *   finds zero flashes and the only "dissolve" it reports is the
+ *   motion-blurred closing move, whose frames SIFT confirms are the same
+ *   content in flight. **Transition duration: 0 frames, all three.** So
+ *   `inMs` is 0 and there is nothing for `overshoot` or `settleMs` to do.
+ *
+ * · **Not cut to music.** `detect_beats` finds 0 real onsets in the
+ *   audio; 1 of 3 cuts sits on the interpolated grid, which is chance.
+ *   The tool's own verdict: "the edit is not following this track". So
+ *   nothing here is a tempo.
+ *
+ * · **`factor` 2.8**, and it is the same number twice. The wide-to-close
+ *   cut is x2.797 (SIFT + RANSAC, 29 inliers), and the closing move
+ *   travels from 2.85x closer than the ending out to it. A film that
+ *   cuts in by 2.80 and pulls out by 2.85 is one framing decision, not
+ *   two. The other two cuts are x0.75 and x0.86 — lateral, changing
+ *   which thing is on screen rather than how close it is.
+ *
+ * · **`holdMs` 2030** is the MEDIAN shot: 1267 / 2333 / 1733 / 4067ms.
+ *
+ * · **`driftPctPerSec` 3.0 — nothing is ever locked off.** Scale drift
+ *   measured within each of the four shots: -2.9, +2.7, +5.0, +3.4 %/s.
+ *   Three of four creep IN, and the median magnitude is 3.0.
+ *
+ * · **`closeMs` 2100**, the one animated move in the film. See
+ *   `CLOSE_CURVE` for its shape and how it was fitted.
+ *
+ * `leadMs` is the one field carried over unexamined, and deliberately:
+ * the reference has no input events in it, so it has nothing to say
+ * about how far ahead of a click to cut.
+ */
+export const CUT_SHAPE: ZoomShape = {
+  ...DEFAULT_SHAPE,
+  inMs: 0,
+  outMs: 0,
+  holdMs: 2030,
+  factor: 2.8,
+  overshoot: 0,
+  settleMs: 0,
+  cutIn: true,
+  driftPctPerSec: 3.0,
+  closeMs: 2100,
 };
 
 /** One point on the planned move, before it becomes keyframes. */
@@ -617,13 +757,21 @@ export interface Stop {
  * Separated from the keyframe emission below so the chaining logic —
  * which is the part with the judgement in it — can be read, and tested,
  * without any of the clip geometry.
+ *
+ * `restByMs` is when the frame must be back at rest, and it defaults to
+ * the end of the take. It exists because the cutting grammar's closing
+ * move is 2100ms long and the cinematic look's dip to black is the last
+ * 620ms of the film: without it the film fades out in the middle of a
+ * camera move, which is the one edit nobody makes on purpose.
  */
 export function planZoom(
   moments: ZoomMoment[],
   durationMs: number,
-  shape: ZoomShape = DEFAULT_SHAPE
+  shape: ZoomShape = DEFAULT_SHAPE,
+  restByMs: number = durationMs
 ): Stop[] {
   if (moments.length === 0) return [];
+  if (shape.cutIn) return planCuts(moments, durationMs, shape, restByMs);
 
   const plan: Stop[] = [{ tMs: 0, factor: 1, x: 0.5, y: 0.5, easing: 'linear' }];
   const push = (stop: Stop) => {
@@ -689,6 +837,122 @@ export function planZoom(
       factor: 1, x: 0.5, y: 0.5, easing: 'bezier', bezier: PULL_CURVE,
     });
   }
+
+  return plan;
+}
+
+/* ── Cutting instead of pushing ─────────────────────────────────── */
+
+/**
+ * The reference video's grammar: hard cuts between framings, a slow
+ * creep while each one is held, and ONE animated move — the pull back to
+ * rest at the end.
+ *
+ * The three structural claims, and each is a measurement rather than a
+ * preference. See `CUT_SHAPE` for the numbers and how they were taken.
+ *
+ * **A cut is two keyframes, and it is expressible in the EDL exactly.**
+ * The outgoing framing carries `hold` easing, so `interpolateKeyframes`
+ * returns it unchanged right up to the incoming keyframe and then the
+ * value jumps. Nothing new was needed in the format for this; `planZoom`
+ * simply never emitted it.
+ *
+ * **Nothing returns to rest in the middle unless there is a shot's worth
+ * of room.** The reference never goes wide between its close framings —
+ * it cuts close-to-close and only opens out at the end. So the rule here
+ * is that cutting back to rest has to buy a REST SHOT, meaning a whole
+ * `holdMs` of it, or the frame simply cuts on to the next framing. A
+ * looser rule produces a one-second flash of wide between two close
+ * shots, which is the cutting grammar's version of the bounce that
+ * `planZoom` above exists to avoid.
+ *
+ * **Every held framing drifts.** All four of the reference's shots creep
+ * — none is locked off — and the drift is what stops a cut edit reading
+ * as a slideshow. It is capped at `MAX_DRIFT` so a long hold cannot
+ * compound its way into a zoom nobody asked for.
+ */
+function planCuts(
+  moments: ZoomMoment[],
+  durationMs: number,
+  shape: ZoomShape,
+  restByMs: number
+): Stop[] {
+  const plan: Stop[] = [];
+  const push = (stop: Stop) => {
+    const last = plan[plan.length - 1];
+    if (last && stop.tMs <= last.tMs) plan[plan.length - 1] = { ...stop, tMs: last.tMs };
+    else plan.push(stop);
+  };
+
+  /** What a framing held for `spanMs` has crept to by the end of it. */
+  const drifted = (factor: number, spanMs: number) =>
+    factor * (1 + Math.min(MAX_DRIFT, Math.max(0, (shape.driftPctPerSec / 100) * (spanMs / 1000))));
+
+  /**
+   * Hold `from` until `untilMs`, drifting, and leave the last stop on
+   * `hold` so whatever comes next is a cut rather than a ramp.
+   */
+  const holdUntil = (from: Stop, untilMs: number) => {
+    if (untilMs <= from.tMs) return from;
+    const end: Stop = {
+      tMs: untilMs,
+      factor: drifted(from.factor, untilMs - from.tMs),
+      x: from.x, y: from.y,
+      easing: 'hold',
+    };
+    push(end);
+    return end;
+  };
+
+  /* The film opens at rest. `linear` so the drift below it interpolates. */
+  let current: Stop = { tMs: 0, factor: 1, x: 0.5, y: 0.5, easing: 'linear' };
+  push(current);
+
+  for (let i = 0; i < moments.length; i++) {
+    const moment = moments[i];
+    const next = moments[i + 1];
+    const target = shape.factor * SOURCE_STRENGTH[moment.source];
+
+    const cutAt = Math.max(current.tMs + CUT_GAP_MS, moment.atMs - shape.leadMs);
+    const nextCutAt = next ? Math.max(0, next.atMs - shape.leadMs) : Infinity;
+
+    holdUntil(current, cutAt - CUT_GAP_MS);
+    current = { tMs: cutAt, factor: target, x: moment.x, y: moment.y, easing: 'linear' };
+    push(current);
+
+    /* Cut back to rest only when the gap buys a whole rest shot. */
+    const holdEnd = cutAt + shape.holdMs + moment.spanMs;
+    if (nextCutAt - holdEnd >= shape.holdMs && holdEnd + CUT_GAP_MS < restByMs) {
+      holdUntil(current, holdEnd);
+      current = { tMs: holdEnd + CUT_GAP_MS, factor: 1, x: 0.5, y: 0.5, easing: 'linear' };
+      push(current);
+    }
+  }
+
+  /*
+    The closing move, and the bookend it makes.
+
+    The reference's last frame is its first frame: matched against each
+    other they fit at scale 1.000, rotation 0.001 degrees and a
+    translation of eight thousandths of a pixel, on 394 of 411 inlying
+    features. That is not a coincidence of framing, it is the edit
+    deciding to land where it started, and it is why this always ends at
+    factor 1 on the canvas centre rather than wherever the last moment
+    happened to leave it.
+  */
+  const closeMs = shape.closeMs > 0 ? shape.closeMs : shape.outMs;
+  const end = Math.max(current.tMs + CUT_GAP_MS, Math.min(restByMs, durationMs));
+  const startClose = Math.max(current.tMs, end - closeMs);
+
+  if (startClose > current.tMs) {
+    const held = holdUntil(current, startClose);
+    /* `hold` would freeze the move that follows, so the launch stop
+       carries the measured curve instead. */
+    plan[plan.length - 1] = { ...held, easing: 'bezier', bezier: CLOSE_CURVE };
+  } else {
+    plan[plan.length - 1] = { ...current, easing: 'bezier', bezier: CLOSE_CURVE };
+  }
+  push({ tMs: end, factor: 1, x: 0.5, y: 0.5, easing: 'linear' });
 
   return plan;
 }
@@ -780,9 +1044,10 @@ export function zoomKeyframes(
   moments: ZoomMoment[],
   durationMs: number,
   geometry: ZoomGeometry,
-  shape: ZoomShape = DEFAULT_SHAPE
+  shape: ZoomShape = DEFAULT_SHAPE,
+  restByMs: number = durationMs
 ): ZoomKeyframe[] {
-  const plan = planZoom(moments, durationMs, shape);
+  const plan = planZoom(moments, durationMs, shape, restByMs);
   const keyframes: ZoomKeyframe[] = [];
 
   for (const stop of plan) {

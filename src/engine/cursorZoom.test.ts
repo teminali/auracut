@@ -18,7 +18,8 @@ import { describe, it, expect } from 'vitest';
 import { CursorSample, InputEvent } from '../types/electron';
 import {
   findZoomMoments, momentsFromEvents, detectMoments, planZoom, focusOffset,
-  zoomKeyframes, DEFAULT_SHAPE, SOURCE_STRENGTH, ZoomMoment, MomentSource,
+  zoomKeyframes, DEFAULT_SHAPE, CUT_SHAPE, CLOSE_CURVE, CUT_GAP_MS, SOURCE_STRENGTH,
+  ZoomMoment, MomentSource,
 } from './cursorZoom';
 
 /** A moment, without repeating the bookkeeping fields at every call site. */
@@ -389,6 +390,163 @@ describe('planning the move', () => {
 
   it('plans nothing when there is nothing to look at', () => {
     expect(planZoom([], 9000)).toEqual([]);
+  });
+});
+
+/* ── Cutting ────────────────────────────────────────────────────── */
+
+describe('cutting instead of pushing', () => {
+  /*
+    Everything here is against the reference video's own measurements,
+    which are written out on `CUT_SHAPE`. These tests are the pure half:
+    they say the PLAN has the shape the reference has. The pixel half is
+    `skills/tutorial/verify.py`, which renders the frames either side of
+    a cut and measures what actually changed.
+  */
+  const target = (source: MomentSource) => CUT_SHAPE.factor * SOURCE_STRENGTH[source];
+
+  const scaleAt = (plan: ReturnType<typeof planZoom>, tMs: number) => {
+    /* The same rule `interpolateKeyframes` follows, so a claim here is a
+       claim about what will render: the easing belongs to the OUTGOING
+       stop, and `hold` means the outgoing value stands until the next. */
+    let before = plan[0];
+    let after = plan[plan.length - 1];
+    for (const stop of plan) {
+      if (stop.tMs <= tMs && stop.tMs >= before.tMs) before = stop;
+      if (stop.tMs >= tMs && stop.tMs <= after.tMs) after = stop;
+    }
+    if (before === after || after.tMs <= before.tMs) return before.factor;
+    if (before.easing === 'hold') return before.factor;
+    const k = (tMs - before.tMs) / (after.tMs - before.tMs);
+    return before.factor + (after.factor - before.factor) * k;
+  };
+
+  it('changes the framing in a single frame, not over a push', () => {
+    const plan = planZoom([at(3000, 0.5, 0.5, 'click')], 12000, CUT_SHAPE);
+    const cutAt = 3000 - CUT_SHAPE.leadMs;
+
+    /* 60fps is the reference's rate and the fastest the EDL allows, so a
+       transition that is invisible at one frame of it is invisible. */
+    const frame = 1000 / 60;
+    expect(scaleAt(plan, cutAt - frame)).toBeLessThan(1.2);
+    expect(scaleAt(plan, cutAt)).toBeCloseTo(target('click'), 5);
+  });
+
+  it('writes the cut as a hold keyframe and its successor', () => {
+    const plan = planZoom([at(3000, 0.5, 0.5, 'click')], 12000, CUT_SHAPE);
+    const cutAt = 3000 - CUT_SHAPE.leadMs;
+    const outgoing = plan.filter((s) => s.easing === 'hold' && s.tMs < cutAt);
+    expect(outgoing.length).toBeGreaterThan(0);
+    const last = outgoing[outgoing.length - 1];
+    /* The gap is not what makes it instantaneous — `hold` is — but it
+       must stay inside one frame at the fastest rate the EDL allows, or
+       the two keyframes could straddle a rendered frame. */
+    expect(cutAt - last.tMs).toBe(CUT_GAP_MS);
+    expect(CUT_GAP_MS).toBeLessThanOrEqual(Math.ceil(1000 / 60));
+  });
+
+  it('never pushes, so nothing on the way in carries a curve', () => {
+    /* The one bezier in the whole plan is the closing move. A second one
+       would mean something animated that the reference cuts. */
+    const plan = planZoom([at(3000, 0.5, 0.5, 'click')], 12000, CUT_SHAPE);
+    const curved = plan.filter((s) => s.easing === 'bezier');
+    expect(curved).toHaveLength(1);
+    expect(curved[0].bezier).toEqual(CLOSE_CURVE);
+  });
+
+  it('creeps while a framing is held, and is never locked off', () => {
+    /* All four of the reference's shots drift. A cut edit whose shots
+       hold perfectly still is a slideshow. */
+    const plan = planZoom([at(3000, 0.5, 0.5, 'click')], 20000, CUT_SHAPE);
+    const cutAt = 3000 - CUT_SHAPE.leadMs;
+    const arrived = scaleAt(plan, cutAt);
+    const later = scaleAt(plan, cutAt + 1000);
+    expect(later).toBeGreaterThan(arrived);
+    /* 3%/s, which is what was measured; a tenth of that would pass a
+       "did it move" test and read as still. */
+    expect((later / arrived - 1) * 100).toBeCloseTo(CUT_SHAPE.driftPctPerSec, 1);
+  });
+
+  it('caps the creep, so a long hold does not compound into a zoom', () => {
+    const plan = planZoom([at(3000, 0.5, 0.5, 'click', 60000)], 90000, CUT_SHAPE);
+    const peak = Math.max(...plan.map((s) => s.factor));
+    expect(peak).toBeLessThan(target('click') * 1.2);
+  });
+
+  it('cuts straight from one framing to the next when they are close', () => {
+    /* The reference cuts close-to-close three times and never opens out
+       in between. A rest stop here would be a flash of wide. */
+    const plan = planZoom(
+      [at(3000, 0.3, 0.3, 'click'), at(5500, 0.7, 0.7, 'click')],
+      20000, CUT_SHAPE
+    );
+    const first = 3000 - CUT_SHAPE.leadMs;
+    const second = 5500 - CUT_SHAPE.leadMs;
+    const between = plan.filter((s) => s.tMs > first && s.tMs < second);
+    expect(between.length).toBeGreaterThan(0);
+    expect(between.every((s) => s.factor > 1)).toBe(true);
+  });
+
+  it('does cut back to rest when the gap buys a whole rest shot', () => {
+    const plan = planZoom(
+      [at(3000, 0.3, 0.3, 'click'), at(30000, 0.7, 0.7, 'click')],
+      45000, CUT_SHAPE
+    );
+    const between = plan.filter((s) => s.tMs > 3000 && s.tMs < 29000);
+    expect(between.some((s) => s.factor === 1)).toBe(true);
+  });
+
+  it('ends where it opened, which is the reference\'s own bookend', () => {
+    /* f563 matched against f0 fits at scale 1.000, rotation 0.001deg and
+       0.008px of translation on 394 of 411 inliers. The film lands back
+       on the frame it started on, and so does this. */
+    const plan = planZoom([at(3000, 0.2, 0.8, 'click')], 12000, CUT_SHAPE);
+    const first = plan[0];
+    const last = plan[plan.length - 1];
+    expect(last.factor).toBe(first.factor);
+    expect(last.x).toBe(first.x);
+    expect(last.y).toBe(first.y);
+    expect(last.tMs).toBe(12000);
+  });
+
+  it('gives the closing move the measured length, on the measured curve', () => {
+    const plan = planZoom([at(3000, 0.5, 0.5, 'click')], 12000, CUT_SHAPE);
+    const launch = plan.find((s) => s.easing === 'bezier')!;
+    const land = plan[plan.length - 1];
+    expect(land.tMs - launch.tMs).toBeCloseTo(CUT_SHAPE.closeMs, 0);
+  });
+
+  it('lands the closing move by restByMs, so a fade never covers it', () => {
+    /* The cinematic look dips to black over the last 620ms. The move is
+       2100ms. Without this the film fades out mid-camera-move. */
+    const plan = planZoom([at(3000, 0.5, 0.5, 'click')], 12000, CUT_SHAPE, 11380);
+    const land = plan[plan.length - 1];
+    expect(land.tMs).toBe(11380);
+    expect(land.factor).toBe(1);
+  });
+
+  it('runs strictly forward in time, however the moments fall', () => {
+    for (const moments of [
+      [at(100, 0.5, 0.5, 'click')],
+      [at(3000, 0.2, 0.2, 'click'), at(3100, 0.8, 0.8, 'click')],
+      [at(500, 0.2, 0.2, 'click'), at(9000, 0.8, 0.8, 'scroll'), at(9200, 0.4, 0.4, 'type')],
+    ]) {
+      const plan = planZoom(moments, 12000, CUT_SHAPE);
+      for (let i = 1; i < plan.length; i++) {
+        expect(plan[i].tMs).toBeGreaterThan(plan[i - 1].tMs);
+      }
+    }
+  });
+
+  it('still writes all four properties at every stop', () => {
+    const keys = zoomKeyframes(
+      [at(3000, 0.3, 0.3, 'click')], 12000,
+      { baseWidth: 1920, baseHeight: 1080, restScale: 1, canvasWidth: 1920, canvasHeight: 1080 },
+      CUT_SHAPE
+    );
+    const plan = planZoom([at(3000, 0.3, 0.3, 'click')], 12000, CUT_SHAPE);
+    expect(keys).toHaveLength(plan.length * 4);
+    expect(keys.filter((k) => k.easing === 'hold').length).toBeGreaterThan(0);
   });
 });
 

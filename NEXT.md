@@ -11,118 +11,86 @@ been reconciled rather than left listing finished work.
 
 ---
 
-## HANDOVER — 2026-08-28, session end
-
-Written because the session's context ran long, not because the work
-stalled. Everything below is either done and verified, or the next job
-with its groundwork already measured.
+## HANDOVER — 2026-08-28, second session
 
 ### The state of the tree
 
-**Two commits are LOCAL AND UNPUSHED** on `main`: `7a95560` and
-`0b20afa`. `v1.3.2` is the last thing released and installed.
+**FOUR commits are LOCAL AND UNPUSHED** on `main`: `7a95560`, `0b20afa`,
+`da32f17` and this session's. `v1.3.2` is the last thing released and
+installed.
 
-**`0b20afa` contains another session's work and should not have.** I
-staged with `git add -A` while a second Claude session was editing the
-home screen, and swept in `HeroRow.tsx`, `HomeSidebar.tsx`,
-`MoreTools.tsx`, `ProjectsSection.tsx` and 259 lines of `index.css`
-under a commit message about transcription backends. Nothing is lost and
-nothing is pushed. It was deliberately NOT rewritten: a reset under a
-live writer is worse than an untidy commit. Split it if the other
-session is finished; leave it if not.
+**`0b20afa` still contains another session's home-screen work**, swept
+in by a `git add -A` two sessions ago. Not rewritten, for the reason
+given then: a reset under a live writer is worse than an untidy commit.
+The same session's uncommitted changes to `HeroRow.tsx`,
+`HomeScreen.tsx`, `HomeSidebar.tsx`, `MoreTools.tsx`,
+`ProjectsSection.tsx`, `SkillsView.tsx` and `index.css` were in the
+working tree throughout this session and were left alone.
 
 **Stage explicit paths in this repo. Never `git add -A`.** Several
-sessions run against this tree at once.
+sessions run against this tree at once. Then `git show --stat` your own
+commit and read it.
 
-Running when this was written: Vite on `:5173` (restarted — the old one
-had a Tailwind config from before the terracotta accent and rendered
-every `spectrum-accent` token blue), and a dev Electron on RPC `3888`
-with `KERF_DEBUG=1`.
+Running when this was written: Vite on `:5173` and a dev Electron on
+RPC `3888` with `KERF_DEBUG=1`, both inherited from the previous session
+and reused rather than restarted.
 
-### Done this session, all verified
+`npm run verify` is 17 suites, **559 checks** (554 before), green.
 
-The screen recorder, the Tutorial skill, trials and encryption are in
-HANDOVER §7a and §7b. Since then:
+### Done this session
 
-* **Two Whispers, and the fast one changes the pipeline.** Measured on
-  the same 92 seconds of narration with the same `small` model class:
-  `whisper-cli` (whisper.cpp, Metal) **2.2s**, `whisper` (Python, CPU,
-  FP32) **769s**. whisper.cpp is now preferred and `setup_transcription`
-  installs it before it will consider pip. With a fast backend the
-  transcript is waited for and the words place the camera cuts; with the
-  slow one the edit lands immediately and captions follow on their own
-  track. The skill's verification asserts whichever branch the machine
-  it runs on actually has.
-* **The whole skill on a real 1:32 take: 2.3 seconds.** 46 clips, 29
-  zooms, 524 keyframes, 11 captions.
-* **Skills lists what is installed.** It only ever showed the store
-  catalogue, and the store Worker does not resolve at all
-  (`kerf-store.mhasibudigital.workers.dev`, ENOTFOUND), so both bundled
-  skills were invisible. Manifests are read at build time through
-  `import.meta.glob`; a runtime read would work only in a git checkout,
-  because `files:` ships no `skills/` folder.
-* Transcription is cancellable, and the background pass is anchored on
-  the **screen clip id** rather than the project id — `buildStarterProject`
-  replaces every track in place and leaves the id alone, so opening the
-  starter mid-transcription used to drop a caption track onto it.
+**The Tutorial skill cuts now, because the reference video does.** The
+whole measurement, everything it found, and the four things that were
+measured and deliberately not copied are in **HANDOVER §7c** — it is the
+record, this is the summary.
 
-`npm run verify` is 17 suites, 554 checks, green.
+The short version: the reference has no transition effects at all. Its
+three cuts are hard, 0 frames, measured. What it has instead is a
+*grammar* — cut between framings, creep while you hold one, and make one
+long eased move at the end back to the framing you opened on. That is
+now `CUT_SHAPE` and `planCuts` in `cursorZoom.ts`, with every number in
+`CUT_SHAPE` traceable to a measurement written beside it, and it needed
+nothing new in the EDL: a cut is two keyframes with `hold` easing on the
+first, which the format could always express and nothing had emitted.
 
-### THE NEXT JOB — copy the transitions from the reference video
+Found by running it rather than reading it:
 
-**`~/Downloads/252d89a9da0a6a67df21c59e80013eb7.mp4`**, and the ask was
-"copy the exact flow and feel". Probed, not yet analysed:
+* **Motion blur was smearing every cut into a one-frame dissolve.**
+  `shutterWindow` in `compositor.ts` now clamps the shutter interval to
+  the nearest `hold` boundary. Measured before the fix: 1.87% green on
+  the cut frame, between shots reading 2.22% and 16.28%.
+* **`skills/tutorial/verify.py --selftest` had never worked**, at HEAD
+  as well as here — its section 8 rebuilt the project without `raw`, so
+  every control after that line measured a tutorial build. Fixed;
+  controls are 14/14.
 
-```
-9.400s · 1280x960 (4:3) · 60fps · 564 frames · h264 · aac 44.1kHz stereo
-```
+Three gaps logged through `report_capability_gap`: a mesh gradient
+(the reference's backdrop is three-cornered and a shape gradient is two
+stops), a perspective/corner-pin transform (its cuts change the tilt by
+6.5–8.7 degrees and a flat capture has no third axis), and a note that
+the reference is NOT cut to music, so nobody re-derives it.
 
-60fps and 4:3 are both worth noticing before starting: this skill
-currently builds 30fps sequences cut to the recorded display's aspect,
-and a transition designed at 60fps will read differently at 30.
+### THE NEXT JOB — pick one
 
-**Do not describe the feel from watching it. Measure it.** This
-codebase's whole verification culture exists because a montage once
-reported fifteen shots on the beat while rendering fifteen seconds of
-black. The things that can actually be measured, in the order they
-matter:
+Nothing is half-finished. Three candidates, in the order they are worth
+doing:
 
-1. **Cut rhythm.** Frame-difference peaks give cut positions; the gaps
-   between them are the pacing. `detect_beats` on the audio will say
-   whether the cuts are on a musical grid — the starter project is built
-   this way, so there is precedent for reading the grid rather than
-   guessing a tempo.
-2. **What each transition IS.** Sample a few frames either side of every
-   cut. A crossfade blends, a whip pan smears directionally, a dip goes
-   through black or white, a zoom transition changes scale across the
-   boundary. `TRANSITION_TYPES` in `types/edl.ts` already has fifteen,
-   and `analyze_reference_video` (`src/engine/referenceAnalysis.ts`,
-   55 checks in `verify_reference_analysis.py`) exists for exactly this
-   kind of question — read what it already reports before writing
-   anything new.
-3. **Transition DURATION**, in frames, per cut. This is the number that
-   makes a copy feel like the original and is the easiest to get wrong.
-4. **The grade.** Mean/median RGB, contrast, saturation and where the
-   black point sits, against `lookPresets.ts`.
-5. **Motion.** Whether shots are static or moving, and if moving, the
-   easing — sample the position of a tracked feature across a move and
-   fit it, rather than assuming the expo-out curve the zoom already uses.
+1. **Look at it.** Every claim above is verified in synthesised pixels
+   with known colours, which is the right gate and is not the same as
+   somebody watching a real tutorial built the new way. Record 60–90
+   seconds of something real, run the skill, and watch it. The specific
+   things to watch for, because they are where a measured number can
+   still be wrong on real footage: whether `holdMs` 2030 is too long
+   when clicks come in bursts, whether `factor` 2.8 is too far in on a
+   dense IDE, and whether the 3%/s creep reads as intentional or as
+   drift.
 
-Then express the result as `AssembleOptions`, not as new bespoke code:
-the skill already has a zoom shape with bezier control points, fifteen
-transition types, backdrops, and a look. A faithful copy should mostly
-be *numbers* in `recordingProject.ts` and `cursorZoom.ts`. If something
-genuinely cannot be expressed there, that is a real gap and belongs in
-the capability log rather than in a special case.
+2. **Split `0b20afa`.** If the home-screen session is done, its work
+   should be its own commit with its own message. Check whether anything
+   is still writing to those files first.
 
-**Verify it the way the tutorial skill is verified.** `skills/tutorial/
-verify.py` synthesises its own take with known colours and measures the
-result in pixels. A transition copied from a reference can be checked
-the same way: build a take, render the frames either side of a cut, and
-assert the transition does what the reference's does. A claim that it
-"feels the same" is not a check.
-
----
+3. **Push.** Four commits deep on an unpushed `main` is further than
+   this repo usually runs.
 
 ## Getting a working loop (do this first, it has eight traps)
 

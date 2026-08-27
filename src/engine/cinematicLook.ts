@@ -44,7 +44,7 @@ import { Easing, ProjectSettings } from '../types/edl';
 
 /* ── Backdrops ──────────────────────────────────────────────────── */
 
-export type BackdropId = 'graphite' | 'midnight' | 'clay' | 'none';
+export type BackdropId = 'graphite' | 'midnight' | 'clay' | 'daylight' | 'none';
 
 export interface Backdrop {
   id: BackdropId;
@@ -63,6 +63,30 @@ export const BACKDROPS: Backdrop[] = [
   { id: 'graphite', label: 'Graphite', from: '#232830', to: '#0a0c10', angle: 135 },
   { id: 'midnight', label: 'Midnight', from: '#16203a', to: '#05070d', angle: 135 },
   { id: 'clay', label: 'Clay', from: '#33201a', to: '#0d0806', angle: 135 },
+  /*
+    `daylight` is the odd one out and it is measured rather than chosen.
+
+    It is the backdrop of the reference video the cutting grammar came
+    from, fitted by least squares over the 35% of that frame the mockup
+    does not cover: a 2-stop linear gradient at 70.5 degrees from
+    #a492c6 to #fcf5f7.
+
+    **The fit is 8.2% RMS wrong and it is offered anyway, labelled.** The
+    real backdrop is a three-corner mesh — indigo #95a0e8 top-left, coral
+    #f1b3aa top-right, near-white #e9ebfa the whole way across the bottom
+    — and no two-stop linear gradient holds that. `Backdrop` has `from`,
+    `to` and `angle` and nothing else, so this is the closest thing the
+    format can say. A mesh gradient is in the capability log rather than
+    faked here.
+
+    It is not the DEFAULT, and the reason is written in the paragraph at
+    the top of this list: a screen recording is mostly bright UI and a
+    bright backdrop competes with it. The reference gets away with it
+    because its subject is a mockup rendered on that gradient rather than
+    a window captured off somebody's desktop. One reference video is not
+    evidence that this is the better choice for arbitrary footage.
+  */
+  { id: 'daylight', label: 'Daylight', from: '#a492c6', to: '#fcf5f7', angle: 70.5 },
 ];
 
 /* ── Options ────────────────────────────────────────────────────── */

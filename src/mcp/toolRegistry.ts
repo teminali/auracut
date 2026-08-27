@@ -42,7 +42,7 @@ import { loadFonts, isFontAvailable, fontsAreEnumerated } from '../engine/system
 import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
 import { probeVideo, Take as RecorderTake } from '../engine/screenCapture';
 import { applyTutorialSkill, openTakeRaw } from '../engine/tutorialSkill';
-import { DEFAULT_SHAPE as DEFAULT_ZOOM_SHAPE } from '../engine/cursorZoom';
+import { CUT_SHAPE as TUTORIAL_ZOOM_SHAPE } from '../engine/cursorZoom';
 import { DEFAULT_LOOK as DEFAULT_LOOK_OPTIONS } from '../engine/cinematicLook';
 import type { CursorSample as RecorderCursorSample, InputEvent as RecorderInputEvent } from '../types/electron';
 import { followToolCall } from '../engine/agentPresence';
@@ -4295,8 +4295,8 @@ defineTool({
     folder: z.string().describe('A take folder under Kerf Recordings, holding screen.mp4 and cursor.json'),
     raw: z.boolean().optional().describe('Just the clips: no zooms, no look, no sound, no captions'),
     captions: z.boolean().optional().describe('Transcribe the narration; default true. The words also place the camera cuts.'),
-    zoomStrength: z.number().min(1).max(3).optional().describe('How hard the frame pushes in; default 1.55'),
-    backdrop: z.string().optional().describe('graphite, midnight, clay or none'),
+    zoomStrength: z.number().min(1).max(3).optional().describe('How far the frame cuts in; default 2.8, measured off the reference video'),
+    backdrop: z.string().optional().describe('graphite, midnight, clay, daylight or none'),
     cameraOnPauses: z.boolean().optional().describe('Let the camera fill the frame during pauses; default true'),
     cameraCorner: z.enum(['bottom-right', 'bottom-left', 'top-right', 'top-left']).optional(),
   }),
@@ -4417,13 +4417,19 @@ defineTool({
     }
 
     const backdrop = args.backdrop
-      ? oneOf(args.backdrop, ['graphite', 'midnight', 'clay', 'none'], 'backdrop')
+      ? oneOf(args.backdrop, ['graphite', 'midnight', 'clay', 'daylight', 'none'], 'backdrop')
       : undefined;
 
     const outcome = await applyTutorialSkill(take, {
       transcribe: args.captions ?? true,
       captions: args.captions ?? true,
-      ...(args.zoomStrength ? { zoomShape: { ...DEFAULT_ZOOM_SHAPE, factor: args.zoomStrength } } : {}),
+      /*
+        `CUT_SHAPE`, not `DEFAULT_SHAPE`. Spreading the pushing grammar
+        here would mean that passing zoomStrength quietly turned the cuts
+        back into pushes — one argument silently changing a different
+        thing from the one it names.
+      */
+      ...(args.zoomStrength ? { zoomShape: { ...TUTORIAL_ZOOM_SHAPE, factor: args.zoomStrength } } : {}),
       ...(backdrop ? { look: { ...DEFAULT_LOOK_OPTIONS, backdrop } } : {}),
       ...(args.cameraOnPauses !== undefined ? { cameraOnPauses: args.cameraOnPauses } : {}),
       ...(args.cameraCorner ? { cameraCorner: args.cameraCorner } : {}),

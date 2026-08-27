@@ -1515,6 +1515,131 @@ nothing. Take folders are 0700 and their files 0600.
 
 ---
 
+## 7c. The reference video, and what a copy of it turned out to be
+
+The ask was "copy the exact flow and feel" of
+`~/Downloads/252d89a9da0a6a67df21c59e80013eb7.mp4` — 9.400s, 1280x960,
+60fps, 564 frames, a UI mockup drifting in 3D on a bright gradient. The
+instruction that made it work was **measure it, do not describe it**,
+and the measurement changed what the answer was.
+
+### The headline, and it is a negative
+
+**There is no transition effect in this film.** All three of its cuts
+are HARD — one frame each, no blend, no dip, no smear, no flash. The
+mean absolute frame difference goes 0.22 -> 47.05 -> 0.85 across the
+first, 0.01 -> 34.54 -> 0.34 across the second, 0.01 -> 24.73 -> 0.26
+across the third. `analyze_reference_video` finds zero flashes, and the
+one "dissolve" it reports at 7317ms is the motion-blurred closing move,
+whose frames SIFT confirms are the same content in flight.
+
+`TRANSITION_TYPES` has fifteen entries and the right answer used none of
+them. What was actually being asked for was a **grammar**: this film
+cuts where the skill pushed.
+
+### Everything that was measured
+
+| | Measured | How |
+|---|---|---|
+| cuts | 1267 / 3600 / 5333 ms | frame-difference peaks, confirmed against `analyze_reference_video` |
+| transition duration | **0 frames, all three** | MAD either side; no intermediate blend |
+| shots | 1267 / 2333 / 1733 / 4067 ms, median **2033** | from the cuts |
+| beat grid | **not cut to music** | `detect_beats`: 0 real onsets, 1 of 3 cuts on the interpolated grid, which is chance |
+| scale at cut 1 | **x2.797** | SIFT + RANSAC similarity, 29 inliers |
+| scale at cuts 2, 3 | x0.747, x0.864 — lateral, not deeper | same |
+| tilt at each cut | -6.5, +8.7, +8.0 degrees | rotation term of the same fit |
+| drift within shots | **-2.9 / +2.7 / +5.0 / +3.4 %/s. Nothing is locked off.** | per-shot trajectory against each shot's first frame |
+| the closing move | starts 7267ms, **x2.85 wider**, 50% at 583ms, 90% at 917ms, 98% at 1717ms | every frame matched against the frame it settles on |
+| its curve | **cubic-bezier(0.53, 0.47, 0, 1)**, RMS 0.053 | fitted; SETTLE 0.114, PULL 0.135, PUSH 0.164 |
+| its blur | 20 consecutive frames a feature matcher cannot place at all | the fit simply drops out for 333ms |
+| bookend | **the last frame IS the first**: scale 1.000, rotation 0.001deg, 0.008px, 394/411 inliers | f563 against f0 |
+| fades | **none.** head 213.5, tail 213.4, against a mean of 225.7 | mean luma |
+| grade | high-key 227.6, flat 37.9, desaturated 11.6, neutral 7000K, blacks lifted to 109, highlights clipped | `analyze_reference_video` |
+| backdrop | three-corner mesh: #95a0e8 TL, #f1b3aa TR, #e9ebfa across the bottom | least squares over the 35% of the frame the mockup does not cover |
+| inset | the mockup fills **84.1%** of the frame width | largest bright low-saturation region |
+| corner radius | **not measurable from this file** | the surface is in perspective in every frame where its outline shows, so the arc is a projection of the tilt |
+
+**Every estimator was self-tested before it was believed.** The scale
+measurement recovers a synthetic x1.25 / x1.55 / x2.00 / x3.00 zoom
+exactly. Two that did NOT survive their self-test were thrown away: a
+Fourier-Mellin radial-profile shift (returned 1.000 for every truth,
+because detrending a near-power-law spectrum leaves only scale-invariant
+window artefacts) and a brute-force scale-plus-phase-correlation search
+(residual 29.5/255 at cut 1 — correctly reporting that the two frames
+are not related by any 2D similarity, which is itself the finding about
+the perspective).
+
+### What it became, and it is numbers
+
+`CUT_SHAPE` in `cursorZoom.ts`, `planCuts` beside `planZoom`, and
+`TUTORIAL_ASSEMBLE.zoomShape` pointing at it. Three fields were added to
+`ZoomShape` — `cutIn`, `driftPctPerSec`, `closeMs` — and one curve,
+`CLOSE_CURVE`. `DEFAULT_SHAPE` is untouched, so the pushing grammar and
+its 33 tests are exactly as they were.
+
+**A cut needed nothing new in the format.** It is two keyframes with
+`hold` easing on the first: `applyEasing('hold')` returns 0 for the
+whole span, so the outgoing value stands until the incoming keyframe and
+then jumps. The EDL had always been able to say this and nothing had
+ever emitted it.
+
+Three decisions inside `planCuts` that are judgement rather than
+transcription:
+
+* **Cutting back to rest has to buy a whole rest shot.** The reference
+  cuts close-to-close three times and only opens out at the end, so a
+  rest stop is only inserted when there is `holdMs` of room for it.
+  A looser rule gives a one-second flash of wide between two close
+  shots, which is the cutting grammar's version of the bounce
+  `planZoom` exists to avoid.
+* **The drift is capped at 12%.** Measured at 3%/s it is right for a
+  two-second shot and compounds absurdly over a sixty-second one.
+* **`restByMs`.** The closing move is 2100ms and the cinematic dip to
+  black is the last 620ms. Without a separate "be at rest by" the film
+  fades out in the middle of a camera move.
+
+### Two things it found by being run
+
+**Motion blur was smearing the cuts, and it is fixed in the compositor.**
+`shutterMs` is sampled symmetrically around the playhead, so a cut
+inside that window rendered as a one-frame 50/50 dissolve of the two
+framings — measured at 1.87% green where the shot either side reads
+2.22% and 16.28%. `shutterWindow` in `compositor.ts` now pulls the
+interval in to the nearest `hold` boundary. The test is exact rather
+than a threshold on how fast a value is moving, because a steep linear
+ramp is not a cut and must still blur.
+
+**`verify.py --selftest` had been broken since it was written**, and at
+HEAD as well as here. Its section 8 rebuilds the project WITHOUT `raw`
+to check the transcription branch, so from that line on the raw control
+was measuring a full tutorial assembly. `the film opens from black` had
+been reporting "STILL PASSED, proves nothing" on a build where the raw
+assembly genuinely has no fade. The rebuild is skipped under
+`--selftest` now, and the controls are 14/14.
+
+### What was measured and deliberately NOT copied
+
+* **The bright backdrop is offered, not defaulted.** `daylight` is the
+  two-stop linear fit, 8.2% RMS off the real mesh, labelled as such in
+  the code. A screen recording is mostly bright UI and a bright backdrop
+  competes with it; the reference gets away with it because its subject
+  is a render, not somebody's desktop. One reference video is not
+  evidence about arbitrary footage.
+* **`insetPct` stays 92, not the measured 84.** That figure is a 4:3
+  mockup in a 4:3 frame. A 16:9 capture inset to 84% wastes a lot of
+  canvas.
+* **The fades stay.** The reference has none. A tutorial that starts
+  mid-frame is not obviously better, and this is a taste call the
+  reference does not settle.
+* **The 3D tilt is not reproducible** and is in the gap log, with the
+  mesh gradient and with the "not cut to music" finding.
+
+`leadMs` is the one number in `CUT_SHAPE` carried over unexamined, and
+deliberately: the reference has no input events in it, so it says
+nothing about how far ahead of a click to cut.
+
+---
+
 ## 8. Product hardening — mostly not started
 
 The roadmap in §5 is about capability. This is about being software
