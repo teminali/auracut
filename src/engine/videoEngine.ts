@@ -163,7 +163,15 @@ export function sourceSecondsFor(clip: Clip, offsetMs: number): number {
 
 function visibleVideoClips(tracks: Track[], playheadMs: number): Array<{ clip: Clip; offsetMs: number }> {
   const out: Array<{ clip: Clip; offsetMs: number }> = [];
-  const anySolo = tracks.some((t) => t.solo);
+  /*
+    Solo is PER STREAM. This used to read `tracks.some((t) => t.solo)`
+    with no type test, while the audio side has always filtered by type —
+    so soloing an AUDIO track meant no video track was soloed, every one
+    of them failed the `!track.solo` test, and the picture went to black.
+    Proved on pixels: mean luma 7.06 -> 0.00 with nothing but an audio
+    track's solo flag changed. Video solo and audio solo are independent.
+  */
+  const anySolo = tracks.some((t) => t.type !== 'audio' && t.solo);
 
   for (const track of tracks) {
     if (track.type === 'audio') continue;

@@ -222,6 +222,11 @@ defineTool({
         index: track.index,
         muted: track.muted,
         locked: track.locked,
+        /* solo and volume were settable and unreadable: nothing in the
+           tool surface reported them, so an agent could mute a mix and
+           had no way to find out what it had done. */
+        solo: track.solo,
+        volume: track.volume,
         clips: track.clips.map((clip) => ({
           id: clip.id,
           name: clip.name,
@@ -1090,6 +1095,246 @@ defineTool({
     const id = resolveClipId(clipId);
     if (!timeline().deleteClip(id, ripple)) throw new Error(refuseReason(id));
     return { deletedClipId: id };
+  },
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   TRACKS — the seven track actions the store had and the tool surface
+   did not, plus the redo that undo had been living without.
+
+   Every one of these wrapped an action that returned `void` and bailed
+   in silence: an unknown id, the last remaining track, a move past the
+   end of the stack. The store now reports; these throw what it reported
+   rather than answering `{success: true}` to a no-op.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/** Resolve a track AND hand back the record, so a refusal can name it. */
+function requireTrack(ref: string) {
+  const id = resolveTrackId(ref);
+  const track = timeline().tracks.find((t) => t.id === id);
+  if (!track) throw new Error(`Track "${id}" disappeared mid-operation.`);
+  return { id, track };
+}
+
+/** The track as it stands NOW — never the copy the handler opened with. */
+function trackNow(id: string): Track {
+  const t = timeline().tracks.find((x) => x.id === id);
+  if (!t) throw new Error(`Track "${id}" disappeared mid-operation.`);
+  return t;
+}
+
+defineTool({
+  name: 'remove_track',
+  category: 'timeline',
+  description:
+    'Delete a track and every clip on it. Refuses when it is the last track left, and refuses '
+    + 'an id that does not exist rather than reporting a deletion that did not happen. Undoable.',
+  schema: z.object({
+    trackId: z.string().describe('Track id, track name, or a track type like "audio"'),
+  }),
+  handler: ({ trackId }) => {
+    const { id, track } = requireTrack(trackId);
+    const removedClips = track.clips.length;
+    const name = track.name;
+
+    const res = timeline().removeTrack(id);
+    if (!res.ok) throw new Error(res.error ?? 'The editor declined to remove that track.');
+
+    return { removedTrackId: id, name, removedClips, tracksLeft: timeline().tracks.length };
+  },
+});
+
+defineTool({
+  name: 'rename_track',
+  category: 'timeline',
+  description:
+    'Rename a track. Metadata only — it changes no pixel and no sample, but it is what '
+    + 'describe_timeline and every other tool\'s name lookup read, so it is worth getting right. '
+    + 'A blank name is refused. Undoable.',
+  schema: z.object({
+    trackId: z.string().describe('Track id, track name, or a track type like "audio"'),
+    name: z.string().describe('The new name; surrounding whitespace is trimmed, blank is refused'),
+  }),
+  handler: ({ trackId, name }) => {
+    const { id, track } = requireTrack(trackId);
+    const previousName = track.name;
+
+    const res = timeline().renameTrack(id, name);
+    if (!res.ok) throw new Error(res.error ?? 'The editor declined to rename that track.');
+
+    return { trackId: id, previousName, name: trackNow(id).name };
+  },
+});
+
+defineTool({
+  name: 'reorder_track',
+  category: 'timeline',
+  description:
+    'Move a track one place up or down. Track order is PAINT order: index 0 is the top track '
+    + 'and is drawn last, so moving a track up puts its picture IN FRONT of the tracks below it. '
+    + 'Refuses when the track is already at the end it was asked to move towards, instead of '
+    + 'quietly doing nothing. Undoable.',
+  schema: z.object({
+    trackId: z.string().describe('Track id, track name, or a track type like "audio"'),
+    direction: z.enum(['up', 'down']).describe('"up" moves towards index 0, i.e. towards the front'),
+  }),
+  handler: ({ trackId, direction }) => {
+    const { id, track } = requireTrack(trackId);
+    const fromIndex = track.index;
+
+    const res = timeline().reorderTrack(id, direction === 'up' ? -1 : 1);
+    if (!res.ok) throw new Error(res.error ?? 'The editor declined to reorder that track.');
+
+    return {
+      trackId: id,
+      name: track.name,
+      fromIndex,
+      toIndex: trackNow(id).index,
+      /* Front to back, so the caller can see the z-order it just made
+         rather than inferring it from one index. */
+      paintOrderFrontToBack: timeline().tracks.map((t) => t.name),
+    };
+  },
+});
+
+defineTool({
+  name: 'set_track_mute',
+  category: 'timeline',
+  description:
+    'Mute or unmute a track. Pass `muted` to set it outright, or leave it out to flip whatever '
+    + 'it is now — an agent that wants a track muted should not have to read the state first. '
+    + 'A muted track is silent in playback AND in render_export; a muted VIDEO track also stops '
+    + 'painting. Undoable.',
+  schema: z.object({
+    trackId: z.string().describe('Track id, track name, or a track type like "audio"'),
+    muted: z.boolean().optional().describe('Omit to toggle'),
+  }),
+  handler: ({ trackId, muted }) => {
+    const { id, track } = requireTrack(trackId);
+    if (!timeline().setTrackMute(id, muted)) {
+      throw new Error(`Track "${track.name}" no longer exists.`);
+    }
+    const now = trackNow(id);
+    return { trackId: id, name: now.name, type: now.type, muted: now.muted };
+  },
+});
+
+defineTool({
+  name: 'set_track_solo',
+  category: 'timeline',
+  description:
+    'Solo or un-solo a track. While anything is soloed, the tracks that are not soloed are '
+    + 'skipped. Video solo and audio solo are INDEPENDENT: soloing an audio track leaves the '
+    + 'picture exactly as it was, and soloing a video track leaves the sound alone. Pass `solo` '
+    + 'to set it outright, or leave it out to toggle. Undoable.',
+  schema: z.object({
+    trackId: z.string().describe('Track id, track name, or a track type like "audio"'),
+    solo: z.boolean().optional().describe('Omit to toggle'),
+  }),
+  handler: ({ trackId, solo }) => {
+    const { id, track } = requireTrack(trackId);
+    if (!timeline().setTrackSolo(id, solo)) {
+      throw new Error(`Track "${track.name}" no longer exists.`);
+    }
+    const state = timeline();
+    const now = trackNow(id);
+    return {
+      trackId: id,
+      name: now.name,
+      type: now.type,
+      solo: now.solo,
+      soloedVideoTracks: state.tracks.filter((t) => t.type !== 'audio' && t.solo).map((t) => t.name),
+      soloedAudioTracks: state.tracks.filter((t) => t.type === 'audio' && t.solo).map((t) => t.name),
+    };
+  },
+});
+
+defineTool({
+  name: 'set_track_lock',
+  category: 'timeline',
+  description:
+    'Lock or unlock a track. A locked track refuses edits to the clips on it — split, trim, move '
+    + 'and delete all decline and say the lock is why. Locking changes nothing about the render. '
+    + 'Pass `locked` to set it outright, or leave it out to toggle. Undoable.',
+  schema: z.object({
+    trackId: z.string().describe('Track id, track name, or a track type like "audio"'),
+    locked: z.boolean().optional().describe('Omit to toggle'),
+  }),
+  handler: ({ trackId, locked }) => {
+    const { id, track } = requireTrack(trackId);
+    if (!timeline().setTrackLock(id, locked)) {
+      throw new Error(`Track "${track.name}" no longer exists.`);
+    }
+    const now = trackNow(id);
+    return { trackId: id, name: now.name, locked: now.locked, clipsAffected: now.clips.length };
+  },
+});
+
+defineTool({
+  name: 'set_track_volume',
+  category: 'audio',
+  description:
+    'Set a track\'s output gain: 0 is silence, 1 is unity, 2 is double amplitude (+6dB). Values '
+    + 'outside 0–2 are clamped and the reply says so rather than echoing what you asked for. '
+    + 'This is a gain on SOUND only — a video track\'s picture is untouched; use set_track_mute '
+    + 'to hide one. Counts as one undo step per call.',
+  schema: z.object({
+    trackId: z.string().describe('Track id, track name, or a track type like "audio"'),
+    volume: z.number().describe('0 = silent, 1 = unity, 2 = +6dB. Clamped to 0–2.'),
+  }),
+  handler: ({ trackId, volume }) => {
+    const { id, track } = requireTrack(trackId);
+    const previousVolume = track.volume;
+
+    /* The store deliberately does not commit this one — the UI sliders
+       call it on every pointer move. One tool call is still one undo
+       step, and a call that changes nothing leaves the stack alone
+       because an empty transaction is discarded. */
+    asOneEdit('Set track volume', () => {
+      if (!timeline().setTrackVolume(id, volume)) {
+        throw new Error(`Track "${track.name}" no longer exists, or ${volume} is not a number.`);
+      }
+    });
+
+    const now = trackNow(id);
+    return {
+      trackId: id,
+      name: now.name,
+      previousVolume,
+      volume: now.volume,
+      ...(now.volume !== volume ? { note: `Clamped to ${now.volume}; the range is 0–2.` } : {}),
+    };
+  },
+});
+
+defineTool({
+  name: 'redo',
+  category: 'project',
+  description:
+    'Redo edits that were undone. Reports how many steps ACTUALLY moved, which is not always '
+    + 'the number you asked for: the redo branch runs out, and any new edit made after an undo '
+    + 'discards it entirely. `redone: 0` means nothing came back.',
+  schema: z.object({ steps: z.number().optional().describe('Default 1, capped at 20') }),
+  handler: ({ steps }) => {
+    const requested = Math.max(1, Math.min(20, steps ?? 1));
+    let redone = 0;
+    while (redone < requested && timeline().redo()) redone++;
+
+    const state = timeline();
+    return {
+      requested,
+      redone,
+      remaining: state.history.length - 1 - state.historyIndex,
+      nowAt: state.history[state.historyIndex]?.label,
+      ...(redone < requested
+        ? {
+            note:
+              redone === 0
+                ? 'Nothing to redo. Either nothing has been undone, or an edit since the undo replaced the redo branch.'
+                : `Only ${redone} of ${requested} steps were left on the redo branch.`,
+          }
+        : {}),
+    };
   },
 });
 
@@ -2569,12 +2814,28 @@ defineTool({
 defineTool({
   name: 'undo',
   category: 'project',
-  description: 'Undo the last edit.',
-  schema: z.object({ steps: z.number().optional() }),
+  description:
+    'Undo recent edits. Reports how many steps ACTUALLY moved, which is not always the number '
+    + 'you asked for — the stack simply runs out. `undone: 0` means nothing changed.',
+  schema: z.object({ steps: z.number().optional().describe('Default 1, capped at 20') }),
   handler: ({ steps }) => {
-    const n = Math.max(1, Math.min(20, steps ?? 1));
-    for (let i = 0; i < n; i++) timeline().undo();
-    return { undone: n };
+    /* This used to answer `{undone: n}` with n straight from the request,
+       whatever the stack had in it — so an agent asking for twenty undos
+       on a two-step history was told twenty happened. */
+    const requested = Math.max(1, Math.min(20, steps ?? 1));
+    let undone = 0;
+    while (undone < requested && timeline().undo()) undone++;
+
+    const state = timeline();
+    return {
+      requested,
+      undone,
+      remaining: state.historyIndex,
+      nowAt: state.history[state.historyIndex]?.label,
+      ...(undone < requested
+        ? { note: undone === 0 ? 'Nothing left to undo.' : `Only ${undone} of ${requested} steps were on the stack.` }
+        : {}),
+    };
   },
 });
 

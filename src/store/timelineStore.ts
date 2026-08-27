@@ -113,6 +113,20 @@ export interface TimelineState {
   txSnapshot: { tracks: Track[]; markers: TimelineMarker[] } | null;
 }
 
+/**
+ * What a track edit did, or why it declined.
+ *
+ * These five actions all used to return `void` and bail silently — on an
+ * id that was not there, on the last remaining track, on a move past the
+ * end of the stack. A tool calling them had nothing to test, so it
+ * reported success for every one of those, which is the failure this
+ * repo has now found seven times.
+ */
+export interface TrackEdit {
+  ok: boolean;
+  error?: string;
+}
+
 export interface TimelineActions {
   /* transport */
   setPlayheadMs: (ms: number) => void;
@@ -170,13 +184,15 @@ export interface TimelineActions {
 
   /* tracks */
   addTrack: (type: TrackType, name?: string) => string;
-  removeTrack: (trackId: string) => void;
-  renameTrack: (trackId: string, name: string) => void;
-  reorderTrack: (trackId: string, direction: -1 | 1) => void;
-  toggleTrackMute: (trackId: string) => void;
-  toggleTrackSolo: (trackId: string) => void;
-  toggleTrackLock: (trackId: string) => void;
-  setTrackVolume: (trackId: string, volume: number) => void;
+  removeTrack: (trackId: string) => TrackEdit;
+  renameTrack: (trackId: string, name: string) => TrackEdit;
+  reorderTrack: (trackId: string, direction: -1 | 1) => TrackEdit;
+  /* Set-or-toggle: pass the value to set it, omit it to flip it.
+     `true` means the track was found and now holds that value. */
+  setTrackMute: (trackId: string, muted?: boolean) => boolean;
+  setTrackSolo: (trackId: string, solo?: boolean) => boolean;
+  setTrackLock: (trackId: string, locked?: boolean) => boolean;
+  setTrackVolume: (trackId: string, volume: number) => boolean;
   setTrackHeight: (trackId: string, heightPx: number) => void;
 
   /* clip properties */
@@ -296,8 +312,10 @@ export interface TimelineActions {
   setAssetPeaks: (assetId: string, peaks: number[]) => void;
 
   /* history */
-  undo: () => void;
-  redo: () => void;
+  /* `true` when the stack actually moved. A caller that reports "undone: 3"
+     without asking is guessing; there may only have been one step. */
+  undo: () => boolean;
+  redo: () => boolean;
   commit: (label: string) => void;
   beginTransaction: () => void;
   commitTransaction: (label: string) => void;
@@ -590,7 +608,7 @@ export const useTimelineStore = create<TimelineStore>()(
 
     undo: () => {
       const state = get();
-      if (state.historyIndex <= 0) return;
+      if (state.historyIndex <= 0) return false;
 
       const index = state.historyIndex - 1;
       const restored = snapshot(state.history[index]);
@@ -601,11 +619,12 @@ export const useTimelineStore = create<TimelineStore>()(
         s.markers = restored.markers;
         s.selectedClipIds = s.selectedClipIds.filter((id) => findClip(restored.tracks, id));
       });
+      return true;
     },
 
     redo: () => {
       const state = get();
-      if (state.historyIndex >= state.history.length - 1) return;
+      if (state.historyIndex >= state.history.length - 1) return false;
 
       const index = state.historyIndex + 1;
       const restored = snapshot(state.history[index]);
@@ -616,6 +635,7 @@ export const useTimelineStore = create<TimelineStore>()(
         s.markers = restored.markers;
         s.selectedClipIds = s.selectedClipIds.filter((id) => findClip(restored.tracks, id));
       });
+      return true;
     },
 
     /* ══ transport ══ */
@@ -1083,60 +1103,161 @@ export const useTimelineStore = create<TimelineStore>()(
       return trackId;
     },
 
+    /*
+      Every guard below is checked BEFORE the producer runs, so the reason
+      can be handed back. The old versions did the test inside `set` and
+      returned from the producer, which throws the reason away — and then
+      committed anyway, so a removal that refused because it was the last
+      track still pushed an identical entry onto the undo stack. Pressing
+      undo appeared to do nothing, twice.
+    */
     removeTrack: (trackId) => {
+      const state = get();
+      const track = state.tracks.find((t) => t.id === trackId);
+      if (!track) return { ok: false, error: `No track "${trackId}".` };
+      if (state.tracks.length <= 1) {
+        return { ok: false, error: 'The timeline must keep at least one track.' };
+      }
       set((s) => {
-        if (s.tracks.length <= 1) return;
         s.tracks = s.tracks.filter((t) => t.id !== trackId);
         s.tracks.forEach((t, i) => { t.index = i; });
         if (s.selectedTrackId === trackId) s.selectedTrackId = s.tracks[0]?.id ?? null;
+        // Clips that went with the track must not stay selected: "selected"
+        // is how most tools resolve a target, and a dead id there makes the
+        // NEXT tool fail with a confusing message about a different clip.
+        s.selectedClipIds = s.selectedClipIds.filter((id) => findClip(s.tracks, id));
       });
       get().commit('Remove track');
+      return { ok: true };
     },
 
     renameTrack: (trackId, name) => {
+      const track = get().tracks.find((t) => t.id === trackId);
+      if (!track) return { ok: false, error: `No track "${trackId}".` };
+
+      const next = name.trim();
+      if (!next) return { ok: false, error: 'A track name cannot be empty.' };
+      if (next === track.name) return { ok: true };
+
       set((s) => {
         const t = s.tracks.find((x) => x.id === trackId);
-        if (t) t.name = name;
+        if (t) t.name = next;
       });
       get().commit('Rename track');
+      return { ok: true };
     },
 
     reorderTrack: (trackId, direction) => {
+      const state = get();
+      const idx = state.tracks.findIndex((t) => t.id === trackId);
+      if (idx === -1) return { ok: false, error: `No track "${trackId}".` };
+
+      const target = idx + direction;
+      if (target < 0 || target >= state.tracks.length) {
+        return {
+          ok: false,
+          error:
+            `"${state.tracks[idx].name}" is already at the ${direction < 0 ? 'top' : 'bottom'} ` +
+            `(index ${idx} of 0–${state.tracks.length - 1}).`,
+        };
+      }
+
       set((s) => {
-        const idx = s.tracks.findIndex((t) => t.id === trackId);
-        const target = idx + direction;
-        if (idx === -1 || target < 0 || target >= s.tracks.length) return;
         const [moved] = s.tracks.splice(idx, 1);
         s.tracks.splice(target, 0, moved);
         s.tracks.forEach((t, i) => { t.index = i; });
       });
       get().commit('Reorder track');
+      return { ok: true };
     },
 
-    toggleTrackMute: (trackId) =>
-      set((s) => {
-        const t = s.tracks.find((x) => x.id === trackId);
-        if (t) t.muted = !t.muted;
-      }),
+    /*
+      Set-or-toggle, and these three now COMMIT.
 
-    toggleTrackSolo: (trackId) =>
-      set((s) => {
-        const t = s.tracks.find((x) => x.id === trackId);
-        if (t) t.solo = !t.solo;
-      }),
+      They did not, while `renameTrack` did — so the edit that changes the
+      exported file was missing from the undo stack and the one that
+      changes a label was on it. That was not a deliberate "view-ish
+      toggle" exemption, because history snapshots the whole `tracks`
+      array: a mutation that skips `commit` is not outside history, it is
+      silently REVERTED by the next unrelated undo. Mute a track, rename
+      another, undo the rename, and the mute came back on.
 
-    toggleTrackLock: (trackId) =>
-      set((s) => {
-        const t = s.tracks.find((x) => x.id === trackId);
-        if (t) t.locked = !t.locked;
-      }),
+      They also take the value they want rather than only flipping. An
+      agent that needs a track muted should not have to read the state,
+      work out the current value and race whatever else is editing;
+      omitting the argument still toggles, which is what the header
+      button wants.
+    */
+    setTrackMute: (trackId, muted) => {
+      const track = get().tracks.find((t) => t.id === trackId);
+      if (!track) return false;
+      const next = muted ?? !track.muted;
+      if (next !== track.muted) {
+        set((s) => {
+          const t = s.tracks.find((x) => x.id === trackId);
+          if (t) t.muted = next;
+        });
+        get().commit(next ? 'Mute track' : 'Unmute track');
+      }
+      return true;
+    },
 
-    setTrackVolume: (trackId, volume) =>
-      set((s) => {
-        const t = s.tracks.find((x) => x.id === trackId);
-        if (t) t.volume = Math.max(0, Math.min(2, volume));
-      }),
+    setTrackSolo: (trackId, solo) => {
+      const track = get().tracks.find((t) => t.id === trackId);
+      if (!track) return false;
+      const next = solo ?? !track.solo;
+      if (next !== track.solo) {
+        set((s) => {
+          const t = s.tracks.find((x) => x.id === trackId);
+          if (t) t.solo = next;
+        });
+        get().commit(next ? 'Solo track' : 'Un-solo track');
+      }
+      return true;
+    },
 
+    setTrackLock: (trackId, locked) => {
+      const track = get().tracks.find((t) => t.id === trackId);
+      if (!track) return false;
+      const next = locked ?? !track.locked;
+      if (next !== track.locked) {
+        set((s) => {
+          const t = s.tracks.find((x) => x.id === trackId);
+          if (t) t.locked = next;
+        });
+        get().commit(next ? 'Lock track' : 'Unlock track');
+      }
+      return true;
+    },
+
+    /*
+      No commit here, and that IS deliberate: both volume sliders write on
+      every pointer move, so a commit per call would push one history
+      entry per mouse pixel. The MCP tool wraps its single call in
+      `asOneEdit`, which gives an agent exactly one undo step and leaves
+      the slider alone.
+    */
+    setTrackVolume: (trackId, volume) => {
+      if (!Number.isFinite(volume)) return false;
+      const track = get().tracks.find((t) => t.id === trackId);
+      if (!track) return false;
+      const next = Math.max(0, Math.min(2, volume));
+      if (next !== track.volume) {
+        set((s) => {
+          const t = s.tracks.find((x) => x.id === trackId);
+          if (t) t.volume = next;
+        });
+      }
+      return true;
+    },
+
+    /*
+      Row height is the one track property that changes nothing about the
+      render, and it is dragged rather than clicked — so it stays off the
+      undo stack on purpose. The cost of that is real and is written down
+      here rather than pretended away: because history holds whole tracks,
+      an unrelated undo can snap a resized row back to its old height.
+    */
     setTrackHeight: (trackId, heightPx) =>
       set((s) => {
         const t = s.tracks.find((x) => x.id === trackId);
