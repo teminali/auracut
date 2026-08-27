@@ -556,11 +556,11 @@ fails on an excuse that has since grown a tool, so the list cannot rot in
 either direction. Both guards were checked by making them fail on
 purpose.
 
-| | before | after |
+| | session start | now |
 |---|---|---|
 | tools | 68 | **104** |
 | unreachable store actions | 66 | **0** |
-| suites · checks | 12 · 324 | **15 · 487** |
+| suites · checks | 12 · 324 | **15 · 513** |
 
 Three lanes, three anchors, and again **one conflict** — two adjacent
 lines of `TimelineActions` where lane 2 changed `removeEffectKeyframe`
@@ -623,37 +623,65 @@ comment is the thing to fix.
    the six it skipped were positionX, positionY, opacity, scaleX, scaleY
    and rotation, the six an editor uses most. 34 covered now.
 
-### Still open, and named rather than quietly closed
+### Closed since, all measured
 
-- **Reversed audio does not exist.** `collectAudioClips` never reads
-  `reversed` and the filtergraph has no `areverse`. Measured on a
-  300Hz-to-3000Hz sweep: the exported mix still RISES in both
-  directions, so reversed dialogue exports as forward dialogue. The tool
-  description now says so; the engine still does not do it.
-- **In/out points are decorative for rendering.** `ExportConfig` has no
-  in/out field and `runHardwareExport` always renders 0 -> `durationMs`.
-  Worse, `ExportModal` has a **"range only" toggle whose value never
-  reaches the encoder** — the checkbox does nothing. With a 1000–2000ms
-  range set, the export still wrote all 60 frames from 0.
-- ~~Solo does not silence a video clip's embedded audio.~~ **Decided
-  and fixed.** Solo now means "only this", matching every other NLE:
-  68.75 → −45.27 dB on the video clip's own tone, soloed track
-  unchanged, picture unmoved. The picture gate stays separate.
-- **`volume` is the one animatable property with no proof anywhere.**
-  Not measurable on pixels and no suite keyframes it. Said plainly in
-  the suite docstring rather than given a fake row.
-- **`toggleEffect`, `updateMarker` and `moveClips` push no history entry
-  in the store.** The tools wrap them in `asOneEdit`, so a tool call is
-  one undo step, but the UI bypass button for an effect is still not
-  undoable.
+The six items this section listed as open are now five closed and one
+deliberately deferred. Kept rather than deleted, because what was wrong
+and how it was found is the part worth keeping.
+
+- ~~**Reversed audio does not exist.**~~ `collectAudioClips` never read
+  `reversed` and the filtergraph had no `areverse`, so reversed
+  dialogue exported as forward dialogue. Fixed: a 300Hz-to-3000Hz sweep
+  now falls 2732 → 560 Hz reversed where it rises 572 → 2738 Hz
+  forward, and a second row demands the two MIRROR rather than merely
+  differ. PLAYBACK still cannot reverse sound — a media element cannot
+  run at a negative rate — so `describe_audio_preview` reports it as a
+  preview/render divergence rather than letting the preview lie.
+- ~~**In/out points are decorative for rendering.**~~ `ExportConfig` had
+  no in/out field, and `ExportModal`'s "range only" toggle computed a
+  duration that fed a LABEL and never reached the encoder. Fixed:
+  `startMs` on the config, `useInOut` on `render_export`, and audio
+  re-based onto the window (source time advances at playback speed, so
+  a head cut of n ms skips n × speed of source). Proved on content, not
+  frame count — a 1000–2000ms range exports 30 frames whose first frame
+  is the GREEN second, and whose mix has 1500Hz at 60.5 dB with its
+  neighbours 111 dB and 98 dB down.
+- ~~**Solo does not silence a video clip's embedded audio.**~~ Decided
+  and fixed. Solo means "only this" now: 68.75 → −45.27 dB on the video
+  clip's own tone, soloed track unchanged, picture unmoved.
+- ~~**`volume` is the one animatable property with no proof anywhere.**~~
+  It was not unproven, it was BROKEN — the eighteenth property to say it
+  was animatable and not be. Nothing read keyframes in either audio
+  path. Fixed by sampling the eased curve in the renderer and building a
+  piecewise-linear ffmpeg expression from it: 1.0 → 0.0 now falls 98% in
+  the exported mix, 0.0 → 1.0 rises, and a row demands the two ramps
+  mirror.
+- ~~**`toggleEffect`, `updateMarker` and `moveClips` push no history.**~~
+  A sweep found ten actions that mutate and never commit; six are
+  correct (history machinery, plus slider-driven ones whose tools wrap),
+  and the other four are fixed. Fixing it immediately created the
+  opposite bug — `move_clip` committed in the tool AND the store, so one
+  undo took the user half way back. The rows demand the state come BACK,
+  which is what caught it.
+- ~~**`EffectKeyframe` has no `bezierPoints`.**~~ Bigger than the note:
+  `addEffectKeyframe` hardcoded `easeInOut` and `animate_effect_param`
+  had no easing field, so every effect animation in the app ran on one
+  curve. Both fixed, measured at the MIDPOINT — the only place a curve
+  is visible.
+
+**Still open, deliberately:**
+
 - **`detach_audio` cannot tell whether the source has an audio stream**,
   so on a silent video it succeeds and produces a silent audio clip.
-  Named in the tool description, and NOT fixed — deliberately. There is
-  no ffprobe anywhere in the app (`grep` finds it only in a comment);
-  detecting this needs a probe bridge in the main process and a
-  `hasAudio` field on `MediaAsset`, filled at import. That is a feature,
-  not the one-line guard it looks like, and a `hasAudio` that is
-  sometimes wrong would be worse than an honest "cannot tell".
+  Named in the tool description, and NOT fixed. There is no ffprobe
+  anywhere in the app (`grep` finds it only in a comment); detecting
+  this needs a probe bridge in the main process and a `hasAudio` field
+  on `MediaAsset`, filled at import. That is a feature, not the one-line
+  guard it looks like, and a `hasAudio` that is sometimes wrong would be
+  worse than an honest "cannot tell".
+- **Preview cannot reverse audio**, per above. Needs the source decoded
+  into an AudioBuffer — a different playback architecture from the
+  media-element graph the mixer is built on.
 
 ### Platforms
 
