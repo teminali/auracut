@@ -265,6 +265,42 @@ def probe_solo_audio():
     metric('solo keeps the soloed track', band_db(before, 250, 350), band_db(after, 250, 350), 3.0,
            kind='stay')
 
+    # A video clip's own sound is sound too. Both audio implementations
+    # used to gate the solo skip on `track.type === 'audio'`, so a
+    # soloed audio track silenced other AUDIO tracks and left the audio
+    # embedded in video clips playing at full level — measured at 68.75dB
+    # before and 68.75dB after, delta 0.00. They agreed with each other,
+    # which is what kept it looking like intent rather than a slip.
+    reset('solocross', 2000)
+    vpath = os.path.join(TMP, 'vid440.mp4')
+    subprocess.run(['ffmpeg', '-y', '-v', 'error',
+                    '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=30:duration=2',
+                    '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2',
+                    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'ultrafast',
+                    '-c:a', 'aac', '-shortest', vpath], check=True)
+    vt = add_track('video', 'PIC')
+    at = add_track('audio', 'VO')
+    va = ok(call('import_media_from_path', {'path': vpath, 'name': 'vid440'}), 'i')['assetId']
+    ta = ok(call('import_media_from_path',
+                 {'path': tone(os.path.join(TMP, 's1200b.wav'), 1200.0), 'name': 'vo'}), 'i')['assetId']
+    ok(call('insert_clip', {'assetId': va, 'trackId': vt, 'startTimeMs': 0}), 'i')
+    ok(call('insert_clip', {'assetId': ta, 'trackId': at, 'startTimeMs': 0}), 'i')
+
+    b2 = render('solocross_before', 2000)
+    pic_before = float(luma(frame(500)).mean())
+    ok(call('set_track_solo', {'trackId': at, 'solo': False if SELFTEST else True}), 'solo vo')
+    a2 = render('solocross_after', 2000)
+    pic_after = float(luma(frame(500)).mean())
+
+    metric('solo silences a VIDEO clip\'s own audio too',
+           band_db(b2, 380, 500), band_db(a2, 380, 500), 20.0)
+    metric('and leaves the soloed voice alone',
+           band_db(b2, 1100, 1300), band_db(a2, 1100, 1300), 3.0, kind='stay')
+    # The picture must not move: an AUDIO solo blanking the frame is the
+    # separate bug this suite already covers, and widening the audio gate
+    # is exactly the kind of change that could reintroduce it.
+    metric('and does not touch the picture', pic_before, pic_after, 0.5, kind='stay')
+
 
 # ═══ 4 · solo across streams, and mute on picture ═══════════════════
 def probe_solo_video():

@@ -250,7 +250,20 @@ function collectAudioClips(tracks: Track[]) {
 
   for (const track of tracks) {
     if (track.muted) continue;
-    if (anySolo && track.type === 'audio' && !track.solo) continue;
+    /*
+      Solo means "only this", so a soloed AUDIO track silences every
+      other source of sound — including the audio embedded in clips on
+      VIDEO tracks, which used to sail straight past this gate because
+      it also tested `track.type === 'audio'`. Measured before the
+      change: a soloed audio track left a video clip's 440Hz tone at
+      68.75dB, exactly where it started, delta 0.00dB.
+
+      This is the AUDIO gate only, and it is deliberately identical to
+      the one in `audioEngine.ts` — the two agreeing with each other is
+      what kept this from looking like a slip, and the same property has
+      to hold after the change. The picture is governed separately.
+    */
+    if (anySolo && !track.solo) continue;
 
     for (const clip of track.clips) {
       const audible = Boolean(clip.mediaUrl) && (track.type === 'audio' || clip.type === 'video');

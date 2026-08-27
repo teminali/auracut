@@ -635,10 +635,10 @@ comment is the thing to fix.
   Worse, `ExportModal` has a **"range only" toggle whose value never
   reaches the encoder** — the checkbox does nothing. With a 1000–2000ms
   range set, the export still wrote all 60 frames from 0.
-- **Solo does not silence a video clip's embedded audio.** Measured:
-  68.75 dB before and after. The two audio implementations agree with
-  each other, so this is uniform intent rather than a slip, and what
-  solo should mean is a product decision. HANDOVER §3 has the numbers.
+- ~~Solo does not silence a video clip's embedded audio.~~ **Decided
+  and fixed.** Solo now means "only this", matching every other NLE:
+  68.75 → −45.27 dB on the video clip's own tone, soloed track
+  unchanged, picture unmoved. The picture gate stays separate.
 - **`volume` is the one animatable property with no proof anywhere.**
   Not measurable on pixels and no suite keyframes it. Said plainly in
   the suite docstring rather than given a fake row.

@@ -240,7 +240,21 @@ class AudioPlaybackEngine {
   /** Fade envelope and every volume the mixer applies, as one number. */
   private gainFor(clip: Clip, track: Track, offsetMs: number, anySolo: boolean): number {
     if (clip.hidden || track.muted) return 0;
-    if (anySolo && track.type === 'audio' && !track.solo) return 0;
+    /*
+      Solo means "only this", so a soloed AUDIO track silences every
+      other source of sound — including the audio embedded in clips on
+      VIDEO tracks, which used to sail straight past this gate because
+      it also tested `track.type === 'audio'`. Measured before the
+      change: a soloed audio track left a video clip's 440Hz tone at
+      68.75dB, exactly where it started, delta 0.00dB.
+
+      This is the AUDIO gate only. The picture is governed separately —
+      `compositor.ts` and `videoEngine.ts` count only non-audio tracks
+      when deciding what to paint, so soloing an audio track no longer
+      blanks the frame and soloing a video track still hides the other
+      video tracks.
+    */
+    if (anySolo && !track.solo) return 0;
 
     let g = clip.audio.volume * track.volume;
 
