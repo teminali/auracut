@@ -1084,19 +1084,25 @@ manual verification is recorded in the commit messages:
 
 This also **is** the skill-verification harness (§6). Build it once.
 
-**No crash or error reporting.** You have no way to learn what breaks
-for users. Everything found this session was found by looking.
+**~~No crash or error reporting.~~ — done.** Main's uncaughtException
+and unhandledRejection, render-process-gone, child-process-gone,
+did-fail-load, unresponsive, renderer console.error, window.onerror,
+unhandled rejections and a React error boundary all land in
+`userData/logs/kerf.log`. Nothing is uploaded — that is a product
+decision with privacy consequences and belongs to whoever ships it.
 
-**Project format has no migration.** `projectIO.ts` writes
-`version: FORMAT_VERSION` and never reads it back. The schema already
-changed once (the `lut` fields were removed). Old projects will drift
-silently.
+**~~Project format has no migration.~~ — done** (§3b). Refuses a file
+from a newer Kerf, migrates an older one, and says which.
 
 **Windows and Linux are unexercised.** CI builds them. Nobody has run
 them.
 
-**No performance work.** Long timelines, many clips, 4K playback,
-memory over a long session — all unmeasured.
+**~~No performance work.~~ — measured**, and it found an O(n^2): every
+commit deep-cloned the whole timeline for the undo history, so building
+400 clips took 2.4s and leaked 48MB. Now linear, 277ms, flat heap.
+`tools/measure_scale.py` reports the exponent rather than milliseconds.
+**4K playback is still unmeasured** — the tool covers clip count, not
+resolution.
 
 **No onboarding.** First-run for someone who has never edited.
 
