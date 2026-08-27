@@ -295,6 +295,7 @@ SFX generation, the Claude and Codex backends, `check_command_readiness`.
 |---|---|
 | `shaders.ts` | Wired (§3b). Chroma key and displacement run on the GPU; mesh warps and page curl are still out of reach. |
 | Per-clip audio | `pitch`, `voiceEffect`, `noiseReduction`, `ducking` are stored and applied by neither playback nor export. `render_export` now REPORTS them as not applied, so it is visible rather than silent — still a gap. |
+| Solo does not silence a video clip's audio | **Measured, logged, not fixed.** `exportPipeline.ts:193` and `audioEngine.ts:243` both gate the solo skip on `track.type === 'audio'`, so a soloed AUDIO track leaves the sound embedded in clips on VIDEO tracks running at full level. Exported and measured: the video clip's 440Hz tone sat at 68.75 dB before and 68.75 dB after — Δ0.00 dB — while the soloed track's own tone was unchanged. Every other NLE takes solo to mean "only this", so this is a product decision rather than an obvious bug, and it is the maintainer's to make. Note the two audio implementations AGREE with each other, so nothing here is inconsistent — it is uniformly this. |
 | No music library | The SFX are synthesised (`sfxEngine.ts` — read its header for why a hotlinked catalogue was rejected). There is no music, and that is a licensing decision. |
 | Gemini / Cursor streams | Adapters written from documented flags, never seen on a real run. |
 
@@ -1228,6 +1229,48 @@ curl -s -X POST http://127.0.0.1:3888/rpc -H "x-kerf-token: $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{"method":"tools/call","params":{"name":"describe_timeline","arguments":{}}}'
 ```
+
+### CI, and what each platform's green tick is actually worth
+
+Two workflows. They are not equally trustworthy and the difference is
+the point.
+
+`.github/workflows/gate.yml` — `yarn typecheck` and the 167 unit tests,
+on macOS, Linux **and Windows**. None of it needs a display, an audio
+device, ffmpeg or a running app, so it is a hard gate on all three from
+day one, and it is the job that gates PRs.
+
+`.github/workflows/verify.yml` — the twelve live-app suites, 324 checks,
+`workflow_dispatch` only. Per platform:
+
+| | status | what a green tick means |
+|---|---|---|
+| **macOS** | **proven** | It has run on a runner and was green. It answered its own two unknowns: a runner DOES give Electron a window (RPC in 7.9s), and `verify_gpu` DOES get a real WebGL2 context (26/26). |
+| **Linux** | **wired, never run** | Written from documented xvfb/Electron behaviour, not from a run anybody watched. Expect SwiftShader; that is fine, because those checks assert what the picture looks like, not how fast it arrived. |
+| **Windows** | **blind** | **Nobody has ever run Kerf on Windows.** The suite step is `continue-on-error`, so a green tick means "the attempt ran and the logs were kept". It does NOT mean the app works, and must never be written up as if it did. |
+
+Windows could not be attempted *honestly* until three POSIX-only things
+in `run_all_suites.py` were fixed, none of which would have failed
+loudly:
+
+- `os.killpg`, `os.getpgid` and `SIGKILL` do not exist on Windows, so
+  teardown raised `AttributeError` and left an Electron holding the port.
+  `taskkill /T` walks the child tree the way `killpg` walks the group.
+- `'file://' + os.path.join(...)` yields `file://C:\...\index.html` —
+  backslashes, one slash short — which Chromium will not load. `--built`
+  would have died on a path bug and looked like a real result.
+- `SO_REUSEADDR` means the OPPOSITE thing on Windows: it permits binding
+  a port that has a live listener, so the free-port probe called every
+  busy port free. `SO_EXCLUSIVEADDRUSE` asks the intended question.
+
+`KERF_ELECTRON_ARGS` passes flags to the child, so Linux CI can run
+`--no-sandbox` (Ubuntu 24.04 restricts the unprivileged user namespaces
+Chromium's sandbox needs) without a developer machine losing its sandbox
+to a hardcoded flag in `main.ts`.
+
+There is no container runtime on the maintainer's machine (`lima` is
+installed, no VM), which is why Linux is wired rather than run. A Lima
+VM is the local route to closing that.
 
 **UI testing in a browser:** `yarn dev`, then a page under `public/` that
 imports `/src/main.tsx` (needs the react-refresh preamble) and mocks
