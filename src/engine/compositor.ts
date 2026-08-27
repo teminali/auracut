@@ -953,7 +953,7 @@ function resolveEffectParams(effect: Clip['effects'][number], offsetMs: number):
       if (offsetMs >= a.timeOffsetMs && offsetMs <= b.timeOffsetMs) {
         const span = b.timeOffsetMs - a.timeOffsetMs;
         const t = span > 0 ? (offsetMs - a.timeOffsetMs) / span : 1;
-        params[param] = a.value + (b.value - a.value) * applyEasing(t, a.easing);
+        params[param] = a.value + (b.value - a.value) * applyEasing(t, a.easing, a.bezierPoints);
         break;
       }
     }

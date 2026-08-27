@@ -646,12 +646,14 @@ comment is the thing to fix.
   in the store.** The tools wrap them in `asOneEdit`, so a tool call is
   one undo step, but the UI bypass button for an effect is still not
   undoable.
-- **`EffectKeyframe` has no `bezierPoints`**, so a bezier easing on an
-  effect keyframe silently uses the default curve. Not reachable from
-  any tool; noted, not tested.
 - **`detach_audio` cannot tell whether the source has an audio stream**,
   so on a silent video it succeeds and produces a silent audio clip.
-  Named in the tool description.
+  Named in the tool description, and NOT fixed — deliberately. There is
+  no ffprobe anywhere in the app (`grep` finds it only in a comment);
+  detecting this needs a probe bridge in the main process and a
+  `hasAudio` field on `MediaAsset`, filled at import. That is a feature,
+  not the one-line guard it looks like, and a `hasAudio` that is
+  sometimes wrong would be worse than an honest "cannot tell".
 
 ### Platforms
 

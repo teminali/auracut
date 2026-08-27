@@ -702,19 +702,49 @@ defineTool({
 defineTool({
   name: 'animate_effect_param',
   category: 'effects',
-  description: 'Keyframe an effect parameter — pass two or more {timeOffsetMs, value} stops to animate it over the clip.',
+  description:
+    'Keyframe an effect parameter — pass two or more {timeOffsetMs, value} stops to animate it ' +
+    'over the clip. Each stop takes an optional easing, and bezierPoints for a custom curve; ' +
+    'the easing on a stop governs the segment that LEAVES it, so the last stop\'s easing is ' +
+    `never rendered. One of: ${EASINGS.join(', ')}.`,
   schema: z.object({
     clipId: z.string().optional(),
     effect: z.string(),
     param: z.string(),
-    keyframes: z.array(z.object({ timeOffsetMs: z.number(), value: z.number() })).min(1),
+    keyframes: z.array(z.object({
+      timeOffsetMs: z.number(),
+      value: z.number(),
+      easing: z.string().optional().describe(`One of: ${EASINGS.join(', ')}`),
+      bezierPoints: z.array(z.number()).length(4).optional()
+        .describe('[p1x, p1y, p2x, p2y]; only meaningful with easing "bezier"'),
+    })).min(1),
   }),
   handler: ({ clipId, effect, param, keyframes }) => {
     const id = resolveClipId(clipId);
     requireUnlocked(id);
     let placed = 0;
     for (const kf of keyframes) {
-      if (timeline().addEffectKeyframe(id, effect, param, kf.timeOffsetMs, kf.value)) placed++;
+      /*
+        Effect keyframes could not carry an easing at all: the store
+        hardcoded `easeInOut`, and `EffectKeyframe` had no
+        `bezierPoints`, so `resolveEffectParams` called `applyEasing`
+        with no curve and a bezier fell back to the default control
+        points. Rejecting a bezier curve on a non-bezier easing here
+        rather than storing points nothing will read.
+      */
+      const curve = kf.easing
+        ? oneOf(kf.easing, EASINGS, 'easing')
+        : undefined;
+      if (kf.bezierPoints && curve !== 'bezier') {
+        throw new Error(
+          `bezierPoints only apply to easing "bezier"; this stop asks for "${kf.easing ?? 'easeInOut'}". ` +
+          'Set easing to "bezier", or drop the points.'
+        );
+      }
+      const pts = kf.bezierPoints as [number, number, number, number] | undefined;
+      if (timeline().addEffectKeyframe(id, effect, param, kf.timeOffsetMs, kf.value, curve, pts)) {
+        placed++;
+      }
     }
     if (placed === 0) {
       const clip = findClipById(timeline().tracks, id);

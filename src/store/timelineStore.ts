@@ -348,7 +348,8 @@ export interface TimelineActions {
   setEffectIntensity: (clipId: string, effectRef: string, intensity: number) => void;
   /** False when the clip or the effect could not be found. */
   addEffectKeyframe: (
-    clipId: string, effectRef: string, param: string, timeOffsetMs: number, value: number
+    clipId: string, effectRef: string, param: string, timeOffsetMs: number, value: number,
+    easing?: KeyframePoint['easing'], bezier?: [number, number, number, number]
   ) => boolean;
   /** False when the clip, the effect or the keyframe could not be found. */
   removeEffectKeyframe: (clipId: string, effectRef: string, keyframeId: string) => boolean;
@@ -2106,7 +2107,7 @@ export const useTimelineStore = create<TimelineStore>()(
         if (fx) fx.intensity = Math.max(0, Math.min(1, intensity));
       }),
 
-    addEffectKeyframe: (clipId, effectRef, param, timeOffsetMs, value) => {
+    addEffectKeyframe: (clipId, effectRef, param, timeOffsetMs, value, easing, bezier) => {
       let placed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
@@ -2118,10 +2119,16 @@ export const useTimelineStore = create<TimelineStore>()(
 
         const t = Math.max(0, Math.round(timeOffsetMs));
         const existing = fx.keyframes.find((k) => k.param === param && Math.abs(k.timeOffsetMs - t) < 34);
+        const curve = easing ?? 'easeInOut';
         if (existing) {
           existing.value = value;
+          existing.easing = curve;
+          if (bezier) existing.bezierPoints = bezier;
         } else {
-          fx.keyframes.push({ id: uid('efk'), param, timeOffsetMs: t, value, easing: 'easeInOut' });
+          fx.keyframes.push({
+            id: uid('efk'), param, timeOffsetMs: t, value, easing: curve,
+            ...(bezier ? { bezierPoints: bezier } : {}),
+          });
           fx.keyframes.sort((a, b) => a.timeOffsetMs - b.timeOffsetMs);
         }
       });

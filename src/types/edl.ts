@@ -343,6 +343,18 @@ export interface EffectKeyframe {
   timeOffsetMs: number;
   value: number;
   easing: Easing;
+  /**
+   * [p1x, p1y, p2x, p2y] control points for `bezier` easing.
+   *
+   * `KeyframePoint` has had this since beziers existed; this one did
+   * not, and `resolveEffectParams` called `applyEasing(t, a.easing)`
+   * with no curve — so a bezier easing on an EFFECT keyframe silently
+   * fell back to the default control points. It was unreachable in
+   * practice too: `addEffectKeyframe` hardcoded `easeInOut` and
+   * `animate_effect_param` had no easing field at all, so no effect
+   * keyframe could carry any easing but one.
+   */
+  bezierPoints?: [number, number, number, number];
 }
 
 /* ── Vector shape layers ────────────────────────────────────────── */
@@ -427,7 +439,19 @@ export interface Clip {
 
   locked: boolean;
   hidden: boolean;
-  /** Clips sharing a groupId move and trim together. */
+  /**
+   * Clips sharing a groupId are dragged together IN THE UI. Nothing
+   * else honours it.
+   *
+   * This said "move and trim together", which is not true in either
+   * half: `clip.groupId` is read in exactly one place in the codebase,
+   * `ClipBlock.tsx`'s pointer handler. `moveClip` moves a clip straight
+   * out of its group and leaves the rest behind, and `trimClip` ignores
+   * it completely. It is a mouse convenience, not a model relationship
+   * — which is why `groupSelected` / `ungroupSelected` are excused as
+   * UI-only in `verify_tool_coverage.py` rather than given tools that
+   * would hand an agent a flag changing nothing it can do.
+   */
   groupId?: string;
 }
 

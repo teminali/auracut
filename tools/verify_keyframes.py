@@ -750,6 +750,73 @@ def check_remove_effect_keyframe():
             {'clipId': c, 'effect': 'kaleidoscope', 'keyframeId': 'efk_nope'})
 
 
+# ── easing on an EFFECT keyframe ───────────────────────────────────
+def check_effect_keyframe_easing():
+    """Effect keyframes could carry no easing at all.
+
+    `addEffectKeyframe` hardcoded `easeInOut` and `animate_effect_param`
+    had no easing field, so every effect animation in the app ran on one
+    curve. `EffectKeyframe` also had no `bezierPoints`, and
+    `resolveEffectParams` called `applyEasing(t, a.easing)` with no
+    curve — so asking for `bezier` silently used the default control
+    points. `KeyframePoint` has had that field since beziers existed.
+
+    Measured at the MIDPOINT, which is the only place a curve is
+    visible: every easing agrees at both ends by definition, so a row
+    that sampled the ends would pass on a build where easing did
+    nothing at all.
+
+    The blur tops out at 14, not 70. At 70 the midpoints of two
+    different curves are both blurred to mush and `hifreq` saturates —
+    the metric stops responding exactly where the row needs it to.
+    """
+    def mid_for(easing, bezier=None):
+        c = scene_block(0.5)
+        # No kinetic entrance: a text layer's default `pop_in` moves the
+        # metric at the start of the clip and would be read as the
+        # effect's doing.
+        ok(call('add_effect', {'clipId': c, 'effectType': 'gaussian_blur',
+                               'params': {'radius': 0}}), 'add_effect')
+        stop = {'timeOffsetMs': 0, 'value': 0, 'easing': easing}
+        if bezier:
+            stop['bezierPoints'] = bezier
+        ok(call('animate_effect_param', {
+            'clipId': c, 'effect': 'gaussian_blur', 'param': 'radius',
+            'keyframes': [stop, {'timeOffsetMs': DUR, 'value': 14}]}), 'animate')
+        return hifreq(frame(DUR // 2)), hifreq(frame(DUR - 20))
+
+    # Under --selftest every pair is rendered with the SAME curve, so
+    # the identical machinery runs and the difference must collapse. A
+    # row that still separated two identical eases would be reading
+    # render noise rather than the curve.
+    lin_mid, lin_end = mid_for('linear')
+    in_mid, in_end = mid_for('linear' if STILL else 'easeIn')
+    out_mid, _ = mid_for('linear' if STILL else 'easeOut')
+
+    threshold('easing reaches an effect keyframe at all', abs(in_mid - lin_mid), 0.03,
+              f'midpoint linear {lin_mid:.3f} vs {"linear" if STILL else "easeIn"} {in_mid:.3f}')
+    threshold('easeIn and easeOut bend opposite ways', abs(in_mid - out_mid), 0.03,
+              f'midpoint {in_mid:.3f} vs {out_mid:.3f}')
+
+    slow = [0.9, 0.0, 1.0, 0.2]
+    fast = slow if STILL else [0.0, 0.9, 0.2, 1.0]
+    slow_mid, slow_end = mid_for('bezier', slow)
+    fast_mid, _ = mid_for('bezier', fast)
+    threshold('two custom beziers render differently', abs(slow_mid - fast_mid), 0.03,
+              f'midpoint slow-start {slow_mid:.3f} vs {"the same curve" if STILL else "fast-start"} {fast_mid:.3f}')
+
+    # The control on all of the above: whatever the curve, the ENDS are
+    # the same. A row that moved the endpoints would be measuring the
+    # value, not the easing.
+    check('every curve still agrees at the end', abs(lin_end - in_end) < 0.05,
+          f'end frame linear {lin_end:.3f} vs easeIn {in_end:.3f}')
+
+    refuses('bezierPoints are refused on a non-bezier easing', 'animate_effect_param',
+            {'clipId': scene_block(0.5), 'effect': 'gaussian_blur', 'param': 'radius',
+             'keyframes': [{'timeOffsetMs': 0, 'value': 0, 'easing': 'linear',
+                            'bezierPoints': [0.1, 0.2, 0.3, 0.4]}]})
+
+
 # ── motion path, point by point ────────────────────────────────────
 def check_motion_path_points():
     """Bend a straight two-point path into a corner, move the corner, take it
@@ -839,6 +906,7 @@ TOOL_CHECKS = [
     ('clear_keyframes', check_clear_keyframes),
     ('upsert_keyframe', check_upsert_keyframe),
     ('remove_effect_keyframe', check_remove_effect_keyframe),
+    ('effect keyframe easing', check_effect_keyframe_easing),
     ('motion path points', check_motion_path_points),
     ('motion path from nothing', check_motion_path_from_nothing),
 ]
