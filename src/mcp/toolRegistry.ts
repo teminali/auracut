@@ -1104,6 +1104,692 @@ defineTool({
   handler: ({ type, name }) => ({ trackId: timeline().addTrack(type, name) }),
 });
 
+/* ═══════════════════════════════════════════════════════════════════
+   CLIP OPS, EFFECT STACK, MARKERS, IN/OUT
+
+   Seventeen store actions that existed, were reachable from the UI, and
+   had no tool. Every one of them returned `void` and bailed silently —
+   on an unknown id, a locked clip, a locked track, an index already at
+   the end of the stack, a playhead over nothing — so a wrapper around
+   them would have reported success for all of it. Each action now
+   reports; each tool below turns a refusal into a message.
+
+   Where a tool throws and where it does not, consistently: it throws
+   when the POSTCONDITION FAILED — the clip is still uncut, still
+   present, the audio never moved. It reports `changed: false` when the
+   postcondition already held before the call, because clearing markers
+   from a timeline with none is not a failure, it is nothing to do. The
+   difference is visible in the result either way; what never happens is
+   a bare success for a call that did nothing.
+   ═══════════════════════════════════════════════════════════════════ */
+
+const MARKER_KINDS = ['generic', 'beat', 'chapter', 'comment', 'todo'] as const;
+
+/**
+ * Resolve a marker reference: an id, or a label.
+ *
+ * `add_marker` takes a label and hands back no id, so an agent that
+ * dropped a marker has only the label to address it by. An ambiguous
+ * label is an error rather than a guess — removing the wrong marker is
+ * silent and unrecoverable without an undo.
+ */
+function resolveMarkerId(ref: string): string {
+  const markers = timeline().markers;
+  if (markers.some((m) => m.id === ref)) return ref;
+
+  const needle = ref.toLowerCase();
+  const hits = markers.filter((m) => m.label.toLowerCase().includes(needle));
+  if (hits.length === 1) return hits[0].id;
+  if (hits.length > 1) {
+    throw new Error(
+      `"${ref}" matches ${hits.length} markers (${hits.map((m) => `"${m.label}" @${m.timeMs}ms`).join(', ')}). ` +
+      'Pass the id from describe_timeline.'
+    );
+  }
+  throw new Error(
+    markers.length === 0
+      ? 'There are no markers on this timeline.'
+      : `No marker matching "${ref}". On the timeline: ` +
+        markers.map((m) => `${m.id} "${m.label}" @${m.timeMs}ms (${m.kind})`).join(', ')
+  );
+}
+
+/** Every clip id currently on the timeline — for diffing after an edit. */
+function allClipIds(): Set<string> {
+  const out = new Set<string>();
+  for (const t of timeline().tracks) for (const c of t.clips) out.add(c.id);
+  return out;
+}
+
+function clipSummary(id: string) {
+  const clip = findClipById(timeline().tracks, id);
+  if (!clip) return { clipId: id, gone: true };
+  return {
+    clipId: id,
+    name: clip.name,
+    trackId: clip.trackId,
+    startMs: clip.startTimeMs,
+    endMs: clip.startTimeMs + clip.durationMs,
+    durationMs: clip.durationMs,
+  };
+}
+
+defineTool({
+  name: 'duplicate_clip',
+  category: 'timeline',
+  description:
+    'Copy a clip whole — transform, effects, keyframes, speed, audio — and drop the copy on the ' +
+    'same track immediately after the original, so it is visible rather than hidden underneath. ' +
+    'Returns the new id. The copy is an independent object: patching it leaves the original ' +
+    'alone. Pass startTimeMs and/or targetTrackId to place it somewhere else in the SAME undo step.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    startTimeMs: z.number().optional()
+      .describe('Place the copy here instead of immediately after the original'),
+    targetTrackId: z.string().optional().describe('Place the copy on this track instead'),
+    name: z.string().optional().describe('Rename the copy, so later fuzzy references can tell them apart'),
+  }),
+  handler: ({ clipId, startTimeMs, targetTrackId, name }) =>
+    asOneEdit('Duplicate clip', () => {
+      const id = resolveClipId(clipId);
+      const source = findClipById(timeline().tracks, id)!;
+      const copyId = timeline().duplicateClip(id);
+      if (!copyId) throw new Error(refuseReason(id));
+
+      if (startTimeMs !== undefined || targetTrackId !== undefined) {
+        const copy = findClipById(timeline().tracks, copyId)!;
+        const tid = targetTrackId ? resolveTrackId(targetTrackId) : copy.trackId;
+        const { moved, refused } = timeline().moveClips([
+          { clipId: copyId, trackId: tid, startTimeMs: startTimeMs ?? copy.startTimeMs },
+        ]);
+        if (moved.length === 0) {
+          throw new Error(
+            `Copied "${source.name}" but could not place the copy: ${refused[0]?.reason ?? 'the editor declined the move'}.`
+          );
+        }
+      }
+
+      if (name !== undefined && !timeline().renameClip(copyId, name)) {
+        throw new Error(`Copied "${source.name}" but could not rename the copy.`);
+      }
+
+      return { ...clipSummary(copyId), sourceClipId: id, sourceName: source.name };
+    }),
+});
+
+defineTool({
+  name: 'rename_clip',
+  category: 'timeline',
+  description:
+    'Give a clip a new name. Worth doing: a clip name is what every other tool\'s fuzzy clipId ' +
+    'reference matches against, so "logo" beats "clip_m8x2k9" for the rest of the session.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    name: z.string().min(1).describe('The new name. Must not be empty.'),
+  }),
+  handler: ({ clipId, name }) => {
+    const id = resolveClipId(clipId);
+    const before = findClipById(timeline().tracks, id)!.name;
+    if (!timeline().renameClip(id, name)) throw new Error(refuseReason(id));
+    return { clipId: id, from: before, to: name, changed: before !== name };
+  },
+});
+
+defineTool({
+  name: 'delete_selected',
+  category: 'timeline',
+  description:
+    'Delete every clip in the current selection, as one undo step. Call select_clips first. ' +
+    'With NOTHING selected this throws instead of reporting a successful deletion of nothing — ' +
+    'that no-op used to leave an undo entry behind as well. Locked clips and clips on locked ' +
+    'tracks are refused individually and named in the result. Gap-closing follows the editor\'s ' +
+    'ripple mode; use delete_clip when you need to choose per call.',
+  schema: z.object({}),
+  handler: () =>
+    asOneEdit('Delete selection', () => {
+      const selected = [...timeline().selectedClipIds];
+      if (selected.length === 0) {
+        throw new Error(
+          'Nothing is selected, so there is nothing to delete. Call select_clips first, ' +
+          'or use delete_clip with an explicit clipId.'
+        );
+      }
+
+      const before = selected.map((id) => clipSummary(id));
+      const { deleted, refused } = timeline().deleteSelected();
+
+      if (deleted.length === 0) {
+        throw new Error(
+          `None of the ${selected.length} selected clip(s) could be deleted: ` +
+          refused.map((r) => `${r.clipId} — ${r.reason}`).join('; ')
+        );
+      }
+
+      return {
+        deleted: deleted.length,
+        deletedClipIds: deleted,
+        deletedClips: before.filter((b) => deleted.includes(b.clipId)),
+        refused,
+        ...(refused.length
+          ? { tellTheUser: `${refused.length} of ${selected.length} selected clip(s) were NOT deleted.` }
+          : {}),
+      };
+    }),
+});
+
+defineTool({
+  name: 'move_clips',
+  category: 'timeline',
+  description:
+    'Move several clips at once — one undo step and one report. The batch counterpart to ' +
+    'move_clip. A move that cannot be made (unknown id, locked clip, locked track) is listed in ' +
+    '`refused`; by default ANY refusal rolls the whole batch back and throws, so a partial ' +
+    'rearrangement is never mistaken for the whole one. Pass allowPartial to keep what landed.',
+  schema: z.object({
+    moves: z.array(z.object({
+      clipId: z.string(),
+      startTimeMs: z.number(),
+      trackId: z.string().optional().describe('Defaults to the clip\'s current track'),
+    })).min(1),
+    allowPartial: z.boolean().optional()
+      .describe('Keep the moves that landed instead of rolling the batch back (default false)'),
+  }),
+  handler: ({ moves, allowPartial }) =>
+    asOneEdit('Move clips', () => {
+      const resolved = moves.map((m) => {
+        const id = resolveClipId(m.clipId);
+        const clip = findClipById(timeline().tracks, id)!;
+        return {
+          clipId: id,
+          trackId: m.trackId ? resolveTrackId(m.trackId) : clip.trackId,
+          startTimeMs: m.startTimeMs,
+        };
+      });
+
+      const { moved, refused } = timeline().moveClips(resolved);
+
+      if (moved.length === 0) {
+        throw new Error(
+          `No clip moved. ${refused.map((r) => `${r.clipId} — ${r.reason}`).join('; ')}`
+        );
+      }
+      if (refused.length > 0 && !allowPartial) {
+        throw new Error(
+          `${moved.length} of ${resolved.length} moves would have landed; the batch was rolled back. ` +
+          `Refused: ${refused.map((r) => `${r.clipId} — ${r.reason}`).join('; ')}. ` +
+          'Pass allowPartial: true to keep a partial move.'
+        );
+      }
+
+      return {
+        requested: resolved.length,
+        moved: moved.length,
+        clips: moved.map((id) => clipSummary(id)),
+        refused,
+        ...(refused.length
+          ? { tellTheUser: `${refused.length} of ${resolved.length} clip(s) did NOT move.` }
+          : {}),
+      };
+    }),
+});
+
+defineTool({
+  name: 'split_at_playhead',
+  category: 'timeline',
+  description:
+    'Razor at the playhead. With clips selected it cuts those; with nothing selected it cuts ' +
+    'every unlocked clip the playhead is inside. Returns how many clips were ACTUALLY cut and ' +
+    'the ids of the new second halves. It throws when the playhead is over nothing: splitting at ' +
+    'a playhead that is not over the clip is the common case, and a razor that reports a cut it ' +
+    'never made is worse than one that refuses. Use split_clip to cut one named clip at an ' +
+    'explicit time instead.',
+  schema: z.object({
+    atMs: z.number().optional().describe('Move the playhead here first; otherwise cut where it already is'),
+  }),
+  handler: ({ atMs }) =>
+    asOneEdit('Split at playhead', () => {
+      if (atMs !== undefined) timeline().setPlayheadMs(Math.max(0, Math.round(atMs)));
+      const at = timeline().playheadMs;
+      const selected = [...timeline().selectedClipIds];
+      const before = allClipIds();
+
+      const { attempted, cut } = timeline().splitAtPlayhead();
+
+      if (cut === 0) {
+        if (attempted === 0) {
+          throw new Error(
+            `The playhead at ${at}ms is not inside any unlocked clip, and nothing is selected, ` +
+            'so there was nothing to cut. Seek over a clip first, or call split_clip with an explicit atMs.'
+          );
+        }
+        throw new Error(
+          `None of the ${attempted} selected clip(s) were cut at ${at}ms: ` +
+          selected.map((id) => `${id} — ${refuseReason(id, at)}`).join('; ')
+        );
+      }
+
+      const made = [...allClipIds()].filter((id) => !before.has(id));
+      return {
+        atMs: at,
+        attempted,
+        cut,
+        newClipIds: made,
+        newClips: made.map((id) => clipSummary(id)),
+      };
+    }),
+});
+
+defineTool({
+  name: 'close_gaps_on_track',
+  category: 'timeline',
+  description:
+    'Butt-join every clip on a track, closing the holes between them. The FIRST clip keeps its ' +
+    'start, so a gap before it is deliberately left alone. Reports how many gaps were closed, ' +
+    'how many clips moved and how far in total — a track that was already gapless comes back ' +
+    'with changed: false rather than a bare success for a tidy-up that never happened.',
+  schema: z.object({
+    trackId: z.string().optional().describe('Track id, name or type; defaults to the selected track'),
+  }),
+  handler: ({ trackId }) => {
+    const tid = resolveTrackId(trackId);
+    const track = timeline().tracks.find((t) => t.id === tid)!;
+    const before = track.clips.map((c) => ({ clipId: c.id, startMs: c.startTimeMs }));
+
+    const r = timeline().closeGapsOnTrack(tid);
+    if (!r.ok) throw new Error(r.error ?? `Could not close gaps on track "${tid}".`);
+
+    if (r.clipsMoved === 0) {
+      return {
+        trackId: tid,
+        trackName: track.name,
+        changed: false,
+        gapsClosed: 0,
+        clipsMoved: 0,
+        totalShiftMs: 0,
+        note: `"${track.name}" has no gaps to close — its ${track.clips.length} clip(s) already run end to end.`,
+      };
+    }
+
+    return {
+      trackId: tid,
+      trackName: track.name,
+      changed: true,
+      gapsClosed: r.gapsClosed,
+      clipsMoved: r.clipsMoved,
+      totalShiftMs: r.totalShiftMs,
+      clips: before.map((b) => ({
+        clipId: b.clipId,
+        fromMs: b.startMs,
+        toMs: findClipById(timeline().tracks, b.clipId)?.startTimeMs ?? b.startMs,
+      })),
+    };
+  },
+});
+
+defineTool({
+  name: 'detach_audio',
+  category: 'audio',
+  description:
+    'Lift a video clip\'s sound onto an audio track so it can be trimmed, moved, ducked or ' +
+    'replaced on its own. The video clip is left silent (audio.volume 0) and the new audio clip ' +
+    'carries the sound. Refuses a clip that is not video, a clip with no media source, and a ' +
+    'SECOND detach of the same clip — that used to stack a duplicate of the same sound into the ' +
+    'mix. Kerf cannot see whether the source FILE has an audio stream, so this reports the edit, ' +
+    'not the presence of sound; render_export tells you what actually reached the mix.',
+  schema: z.object({ clipId: z.string().optional() }),
+  handler: ({ clipId }) => {
+    const id = resolveClipId(clipId);
+    const source = findClipById(timeline().tracks, id)!;
+    const r = timeline().detachAudio(id);
+    if (!r.ok) throw new Error(r.error ?? refuseReason(id));
+
+    const track = timeline().tracks.find((t) => t.id === r.audioTrackId);
+    return {
+      clipId: id,
+      clipName: source.name,
+      audioClipId: r.audioClipId,
+      audioTrackId: r.audioTrackId,
+      audioTrackName: track?.name,
+      videoClipIsNowSilent: findClipById(timeline().tracks, id)?.audio.volume === 0,
+      audioClip: clipSummary(r.audioClipId!),
+    };
+  },
+});
+
+defineTool({
+  name: 'reverse_clip',
+  category: 'timeline',
+  description:
+    'Play a clip backwards, or turn it forwards again. It toggles by default and reports which ' +
+    'way the clip now runs; pass `reversed` to set it explicitly. Reversal is applied by reading ' +
+    'the SOURCE back to front at render time, so it changes the picture only for clips whose ' +
+    'source moves — video. A still image, a shape or a text layer renders identically reversed, ' +
+    'and keyframes are NOT mirrored: they stay on the clip\'s own forward timeline. For a baked ' +
+    'reversed file (and for reversed audio) use ffmpeg_process with operation "reverse".',
+  schema: z.object({
+    clipId: z.string().optional(),
+    reversed: z.boolean().optional().describe('Set explicitly instead of toggling'),
+  }),
+  handler: ({ clipId, reversed }) => {
+    const id = resolveClipId(clipId);
+    const clip = findClipById(timeline().tracks, id)!;
+    const was = clip.speed.reversed === true;
+
+    if (reversed !== undefined && reversed === was) {
+      return { clipId: id, name: clip.name, reversed: was, changed: false,
+               note: `"${clip.name}" already runs ${was ? 'backwards' : 'forwards'}.` };
+    }
+
+    const r = timeline().reverseClip(id);
+    if (!r.ok) throw new Error(r.error ?? refuseReason(id));
+
+    const movingSource = clip.type === 'video' && Boolean(clip.mediaUrl);
+    return {
+      clipId: id,
+      name: clip.name,
+      reversed: r.reversed,
+      changed: true,
+      ...(movingSource
+        ? {}
+        : {
+            tellTheUser:
+              `"${clip.name}" is a ${clip.type} clip, so its source does not move and reversing ` +
+              'it will not change the picture. Only video clips look different reversed.',
+          }),
+    };
+  },
+});
+
+defineTool({
+  name: 'clear_effects',
+  category: 'effects',
+  description:
+    'Strip the whole effect stack off a clip and return it to its un-effected look. Reports how ' +
+    'many effects came off; a clip that was already clean comes back with changed: false rather ' +
+    'than a bare success. Use remove_effect to take off one.',
+  schema: z.object({ clipId: z.string().optional() }),
+  handler: ({ clipId }) => {
+    const id = resolveClipId(clipId);
+    const clip = findClipById(timeline().tracks, id)!;
+    const had = clip.effects.map((e) => e.type);
+
+    const r = timeline().clearEffects(id);
+    if (!r.ok) throw new Error(r.error ?? refuseReason(id));
+
+    return {
+      clipId: id,
+      name: clip.name,
+      removed: r.removed,
+      removedTypes: had,
+      changed: r.removed > 0,
+      ...(r.removed === 0 ? { note: `"${clip.name}" had no effects on it.` } : {}),
+    };
+  },
+});
+
+defineTool({
+  name: 'toggle_effect',
+  category: 'effects',
+  description:
+    'Bypass an effect without removing it, or switch it back on. A bypassed effect keeps its ' +
+    'parameters and its keyframes and renders as though it were not there, so this is the way to ' +
+    'A/B a look. Toggles by default; pass `enabled` to set it explicitly. Throws on an effect ' +
+    'the clip does not have, listing the ones it does.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    effect: z.string().describe('Effect instance id, or its type (e.g. "glow") when the clip has only one'),
+    enabled: z.boolean().optional().describe('Set explicitly instead of toggling'),
+  }),
+  handler: ({ clipId, effect, enabled }) =>
+    asOneEdit('Toggle effect', () => {
+      const id = resolveClipId(clipId);
+      const clip = findClipById(timeline().tracks, id)!;
+      const fx = clip.effects.find((e) => e.id === effect || e.type === effect);
+      if (!fx) {
+        const have = clip.effects.map((e) => `${e.type} (${e.id})`).join(', ') || 'none';
+        throw new Error(`"${clip.name}" has no effect "${effect}". On it: ${have}.`);
+      }
+
+      if (enabled !== undefined && enabled === fx.enabled) {
+        return { clipId: id, effectId: fx.id, effectType: fx.type, enabled: fx.enabled, changed: false };
+      }
+
+      const r = timeline().toggleEffect(id, fx.id);
+      if (!r.ok) throw new Error(r.error ?? `Could not toggle "${effect}" on "${clip.name}".`);
+      return { clipId: id, effectId: fx.id, effectType: fx.type, enabled: r.enabled, changed: true };
+    }),
+});
+
+defineTool({
+  name: 'reorder_effect',
+  category: 'effects',
+  description:
+    'Move one effect up or down the stack. This is not cosmetic: the compositor runs the stack ' +
+    'in order, so a blur before a glow and a glow before a blur render different pictures. ' +
+    '"earlier" moves it toward the front of the stack (runs sooner), "later" toward the back. ' +
+    'Throws when the effect is already at that end, rather than reporting a move it did not ' +
+    'make. Note that effects with a GPU pass and effects with a 2D pass are two separate ' +
+    'sequences, so reordering across those two groups changes nothing you can see.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    effect: z.string().describe('Effect instance id, or its type (e.g. "glow") when the clip has only one'),
+    direction: z.enum(['earlier', 'later']).describe('"earlier" runs it sooner in the stack; "later" runs it after more of the others'),
+  }),
+  handler: ({ clipId, effect, direction }) => {
+    const id = resolveClipId(clipId);
+    const clip = findClipById(timeline().tracks, id)!;
+    const step = direction === 'earlier' ? -1 : 1;
+
+    const r = timeline().reorderEffect(id, effect, step);
+    if (!r.ok) throw new Error(r.error ?? `Could not move "${effect}" on "${clip.name}".`);
+
+    const after = findClipById(timeline().tracks, id)!;
+    return {
+      clipId: id,
+      effect,
+      direction,
+      fromIndex: r.from,
+      toIndex: r.to,
+      stack: after.effects.map((e, i) => ({ index: i, id: e.id, type: e.type, enabled: e.enabled })),
+    };
+  },
+});
+
+defineTool({
+  name: 'remove_marker',
+  category: 'project',
+  description:
+    'Delete one timeline marker, by id or by label. An ambiguous label is an error rather than a ' +
+    'guess. Throws when there is no such marker, so a removal that removed nothing is visible.',
+  schema: z.object({
+    marker: z.string().describe('Marker id, or a label to match (must match exactly one)'),
+  }),
+  handler: ({ marker }) => {
+    const id = resolveMarkerId(marker);
+    const found = timeline().markers.find((m) => m.id === id)!;
+    if (!timeline().removeMarker(id)) throw new Error(`Marker "${id}" could not be removed.`);
+    return {
+      removedMarkerId: id,
+      label: found.label,
+      timeMs: found.timeMs,
+      kind: found.kind,
+      remaining: timeline().markers.length,
+    };
+  },
+});
+
+defineTool({
+  name: 'update_marker',
+  category: 'project',
+  description:
+    'Change a marker\'s time, label, kind, colour or note. Moving one re-sorts the marker list, ' +
+    'so the timeline stays in time order. Throws when there is no such marker, and when the call ' +
+    'carries no change to make.',
+  schema: z.object({
+    marker: z.string().describe('Marker id, or a label to match (must match exactly one)'),
+    timeMs: z.number().optional(),
+    label: z.string().optional(),
+    kind: z.enum(MARKER_KINDS).optional(),
+    color: z.string().optional().describe('CSS colour, e.g. "#f5a524"'),
+    note: z.string().optional(),
+  }),
+  handler: ({ marker, timeMs, label, kind, color, note }) =>
+    asOneEdit('Update marker', () => {
+      const id = resolveMarkerId(marker);
+      const before = { ...timeline().markers.find((m) => m.id === id)! };
+
+      const patch = {
+        ...(timeMs !== undefined ? { timeMs } : {}),
+        ...(label !== undefined ? { label } : {}),
+        ...(kind !== undefined ? { kind } : {}),
+        ...(color !== undefined ? { color } : {}),
+        ...(note !== undefined ? { note } : {}),
+      };
+      if (Object.keys(patch).length === 0) {
+        throw new Error('Nothing to change. Pass at least one of timeMs, label, kind, color or note.');
+      }
+
+      if (!timeline().updateMarker(id, patch)) throw new Error(`Marker "${id}" could not be updated.`);
+
+      const after = timeline().markers.find((m) => m.id === id)!;
+      return {
+        markerId: id,
+        before: { timeMs: before.timeMs, label: before.label, kind: before.kind },
+        after: { timeMs: after.timeMs, label: after.label, kind: after.kind, color: after.color, note: after.note },
+      };
+    }),
+});
+
+defineTool({
+  name: 'clear_markers',
+  category: 'project',
+  description:
+    'Remove markers in bulk. With `kind` it removes only that kind and leaves the others exactly ' +
+    'where they are — clearing the beat grid without losing the chapter marks is the point of ' +
+    'the argument. Without `kind` it removes them all. Reports how many went; a timeline with ' +
+    'none to remove comes back with changed: false rather than a bare success.',
+  schema: z.object({
+    kind: z.enum(MARKER_KINDS).optional()
+      .describe('Only remove markers of this kind. Omit to remove every marker.'),
+  }),
+  handler: ({ kind }) => {
+    const before = timeline().markers.length;
+    const matching = kind ? timeline().markers.filter((m) => m.kind === kind).length : before;
+
+    const removed = timeline().clearMarkers(kind);
+
+    const survivors = timeline().markers;
+    return {
+      kind: kind ?? 'all',
+      removed,
+      changed: removed > 0,
+      remaining: survivors.length,
+      remainingByKind: survivors.reduce<Record<string, number>>((acc, m) => {
+        acc[m.kind] = (acc[m.kind] ?? 0) + 1;
+        return acc;
+      }, {}),
+      ...(removed === 0
+        ? { note: kind ? `No "${kind}" markers on this timeline.` : 'This timeline has no markers.' }
+        : {}),
+      ...(removed !== matching
+        ? { tellTheUser: `Expected to remove ${matching} marker(s) but removed ${removed}.` }
+        : {}),
+    };
+  },
+});
+
+/* ── In and out points ──────────────────────────────────────────────
+
+   READ THIS BEFORE REACHING FOR THESE THREE.
+
+   In and out points are a PREVIEW range. `PreviewPlayer` loops between
+   them and the timeline draws the band, and that is the whole of it:
+   `ExportConfig` has no in/out field, `runHardwareExport` renders frame
+   0 to `durationMs` unconditionally, and the Export dialog's own "range
+   only" toggle feeds a label and is never passed to the encoder. So
+   setting a range and then exporting gives the whole sequence.
+
+   That is worth saying in each description rather than quietly shipping
+   three tools that look like a trim. To actually export part of a
+   sequence: pass `durationMs` to render_export (which trims the tail
+   only), or trim/delete the clips.
+   ─────────────────────────────────────────────────────────────────── */
+
+const IN_OUT_NOTE =
+  'Preview range only — render_export ignores in/out points and always writes the whole ' +
+  'sequence. Use render_export durationMs, or trim the clips, to shorten a render.';
+
+function inOutReport(extra: Record<string, unknown> = {}) {
+  const s = timeline();
+  const end = project().project.durationMs;
+  return {
+    inPointMs: s.inPointMs,
+    outPointMs: s.outPointMs,
+    rangeMs: (s.outPointMs ?? end) - (s.inPointMs ?? 0),
+    appliesTo: 'preview playback only',
+    note: IN_OUT_NOTE,
+    ...extra,
+  };
+}
+
+defineTool({
+  name: 'set_in_point',
+  category: 'project',
+  description:
+    'Set the preview in point — where looped playback starts. PREVIEW ONLY: render_export ' +
+    'ignores in and out points and always writes the whole sequence, so this is not a way to ' +
+    'trim a render. Refuses an in point at or after the out point, which used to be accepted and ' +
+    'left the transport seeking to a start it was already past.',
+  schema: z.object({
+    timeMs: z.number().optional().describe('Defaults to the current playhead'),
+    clear: z.boolean().optional().describe('Remove the in point instead of setting one'),
+  }),
+  handler: ({ timeMs, clear }) => {
+    const state = timeline();
+    const was = state.inPointMs;
+    const r = clear ? state.setInPoint(null) : state.setInPoint(timeMs ?? state.playheadMs);
+    if (!r.ok) throw new Error(r.error ?? 'The editor declined that in point.');
+    return inOutReport({ previousInPointMs: was, changed: was !== r.inPointMs });
+  },
+});
+
+defineTool({
+  name: 'set_out_point',
+  category: 'project',
+  description:
+    'Set the preview out point — where looped playback stops. PREVIEW ONLY: render_export ' +
+    'ignores in and out points and always writes the whole sequence. Refuses an out point at or ' +
+    'before the in point, which would make the range empty.',
+  schema: z.object({
+    timeMs: z.number().optional().describe('Defaults to the current playhead'),
+    clear: z.boolean().optional().describe('Remove the out point instead of setting one'),
+  }),
+  handler: ({ timeMs, clear }) => {
+    const state = timeline();
+    const was = state.outPointMs;
+    const r = clear ? state.setOutPoint(null) : state.setOutPoint(timeMs ?? state.playheadMs);
+    if (!r.ok) throw new Error(r.error ?? 'The editor declined that out point.');
+    return inOutReport({ previousOutPointMs: was, changed: was !== r.outPointMs });
+  },
+});
+
+defineTool({
+  name: 'clear_in_out',
+  category: 'project',
+  description:
+    'Remove both preview in and out points, so playback runs the whole sequence again. Reports ' +
+    'whether there was a range to clear.',
+  schema: z.object({}),
+  handler: () => {
+    const state = timeline();
+    const had = state.inPointMs !== null || state.outPointMs !== null;
+    const previous = { inPointMs: state.inPointMs, outPointMs: state.outPointMs };
+    const r = state.clearInOut();
+    if (!r.ok) throw new Error(r.error ?? 'Could not clear the in/out range.');
+    return inOutReport({ changed: had, previous, ...(had ? {} : { note2: 'There was no range set.' }) });
+  },
+});
+
 defineTool({
   name: 'apply_transition',
   category: 'timeline',
