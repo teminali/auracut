@@ -401,7 +401,8 @@ export interface TimelineActions {
 
   /* transitions */
   applyTransitionToClip: (clipId: string, position: 'in' | 'out', type: TransitionType, durationMs: number) => void;
-  removeTransition: (clipId: string, position: 'in' | 'out') => void;
+  /** False when the clip does not exist, or had no transition there to remove. */
+  removeTransition: (clipId: string, position: 'in' | 'out') => { ok: boolean; error?: string };
 
   /* markers */
   addMarker: (timeMs: number, label?: string, kind?: MarkerKind, color?: string) => void;
@@ -476,6 +477,29 @@ function findClip(tracks: Track[], clipId: string): { track: Track; clip: Clip; 
   for (const track of tracks) {
     const index = track.clips.findIndex((c) => c.id === clipId);
     if (index !== -1) return { track, clip: track.clips[index], index };
+  }
+  return null;
+}
+
+/**
+ * Why this clip may not be written to, or null when it may.
+ *
+ * `15b615b` was titled "A lock now means one thing" and it was not yet
+ * true. It closed the property surface — `patchClip` and `addEffect`
+ * both refuse — and left the ANIMATION surface wide open: measured on
+ * the running app, a locked clip refused `patch_clip` with "Rectangle is
+ * locked" and then accepted `add_keyframes`, `upsert_keyframe` and
+ * `add_motion_path_point`, and the three keyframes really landed on it.
+ *
+ * That is the worse half of the bug, not the milder one. A no-op at
+ * least leaves the project as the user left it; this wrote through a
+ * lock the user had set, while a neighbouring tool told them the clip
+ * was protected.
+ */
+function lockRefusal(found: { track: Track; clip: Clip }): string | null {
+  if (found.clip.locked) return `"${found.clip.name}" is locked. Unlock it first.`;
+  if (found.track.locked) {
+    return `"${found.clip.name}" is on locked track "${found.track.name}". Unlock it first.`;
   }
   return null;
 }
@@ -1734,7 +1758,7 @@ export const useTimelineStore = create<TimelineStore>()(
       let added = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (!found) return;
+        if (!found || lockRefusal(found)) return;
         found.clip.keyframes.push({ ...keyframe, id });
         found.clip.keyframes.sort((a, b) => a.timeOffsetMs - b.timeOffsetMs);
         added = true;
@@ -1752,6 +1776,8 @@ export const useTimelineStore = create<TimelineStore>()(
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        const why = lockRefusal(found);
+        if (why) { outcome = { ok: false, error: why }; return; }
         const t = Math.max(0, Math.round(timeOffsetMs));
         // Within a frame of an existing key? Update it instead of stacking.
         const existing = found.clip.keyframes.find(
@@ -1774,7 +1800,7 @@ export const useTimelineStore = create<TimelineStore>()(
       let removed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (!found) return;
+        if (!found || lockRefusal(found)) return;
         const before = found.clip.keyframes.length;
         found.clip.keyframes = found.clip.keyframes.filter((k) => k.id !== keyframeId);
         removed = found.clip.keyframes.length < before;
@@ -1789,7 +1815,7 @@ export const useTimelineStore = create<TimelineStore>()(
       let moved = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (!found) return;
+        if (!found || lockRefusal(found)) return;
         const kf = found.clip.keyframes.find((k) => k.id === keyframeId);
         if (!kf) return;
         kf.timeOffsetMs = Math.max(0, Math.min(found.clip.durationMs, Math.round(timeOffsetMs)));
@@ -1804,7 +1830,7 @@ export const useTimelineStore = create<TimelineStore>()(
       let changed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (!found) return;
+        if (!found || lockRefusal(found)) return;
         const kf = found.clip.keyframes.find((k) => k.id === keyframeId);
         if (!kf) return;
         kf.easing = easing;
@@ -1819,7 +1845,7 @@ export const useTimelineStore = create<TimelineStore>()(
       let cleared = 0;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (!found) return;
+        if (!found || lockRefusal(found)) return;
         const before = found.clip.keyframes.length;
         found.clip.keyframes = property
           ? found.clip.keyframes.filter((k) => k.property !== property)
@@ -1834,7 +1860,7 @@ export const useTimelineStore = create<TimelineStore>()(
       let applied = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (!found) return;
+        if (!found || lockRefusal(found)) return;
         const { clip } = found;
         const spec = MOTION_PRESETS[preset];
         if (!spec) return;
@@ -1871,10 +1897,14 @@ export const useTimelineStore = create<TimelineStore>()(
         if (!found) return;
         /*
           A locked clip refuses an effect, the same way it refuses a
-          split, a trim, a move, a delete and now a patch. This was the
-          last edit path that wrote through a lock: `add_effect` reported
-          success and really did apply the effect, so "locked" meant
-          different things depending on which tool you reached for.
+          split, a trim, a move, a delete and a patch. `add_effect`
+          reported success and really did apply the effect, so "locked"
+          meant different things depending on which tool you reached for.
+
+          This comment used to call it "the last edit path that wrote
+          through a lock". That was wrong: the whole ANIMATION surface
+          still did, and building the keyframe tools is what surfaced it.
+          See `lockRefusal`.
 
           `added` stays false, and the caller already treats that as the
           failure it is — the comment below is about exactly this.
@@ -2018,7 +2048,8 @@ export const useTimelineStore = create<TimelineStore>()(
       let placed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        const fx = found?.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
+        if (!found || lockRefusal(found)) return;
+        const fx = found.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
         if (!fx) return;
         placed = true;
         if (!fx.keyframes) fx.keyframes = [];
@@ -2040,7 +2071,8 @@ export const useTimelineStore = create<TimelineStore>()(
       let removed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        const fx = found?.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
+        if (!found || lockRefusal(found)) return;
+        const fx = found.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
         if (!fx?.keyframes) return;
         const before = fx.keyframes.length;
         fx.keyframes = fx.keyframes.filter((k) => k.id !== keyframeId);
@@ -2268,7 +2300,7 @@ export const useTimelineStore = create<TimelineStore>()(
     setMotionPath: (clipId, path) => {
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (!found) return;
+        if (!found || lockRefusal(found)) return;
         found.clip.motionPath = {
           enabled: true,
           points: [],
@@ -2289,6 +2321,8 @@ export const useTimelineStore = create<TimelineStore>()(
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        const why = lockRefusal(found);
+        if (why) { outcome = { ok: false, error: why }; return; }
         if (!found.clip.motionPath) {
           found.clip.motionPath = { enabled: true, points: [], closed: false, orientToPath: false, easing: 'easeInOut' };
         }
@@ -2312,7 +2346,8 @@ export const useTimelineStore = create<TimelineStore>()(
       let moved = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        const pts = found?.clip.motionPath?.points;
+        if (!found || lockRefusal(found)) return;
+        const pts = found.clip.motionPath?.points;
         if (!pts || index < 0 || index >= pts.length) return;
         pts[index].x = Math.round(x);
         pts[index].y = Math.round(y);
@@ -2325,7 +2360,8 @@ export const useTimelineStore = create<TimelineStore>()(
       let removed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        const pts = found?.clip.motionPath?.points;
+        if (!found || lockRefusal(found)) return;
+        const pts = found.clip.motionPath?.points;
         if (!pts || index < 0 || index >= pts.length) return;
         pts.splice(index, 1);
         removed = true;
@@ -2348,13 +2384,36 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     removeTransition: (clipId, position) => {
+      /*
+        Reports, and commits only when it actually removed something.
+
+        Both of the defects the track and keyframe lanes found are here
+        in one action: it returned void, so a tool above it could only
+        say "success" whether or not a transition existed; and it
+        committed unconditionally, so declining still pushed an
+        identical snapshot onto the undo stack and the user's next undo
+        appeared to do nothing.
+      */
+      let outcome: { ok: boolean; error?: string } = {
+        ok: false, error: `No clip "${clipId}".`,
+      };
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        const had = position === 'in' ? found.clip.transitionIn : found.clip.transitionOut;
+        if (!had) {
+          outcome = {
+            ok: false,
+            error: `"${found.clip.name}" has no ${position} transition to remove.`,
+          };
+          return;
+        }
         if (position === 'in') found.clip.transitionIn = undefined;
         else found.clip.transitionOut = undefined;
+        outcome = { ok: true };
       });
-      get().commit('Remove transition');
+      if (outcome.ok) get().commit('Remove transition');
+      return outcome;
     },
 
     /* ══ markers ══ */

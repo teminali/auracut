@@ -700,6 +700,7 @@ defineTool({
   }),
   handler: ({ clipId, effect, param, keyframes }) => {
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     let placed = 0;
     for (const kf of keyframes) {
       if (timeline().addEffectKeyframe(id, effect, param, kf.timeOffsetMs, kf.value)) placed++;
@@ -853,6 +854,7 @@ defineTool({
   }),
   handler: ({ clipId, points, orientToPath, closed, easing }) => {
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     timeline().setMotionPath(id, {
       enabled: true,
       points,
@@ -878,6 +880,7 @@ defineTool({
       throw new Error(`Unknown preset "${preset}". Available: ${valid.join(', ')}`);
     }
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     if (!timeline().applyMotionPreset(id, preset as MotionPresetId)) throw new Error(refuseReason(id));
     return { clipId: id, preset };
   },
@@ -917,6 +920,7 @@ defineTool({
     */
     const resolved = animatableProperty(property);
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     const state = timeline();
     /* The ids are minted in the store and were thrown away here, so the
        only way to address a keyframe afterwards was list_keyframes.
@@ -1062,6 +1066,7 @@ defineTool({
   }),
   handler: ({ clipId, keyframeId }) => {
     const { id, clip } = requireClip(clipId);
+    requireUnlocked(id);
     const kf = requireKeyframe(clip, keyframeId);
     if (!timeline().removeKeyframe(id, keyframeId)) throw new Error(refuseReason(id));
     const left = findClipById(timeline().tracks, id)?.keyframes.filter((k) => k.property === kf.property).length ?? 0;
@@ -1092,6 +1097,7 @@ defineTool({
   }),
   handler: ({ clipId, keyframeId, timeOffsetMs, value }) => {
     const { id, clip } = requireClip(clipId);
+    requireUnlocked(id);
     const before = requireKeyframe(clip, keyframeId);
     const was = { timeOffsetMs: before.timeOffsetMs, value: before.value };
 
@@ -1132,6 +1138,7 @@ defineTool({
   }),
   handler: ({ clipId, keyframeId, easing, bezier }) => {
     const { id, clip } = requireClip(clipId);
+    requireUnlocked(id);
     const kf = requireKeyframe(clip, keyframeId);
     const chosen = oneOf(easing, EASINGS, 'easing');
     if (bezier && chosen !== 'bezier') {
@@ -1176,6 +1183,7 @@ defineTool({
   }),
   handler: ({ clipId, property }) => {
     const { id, clip } = requireClip(clipId);
+    requireUnlocked(id);
     const wanted = property ? animatableProperty(property) : undefined;
     const animated = [...new Set(clip.keyframes.map((k) => k.property))];
 
@@ -1214,6 +1222,7 @@ defineTool({
   handler: ({ clipId, property, timeOffsetMs, value }) => {
     const resolved = animatableProperty(property);
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     const outcome = timeline().upsertKeyframeAt(id, resolved, timeOffsetMs, value);
     if (!outcome.ok) throw new Error(outcome.error ?? refuseReason(id));
     const count = findClipById(timeline().tracks, id)?.keyframes.filter((k) => k.property === resolved).length ?? 0;
@@ -1242,6 +1251,7 @@ defineTool({
   }),
   handler: ({ clipId, effect, keyframeId }) => {
     const { id, clip } = requireClip(clipId);
+    requireUnlocked(id);
     const fx = requireEffect(clip, effect);
     const kf = (fx.keyframes ?? []).find((k) => k.id === keyframeId);
     if (!kf) {
@@ -1296,6 +1306,7 @@ defineTool({
   }),
   handler: ({ clipId, x, y, index }) => {
     const { id, clip } = requireClip(clipId);
+    requireUnlocked(id);
     const pts = motionPoints(clip);
     if (index !== undefined && (index < 0 || index > pts.length)) {
       /* The store clamps, which would silently put the point somewhere
@@ -1333,6 +1344,7 @@ defineTool({
   }),
   handler: ({ clipId, index, x, y }) => {
     const { id, clip } = requireClip(clipId);
+    requireUnlocked(id);
     const pts = motionPoints(clip);
     if (!pts.length) {
       throw new Error(`"${clip.name}" has no motion path. Build one with set_motion_path or add_motion_path_point.`);
@@ -1358,6 +1370,7 @@ defineTool({
   }),
   handler: ({ clipId, index }) => {
     const { id, clip } = requireClip(clipId);
+    requireUnlocked(id);
     const pts = motionPoints(clip);
     if (!pts.length) throw new Error(`"${clip.name}" has no motion path, so there is no point ${index} to remove.`);
     const was = pts[index] ? { x: pts[index].x, y: pts[index].y } : undefined;
@@ -1390,6 +1403,7 @@ defineTool({
   }),
   handler: ({ clipId, enabled, shutterAngle, samples }) => {
     const id = resolveClipId(clipId);
+    requireUnlocked(id);
     const patch: Record<string, unknown> = { 'motionBlur.enabled': enabled };
     if (shutterAngle !== undefined) patch['motionBlur.shutterAngle'] = shutterAngle;
     if (samples !== undefined) patch['motionBlur.samples'] = samples;
@@ -1410,6 +1424,37 @@ defineTool({
  * tool here used to return success for them, so an agent reported cuts
  * and deletions that never happened.
  */
+/**
+ * Refuse an edit to a write-protected clip, and say WHY.
+ *
+ * The store now declines these itself, but declining is only half the
+ * job: the tools above it reported the refusal in terms of whatever
+ * they checked next, which was worse than saying nothing. Measured on a
+ * locked clip carrying two keyframes and an animated blur:
+ *
+ *   clear_keyframes          "Rectangle" has no keyframes to clear.   (it had two)
+ *   animate_effect_param     No effect "gaussian_blur" on that clip.  (it had one)
+ *   update_motion_path_point index 0 is out of range: the path has 2 point(s) (0-1).
+ *
+ * The last one contradicts itself in a single sentence. An agent told
+ * "no effect gaussian_blur on that clip" adds a SECOND blur; an agent
+ * told the path is empty rebuilds it. A wrong reason is not a smaller
+ * version of no reason — it is an instruction to do the wrong thing.
+ *
+ * A missing clip is deliberately NOT this function's business: callers
+ * resolve first, and "no such clip" is already a better message than
+ * anything about locking.
+ */
+function requireUnlocked(clipId: string): void {
+  const clip = findClipById(timeline().tracks, clipId);
+  if (!clip) return;
+  const track = timeline().tracks.find((t) => t.id === clip.trackId);
+  if (clip.locked) throw new Error(`"${clip.name}" is locked. Unlock it first.`);
+  if (track?.locked) {
+    throw new Error(`"${clip.name}" is on locked track "${track.name}". Unlock it first.`);
+  }
+}
+
 function refuseReason(clipId: string, atMs?: number): string {
   const clip = findClipById(timeline().tracks, clipId);
   if (!clip) return `Clip "${clipId}" no longer exists.`;
@@ -2510,6 +2555,41 @@ defineTool({
       dur
     );
     return { clipId: id, transitionType, durationMs: dur, position: position ?? 'out' };
+  },
+});
+
+defineTool({
+  name: 'remove_transition',
+  category: 'timeline',
+  description:
+    'Remove the transition on a clip edge. Pass position "in" or "out", or "both" to clear the ' +
+    'clip entirely. Refuses when there is no transition there, rather than reporting a removal ' +
+    'that did not happen.',
+  schema: z.object({
+    clipId: z.string().optional().describe('Clip id, clip name, or "selected"'),
+    position: z.enum(['in', 'out', 'both']).optional().describe('Which edge; defaults to "both"'),
+  }),
+  handler: ({ clipId, position }) => {
+    const id = resolveClipId(clipId);
+    const where = position ?? 'both';
+    const edges: ('in' | 'out')[] = where === 'both' ? ['in', 'out'] : [where];
+
+    /*
+      `apply_transition` existed and nothing removed one — the same
+      one-way door the keyframe tools had. Wrapped as one edit so
+      clearing both edges is a single press of undo, not two.
+    */
+    return asOneEdit('Remove transition', () => {
+      const removed: string[] = [];
+      const refused: string[] = [];
+      for (const edge of edges) {
+        const r = timeline().removeTransition(id, edge);
+        if (r.ok) removed.push(edge);
+        else refused.push(r.error ?? `${edge} failed`);
+      }
+      if (removed.length === 0) throw new Error(refused.join(' '));
+      return { clipId: id, removed, ...(refused.length ? { alsoAsked: refused } : {}) };
+    });
   },
 });
 
