@@ -165,7 +165,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'rgb_split',
     label: 'RGB Split',
     category: 'distort',
-    description: 'Chromatic aberration, offsets the red and cyan channels.',
+    description: 'Chromatic aberration: offsets the red and cyan channels.',
     params: [
       { key: 'offset', label: 'Offset', type: 'number', default: 8, min: 0, max: 80, step: 0.5, unit: 'px', animatable: true },
       { key: 'angle', label: 'Direction', type: 'angle', default: 0, min: -180, max: 180, step: 1, unit: '°', animatable: true },
@@ -446,7 +446,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'pixelate',
     label: 'Pixelate',
     category: 'distort',
-    description: 'Mosaic blocks, good for censoring or a retro look.',
+    description: 'Mosaic blocks: good for censoring or a retro look.',
     params: [
       { key: 'size', label: 'Block size', type: 'number', default: 16, min: 2, max: 120, step: 1, unit: 'px', animatable: true },
     ],
@@ -763,7 +763,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'particles',
     label: 'Particles',
     category: 'generate',
-    description: 'Drifting particle field, snow, embers, dust or bokeh.',
+    description: 'Drifting particle field: snow, embers, dust or bokeh.',
     params: [
       {
         key: 'preset', label: 'Look', type: 'select', default: 'dust',
@@ -873,7 +873,7 @@ export const EFFECT_REGISTRY: EffectDefinition[] = [
     type: 'zoom_pulse',
     label: 'Beat Zoom Pulse',
     category: 'motion',
-    description: 'Rhythmic scale pump, lock the BPM to your track.',
+    description: 'Rhythmic scale pump: lock the BPM to your track.',
     params: [
       { key: 'bpm', label: 'BPM', type: 'number', default: 120, min: 40, max: 220, step: 1 },
       { key: 'depth', label: 'Depth', type: 'number', default: 0.06, min: 0, max: 0.6, step: 0.005, animatable: true },

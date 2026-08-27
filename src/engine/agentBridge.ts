@@ -101,7 +101,7 @@ function buildSystemPrompt(): string {
     'Respond with ONLY a JSON object of the form:',
     '{"steps":[{"tool":"tool_name","args":{...},"why":"short reason"}],"summary":"what you did"}',
     '',
-    'CONTEXT PROTOCOL, read this before planning:',
+    'CONTEXT PROTOCOL. Read this before planning:',
     '- The EDITOR CONTEXT block below is authoritative. It gives the exact timecode,',
     '  frame number, and every visible layer with its bounds in project pixels.',
     '- PRIMARY TARGET is the layer the user means. Steps that omit clipId act on it.',

@@ -248,7 +248,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                       title={
                         models[backend.id].source === 'queried'
                           ? 'This list came from the CLI itself.'
-                          : 'Suggestions, any model name this CLI accepts will work.'
+                          : 'Suggestions: any model name this CLI accepts will work.'
                       }
                     >
                       {models[backend.id].source === 'queried' ? 'listed' : 'suggested'}

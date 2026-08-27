@@ -98,7 +98,12 @@ where the leverage was. Every region below is covered by all three.
 - [x] `npm run verify` — 16 suites, 534 checks
 - [x] `verify_home.py --selftest` — 14/14 controls
 - [x] Previews asserted DISTINCT in the running app, not eyeballed
-- [ ] Screenshot every region once D is done
+- [x] Screenshots of home, transitions and colour looks
+- [x] **The PACKAGED build launched and driven**, not just compiled:
+      `describe_timeline`, `open_starter_project` and a 1920x1080
+      `get_frame_context` all answered. Process start time checked
+      against build time first (trap 3), because "the port answers" is
+      not evidence that the thing answering is the thing you just built.
 
 ## F · Bugs and unfinished things found on the way
 
@@ -133,6 +138,17 @@ where the leverage was. Every region below is covered by all three.
 4. **My own transition cards clipped their own labels.** Grid rows
    resolved to 42px against 109px of content. `auto-rows-max` fixes it.
 
+6. **The em dash sweep renamed the starter project.** "Kerf — Brand
+   Film" became "Kerf, Brand Film", which reads as a list of two things
+   rather than as a title, because the sweep treated a TITLE as prose.
+   Caught only in the packaged build, where `get_frame_context` came
+   back with the wrong name in it. It is `Kerf · Brand Film` now, and
+   five other "term, definition" strings went back to colons.
+
+   The lesson is the one the repo already knows: compiling is not
+   running, and a mechanical sweep over prose will find something that
+   is not prose.
+
 5. **Two previews still collided after the first fix**, and the second
    guess was wrong too: at BOTH 55% and 34% `dip_to_white` and `flash`
    were identical, which is what proved it was the transitions and not
@@ -150,3 +166,26 @@ where the leverage was. Every region below is covered by all three.
   re-composition of individual panels: spacing rhythm, section order and
   information density are unchanged from before this session, and the
   editor has not had the kind of layout rethink the home screen got.
+
+
+---
+
+## H · Shipped
+
+- **Pushed** to `origin/ui-and-store`, five commits.
+- **README** updated: `services/`, `server/` and `tools/` were missing
+  from the layout, there was nothing about the skills store, and the
+  four enforced house rules are now a table in it. Its own ten em
+  dashes are gone.
+- **macOS installers built and verified by RUNNING them**, which is how
+  the last real bug of the session was caught. See F6.
+
+### Not done, and deliberately not
+
+- **No git tag and no GitHub Release.** Pushing a tag is what triggers
+  the release workflow and publishes to the world, which is a decision
+  rather than a build step. Everything is staged for it:
+  `npm version <x.y.z> && git push origin main --follow-tags`.
+- **Windows and Linux installers.** They need their own runners; the
+  `Release` workflow builds all three in parallel and is what should
+  produce them.

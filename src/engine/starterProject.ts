@@ -56,7 +56,16 @@ import { Easing, MediaAsset } from '../types/edl';
 const bedUrl = new URL('../assets/kerf_film_bed.wav', import.meta.url).href;
 
 export const STARTER_ID = 'starter:kerf-brand-film';
-export const STARTER_NAME = 'Kerf, Brand Film';
+/*
+  A middle dot, not a comma.
+
+  The em dash sweep treated this as prose and turned "Kerf — Brand Film"
+  into "Kerf, Brand Film", which reads as a list of two things rather
+  than as a title. Found in the PACKAGED build, where the project name
+  came back from `get_frame_context` looking wrong. `·` is what the rest
+  of the app already uses to join parts of a label.
+*/
+export const STARTER_NAME = 'Kerf · Brand Film';
 export const STARTER_DURATION_MS = 11500;
 
 /* ── The beat grid ──────────────────────────────────────────────────
