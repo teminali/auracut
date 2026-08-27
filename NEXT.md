@@ -76,6 +76,12 @@ while cleaning up my own instances, took out another lane's Kerf and its
 Vite server mid-session, and only found out because that lane noticed the
 SIGKILL and worked out where it came from.
 
+**And the same symlink had a second edge, now fixed.** `.gitignore` said
+`node_modules/`, with a slash, which matches a DIRECTORY — git sees a
+worktree's symlink as a file, so it showed as untracked in every lane and
+one `git add -A` would have committed an absolute path from somebody's
+laptop. The slash is gone.
+
 Hit independently three times in one session. It is the same family as
 traps 3 and 4, and since the EADDRINUSE fix the survivor of the first
 direction is a *silent half-dead app*: it logs "port N is already in use,
@@ -534,111 +540,139 @@ what an install actually does.
 
 ---
 
-## 6c. THE CURRENT JOB — close the agent-tooling gap, and cover three platforms
+## 6c. Done — the agent-tooling gap is closed, and measured
 
-This is what the next session is for. Everything above it is done or
-blocked; this is not.
+**Every capability the store has is now reachable by a tool, or excused
+in writing with its reason.** `tools/verify_tool_coverage.py` is the
+proof and it runs in `npm run verify`: 105 store actions, 0 unreachable
+and unexplained.
 
-### The goal, stated so it can be finished
+The audit is no longer a snippet in this file. It was reproduced first
+(105 actions, **66** unreachable — this file said 65, it was off by one),
+and then turned into a suite, because a python snippet in a markdown
+document reports the same number next month whatever anybody does. It
+fails on any store action that is neither reachable nor excused, and it
+fails on an excuse that has since grown a tool, so the list cannot rot in
+either direction. Both guards were checked by making them fail on
+purpose.
 
-**Every capability the store already has must be reachable by a tool, on
-macOS and Linux, with Windows wired blind.** "Blind" is honest here:
-nobody has a Windows machine, so Windows gets the CI job, the build and
-the code paths, and the workflow says plainly that no human has watched
-it run. That is a different claim from "it works", and it must not be
-written as if it were.
-
-### The measured gap
-
-`105` store actions; **65 unreachable from any tool.** Filtering the ones
-`patch_clip` already covers through property paths, and the genuinely
-UI-only ones (zoom, snapping, transport), what is missing is about **35
-capabilities in 8 groups**. Reproduce the audit before starting — it is
-the definition of done:
-
-```python
-import re
-store = open('src/store/timelineStore.ts').read()
-tools = open('src/mcp/toolRegistry.ts').read()
-m = re.search(r"interface TimelineActions \{(.*?)\n\}", store, re.S)
-actions = re.findall(r"^\s{2}(\w+):\s*\(", m.group(1), re.M)
-missing = [a for a in sorted(set(actions)) if f".{a}(" not in tools]
-print(len(missing), missing)
-```
-
-| group | missing |
-|---|---|
-| **Tracks** | `removeTrack` `renameTrack` `reorderTrack` `toggleTrackMute` `toggleTrackSolo` `toggleTrackLock` `setTrackVolume` — entirely absent |
-| **Keyframes** | `removeKeyframe` `moveKeyframe` `setKeyframeEasing` `clearKeyframes` `upsertKeyframeAt` `removeEffectKeyframe` — you can add and never edit |
-| **Clips** | `duplicateClip` `renameClip` `deleteSelected` `moveClips` `splitAtPlayhead` `closeGapsOnTrack` `detachAudio` `reverseClip` |
-| **Effects** | `clearEffects` `toggleEffect` `reorderEffect` |
-| **Markers** | `removeMarker` `updateMarker` `clearMarkers` |
-| **In/out** | `setInPoint` `setOutPoint` `clearInOut` |
-| **Motion path** | `addMotionPathPoint` `updateMotionPathPoint` `removeMotionPathPoint` |
-| **History** | `redo` — `undo` has a tool and `redo` does not |
-
-These are thin wrappers over store actions that already work. The cost is
-schema, description and VERIFICATION, not engine code.
-
-### Three lanes, and the anchors that let them merge
-
-Four lanes merged last night with exactly one conflict (an import block),
-because each inserted its `defineTool` calls at a **different anchor** in
-`toolRegistry.ts`. Keep doing that.
-
-| lane | groups | insert before |
+| | before | after |
 |---|---|---|
-| 1 | Tracks, History (`redo`) | `defineTool({\n  name: 'add_track',` |
-| 2 | Keyframes, Motion path | `defineTool({\n  name: 'set_motion_blur',` |
-| 3 | Clips, Effects, Markers, In/out | `defineTool({\n  name: 'apply_transition',` |
+| tools | 68 | **104** |
+| unreachable store actions | 66 | **0** |
+| suites · checks | 12 · 324 | **15 · 487** |
 
-Each lane gets its own worktree, vite port and Kerf port — see the lane
-runbook in §6d. **Do not skip the isolation**: trap 5 means one lane's
-HMR reload hangs another lane's suite for thirty minutes.
+Three lanes, three anchors, and again **one conflict** — two adjacent
+lines of `TimelineActions` where lane 2 changed `removeEffectKeyframe`
+and lane 3 changed `clearEffects`. `toolRegistry.ts`, the file all three
+append to, auto-merged clean. Keep doing this.
 
-### What "verified" means for these
+### The table in the old version of this section was slightly wrong
 
-Every one of them can be faked. `mask.rotation` was settable,
-keyframeable, listed and rendered nothing; `add_effect` reported success
-on a locked clip; a montage reported fifteen shots on the beat and
-rendered fifteen seconds of black. So:
+It listed 34 in 8 groups and called it "about 35". The honest count is
+**35**: it missed `removeTransition` — `apply_transition` existed and
+nothing removed one, the same one-way door the keyframes had. And it
+never mentioned `groupSelected`/`ungroupSelected`, which turn out not to
+be capabilities at all: `clip.groupId` is read in exactly ONE place, the
+timeline drag handler, so grouping makes clips move together under a
+human's mouse and does nothing otherwise. `moveClip` moves a clip
+straight out of its group; `trimClip` ignores it, though edl.ts:430 says
+"move and trim together". They are excused as UI-only, and the type's
+comment is the thing to fix.
 
-- **assert on the artifact.** A track that was muted must produce a
-  quieter exported waveform, not a `muted: true` in the store. A removed
-  keyframe must change a rendered frame. A reordered effect must change
-  the picture, because the order of a blur and a glow is visible.
-- **a threshold nobody has tried to fail is not a threshold** — every
-  suite here has a `--selftest` that holds the thing still and demands
-  the metric move LESS than its bar.
-- add checks to the suite that owns the area (`verify_tools.py` for the
-  new tools, `verify_keyframes.py` for keyframe editing) rather than
-  making a suite per lane, and register anything new in
-  `tools/run_all_suites.py` in ONE edit at merge time, not three.
+### What building the tools found — all measured, none read
+
+1. **Soloing an audio track turned the whole picture black.** `anySolo`
+   was `tracks.some((t) => t.solo)` with no type test in `compositor.ts`
+   and `videoEngine.ts`, while the audio side always filtered by type —
+   so an audio track's solo flag meant no VIDEO track was soloed and
+   every one of them was skipped. Mean luma 7.06 -> 0.00. It survived
+   because there was no `toggle_track_solo` to exercise it. Fixed, and
+   the lane reverted its own fix to confirm the check went red first.
+
+2. **"A lock now means one thing" (15b615b) was not yet true.** It closed
+   the property surface and its comment called `add_effect` "the last
+   edit path that wrote through a lock". The whole ANIMATION surface
+   still did: a locked clip refused `patch_clip` and then accepted
+   `add_keyframes`, `upsert_keyframe` and `add_motion_path_point`, and
+   the keyframes really landed. That is the worse half of the family — a
+   no-op leaves the project alone, this wrote through a lock the user
+   set. Thirteen store actions now refuse.
+
+3. **Then the refusal MESSAGES were wrong, which was its own bug.** With
+   the store declining, the tools reported whatever they checked next:
+   `clear_keyframes` said "has no keyframes to clear" on a clip holding
+   two, `animate_effect_param` said "No effect gaussian_blur on that
+   clip" when it had one, and `update_motion_path_point` said "index 0
+   is out of range: the path has 2 point(s) (0-1)" — contradicting
+   itself in one sentence. An agent told there is no blur adds a second
+   one. **A wrong reason is not a smaller version of no reason.**
+
+4. **`closeGapsOnTrack` repacked a locked track**, which is the one thing
+   a locked track exists to prevent, and it moves every clip at once.
+
+5. **`splitClip` destroyed the animation it cut through** — 332px jump at
+   the join. Fixed: it samples the curve at the cut and gives the
+   boundary key to both halves. 0.000px now.
+
+6. **`add_keyframes` was a one-way door.** Nothing listed keyframe ids,
+   so `remove_keyframe` would have been unusable even once written.
+   `list_keyframes` added, and `add_keyframes` hands its ids back.
+
+7. **`verify_keyframes` said "every property" and covered 28 of 35** —
+   the six it skipped were positionX, positionY, opacity, scaleX, scaleY
+   and rotation, the six an editor uses most. 34 covered now.
+
+### Still open, and named rather than quietly closed
+
+- **Reversed audio does not exist.** `collectAudioClips` never reads
+  `reversed` and the filtergraph has no `areverse`. Measured on a
+  300Hz-to-3000Hz sweep: the exported mix still RISES in both
+  directions, so reversed dialogue exports as forward dialogue. The tool
+  description now says so; the engine still does not do it.
+- **In/out points are decorative for rendering.** `ExportConfig` has no
+  in/out field and `runHardwareExport` always renders 0 -> `durationMs`.
+  Worse, `ExportModal` has a **"range only" toggle whose value never
+  reaches the encoder** — the checkbox does nothing. With a 1000–2000ms
+  range set, the export still wrote all 60 frames from 0.
+- **Solo does not silence a video clip's embedded audio.** Measured:
+  68.75 dB before and after. The two audio implementations agree with
+  each other, so this is uniform intent rather than a slip, and what
+  solo should mean is a product decision. HANDOVER §3 has the numbers.
+- **`volume` is the one animatable property with no proof anywhere.**
+  Not measurable on pixels and no suite keyframes it. Said plainly in
+  the suite docstring rather than given a fake row.
+- **`toggleEffect`, `updateMarker` and `moveClips` push no history entry
+  in the store.** The tools wrap them in `asOneEdit`, so a tool call is
+  one undo step, but the UI bypass button for an effect is still not
+  undoable.
+- **`EffectKeyframe` has no `bezierPoints`**, so a bezier easing on an
+  effect keyframe silently uses the default curve. Not reachable from
+  any tool; noted, not tested.
+- **`detach_audio` cannot tell whether the source has an audio stream**,
+  so on a silent video it succeeds and produces a silent audio clip.
+  Named in the tool description.
 
 ### Platforms
 
-- **macOS** — `.github/workflows/verify.yml` already runs all twelve
-  suites on `macos-latest` and has been executed. It answered its own two
-  unknowns: a runner DOES give Electron a window (RPC ready in 7.9s) and
-  `verify_gpu` DOES get a WebGL2 context (26/26).
-- **Linux** — add a job. `npm test` and `npm run typecheck` need no
-  display at all and should be a hard gate immediately. The twelve suites
-  need a display: try `xvfb-run -a` with `--disable-gpu-sandbox`; expect
-  `verify_gpu` to land on SwiftShader, which is FINE because those checks
-  assert what the picture looks like, not how fast it arrived. If a suite
-  genuinely cannot run there, say WHICH and WHY in the workflow — a CI
-  job that quietly skips the checks that matter is worse than no job.
-- **Windows — blind, and labelled blind.** Wire the build and a job that
-  runs `npm test` + `typecheck`. Attempt the suites; if they fail,
-  record what failed rather than deleting the job. `electron-builder`
-  already has a `package:win` script. **Nobody has run Kerf on Windows.**
-  Any status must say so, in the workflow file and in HANDOVER.
+`gate.yml` — typecheck + 167 unit tests on macOS, Linux **and Windows**.
+No display needed, so it is a hard gate everywhere and it is the job
+that gates PRs.
 
-### Done means
+`verify.yml` — the live-app suites, `workflow_dispatch`. **macOS
+proven** (has run, answered its own two unknowns). **Linux wired and
+never run** — written from documented xvfb/Electron behaviour; there is
+no container runtime on this machine, and a Lima VM is the local route
+to closing it. **Windows blind** — nobody has ever run Kerf on it; the
+suite step is `continue-on-error` and the job says in writing that a
+green tick means only "the attempt ran and the logs were kept".
 
-`npm test`, `npm run verify` (12 suites, 324+ checks) and the audit
-above all green, the audit reporting only deliberate UI-only actions,
-CI green on macOS and Linux, Windows job present and honestly labelled.
+Windows could not be attempted honestly until three POSIX-only things in
+`run_all_suites.py` were fixed, none of which would have failed loudly:
+`os.killpg`/`SIGKILL` do not exist there, `'file://' + path` produced
+`file://C:\...` which Chromium will not load, and `SO_REUSEADDR` means
+the opposite thing on Windows so the free-port probe called every busy
+port free.
 
 ---
 

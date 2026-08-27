@@ -285,9 +285,10 @@ caption import/export (SRT round-trips exactly), keyframe interpolation
 detection, silence removal, `analyze_audio`, video decode, export, fonts,
 SFX generation, the Claude and Codex backends, `check_command_readiness`.
 
-**Not yet re-verified:** `resolve_target`,
+**Not yet re-verified:** nothing on the old list. `resolve_target`,
 `describe_layer_at_point`, `copy_effects`, `set_motion_path`,
-`set_motion_blur`, `undo` depth, `snapCutsToBeats`.
+`set_motion_blur`, `undo` depth and `snapCutsToBeats` are all covered by
+`verify_tools.py`, and §3d added `redo` depth alongside `undo`.
 
 ### Still outstanding
 
@@ -837,6 +838,105 @@ about something only the renderer knows, and it was wrong in both
 directions — it gave up early on a frame that held still for one poll, and
 waited out its whole 3-second timeout on every shape-and-text scene where
 nothing was decoding. The suite now runs in 2 seconds rather than ~90.
+
+---
+
+## 3d. The eighth pass — closing the agent-tooling gap
+
+68 tools reached 39 of the store's 105 actions. Writing the missing 65
+was supposed to be schema-and-description work over actions that already
+worked. It was not, and the reason is HANDOVER §3's own finding #2:
+**almost every one of those actions returned `void`.** A wrapper that
+calls a void action and reports success is the exact bug this file has
+recorded six times, so each action had to learn to say no first.
+
+Everything below was measured on a rendered frame, an exported file or a
+project on disk. None of it was read off the source.
+
+### Soloing an audio track turned the picture black
+
+`anySolo` was `tracks.some((t) => t.solo)` — no type test — in
+`compositor.ts` and `videoEngine.ts`, while `audioEngine.ts` and
+`exportPipeline.ts` had always filtered by type. So one audio track's
+solo flag meant no VIDEO track was soloed, every video track failed the
+`!track.solo` test, and nothing was painted. Mean luma **7.06 -> 0.00**,
+in the preview and in the exported file, since `renderTimelineFrame` is
+what the export draws with.
+
+It survived because **there was no tool that could set solo.** The flag
+was reachable only from the UI, and nothing in twelve suites touched it.
+Building the tool surface is what exercised it.
+
+### "A lock now means one thing" was not yet true
+
+`15b615b` closed the property surface and its comment called `add_effect`
+"the last edit path that wrote through a lock". The whole ANIMATION
+surface still did. On a locked clip, `patch_clip` refused with
+"Rectangle is locked" and `add_keyframes`, `upsert_keyframe` and
+`add_motion_path_point` all reported success — **and the keyframes
+really landed.**
+
+This is the worse half of the family, not the milder one. A no-op leaves
+the project as the user left it. This wrote through a lock the user had
+deliberately set, while the tool beside it said the clip was protected.
+Thirteen store actions now refuse, plus seven more the clip lane found
+(`renameClip`, `reverseClip`, `clearEffects`, `toggleEffect`,
+`reorderEffect`, and `closeGapsOnTrack` on a locked TRACK).
+
+`closeGapsOnTrack` is worth naming separately: a locked track is exactly
+what someone locks to stop its timing moving, and it repacked every clip
+on the track at once. Starts `[0, 2000, 4000]` stayed `[0, 2000, 4000]`
+after the fix.
+
+### And then the refusal messages were wrong, which was its own bug
+
+Declining turned out to be half the job. With the store refusing, the
+tools reported the refusal in terms of whatever they happened to check
+next. On a locked clip carrying two keyframes and an animated blur:
+
+    clear_keyframes           "Rectangle" has no keyframes to clear.   (it had two)
+    animate_effect_param      No effect "gaussian_blur" on that clip.  (it had one)
+    update_motion_path_point  index 0 is out of range: the path has 2 point(s) (0-1).
+
+The third contradicts itself inside one sentence. An agent told there is
+no `gaussian_blur` on the clip adds a SECOND one; an agent told the path
+is empty rebuilds it. **A wrong reason is not a smaller version of no
+reason — it is an instruction to do the wrong thing.** `requireUnlocked`
+in the tool layer throws the real reason first, and it caught
+`set_motion_path` reporting success on a refusal outright.
+
+### The rest, briefly
+
+- **`splitClip` destroyed the animation it cut through.** Head held its
+  first value, tail its last; a shape keyframed -700 -> 700 and cut at
+  the midpoint jumped **332px** at the join. It samples the curve at the
+  cut now and gives the boundary key to both halves. 0.000px.
+- **`add_keyframes` was a one-way door.** No tool listed keyframe ids, so
+  `remove_keyframe` would have been unusable the day it shipped.
+- **`verify_keyframes` claimed "every property" and covered 28 of 35** —
+  the six it skipped were positionX, positionY, opacity, scaleX, scaleY
+  and rotation.
+- **Reversed audio does not exist**, and **in/out points are decorative
+  for rendering** — including an `ExportModal` "range only" checkbox
+  whose value never reaches the encoder. Both measured, both still open,
+  both now stated in the tool descriptions instead of implied away.
+
+### The audit is a suite now, not a snippet
+
+The gap was measured by a python snippet living in `NEXT.md`. Snippets in
+markdown report the same number next month whatever anybody does, so it
+is `tools/verify_tool_coverage.py` and it runs in `npm run verify`. It
+fails on any store action that is neither reachable nor excused in
+writing, and on any excuse that has since grown a tool. Each "patch_clip
+covers it" is proven by driving `patch_clip` and reading the before and
+after it reports — because that is precisely what `mask.rotation` was
+failing while being settable, keyframeable, listed and rendered.
+
+Both guards were checked by being made to fail on purpose. A threshold
+nobody has tried to fail is not a threshold, and that applies to a
+static check as much as to a measured one.
+
+**105 store actions, 104 tools, 0 unreachable.** 15 suites, 487 checks.
 
 ---
 

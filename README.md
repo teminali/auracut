@@ -68,7 +68,7 @@ build, which is what flips the app from "tell the user" to "just update".
 The Copilot panel does not implement an agent — it **runs** one. Each turn
 spawns the Claude Code CLI with Kerf registered as an MCP server, so the
 model gets its whole native toolset (Bash, Read, Write, WebFetch, downloads)
-*alongside* all 44 Kerf editing tools, and every edit lands in the window
+*alongside* all 104 Kerf editing tools, and every edit lands in the window
 you are looking at.
 
 ```bash
