@@ -45,6 +45,7 @@ import {
 import { INITIAL_TRACKS, SAMPLE_MEDIA_ASSETS } from '../mcp/defaultMedia';
 import { CaptionCue } from '../engine/captions';
 import { createEffectInstance, getEffectDefinition } from '../engine/effectsRegistry';
+import { getAnimatedProperties, interpolateKeyframes } from '../engine/keyframeMath';
 import { validateProperty, applyClipProperty, resolvePropertyAlias, getClipProperty } from '../engine/propertyPath';
 
 /* ── ids ────────────────────────────────────────────────────────── */
@@ -85,6 +86,26 @@ const CLIP_COLORS: Record<string, string> = {
 export const clipColorFor = (type: ClipType): string => CLIP_COLORS[type] ?? '#2f6fb8';
 
 /* ── state shape ────────────────────────────────────────────────── */
+
+/**
+ * What an edit that can decline reports back.
+ *
+ * A store method that returns `void` cannot be checked, and ten tools
+ * reported success because the store bailed silently and gave them
+ * nothing to test. These shapes exist so the refusal is a value.
+ */
+export interface Refusal {
+  clipId: string;
+  reason: string;
+}
+
+/** In/out points, and whether the change was taken. */
+export interface InOutResult {
+  ok: boolean;
+  error?: string;
+  inPointMs: number | null;
+  outPointMs: number | null;
+}
 
 export interface TimelineState {
   tracks: Track[];
@@ -135,9 +156,25 @@ export interface TimelineActions {
   togglePlay: () => void;
   setPlaybackRate: (rate: number) => void;
   toggleLoop: () => void;
-  setInPoint: (ms: number | null) => void;
-  setOutPoint: (ms: number | null) => void;
-  clearInOut: () => void;
+  /*
+    In and out points are a PREVIEW range and nothing else.
+
+    `PreviewPlayer` loops between them and the timeline draws the band,
+    but `ExportConfig` has no in/out field and `runHardwareExport`
+    always renders frame 0 to `durationMs`. The Export dialog even has a
+    "range only" toggle whose computed duration is used for a label and
+    never passed to the encoder. So setting a range and then exporting
+    gives the whole sequence — the tools above these say so rather than
+    implying a trim.
+
+    They also used to accept an inverted range: an out point before the
+    in point leaves `PreviewPlayer` seeking to a start that is already
+    past its end, which is a stuck transport with no message. They now
+    refuse it and say why.
+  */
+  setInPoint: (ms: number | null) => InOutResult;
+  setOutPoint: (ms: number | null) => InOutResult;
+  clearInOut: () => InOutResult;
 
   /* selection */
   selectClip: (clipId: string | null, additive?: boolean) => void;
@@ -164,21 +201,61 @@ export interface TimelineActions {
     never happened.
   */
   splitClip: (clipId: string, splitTimeMs: number) => boolean;
-  splitAtPlayhead: () => void;
+  /**
+   * How many clips the playhead actually cut.
+   *
+   * `attempted` is how many it aimed at; `cut` is how many `splitClip`
+   * took. With the playhead over nothing and no selection, both are
+   * zero — which used to look exactly like a successful razor.
+   */
+  splitAtPlayhead: () => { attempted: number; cut: number };
   trimClip: (clipId: string, newStartMs?: number, newEndMs?: number, ripple?: boolean) => boolean;
   moveClip: (clipId: string, targetTrackId: string, newStartTimeMs: number) => boolean;
-  moveClips: (moves: { clipId: string; trackId: string; startTimeMs: number }[]) => void;
+  /** Which of the batch landed, and why each of the rest did not. */
+  moveClips: (
+    moves: { clipId: string; trackId: string; startTimeMs: number }[]
+  ) => { moved: string[]; refused: Refusal[] };
   deleteClip: (clipId: string, ripple?: boolean) => boolean;
-  deleteSelected: () => void;
-  duplicateClip: (clipId: string) => void;
+  /** Ids actually removed, and the locked or missing ones that were not. */
+  deleteSelected: () => { deleted: string[]; refused: Refusal[] };
+  /** The copy's id, or null when there was no such clip to copy. */
+  duplicateClip: (clipId: string) => string | null;
   insertClip: (trackId: string, asset: MediaAsset, startTimeMs: number) => string;
   insertClipObject: (clip: Clip) => void;
-  closeGapsOnTrack: (trackId: string) => void;
+  /**
+   * Pack a track and say what moved.
+   *
+   * On a track with no gaps this is a no-op, and a tool that reported
+   * success for it told the user it had tidied a timeline it had not
+   * touched. `gapsClosed` counts the holes that were there before.
+   */
+  closeGapsOnTrack: (trackId: string) => {
+    ok: boolean;
+    error?: string;
+    gapsClosed: number;
+    clipsMoved: number;
+    totalShiftMs: number;
+  };
 
   /* creative edits */
   freezeFrame: (clipId: string, atMs: number, holdMs?: number) => boolean;
-  reverseClip: (clipId: string) => void;
-  detachAudio: (clipId: string) => void;
+  /** Toggles, and reports the state it left the clip in. */
+  reverseClip: (clipId: string) => { ok: boolean; error?: string; reversed: boolean };
+  /**
+   * Lift a video clip's sound onto an audio track.
+   *
+   * Refuses a clip with no media source (the old code made an audio clip
+   * with no `mediaUrl`, which `collectAudioClips` skips — a detach that
+   * produced silence and reported success) and refuses a second detach
+   * of the same clip (which used to stack a duplicate copy of the same
+   * sound into the mix).
+   */
+  detachAudio: (clipId: string) => {
+    ok: boolean;
+    error?: string;
+    audioClipId?: string;
+    audioTrackId?: string;
+  };
   groupSelected: () => void;
   ungroupSelected: () => void;
 
@@ -208,7 +285,8 @@ export interface TimelineActions {
   setClipBlendMode: (clipId: string, blendMode: BlendMode) => void;
   setClipFitMode: (clipId: string, fitMode: Clip['fitMode']) => void;
   toggleClipLock: (clipId: string) => void;
-  renameClip: (clipId: string, name: string) => void;
+  /** False when there is no such clip. */
+  renameClip: (clipId: string, name: string) => boolean;
   resetClipTransform: (clipId: string) => void;
 
   /* keyframes */
@@ -243,8 +321,21 @@ export interface TimelineActions {
   addEffect: (clipId: string, type: string, params?: Record<string, any>) => string | null;
   /** Number removed. Zero means the reference matched nothing. */
   removeEffect: (clipId: string, effectRef: string) => number;
-  reorderEffect: (clipId: string, effectRef: string, direction: -1 | 1) => void;
-  toggleEffect: (clipId: string, effectRef: string) => void;
+  /**
+   * Move one effect up or down the stack.
+   *
+   * The compositor runs the stack in array order, so this changes the
+   * picture — and it silently did nothing for an unknown effect or an
+   * index already at the end, while still pushing an undo entry.
+   * `from`/`to` are the indices it actually moved between.
+   */
+  reorderEffect: (
+    clipId: string, effectRef: string, direction: -1 | 1
+  ) => { ok: boolean; error?: string; from: number; to: number };
+  /** Toggles `enabled`, and reports the state it left it in. */
+  toggleEffect: (
+    clipId: string, effectRef: string
+  ) => { ok: boolean; error?: string; enabled: boolean };
   /**
    * Why this reports instead of returning void: it used to no-op
    * silently on an unknown effect, an unknown param or a rejected
@@ -261,7 +352,8 @@ export interface TimelineActions {
   ) => boolean;
   /** False when the clip, the effect or the keyframe could not be found. */
   removeEffectKeyframe: (clipId: string, effectRef: string, keyframeId: string) => boolean;
-  clearEffects: (clipId: string) => void;
+  /** How many effects came off. Zero on an already-clean clip. */
+  clearEffects: (clipId: string) => { ok: boolean; error?: string; removed: number };
   copyEffectsTo: (sourceClipId: string, targetClipIds: string[]) => void;
 
   /* generic property addressing — powers the AI copilot */
@@ -313,9 +405,12 @@ export interface TimelineActions {
 
   /* markers */
   addMarker: (timeMs: number, label?: string, kind?: MarkerKind, color?: string) => void;
-  updateMarker: (markerId: string, patch: Partial<TimelineMarker>) => void;
-  removeMarker: (markerId: string) => void;
-  clearMarkers: (kind?: MarkerKind) => void;
+  /** False when there is no marker with that id. */
+  updateMarker: (markerId: string, patch: Partial<TimelineMarker>) => boolean;
+  /** False when there is no marker with that id. */
+  removeMarker: (markerId: string) => boolean;
+  /** How many markers were removed. `kind` narrows it to one kind. */
+  clearMarkers: (kind?: MarkerKind) => number;
   setBeatMarkers: (beatsMs: number[]) => void;
 
   /* AI-facing bulk operations */
@@ -683,9 +778,53 @@ export const useTimelineStore = create<TimelineStore>()(
     togglePlay: () => set((s) => { s.isPlaying = !s.isPlaying; }),
     setPlaybackRate: (rate) => set((s) => { s.playbackRate = Math.max(0.25, Math.min(4, rate)); }),
     toggleLoop: () => set((s) => { s.loopEnabled = !s.loopEnabled; }),
-    setInPoint: (ms) => set((s) => { s.inPointMs = ms; }),
-    setOutPoint: (ms) => set((s) => { s.outPointMs = ms; }),
-    clearInOut: () => set((s) => { s.inPointMs = null; s.outPointMs = null; }),
+    setInPoint: (ms) => {
+      const before = get();
+      if (ms === null) {
+        set((s) => { s.inPointMs = null; });
+        return { ok: true, inPointMs: null, outPointMs: before.outPointMs };
+      }
+      const at = Math.max(0, Math.round(ms));
+      if (before.outPointMs !== null && at >= before.outPointMs) {
+        return {
+          ok: false,
+          error:
+            `An in point at ${at}ms is not before the out point at ${before.outPointMs}ms. ` +
+            'Move or clear the out point first.',
+          inPointMs: before.inPointMs,
+          outPointMs: before.outPointMs,
+        };
+      }
+      set((s) => { s.inPointMs = at; });
+      return { ok: true, inPointMs: at, outPointMs: before.outPointMs };
+    },
+
+    setOutPoint: (ms) => {
+      const before = get();
+      if (ms === null) {
+        set((s) => { s.outPointMs = null; });
+        return { ok: true, inPointMs: before.inPointMs, outPointMs: null };
+      }
+      const at = Math.max(0, Math.round(ms));
+      const floor = before.inPointMs ?? 0;
+      if (at <= floor) {
+        return {
+          ok: false,
+          error:
+            `An out point at ${at}ms is not after the in point at ${floor}ms, ` +
+            'so the range would be empty. Move or clear the in point first.',
+          inPointMs: before.inPointMs,
+          outPointMs: before.outPointMs,
+        };
+      }
+      set((s) => { s.outPointMs = at; });
+      return { ok: true, inPointMs: before.inPointMs, outPointMs: at };
+    },
+
+    clearInOut: () => {
+      set((s) => { s.inPointMs = null; s.outPointMs = null; });
+      return { ok: true, inPointMs: null, outPointMs: null };
+    },
 
     /* ══ selection ══ */
 
@@ -755,15 +894,54 @@ export const useTimelineStore = create<TimelineStore>()(
         second.sourceStartMs = clip.sourceStartMs + firstDuration;
         second.sourceDurationMs = secondDuration;
         second.transitionIn = undefined;
+
+        /*
+          Sample the animation AT the cut before splitting the keyframes.
+
+          Without this a razor destroyed the animation it cut through.
+          The head kept only the keys BEFORE the cut and then held its
+          last value; the tail kept only the keys after it and held its
+          first. Measured on a shape keyframed -700 -> 700 over 4000ms
+          and cut at 2000ms, the picture jumped 332px at the join — a
+          split is supposed to leave the frame exactly as it found it,
+          and this one moved it.
+
+          The boundary key goes to BOTH halves (hence `<=` below), and
+          inherits the easing of the key it was interpolated from, which
+          is exact for linear segments and continuous for the rest — the
+          join never jumps, which is the property that matters.
+        */
+        const boundary: KeyframePoint[] = [];
+        for (const property of getAnimatedProperties(clip.keyframes)) {
+          const forProp = clip.keyframes.filter((k) => k.property === property);
+          const before = forProp.filter((k) => k.timeOffsetMs < firstDuration);
+          const spans = before.length > 0 && forProp.some((k) => k.timeOffsetMs > firstDuration);
+          const sittingOnIt = forProp.some((k) => k.timeOffsetMs === firstDuration);
+          if (!spans || sittingOnIt) continue;
+
+          const previous = before.reduce((a, b) => (b.timeOffsetMs > a.timeOffsetMs ? b : a));
+          boundary.push({
+            id: uid('kf'),
+            property,
+            timeOffsetMs: firstDuration,
+            value: interpolateKeyframes(forProp, property, firstDuration, 0),
+            easing: previous.easing,
+            ...(previous.bezierPoints ? { bezierPoints: previous.bezierPoints } : {}),
+          });
+        }
+        const allKeys = [...clip.keyframes, ...boundary].sort(
+          (a, b) => a.timeOffsetMs - b.timeOffsetMs
+        );
+
         // Keyframes rebase onto the new clip's own timeline.
-        second.keyframes = clip.keyframes
+        second.keyframes = allKeys
           .filter((k) => k.timeOffsetMs >= firstDuration)
           .map((k) => ({ ...k, id: uid('kf'), timeOffsetMs: k.timeOffsetMs - firstDuration }));
 
         clip.durationMs = firstDuration;
         clip.sourceDurationMs = firstDuration;
         clip.transitionOut = undefined;
-        clip.keyframes = clip.keyframes.filter((k) => k.timeOffsetMs < firstDuration);
+        clip.keyframes = allKeys.filter((k) => k.timeOffsetMs <= firstDuration);
 
         track.clips.splice(index + 1, 0, second);
         s.selectedClipIds = [second.id];
@@ -785,7 +963,9 @@ export const useTimelineStore = create<TimelineStore>()(
                 .filter((c) => playheadMs > c.startTimeMs && playheadMs < c.startTimeMs + c.durationMs)
                 .map((c) => c.id)
             );
-      for (const id of targets) splitClip(id, playheadMs);
+      let cut = 0;
+      for (const id of targets) if (splitClip(id, playheadMs)) cut += 1;
+      return { attempted: targets.length, cut };
     },
 
     trimClip: (clipId, newStartMs, newEndMs, ripple = false) => {
@@ -848,24 +1028,53 @@ export const useTimelineStore = create<TimelineStore>()(
       return moved;
     },
 
-    moveClips: (moves) =>
+    moveClips: (moves) => {
+      /*
+        A batch move used to drop the ones it could not do and say
+        nothing, so a caller that moved five clips and landed three had
+        no way to know which two stayed put.
+      */
+      const moved: string[] = [];
+      const refused: Refusal[] = [];
+
       set((s) => {
         for (const move of moves) {
           const found = findClip(s.tracks, move.clipId);
-          if (!found) continue;
+          if (!found) {
+            refused.push({ clipId: move.clipId, reason: 'no clip with that id' });
+            continue;
+          }
           const { track, clip, index } = found;
-          if (clip.locked || track.locked) continue;
+          if (clip.locked) {
+            refused.push({ clipId: move.clipId, reason: `"${clip.name}" is locked` });
+            continue;
+          }
+          if (track.locked) {
+            refused.push({ clipId: move.clipId, reason: `its track "${track.name}" is locked` });
+            continue;
+          }
 
           const target = s.tracks.find((t) => t.id === move.trackId);
-          if (!target || target.locked) continue;
+          if (!target) {
+            refused.push({ clipId: move.clipId, reason: `no track "${move.trackId}"` });
+            continue;
+          }
+          if (target.locked) {
+            refused.push({ clipId: move.clipId, reason: `target track "${target.name}" is locked` });
+            continue;
+          }
 
-          const moved = track.clips.splice(index, 1)[0];
-          moved.trackId = move.trackId;
-          moved.startTimeMs = Math.max(0, Math.round(move.startTimeMs));
-          target.clips.push(moved);
+          const lifted = track.clips.splice(index, 1)[0];
+          lifted.trackId = move.trackId;
+          lifted.startTimeMs = Math.max(0, Math.round(move.startTimeMs));
+          target.clips.push(lifted);
+          moved.push(move.clipId);
         }
         for (const t of s.tracks) sortClips(t);
-      }),
+      });
+
+      return { moved, refused };
+    },
 
     deleteClip: (clipId, ripple) => {
       let removed = false;
@@ -890,33 +1099,62 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     deleteSelected: () => {
+      /*
+        With nothing selected this is a no-op, and it committed one
+        anyway — an undo entry for a deletion that never happened, and a
+        tool above it that reported success. Both are now visible.
+      */
       const ids = get().selectedClipIds;
-      if (ids.length === 0) return;
+      const deleted: string[] = [];
+      const refused: Refusal[] = [];
+      if (ids.length === 0) return { deleted, refused };
+
       set((s) => {
         const ripple = s.rippleEditMode;
         for (const id of ids) {
           const found = findClip(s.tracks, id);
-          if (!found) continue;
+          if (!found) {
+            refused.push({ clipId: id, reason: 'no longer on the timeline' });
+            continue;
+          }
           const { track, clip, index } = found;
-          if (clip.locked || track.locked) continue;
+          if (clip.locked) {
+            refused.push({ clipId: id, reason: `"${clip.name}" is locked` });
+            continue;
+          }
+          if (track.locked) {
+            refused.push({ clipId: id, reason: `its track "${track.name}" is locked` });
+            continue;
+          }
           const gapStart = clip.startTimeMs;
           const gapSize = clip.durationMs;
           track.clips.splice(index, 1);
           if (ripple) rippleShift(track, gapStart, -gapSize);
+          deleted.push(id);
         }
         s.selectedClipIds = [];
       });
-      get().commit(ids.length > 1 ? `Delete ${ids.length} clips` : 'Delete clip');
+
+      if (deleted.length > 0) {
+        get().commit(deleted.length > 1 ? `Delete ${deleted.length} clips` : 'Delete clip');
+      }
+      return { deleted, refused };
     },
 
     duplicateClip: (clipId) => {
+      /* Id minted outside the producer so the caller can be handed it —
+         returning nothing meant a tool could not tell the user WHICH
+         clip it had just made, nor prove one had been made at all. */
+      const copyId = uid('clip');
+      let made = false;
+
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
         const { track, clip } = found;
 
         const copy = structuredClone(current(clip)) as Clip;
-        copy.id = uid('clip');
+        copy.id = copyId;
         copy.startTimeMs = clip.startTimeMs + clip.durationMs;
         copy.keyframes = clip.keyframes.map((k) => ({ ...k, id: uid('kf') }));
         copy.groupId = undefined;
@@ -924,8 +1162,12 @@ export const useTimelineStore = create<TimelineStore>()(
         track.clips.push(copy);
         sortClips(track);
         s.selectedClipIds = [copy.id];
+        made = true;
       });
+
+      if (!made) return null;
       get().commit('Duplicate clip');
+      return copyId;
     },
 
     insertClip: (trackId, asset, startTimeMs) => {
@@ -971,11 +1213,41 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     closeGapsOnTrack: (trackId) => {
+      const track = get().tracks.find((t) => t.id === trackId);
+      if (!track) {
+        return {
+          ok: false,
+          error: `No track "${trackId}".`,
+          gapsClosed: 0,
+          clipsMoved: 0,
+          totalShiftMs: 0,
+        };
+      }
+
+      /* Measure BEFORE packing: afterwards there is nothing left to
+         count, and "closed the gaps" on a track that had none is the
+         no-op that reported success. `packTrack` keeps the first clip
+         where it is, so a leading gap is not one of these. */
+      const ordered = [...track.clips].sort((a, b) => a.startTimeMs - b.startTimeMs);
+      let gapsClosed = 0;
+      let clipsMoved = 0;
+      let totalShiftMs = 0;
+      let cursor = ordered.length > 0 ? ordered[0].startTimeMs : 0;
+      for (const clip of ordered) {
+        const delta = clip.startTimeMs - cursor;
+        if (delta > 0) gapsClosed += 1;
+        if (delta !== 0) { clipsMoved += 1; totalShiftMs += Math.abs(delta); }
+        cursor += clip.durationMs;
+      }
+
+      if (clipsMoved === 0) return { ok: true, gapsClosed: 0, clipsMoved: 0, totalShiftMs: 0 };
+
       set((s) => {
-        const track = s.tracks.find((t) => t.id === trackId);
-        if (track) packTrack(track);
+        const t = s.tracks.find((x) => x.id === trackId);
+        if (t) packTrack(t);
       });
       get().commit('Close gaps');
+      return { ok: true, gapsClosed, clipsMoved, totalShiftMs };
     },
 
     /* ══ creative edits ══ */
@@ -1033,18 +1305,60 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     reverseClip: (clipId) => {
+      let outcome: { ok: boolean; error?: string; reversed: boolean } = {
+        ok: false,
+        error: `No clip "${clipId}".`,
+        reversed: false,
+      };
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
         found.clip.speed.reversed = !found.clip.speed.reversed;
+        outcome = { ok: true, reversed: found.clip.speed.reversed };
       });
-      get().commit('Reverse clip');
+      if (outcome.ok) get().commit('Reverse clip');
+      return outcome;
     },
 
     detachAudio: (clipId) => {
+      const audioClipId = uid('clip');
+      let outcome: {
+        ok: boolean; error?: string; audioClipId?: string; audioTrackId?: string;
+      } = { ok: false, error: `No clip "${clipId}".` };
+
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (!found || found.clip.type !== 'video') return;
+        if (!found) return;
+        if (found.clip.type !== 'video') {
+          outcome = {
+            ok: false,
+            error: `"${found.clip.name}" is a ${found.clip.type} clip; only video clips carry audio to detach.`,
+          };
+          return;
+        }
+        if (!found.clip.mediaUrl) {
+          /* The old code happily built an audio clip with no source.
+             `collectAudioClips` requires a mediaUrl, so that clip could
+             never reach the mix: a detach that produced silence and
+             reported success. */
+          outcome = {
+            ok: false,
+            error: `"${found.clip.name}" has no media source, so there is no audio to detach.`,
+          };
+          return;
+        }
+        if (found.clip.audio.detached) {
+          /* Detaching twice stacked a second copy of the same sound into
+             the export. Clear `audio.detached` with patch_clip if you
+             really do want another copy. */
+          outcome = {
+            ok: false,
+            error:
+              `"${found.clip.name}" has already been detached — detaching again would put a ` +
+              'second copy of the same sound in the mix. Set audio.detached to false first if that is what you want.',
+          };
+          return;
+        }
 
         let audioTrack = s.tracks.find((t) => t.type === 'audio' && !t.locked);
         if (!audioTrack) {
@@ -1065,7 +1379,7 @@ export const useTimelineStore = create<TimelineStore>()(
         }
 
         const audioClip = structuredClone(current(found.clip)) as Clip;
-        audioClip.id = uid('clip');
+        audioClip.id = audioClipId;
         audioClip.type = 'audio';
         audioClip.trackId = audioTrack.id;
         audioClip.name = `${found.clip.name} · Audio`;
@@ -1078,8 +1392,10 @@ export const useTimelineStore = create<TimelineStore>()(
 
         audioTrack.clips.push(audioClip);
         sortClips(audioTrack);
+        outcome = { ok: true, audioClipId, audioTrackId: audioTrack.id };
       });
-      get().commit('Detach audio');
+      if (outcome.ok) get().commit('Detach audio');
+      return outcome;
     },
 
     groupSelected: () => {
@@ -1389,11 +1705,15 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     renameClip: (clipId, name) => {
+      let renamed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (found) found.clip.name = name;
+        if (!found) return;
+        found.clip.name = name;
+        renamed = true;
       });
-      get().commit('Rename clip');
+      if (renamed) get().commit('Rename clip');
+      return renamed;
     },
 
     resetClipTransform: (clipId) => {
@@ -1590,25 +1910,70 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     reorderEffect: (clipId, effectRef, direction) => {
+      let outcome: { ok: boolean; error?: string; from: number; to: number } = {
+        ok: false,
+        error: `No clip "${clipId}".`,
+        from: -1,
+        to: -1,
+      };
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
         const list = found.clip.effects;
         const idx = list.findIndex((e) => e.id === effectRef || e.type === effectRef);
+        if (idx === -1) {
+          const have = list.map((e) => e.type).join(', ') || 'none';
+          outcome = {
+            ok: false,
+            error: `"${found.clip.name}" has no effect "${effectRef}". On it: ${have}.`,
+            from: -1,
+            to: -1,
+          };
+          return;
+        }
         const target = idx + direction;
-        if (idx === -1 || target < 0 || target >= list.length) return;
+        if (target < 0 || target >= list.length) {
+          outcome = {
+            ok: false,
+            error:
+              `"${effectRef}" is already at ${target < 0 ? 'the bottom' : 'the top'} of ` +
+              `${found.clip.name}'s stack (index ${idx} of ${list.length}).`,
+            from: idx,
+            to: idx,
+          };
+          return;
+        }
         const [moved] = list.splice(idx, 1);
         list.splice(target, 0, moved);
+        outcome = { ok: true, from: idx, to: target };
       });
-      get().commit('Reorder effects');
+      if (outcome.ok) get().commit('Reorder effects');
+      return outcome;
     },
 
     toggleEffect: (clipId, effectRef) => {
+      let outcome: { ok: boolean; error?: string; enabled: boolean } = {
+        ok: false,
+        error: `No clip "${clipId}".`,
+        enabled: false,
+      };
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        const fx = found?.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
-        if (fx) fx.enabled = !fx.enabled;
+        if (!found) return;
+        const fx = found.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
+        if (!fx) {
+          const have = found.clip.effects.map((e) => e.type).join(', ') || 'none';
+          outcome = {
+            ok: false,
+            error: `"${found.clip.name}" has no effect "${effectRef}". On it: ${have}.`,
+            enabled: false,
+          };
+          return;
+        }
+        fx.enabled = !fx.enabled;
+        outcome = { ok: true, enabled: fx.enabled };
       });
+      return outcome;
     },
 
     setEffectParam: (clipId, effectRef, param, value) => {
@@ -1686,11 +2051,22 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     clearEffects: (clipId) => {
+      let outcome: { ok: boolean; error?: string; removed: number } = {
+        ok: false,
+        error: `No clip "${clipId}".`,
+        removed: 0,
+      };
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (found) found.clip.effects = [];
+        if (!found) return;
+        const removed = found.clip.effects.length;
+        if (removed > 0) found.clip.effects = [];
+        outcome = { ok: true, removed };
       });
-      get().commit('Clear effects');
+      // No history entry for a clip that had nothing on it, the same way
+      // `removeEffect` refuses to record a removal that removed nothing.
+      if (outcome.removed > 0) get().commit('Clear effects');
+      return outcome;
     },
 
     copyEffectsTo: (sourceClipId, targetClipIds) => {
@@ -1997,22 +2373,45 @@ export const useTimelineStore = create<TimelineStore>()(
       get().commit('Add marker');
     },
 
-    updateMarker: (markerId, patch) =>
+    updateMarker: (markerId, patch) => {
+      let found = false;
       set((s) => {
         const m = s.markers.find((x) => x.id === markerId);
-        if (m) Object.assign(m, patch);
-      }),
+        if (!m) return;
+        Object.assign(m, patch);
+        /* An id in the patch would make the marker unaddressable by the
+           id the caller just used. */
+        if (patch.id !== undefined) m.id = markerId;
+        if (patch.timeMs !== undefined) {
+          m.timeMs = Math.max(0, Math.round(m.timeMs));
+          // Markers are kept in time order; a moved one has to re-sort.
+          s.markers.sort((a, b) => a.timeMs - b.timeMs);
+        }
+        found = true;
+      });
+      return found;
+    },
 
     removeMarker: (markerId) => {
-      set((s) => { s.markers = s.markers.filter((m) => m.id !== markerId); });
-      get().commit('Remove marker');
+      let removed = false;
+      set((s) => {
+        const before = s.markers.length;
+        s.markers = s.markers.filter((m) => m.id !== markerId);
+        removed = s.markers.length < before;
+      });
+      if (removed) get().commit('Remove marker');
+      return removed;
     },
 
     clearMarkers: (kind) => {
+      let removed = 0;
       set((s) => {
+        const before = s.markers.length;
         s.markers = kind ? s.markers.filter((m) => m.kind !== kind) : [];
+        removed = before - s.markers.length;
       });
-      get().commit('Clear markers');
+      if (removed > 0) get().commit('Clear markers');
+      return removed;
     },
 
     setBeatMarkers: (beatsMs) => {
