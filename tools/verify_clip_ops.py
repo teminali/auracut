@@ -23,6 +23,12 @@ the check that would have caught it:
     effects, same parameters, only the order different. If that had
     rendered the same picture, either the reorder did nothing or the
     renderer applies effects in a fixed order, and both are findings.
+  · reversed SOUND — a 300Hz-to-3000Hz sweep, because a constant tone
+    sounds identical backwards and is the one input that cannot tell
+    you whether reversal happened. It did not, for a long time; the
+    rows now assert that it does, that the two ends MIRROR rather than
+    merely differ, and that `describe_audio_preview` still admits
+    playback cannot do it.
   · `reverseClip` — sampled on the EXPORTED FILE, because
     `get_frame_context` does not await a video seek and `render_export`
     does. A constructed clip whose picture moves left to right; reversed
@@ -714,11 +720,13 @@ def structural():
     refuses('reverse_clip refuses an unknown id', 'reverse_clip',
             {'clipId': 'clip_not_real'}, 'no clip matching')
 
-    # Reversal reads the SOURCE back to front for the picture and nothing
-    # at all for the sound — `collectAudioClips` never sees `reversed`,
-    # and the export filtergraph has no `areverse` in it. Reversed
-    # dialogue would export as forward dialogue, so it is measured here
-    # rather than left as something an agent finds out from a user.
+    # Reversal used to read the SOURCE back to front for the picture and
+    # do nothing at all for the sound: `collectAudioClips` never saw
+    # `reversed` and the filtergraph had no `areverse`, so reversed
+    # dialogue exported as forward dialogue. This row measured that and
+    # said so; it now measures the fix. A constant tone could never have
+    # caught either state — it sounds identical played backwards, which
+    # is exactly how "reversed" looked done while doing nothing.
     t = fresh(RAMP_MS, 'sweepscene')
     a = ok(call('import_media_from_path', {'path': SWEEP, 'name': 'sweep'}), 'import')['assetId']
     c = ok(call('insert_clip', {'assetId': a, 'trackId': t, 'startTimeMs': 0}), 'insert')['clipId']
@@ -728,10 +736,22 @@ def structural():
     seg = int(0.4 * SR)
     f_lo, f_hi = dominant_hz(export_pcm(fwd)[:seg]), dominant_hz(export_pcm(fwd)[-seg:])
     r_lo, r_hi = dominant_hz(export_pcm(rev)[:seg]), dominant_hz(export_pcm(rev)[-seg:])
-    check('reverse_clip reverses the picture, NOT the sound',
-          f_hi > f_lo and r_hi > r_lo and abs(r_lo - f_lo) < 60 and abs(r_hi - f_hi) < 60,
-          f'a 300->3000Hz sweep still RISES reversed: forward {f_lo:.0f}->{f_hi:.0f}Hz, '
-          f'reversed {r_lo:.0f}->{r_hi:.0f}Hz — use ffmpeg_process for reversed audio')
+    check('reverse_clip reverses the SOUND as well as the picture',
+          f_hi > f_lo * 1.5 and r_lo > r_hi * 1.5,
+          f'a 300->3000Hz sweep: forward {f_lo:.0f}->{f_hi:.0f}Hz (rises), '
+          f'reversed {r_lo:.0f}->{r_hi:.0f}Hz (falls)')
+    # The mirror has to be a mirror, not merely a different shape: the
+    # reversed clip's ends must match the forward clip's ends, swapped.
+    check('and it is a mirror — the ends swap, they do not just differ',
+          abs(r_lo - f_hi) < 220 and abs(r_hi - f_lo) < 220,
+          f'forward ends {f_lo:.0f}/{f_hi:.0f}Hz vs reversed ends {r_lo:.0f}/{r_hi:.0f}Hz')
+    # And playback still cannot do it, which the agent has to be told.
+    pv = ok(call('describe_audio_preview', {'clipId': c, 'measure': False}), 'preview')
+    says = any('revers' in str(x).lower()
+               for cl in pv['clips'] for x in cl.get('previewCannotApply', []))
+    check('describe_audio_preview admits playback cannot reverse sound', says,
+          'reported as a preview/render divergence' if says
+          else 'preview reports nothing about reversal — an agent would call it correct')
 
     # ── markers, through a save/open round trip ─────────────────────
     # Markers have no pixel signature, so they are checked the only way

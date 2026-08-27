@@ -2197,14 +2197,13 @@ defineTool({
   description:
     'Play a clip backwards, or turn it forwards again. It toggles by default and reports which ' +
     'way the clip now runs; pass `reversed` to set it explicitly. Reversal is applied by reading ' +
-    'the SOURCE back to front at render time, which has three consequences worth knowing before ' +
-    'you promise a user a reversed shot. It changes the PICTURE only for clips whose source ' +
-    'moves — video; a still image, a shape or a text layer renders identically reversed. ' +
-    'Keyframes are NOT mirrored: they stay on the clip\'s own forward timeline. And the SOUND is ' +
-    'not reversed at all — measured on a 300Hz-to-3000Hz sweep, the exported mix still rises in ' +
-    'both directions, so reversed dialogue exports as forward dialogue. For a genuinely reversed ' +
-    'file, picture and sound together, use ffmpeg_process with operation "reverse" and place the ' +
-    'clip it produces.',
+    'the SOURCE back to front at render time. Picture AND sound are reversed in the export — a ' +
+    'rising sweep comes back falling. Two things to know before promising a user a reversed ' +
+    'shot: it changes the PICTURE only for clips whose source moves — video; a still image, a ' +
+    'shape or a text layer renders identically reversed. And keyframes are NOT mirrored: they ' +
+    'stay on the clip\'s own forward timeline. PLAYBACK cannot reverse sound (a media element ' +
+    'cannot run at a negative rate), so the preview plays it forwards while the render plays it ' +
+    'backwards — call describe_audio_preview before telling a user it sounds right.',
   schema: z.object({
     clipId: z.string().optional(),
     reversed: z.boolean().optional().describe('Set explicitly instead of toggling'),
@@ -5038,9 +5037,10 @@ defineTool({
   category: 'audio',
   description:
     'Say which per-clip audio settings PLAYBACK reproduces and which it cannot, so the preview ' +
-    'is never quietly different from the render. pitch, voice effects, noise reduction and ' +
-    'ducking are all applied by render_export; playback runs a WebAudio graph and cannot do ' +
-    'all of them. Call before telling a user their edit sounds right — what you hear in the ' +
+    'is never quietly different from the render. pitch, voice effects, noise reduction, ' +
+    'ducking and REVERSAL are all applied by render_export; playback runs a WebAudio graph ' +
+    'and cannot do all of them — reversal in particular, because a media element cannot run ' +
+    'at a negative rate. Call before telling a user their edit sounds right — what you hear in the ' +
     'app is not automatically what the file will contain. Returns a MEASURED fingerprint of ' +
     'the preview chain (band gains and echo taps, rendered offline) rather than a claim.',
   schema: z.object({
@@ -5085,6 +5085,23 @@ defineTool({
         what the preview does, which is the same class of error as
         over-reporting it.
       */
+      /*
+        Reversal is not a `clip.audio` setting, so `unpreviewableAudio`
+        cannot see it — and it is now the LARGEST preview/render
+        divergence there is. The export reverses the sound with
+        `areverse`; playback cannot, because a media element's
+        playbackRate must be positive. That is the same constraint
+        `videoEngine` scrubs around for the picture, and the reason this
+        is reported rather than fixed: it needs the whole source decoded
+        into an AudioBuffer, which is a different playback architecture.
+      */
+      if (clip.speed?.reversed) {
+        notPreviewed.push(
+          'reversed — the export plays this clip\'s sound backwards; playback cannot, ' +
+          'because a media element cannot run at a negative rate. Render to hear it.'
+        );
+      }
+
       if (a.voiceEffect && a.voiceEffect !== 'none') applied.push(a.voiceEffect);
       if (a.pitch) applied.push(`pitch ${a.pitch > 0 ? '+' : ''}${a.pitch}`);
       if (a.ducking && duckingActive) applied.push('ducking');
@@ -5106,6 +5123,7 @@ defineTool({
           voiceEffect: a.voiceEffect,
           noiseReduction: a.noiseReduction,
           ducking: a.ducking,
+          reversed: Boolean(clip.speed?.reversed),
         },
         previewApplies: applied,
         previewCannotApply: notPreviewed,

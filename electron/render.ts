@@ -42,6 +42,16 @@ export interface ExportClipAudio {
   fadeInMs: number;
   fadeOutMs: number;
   speed: number;
+  /**
+   * Play this clip's sound backwards.
+   *
+   * `reverseClip` has always reversed the PICTURE and never the sound:
+   * `collectAudioClips` did not read `speed.reversed` and this
+   * filtergraph had no `areverse`, so reversed dialogue exported as
+   * forward dialogue. Measured on a 300Hz-to-3000Hz sweep — the export
+   * still ROSE in both directions (572Hz to 2738Hz either way).
+   */
+  reversed?: boolean;
   /** Semitones, -24..24. */
   pitch?: number;
   voiceEffect?: 'none' | 'deep' | 'high' | 'robot' | 'echo' | 'telephone' | 'stadium';
@@ -260,6 +270,18 @@ function mixArgsFor(clips: ExportClipAudio[], outPath: string): string[] {
     // Length of source needed, accounting for speed.
     const takeSeconds = (clip.durationMs * clip.speed) / 1000;
     chain.push(`atrim=0:${takeSeconds.toFixed(3)}`);
+
+    /*
+      Reverse the trimmed window, not the whole file. `areverse` buffers
+      its entire input, so it must sit AFTER the atrim that bounds it —
+      in front of it, a long source would be read to the end and held in
+      memory before a single sample came out.
+
+      Before the speed stages, so `atempo` still stretches a
+      forward-in-time buffer and the two operations do not have to
+      reason about each other.
+    */
+    if (clip.reversed) chain.push('areverse');
 
     if (clip.speed !== 1) {
       // atempo is limited to 0.5–2.0 per stage, so chain them.

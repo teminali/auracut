@@ -223,6 +223,7 @@ function collectAudioClips(tracks: Track[]) {
         noiseReduction: clip.audio.noiseReduction,
         ducking: clip.audio.ducking,
         speed: clip.speed?.multiplier ?? 1,
+        reversed: Boolean(clip.speed?.reversed),
       });
     }
   }
@@ -244,10 +245,11 @@ function collectAudioClips(tracks: Track[]) {
  * `n` timeline-ms skips `n * speed` ms of source. Getting that factor
  * wrong is silent: the audio still plays, just from the wrong place.
  *
- * (Reversal is not handled here because reversed audio does not exist
- * yet — `collectAudioClips` never reads `speed.reversed` and the
- * filtergraph has no `areverse`. When it does, the head cut becomes a
- * TAIL cut for a reversed clip.)
+ * Reversal flips which END of the source a timeline cut lands on. A
+ * reversed clip plays its source window backwards, so trimming the
+ * front of it on the TIMELINE drops the LAST of that window, and the
+ * source start does not move; trimming the back of the timeline drops
+ * the FIRST of it, and the source start does. Handled below.
  */
 function windowAudioClips(
   clips: ReturnType<typeof collectAudioClips>,
@@ -272,10 +274,21 @@ function windowAudioClips(
     const durationMs = c.durationMs - headCutMs - tailCutMs;
     if (durationMs <= 0) continue;
 
+    /*
+      Forward: a head cut skips into the source. Reversed: the clip
+      plays its window back to front, so the head cut comes off the END
+      of the window and the source start is moved by the TAIL cut
+      instead. Using the forward formula on a reversed clip lands the
+      sound in the wrong place and still plays, which is the failure
+      mode that does not announce itself.
+    */
+    const speed = c.speed || 1;
+    const sourceShiftMs = (c.reversed ? tailCutMs : headCutMs) * speed;
+
     out.push({
       ...c,
       startTimeMs: c.startTimeMs + headCutMs - startMs,
-      sourceStartMs: c.sourceStartMs + headCutMs * (c.speed || 1),
+      sourceStartMs: c.sourceStartMs + sourceShiftMs,
       durationMs,
     });
   }
