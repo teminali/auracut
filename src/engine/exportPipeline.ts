@@ -28,6 +28,17 @@ export interface ExportConfig {
   hardware?: boolean;
   /** Render only this much of the timeline; defaults to the project duration. */
   durationMs?: number;
+  /**
+   * Where the render STARTS on the timeline. Defaults to 0.
+   *
+   * `durationMs` alone could only ever shorten a render from the front,
+   * so the timeline's in/out points had nowhere to land: `ExportConfig`
+   * had no field for them, `runHardwareExport` always rendered frame 0
+   * to `durationMs`, and the ExportModal's "range only" checkbox
+   * computed a duration that fed a LABEL and never reached the encoder.
+   * A 1000-2000ms range still wrote all 60 frames from zero.
+   */
+  startMs?: number;
 }
 
 export interface ExportResult {
@@ -219,6 +230,59 @@ function collectAudioClips(tracks: Track[]) {
 }
 
 /**
+ * Cut the audio set down to the render window.
+ *
+ * The picture only needed its clock offset — one `+ startMs` in the frame
+ * loop. Sound is laid out in absolute timeline coordinates by
+ * `render.ts` (`adelay=startTimeMs`, and `-ss sourceStartMs` on the
+ * input), so exporting a window means re-expressing every clip relative
+ * to the window's start, dropping the ones outside it, and trimming the
+ * two that straddle its edges.
+ *
+ * Source time advances at the PLAYBACK speed — `render.ts` takes
+ * `durationMs * speed` seconds of source for a clip — so a head cut of
+ * `n` timeline-ms skips `n * speed` ms of source. Getting that factor
+ * wrong is silent: the audio still plays, just from the wrong place.
+ *
+ * (Reversal is not handled here because reversed audio does not exist
+ * yet — `collectAudioClips` never reads `speed.reversed` and the
+ * filtergraph has no `areverse`. When it does, the head cut becomes a
+ * TAIL cut for a reversed clip.)
+ */
+function windowAudioClips(
+  clips: ReturnType<typeof collectAudioClips>,
+  startMs: number,
+  renderMs: number
+): ReturnType<typeof collectAudioClips> {
+  if (startMs === 0) {
+    // Still drop what starts after the end, so a shortened render does
+    // not carry sound the picture never reaches.
+    return clips.filter((c) => c.startTimeMs < renderMs);
+  }
+
+  const endMs = startMs + renderMs;
+  const out: ReturnType<typeof collectAudioClips> = [];
+
+  for (const c of clips) {
+    const clipEndMs = c.startTimeMs + c.durationMs;
+    if (clipEndMs <= startMs || c.startTimeMs >= endMs) continue;
+
+    const headCutMs = Math.max(0, startMs - c.startTimeMs);
+    const tailCutMs = Math.max(0, clipEndMs - endMs);
+    const durationMs = c.durationMs - headCutMs - tailCutMs;
+    if (durationMs <= 0) continue;
+
+    out.push({
+      ...c,
+      startTimeMs: c.startTimeMs + headCutMs - startMs,
+      sourceStartMs: c.sourceStartMs + headCutMs * (c.speed || 1),
+      durationMs,
+    });
+  }
+  return out;
+}
+
+/**
  * Render the sequence to a real file.
  *
  * `onProgress` receives 0..100 and a status line. Throws on failure —
@@ -237,7 +301,8 @@ export async function runHardwareExport(
 
   const startedAt = Date.now();
   const { width, height } = outputSize(project, config.resolution);
-  const renderMs = config.durationMs ?? project.durationMs;
+  const startMs = Math.max(0, Math.round(config.startMs ?? 0));
+  const renderMs = config.durationMs ?? Math.max(0, project.durationMs - startMs);
   const totalFrames = Math.max(1, Math.round((renderMs / 1000) * config.fps));
   const frameIntervalMs = 1000 / config.fps;
 
@@ -317,7 +382,7 @@ export async function runHardwareExport(
 
   try {
     for (let frame = 0; frame < totalFrames; frame++) {
-      const timestampMs = frame * frameIntervalMs;
+      const timestampMs = startMs + frame * frameIntervalMs;
 
       /*
         Park every <video> on the exact source frame this instant needs
@@ -352,7 +417,7 @@ export async function runHardwareExport(
     }
 
     onProgress(92, 'Mixing audio…');
-    const audioClips = collectAudioClips(tracks);
+    const audioClips = windowAudioClips(collectAudioClips(tracks), startMs, renderMs);
     const result = await api.exporter.finish(sessionId, audioClips);
     if (!result.ok) throw new Error(result.error ?? 'Encoding failed.');
 

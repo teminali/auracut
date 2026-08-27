@@ -28,10 +28,14 @@ the check that would have caught it:
     does. A constructed clip whose picture moves left to right; reversed
     it must move right to left. `speed.reversed === true` proves nothing.
   · in and out points — measured against what `render_export` actually
-    writes. They are PREVIEW ONLY: `ExportConfig` has no in/out field
-    and `runHardwareExport` always renders frame 0 to `durationMs`. The
-    check below asserts exactly that, so the limitation is recorded
-    rather than papered over with a green tick.
+    writes. This suite once asserted that they were PREVIEW ONLY, which
+    was the honest thing to record at the time: `ExportConfig` had no
+    in/out field, `runHardwareExport` always rendered frame 0 to
+    `durationMs`, and the ExportModal's "range only" checkbox fed a
+    label and nothing else. That is fixed, so the rows below assert the
+    opposite — and they assert it on CONTENT, not on a frame count. A
+    range export that writes 30 frames of the WRONG second has exactly
+    the frame count the fix is supposed to produce.
 
 `--selftest` re-runs every pixel and waveform row with the scene held
 STILL — the same machinery exercised, the same metric read, and a
@@ -791,24 +795,46 @@ def structural():
             {'marker': 'Dupe one'}, 'nothing to change')
 
     # ── in and out points ───────────────────────────────────────────
-    # The finding this suite exists to record: these are PREVIEW ONLY.
+    # Two seconds, and only the SECOND one is lit. A range export of
+    # 1000-2000ms must therefore be lit from its very first frame — if
+    # it silently rendered from zero it would start dark, whatever its
+    # frame count said.
     t = fresh(2000, 'inout')
-    shape(t, 0, 500, x=0, label='Head')                 # lit only in the first 500ms
+    shape(t, 1000, 1000, x=0, label='Tail')
     ok(call('clear_in_out', {}), 'clear')
     r = ok(call('set_in_point', {'timeMs': 1000}), 'in')
     r = ok(call('set_out_point', {'timeMs': 2000}), 'out')
     check('set_in_point / set_out_point store the range',
           r['inPointMs'] == 1000 and r['outPointMs'] == 2000 and r['rangeMs'] == 1000,
-          f"range {r['inPointMs']}–{r['outPointMs']}ms ({r['rangeMs']}ms), "
+          f"range {r['inPointMs']}–{r['outPointMs']}ms ({r['rangeMs']}ms)")
+    check('and the report no longer calls itself preview-only',
+          'render_export' in r['appliesTo'],
           f"appliesTo={r['appliesTo']}")
 
-    path, data = render('inout', dur_ms=2000)
-    lit = ink(export_frame(path, 0.10))
-    dark = ink(export_frame(path, 1.50))
-    check('in/out is PREVIEW ONLY — the export ignores it',
-          data['frames'] == 60 and lit > 1000 and dark < 100,
-          f"range 1000–2000ms set, export still wrote {data['frames']} frames from 0 "
-          f"(ink at 0.10s {lit:.0f}, at 1.50s {dark:.0f})")
+    whole = os.path.join(TMP, 'inout_whole.mp4')
+    wdata = ok(call('render_export', {'resolution': '720p', 'outputPath': whole}), 'whole')
+    ranged = os.path.join(TMP, 'inout_ranged.mp4')
+    rdata = ok(call('render_export', {'resolution': '720p', 'outputPath': ranged,
+                                      'useInOut': True}), 'ranged')
+
+    check('useInOut renders the range, not the sequence',
+          wdata['frames'] == 60 and rdata['frames'] == 30,
+          f"whole {wdata['frames']} frames, 1000-2000ms range {rdata['frames']} frames")
+
+    # The row that cannot be satisfied by counting frames.
+    whole_head = ink(export_frame(whole, 0.10))
+    ranged_head = ink(export_frame(ranged, 0.10))
+    check('and it is the RIGHT second — content, not frame count',
+          whole_head < 100 and ranged_head > 1000,
+          f'ink 0.10s into the file: whole {whole_head:.0f} (dark, correct), '
+          f'ranged {ranged_head:.0f} (lit — it starts at the in point)')
+
+    ok(call('clear_in_out', {}), 'clear before the refusal row')
+    refuses('render_export refuses useInOut with no range set', 'render_export',
+            {'useInOut': True, 'outputPath': os.path.join(TMP, 'never.mp4')},
+            'no in or out point is set')
+    ok(call('set_in_point', {'timeMs': 1000}), 'in')
+    ok(call('set_out_point', {'timeMs': 2000}), 'out')
 
     refuses('set_in_point refuses an inverted range', 'set_in_point',
             {'timeMs': 2500}, 'not before the out point')

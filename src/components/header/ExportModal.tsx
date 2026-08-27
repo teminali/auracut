@@ -66,10 +66,21 @@ export const ExportModal: React.FC = () => {
     setExportProgress(0, 'Preparing…', 'preparing');
 
     try {
+      /*
+        `rangeOnly` used to reach nothing but a label. `exportDuration`
+        was computed right here, shown as the hint under the checkbox,
+        and then dropped — the export ran 0 -> project.durationMs
+        whatever the box said. Ticking it changed the text and not the
+        file.
+      */
+      const range = rangeOnly && hasRange
+        ? { startMs: inPointMs ?? 0, durationMs: exportDuration }
+        : {};
+
       const result = await runHardwareExport(
         tracks,
         project,
-        { resolution, fps: project.fps as 30 | 60, codec },
+        { resolution, fps: project.fps as 30 | 60, codec, ...range },
         (progress, statusText) => setExportProgress(progress, statusText, 'rendering')
       );
       setLastExportPath(result.outputPath);

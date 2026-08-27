@@ -2469,7 +2469,7 @@ function inOutReport(extra: Record<string, unknown> = {}) {
     inPointMs: s.inPointMs,
     outPointMs: s.outPointMs,
     rangeMs: (s.outPointMs ?? end) - (s.inPointMs ?? 0),
-    appliesTo: 'preview playback only',
+    appliesTo: 'preview playback, and render_export when useInOut is passed',
     note: IN_OUT_NOTE,
     ...extra,
   };
@@ -2479,9 +2479,9 @@ defineTool({
   name: 'set_in_point',
   category: 'project',
   description:
-    'Set the preview in point — where looped playback starts. PREVIEW ONLY: render_export ' +
-    'ignores in and out points and always writes the whole sequence, so this is not a way to ' +
-    'trim a render. Refuses an in point at or after the out point, which used to be accepted and ' +
+    'Set the in point — where looped playback starts, and where a ranged render begins. ' +
+    'Pass useInOut to render_export to write only this range; picture AND sound follow it. ' +
+    'Refuses an in point at or after the out point, which used to be accepted and ' +
     'left the transport seeking to a start it was already past.',
   schema: z.object({
     timeMs: z.number().optional().describe('Defaults to the current playhead'),
@@ -2500,8 +2500,8 @@ defineTool({
   name: 'set_out_point',
   category: 'project',
   description:
-    'Set the preview out point — where looped playback stops. PREVIEW ONLY: render_export ' +
-    'ignores in and out points and always writes the whole sequence. Refuses an out point at or ' +
+    'Set the out point — where looped playback stops, and where a ranged render ends. ' +
+    'Pass useInOut to render_export to write only this range. Refuses an out point at or ' +
     'before the in point, which would make the range empty.',
   schema: z.object({
     timeMs: z.number().optional().describe('Defaults to the current playhead'),
@@ -2520,8 +2520,8 @@ defineTool({
   name: 'clear_in_out',
   category: 'project',
   description:
-    'Remove both preview in and out points, so playback runs the whole sequence again. Reports ' +
-    'whether there was a range to clear.',
+    'Remove both in and out points, so playback and a useInOut render cover the whole sequence ' +
+    'again. Reports whether there was a range to clear.',
   schema: z.object({}),
   handler: () => {
     const state = timeline();
@@ -4079,13 +4079,50 @@ defineTool({
       .number()
       .optional()
       .describe('Render only this much of the timeline; defaults to the whole sequence'),
+    startMs: z
+      .number()
+      .optional()
+      .describe('Where the render starts on the timeline; defaults to 0'),
+    useInOut: z
+      .boolean()
+      .optional()
+      .describe(
+        'Render the timeline in/out range set by set_in_point / set_out_point. ' +
+        'Overrides startMs and durationMs when both are given.'
+      ),
     hardware: z
       .boolean()
       .optional()
       .describe('Use Apple VideoToolbox where the codec supports it — much faster, slightly larger'),
   }),
-  handler: async ({ resolution, fps, codec, outputPath, hardware, durationMs }) => {
+  handler: async ({ resolution, fps, codec, outputPath, hardware, durationMs, startMs, useInOut }) => {
     const proj = project();
+
+    /*
+      The in/out points had no route to the encoder at all: ExportConfig
+      had no start field, so `set_in_point` was a tool that stored a
+      number nothing rendered. Reading them here is what makes the pair
+      mean something to an agent.
+    */
+    let fromMs = startMs;
+    let lengthMs = durationMs;
+    if (useInOut) {
+      const st = timeline();
+      if (st.inPointMs === null && st.outPointMs === null) {
+        throw new Error(
+          'useInOut was asked for but no in or out point is set. ' +
+          'Call set_in_point / set_out_point first, or pass startMs and durationMs.'
+        );
+      }
+      fromMs = st.inPointMs ?? 0;
+      lengthMs = (st.outPointMs ?? proj.project.durationMs) - fromMs;
+      if (lengthMs <= 0) {
+        throw new Error(
+          `The in/out range is empty (in ${st.inPointMs}ms, out ${st.outPointMs}ms), so there is nothing to render.`
+        );
+      }
+    }
+
     proj.setExportModalOpen(true);
     proj.setIsExporting(true);
     try {
@@ -4097,7 +4134,8 @@ defineTool({
           fps: (fps ?? proj.project.fps) as 30 | 60,
           codec: codec ?? 'h264',
           outputPath,
-          durationMs,
+          durationMs: lengthMs,
+          startMs: fromMs,
           hardware,
         },
         (progress, statusText) => proj.setExportProgress(progress, statusText)
