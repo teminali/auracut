@@ -196,12 +196,31 @@ export interface TimelineActions {
   resetClipTransform: (clipId: string) => void;
 
   /* keyframes */
-  addKeyframe: (clipId: string, keyframe: Omit<KeyframePoint, 'id'>) => void;
-  upsertKeyframeAt: (clipId: string, property: AnimatableProperty, timeOffsetMs: number, value: number) => void;
-  removeKeyframe: (clipId: string, keyframeId: string) => void;
-  moveKeyframe: (clipId: string, keyframeId: string, timeOffsetMs: number, value?: number) => void;
-  setKeyframeEasing: (clipId: string, keyframeId: string, easing: KeyframePoint['easing'], bezier?: [number, number, number, number]) => void;
-  clearKeyframes: (clipId: string, property?: AnimatableProperty) => void;
+  /**
+   * Every one of these reports instead of returning void, and the reason
+   * is the same one `setEffectParam` records above: an unknown clip id or
+   * an unknown keyframe id used to be a silent no-op, so the tool over
+   * the top of it said "removed" and nothing had been removed.
+   *
+   * There is a second, sharper reason here. A keyframe id is not
+   * something a caller can guess — it is minted inside the store — so a
+   * caller working from a stale read is the NORMAL case, not the odd
+   * one. `addKeyframe` returns the id it minted for exactly that reason.
+   */
+  /** Id of the keyframe added, or null when the clip does not exist. */
+  addKeyframe: (clipId: string, keyframe: Omit<KeyframePoint, 'id'>) => string | null;
+  /** `created` distinguishes an insert from an update of the key already there. */
+  upsertKeyframeAt: (
+    clipId: string, property: AnimatableProperty, timeOffsetMs: number, value: number
+  ) => { ok: boolean; id?: string; created?: boolean; error?: string };
+  /** False when the clip or the keyframe could not be found. */
+  removeKeyframe: (clipId: string, keyframeId: string) => boolean;
+  /** False when the clip or the keyframe could not be found. */
+  moveKeyframe: (clipId: string, keyframeId: string, timeOffsetMs: number, value?: number) => boolean;
+  /** False when the clip or the keyframe could not be found. */
+  setKeyframeEasing: (clipId: string, keyframeId: string, easing: KeyframePoint['easing'], bezier?: [number, number, number, number]) => boolean;
+  /** Number of keyframes removed. Zero means there was nothing to clear. */
+  clearKeyframes: (clipId: string, property?: AnimatableProperty) => number;
   applyMotionPreset: (clipId: string, preset: MotionPresetId) => boolean;
 
   /* VFX effect stack */
@@ -224,7 +243,8 @@ export interface TimelineActions {
   addEffectKeyframe: (
     clipId: string, effectRef: string, param: string, timeOffsetMs: number, value: number
   ) => boolean;
-  removeEffectKeyframe: (clipId: string, effectRef: string, keyframeId: string) => void;
+  /** False when the clip, the effect or the keyframe could not be found. */
+  removeEffectKeyframe: (clipId: string, effectRef: string, keyframeId: string) => boolean;
   clearEffects: (clipId: string) => void;
   copyEffectsTo: (sourceClipId: string, targetClipIds: string[]) => void;
 
@@ -258,9 +278,18 @@ export interface TimelineActions {
 
   /* motion paths */
   setMotionPath: (clipId: string, path: Partial<MotionPath>) => void;
-  addMotionPathPoint: (clipId: string, x: number, y: number, index?: number) => void;
-  updateMotionPathPoint: (clipId: string, index: number, x: number, y: number) => void;
-  removeMotionPathPoint: (clipId: string, index: number) => void;
+  /**
+   * `index` is where the point ended up — an append lands at the end
+   * whatever index you asked for, and a caller that assumed otherwise
+   * would address the wrong point next.
+   */
+  addMotionPathPoint: (
+    clipId: string, x: number, y: number, index?: number
+  ) => { ok: boolean; index?: number; pointCount?: number; error?: string };
+  /** False when the clip has no path, or the index is out of range. */
+  updateMotionPathPoint: (clipId: string, index: number, x: number, y: number) => boolean;
+  /** False when the clip has no path, or the index is out of range. */
+  removeMotionPathPoint: (clipId: string, index: number) => boolean;
 
   /* transitions */
   applyTransitionToClip: (clipId: string, position: 'in' | 'out', type: TransitionType, durationMs: number) => void;
@@ -1260,16 +1289,25 @@ export const useTimelineStore = create<TimelineStore>()(
     /* ══ keyframes ══ */
 
     addKeyframe: (clipId, keyframe) => {
+      const id = uid('kf');
+      let added = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
-        found.clip.keyframes.push({ ...keyframe, id: uid('kf') });
+        found.clip.keyframes.push({ ...keyframe, id });
         found.clip.keyframes.sort((a, b) => a.timeOffsetMs - b.timeOffsetMs);
+        added = true;
       });
+      if (!added) return null;
       get().commit('Add keyframe');
+      return id;
     },
 
     upsertKeyframeAt: (clipId, property, timeOffsetMs, value) => {
+      const fresh = uid('kf');
+      let outcome: { ok: boolean; id?: string; created?: boolean; error?: string } = {
+        ok: false, error: `Clip "${clipId}" does not exist.`,
+      };
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
@@ -1280,23 +1318,34 @@ export const useTimelineStore = create<TimelineStore>()(
         );
         if (existing) {
           existing.value = value;
+          outcome = { ok: true, id: existing.id, created: false };
         } else {
-          found.clip.keyframes.push({ id: uid('kf'), property, timeOffsetMs: t, value, easing: 'easeInOut' });
+          found.clip.keyframes.push({ id: fresh, property, timeOffsetMs: t, value, easing: 'easeInOut' });
           found.clip.keyframes.sort((a, b) => a.timeOffsetMs - b.timeOffsetMs);
+          outcome = { ok: true, id: fresh, created: true };
         }
       });
-      get().commit('Set keyframe');
+      if (outcome.ok) get().commit('Set keyframe');
+      return outcome;
     },
 
     removeKeyframe: (clipId, keyframeId) => {
+      let removed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
-        if (found) found.clip.keyframes = found.clip.keyframes.filter((k) => k.id !== keyframeId);
+        if (!found) return;
+        const before = found.clip.keyframes.length;
+        found.clip.keyframes = found.clip.keyframes.filter((k) => k.id !== keyframeId);
+        removed = found.clip.keyframes.length < before;
       });
-      get().commit('Remove keyframe');
+      // No commit on a miss: an unknown id used to push an identical
+      // snapshot onto the undo stack, so undo did nothing visible once.
+      if (removed) get().commit('Remove keyframe');
+      return removed;
     },
 
-    moveKeyframe: (clipId, keyframeId, timeOffsetMs, value) =>
+    moveKeyframe: (clipId, keyframeId, timeOffsetMs, value) => {
+      let moved = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
@@ -1305,9 +1354,13 @@ export const useTimelineStore = create<TimelineStore>()(
         kf.timeOffsetMs = Math.max(0, Math.min(found.clip.durationMs, Math.round(timeOffsetMs)));
         if (value !== undefined) kf.value = value;
         found.clip.keyframes.sort((a, b) => a.timeOffsetMs - b.timeOffsetMs);
-      }),
+        moved = true;
+      });
+      return moved;
+    },
 
     setKeyframeEasing: (clipId, keyframeId, easing, bezier) => {
+      let changed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
@@ -1315,19 +1368,25 @@ export const useTimelineStore = create<TimelineStore>()(
         if (!kf) return;
         kf.easing = easing;
         if (bezier) kf.bezierPoints = bezier;
+        changed = true;
       });
-      get().commit('Change easing');
+      if (changed) get().commit('Change easing');
+      return changed;
     },
 
     clearKeyframes: (clipId, property) => {
+      let cleared = 0;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
+        const before = found.clip.keyframes.length;
         found.clip.keyframes = property
           ? found.clip.keyframes.filter((k) => k.property !== property)
           : [];
+        cleared = before - found.clip.keyframes.length;
       });
-      get().commit('Clear keyframes');
+      if (cleared > 0) get().commit('Clear keyframes');
+      return cleared;
     },
 
     applyMotionPreset: (clipId, preset) => {
@@ -1492,12 +1551,17 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     removeEffectKeyframe: (clipId, effectRef, keyframeId) => {
+      let removed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         const fx = found?.clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
-        if (fx?.keyframes) fx.keyframes = fx.keyframes.filter((k) => k.id !== keyframeId);
+        if (!fx?.keyframes) return;
+        const before = fx.keyframes.length;
+        fx.keyframes = fx.keyframes.filter((k) => k.id !== keyframeId);
+        removed = fx.keyframes.length < before;
       });
-      get().commit('Remove effect keyframe');
+      if (removed) get().commit('Remove effect keyframe');
+      return removed;
     },
 
     clearEffects: (clipId) => {
@@ -1722,6 +1786,9 @@ export const useTimelineStore = create<TimelineStore>()(
     },
 
     addMotionPathPoint: (clipId, x, y, index) => {
+      let outcome: { ok: boolean; index?: number; pointCount?: number; error?: string } = {
+        ok: false, error: `Clip "${clipId}" does not exist.`,
+      };
       set((s) => {
         const found = findClip(s.tracks, clipId);
         if (!found) return;
@@ -1730,29 +1797,44 @@ export const useTimelineStore = create<TimelineStore>()(
         }
         const pts = found.clip.motionPath.points;
         const point = { x: Math.round(x), y: Math.round(y) };
-        if (index === undefined || index >= pts.length) pts.push(point);
-        else pts.splice(Math.max(0, index), 0, point);
+        let at: number;
+        if (index === undefined || index >= pts.length) {
+          at = pts.length;
+          pts.push(point);
+        } else {
+          at = Math.max(0, index);
+          pts.splice(at, 0, point);
+        }
+        outcome = { ok: true, index: at, pointCount: pts.length };
       });
-      get().commit('Add path point');
+      if (outcome.ok) get().commit('Add path point');
+      return outcome;
     },
 
-    updateMotionPathPoint: (clipId, index, x, y) =>
+    updateMotionPathPoint: (clipId, index, x, y) => {
+      let moved = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         const pts = found?.clip.motionPath?.points;
         if (!pts || index < 0 || index >= pts.length) return;
         pts[index].x = Math.round(x);
         pts[index].y = Math.round(y);
-      }),
+        moved = true;
+      });
+      return moved;
+    },
 
     removeMotionPathPoint: (clipId, index) => {
+      let removed = false;
       set((s) => {
         const found = findClip(s.tracks, clipId);
         const pts = found?.clip.motionPath?.points;
         if (!pts || index < 0 || index >= pts.length) return;
         pts.splice(index, 1);
+        removed = true;
       });
-      get().commit('Remove path point');
+      if (removed) get().commit('Remove path point');
+      return removed;
     },
 
     /* ══ transitions ══ */
