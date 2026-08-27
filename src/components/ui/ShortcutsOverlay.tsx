@@ -73,8 +73,7 @@ export const ShortcutsOverlay: React.FC = () => {
             <Keyboard className="w-3.5 h-3.5 text-spectrum-accent" />
             <span className="text-ui font-semibold text-spectrum-text">Keyboard shortcuts</span>
           </div>
-          <button onClick={() => setOpen(false)} className="pro-btn w-6 h-6">
-            aria-label="Close the shortcuts sheet"
+          <button onClick={() => setOpen(false)} className="pro-btn w-6 h-6" aria-label="Close the shortcuts sheet">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>

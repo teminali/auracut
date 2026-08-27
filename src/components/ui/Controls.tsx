@@ -279,8 +279,11 @@ export const Section: React.FC<{
   return (
     <div className="border-b border-line last:border-b-0">
       <div className="w-full h-[30px] px-3 flex items-center justify-between gap-2 hover:bg-white/[0.022] transition-colors">
-        <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-2 min-w-0 flex-1 text-left group/sec">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-2 min-w-0 flex-1 text-left group/sec"
           aria-label="Expand or collapse this section"
+        >
           <ChevronRight
             className={`w-3 h-3 flex-shrink-0 text-spectrum-textFaint group-hover/sec:text-spectrum-textMuted transition-all ${open ? 'rotate-90' : ''}`}
           />

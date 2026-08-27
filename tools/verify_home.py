@@ -27,6 +27,13 @@ agent chip's three states must differ from each other).
 
 Needs KERF_DEBUG=1 for `debug/eval`. `run_all_suites.py` sets it on the
 instance it launches.
+
+One side effect worth knowing about: the recorder check opens the
+studio, which enumerates displays through `desktopCapturer`. On a macOS
+machine that has never granted Kerf screen recording, that is where the
+system permission prompt appears. It is asked once, it does not block
+the suite, and the check reports the permission state it found rather
+than failing on it.
 """
 import sys, os, json
 
@@ -68,19 +75,69 @@ JS = r'''
   const seeded = clips();
   add('control: a real project is loaded first', seeded > 0, seeded + ' clips', false);
 
-  /* ── New project ─────────────────────────────────────────────── */
+  /* ── New project is a CHOOSER now, not an action ─────────────────
+     The hero used to go straight to an empty timeline. It offers two
+     starts since the screen recorder landed, so the tile must open the
+     sheet and do nothing else — a hero that still cleared the timeline
+     on the way to a chooser would throw away the project you were
+     about to decide not to leave. */
   await home();
   const hadHero = click(home$('new-project'));
-  await tick(320);
+  await tick(300);
   add('the hero tile exists at all', hadHero, 'found=' + hadHero, false);
-  add('New project empties the timeline', seeded > 0 && clips() === 0,
+
+  const sheetUp = !!home$('new-blank') && !!home$('new-record');
+  add('the hero tile opens the chooser and changes nothing yet',
+      sheetUp && clips() === seeded &&
+      window.__kerf.layout.getState().showHome === true,
+      'blank=' + !!home$('new-blank') + ' record=' + !!home$('new-record') +
+      ' clips=' + clips() + '/' + seeded);
+
+  click(home$('new-blank'));
+  await tick(320);
+  add('Blank timeline empties the timeline', seeded > 0 && clips() === 0,
       seeded + ' clips -> ' + clips());
-  add('New project enters the editor',
+  add('Blank timeline enters the editor',
       window.__kerf.layout.getState().showHome === false,
       'showHome=' + window.__kerf.layout.getState().showHome);
-  add('New project resets the project name',
+  add('Blank timeline resets the project name',
       window.__kerf.project.getState().project.name === 'Untitled project',
       window.__kerf.project.getState().project.name);
+
+  /* ── Record the screen ────────────────────────────────────────────
+     Opens the studio and NOTHING else. The canvas size comes from the
+     display that gets captured and the clips from the files that get
+     written, so there is nothing to decide about the project until a
+     take exists — and a launcher that wiped the open project on the way
+     into a recorder you then cancelled would be unforgivable. */
+  await window.__kerf.executeTool('open_starter_project', {}, 'verify_home');
+  await tick(450);
+  const beforeRecorder = clips();
+  await home();
+  window.__kerf.recorder.setState({ isOpen: false });
+  await tick(120);
+  click(home$('new-project'));
+  await tick(240);
+  click(home$('new-record'));
+  await tick(360);
+  /* `desktopCapturer` has to walk every window on the machine, which on a
+     busy desktop takes longer than a tick. Waited for rather than
+     sampled: reporting "0 sources" because the answer had not arrived
+     yet reads as a broken enumerator. */
+  for (let i = 0; i < 24 && window.__kerf.recorder.getState().sourcesLoading; i++) await tick(250);
+  const rec = window.__kerf.recorder.getState();
+  add('Record the screen opens the recorder and leaves the project alone',
+      rec.isOpen === true && rec.phase === 'setup' &&
+      beforeRecorder > 0 && clips() === beforeRecorder &&
+      window.__kerf.layout.getState().showHome === true,
+      'open=' + rec.isOpen + ' phase=' + rec.phase +
+      ' clips=' + clips() + '/' + beforeRecorder);
+  add('the recorder offers a real source list',
+      Array.isArray(rec.sources),
+      (rec.sources || []).length + ' sources, screen permission=' +
+      ((rec.permissions && rec.permissions.screen) || 'unknown'), false);
+  window.__kerf.recorder.getState().close();
+  await tick(200);
 
   /* ── Tool tiles open the panel they name, and not a different one ── */
   for (const [label, tab] of [['Captions', 'captions'], ['Colour', 'filters'],

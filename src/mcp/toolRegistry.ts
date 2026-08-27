@@ -40,6 +40,11 @@ import { unpreviewableAudio, measureChain } from '../engine/audioEffects';
 import { analyzeTranscriptForBroll } from '../engine/brollEngine';
 import { loadFonts, isFontAvailable, fontsAreEnumerated } from '../engine/systemFonts';
 import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
+import { probeVideo, Take as RecorderTake } from '../engine/screenCapture';
+import { applyTutorialSkill, openTakeRaw } from '../engine/tutorialSkill';
+import { DEFAULT_SHAPE as DEFAULT_ZOOM_SHAPE } from '../engine/cursorZoom';
+import { DEFAULT_LOOK as DEFAULT_LOOK_OPTIONS } from '../engine/cinematicLook';
+import type { CursorSample as RecorderCursorSample, InputEvent as RecorderInputEvent } from '../types/electron';
 import { followToolCall } from '../engine/agentPresence';
 import { buildStarterProject, STARTER_NAME } from '../engine/starterProject';
 import { deserializeProject, serializeProject } from '../engine/projectIO';
@@ -4253,6 +4258,200 @@ defineTool({
     }
   },
 });
+
+defineTool({
+  name: 'build_tutorial_from_recording',
+  category: 'media',
+  description:
+    'Turn a folder written by Kerf\'s screen recorder into a finished tutorial project. The ' +
+    'folder holds screen.mp4, optionally camera.mp4, and cursor.json: the cursor track, the ' +
+    'real click/scroll/keystroke stream, and the marks made during the take. This reads all ' +
+    'of them and builds an EDIT: the screen inset on a backdrop with rounded corners, zooms ' +
+    'pushed in on the real clicks as editable keyframes, the camera as an inset that takes ' +
+    'the whole frame while the narrator is talking rather than doing, click ticks and zoom ' +
+    'air, the narration split onto its own track and transcribed into Inter Bold captions. ' +
+    'Nothing is baked: every part of it is a clip, a keyframe or a marker that can then be ' +
+    'changed. Pass raw:true to lay the take down and stop.',
+  schema: z.object({
+    folder: z.string().describe('A take folder under Kerf Recordings, holding screen.mp4 and cursor.json'),
+    raw: z.boolean().optional().describe('Just the clips: no zooms, no look, no sound, no captions'),
+    captions: z.boolean().optional().describe('Transcribe the narration; default true. The words also place the camera cuts.'),
+    zoomStrength: z.number().min(1).max(3).optional().describe('How hard the frame pushes in; default 1.55'),
+    backdrop: z.string().optional().describe('graphite, midnight, clay or none'),
+    cameraOnPauses: z.boolean().optional().describe('Let the camera fill the frame during pauses; default true'),
+    cameraCorner: z.enum(['bottom-right', 'bottom-left', 'top-right', 'top-left']).optional(),
+  }),
+  handler: async (args) => {
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (!api?.media || !api.project) {
+      throw new Error('Reading a take folder needs the desktop app.');
+    }
+
+    /* ── The manifest ── */
+    const listed = await api.media.listFolder(args.folder, false);
+    if (!listed.ok) throw new Error(listed.error ?? `Could not read ${args.folder}`);
+
+    const entries = listed.entries ?? [];
+    const find = (base: string) =>
+      entries.find((e) => e.name === `${base}.mp4`) ?? entries.find((e) => e.name === `${base}.webm`);
+
+    const screenFile = find('screen');
+    if (!screenFile) {
+      throw new Error(
+        `No screen.mp4 or screen.webm in ${args.folder}. ` +
+        `Found: ${entries.map((e) => e.name).join(', ') || 'nothing'}. ` +
+        'This tool takes a folder written by the screen recorder, not a folder of media.'
+      );
+    }
+
+    /*
+      Through the recorder's own reader, not `project:read`.
+
+      A take's cursor.json is SEALED — it logs every cursor position and
+      the timing of every keystroke of the session, which is the one
+      part of a recording that is exhaust rather than product. Reading it
+      as text gets an envelope. `readManifest` opens it, and still
+      accepts a plain file, so a take assembled by hand or written
+      before the seal existed keeps working.
+    */
+    const cursorEntry = entries.find((e) => e.name === 'cursor.json');
+    let manifest: {
+      durationMs?: number; marks?: number[];
+      events?: RecorderInputEvent[]; samples?: RecorderCursorSample[];
+    } = {};
+    const manifestNotes: string[] = [];
+    if (cursorEntry) {
+      const read = await api.recorder.readManifest(args.folder);
+      if (read.ok) {
+        manifest = read.manifest as typeof manifest;
+      } else {
+        /* A take whose sidecar will not open is still a take. It loses
+           its zooms and says why, rather than failing outright. */
+        manifestNotes.push(`The cursor track could not be read, so there are no zooms. ${read.error}`);
+      }
+    }
+
+    const fileUrl = (p: string) => `file://${encodeURI(p.replace(/\\/g, '/'))}`;
+    const screenUrl = fileUrl(screenFile.path);
+    const screenSize = await probeVideo(screenUrl);
+    if (!screenSize) throw new Error(`Could not decode ${screenFile.name}.`);
+
+    const cameraFile = find('camera');
+    const cameraUrl = cameraFile ? fileUrl(cameraFile.path) : null;
+    const cameraSize = cameraUrl ? await probeVideo(cameraUrl) : null;
+
+    /*
+      Duration from the manifest when it is there, and from the file when
+      it is not. The manifest's number is the RECORDING clock — wall time
+      minus pauses — which is what every timestamp in the cursor track and
+      the event stream is measured against. Taking it from the file
+      instead would put the zooms a few frames out on any take that was
+      paused.
+    */
+    const durationMs = manifest.durationMs && manifest.durationMs > 0
+      ? manifest.durationMs
+      : await probeDurationMs(screenUrl);
+
+    const take: RecorderTake = {
+      dir: args.folder,
+      durationMs,
+      fps: 30,
+      screen: {
+        url: screenUrl,
+        path: screenFile.path,
+        width: screenSize.width,
+        height: screenSize.height,
+        bytes: screenFile.sizeBytes,
+        hasAudio: true,
+        raw: screenFile.name.endsWith('.webm'),
+      },
+      cameraOffsetMs: 0,
+      camera: cameraUrl && cameraSize && cameraFile
+        ? {
+          url: cameraUrl,
+          path: cameraFile.path,
+          width: cameraSize.width,
+          height: cameraSize.height,
+          bytes: cameraFile.sizeBytes,
+          hasAudio: true,
+          raw: cameraFile.name.endsWith('.webm'),
+        }
+        : undefined,
+      cursor: manifest.samples ?? [],
+      events: manifest.events ?? [],
+      marks: manifest.marks ?? [],
+      cursorTracked: (manifest.samples?.length ?? 0) > 0,
+      input: {
+        ok: (manifest.events?.length ?? 0) > 0,
+        source: (manifest.events?.length ?? 0) > 0 ? 'events' : 'cursor-only',
+        reason: 'ready',
+        message: '',
+      },
+      warnings: cursorEntry
+        ? manifestNotes
+        : ['This folder has no cursor.json, so there is no cursor track and no zooms.'],
+    };
+
+    if (args.raw) {
+      const report = await openTakeRaw(take);
+      return { ...report, mode: 'raw' };
+    }
+
+    const backdrop = args.backdrop
+      ? oneOf(args.backdrop, ['graphite', 'midnight', 'clay', 'none'], 'backdrop')
+      : undefined;
+
+    const outcome = await applyTutorialSkill(take, {
+      transcribe: args.captions ?? true,
+      captions: args.captions ?? true,
+      ...(args.zoomStrength ? { zoomShape: { ...DEFAULT_ZOOM_SHAPE, factor: args.zoomStrength } } : {}),
+      ...(backdrop ? { look: { ...DEFAULT_LOOK_OPTIONS, backdrop } } : {}),
+      ...(args.cameraOnPauses !== undefined ? { cameraOnPauses: args.cameraOnPauses } : {}),
+      ...(args.cameraCorner ? { cameraCorner: args.cameraCorner } : {}),
+    });
+
+    /*
+      Refused rather than built. Throwing is right here: a tool that
+      returned a success shape with nothing in it is the exact failure
+      this codebase keeps finding, and an agent needs to be told the
+      skill is spent rather than left to notice an empty timeline.
+    */
+    if (!outcome.ok || !outcome.report) {
+      throw new Error(
+        `${outcome.status.message} The take is untouched; pass raw:true to lay it down `
+        + 'with no interpretation, or buy the skill.'
+      );
+    }
+
+    return { ...outcome.report, mode: 'tutorial', trial: outcome.status };
+  },
+});
+
+/**
+ * A take's length, read off the file.
+ *
+ * Only ever the fallback: the manifest's duration is the recording
+ * clock, and a paused take is shorter on the clock than on the wall.
+ */
+function probeDurationMs(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const element = document.createElement('video');
+    element.preload = 'metadata';
+    element.muted = true;
+    const done = (value: number) => {
+      element.onloadedmetadata = null;
+      element.onerror = null;
+      element.removeAttribute('src');
+      element.load();
+      resolve(value);
+    };
+    element.onloadedmetadata = () =>
+      done(Number.isFinite(element.duration) ? Math.round(element.duration * 1000) : 0);
+    element.onerror = () => done(0);
+    window.setTimeout(() => done(0), 8000);
+    element.src = url;
+  });
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    Dispatch

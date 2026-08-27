@@ -95,6 +95,159 @@ build, which is what flips the app from "tell the user" to "just update".
 
 ---
 
+## Recording the screen
+
+**New project** on the home screen offers two starts: a blank timeline, or
+a take. The recorder captures a display (or one window) and your camera at
+the same time, and lands them on the timeline as an **edit rather than a
+render**.
+
+That distinction is the whole design. Most screen recorders composite the
+camera into the picture while recording and hand back one flat file, which
+is a dead end: you cannot move the bubble, mute the beeps under your voice,
+or cut the camera away for a moment. Kerf writes two files at full
+resolution and arranges them:
+
+| | |
+| --- | --- |
+| **V1 · Screen** | the display, full frame, resting at scale 1 |
+| **V2 · Camera** | a rounded inset, sized from the camera's own aspect ratio so nothing is stretched |
+| **A1 · Narration** | your microphone, split onto its own track, so cutting the camera does not cut your voice |
+
+The canvas is cut to the display's real aspect ratio, so a 16:10 laptop is
+neither cropped nor letterboxed.
+
+**Sound is paired with the picture it must not drift from.** A
+MediaRecorder guarantees sync inside its own file and nothing across files,
+so the microphone rides with the camera and system audio rides with the
+screen. Put the voice on the screen file instead and lip sync becomes a
+thing that can go wrong. (System audio is a Windows loopback device; macOS
+has none without a third-party extension, and the recorder says so rather
+than recording silence.)
+
+### While it runs
+
+The editor window hides and a small floating bar takes over: timer, pause,
+mark, stop. It is a separate always-on-top window marked
+`setContentProtection(true)`, which is what keeps it out of the recording it
+is controlling (macOS and Windows; on Linux it will appear in the take, and
+the recorder warns you). **Alt+Shift+R** stops and **Alt+Shift+P** pauses,
+from anywhere.
+
+### Where takes live, and what is encrypted
+
+Takes are written straight to `~/Movies/Kerf Recordings/<timestamp>/` as
+they record, chunk by chunk, so memory stays flat however long you run. The
+folder is `0700` and the files inside it `0600`, so no other account on the
+machine can list or read them.
+
+`cursor.json` is **sealed** with AES-256-GCM under a random per-install key
+held at `0600`. It is not the video that is sensitive: it is the sidecar,
+which logs every cursor position at 30Hz and the timing of every keystroke
+of the session. That is a recording of how somebody works, in a file that
+otherwise gets copied and backed up as plain JSON.
+
+The video is deliberately **not** encrypted, and that is a decision rather
+than an omission. A `<video>` element has to open it to preview and ffmpeg —
+a separate process — has to open it to export, so encrypting it would mean
+decrypting the whole file back onto the same disk before every render. It
+would cost real time and buy nothing.
+They are remuxed to MP4 before reaching the timeline: a raw MediaRecorder
+file carries no duration and no seek index, so a `<video>` element reports
+its length as `Infinity` and seeking backwards re-decodes from zero. That
+is not editable footage.
+
+macOS asks for screen recording, camera and microphone access separately.
+The recorder reports each one and opens the right settings pane rather than
+failing into a black stream.
+
+When the take stops you are offered two ways in: **Open raw**, which lays
+the clips down and stops, or **Open with the Tutorial skill**, which is
+everything below. Both leave a project made of ordinary clips, so choosing
+the skill is not a commitment.
+
+## The Tutorial skill
+
+`skills/tutorial/`. One tool, `build_tutorial_from_recording`, so an agent
+can apply it to any take folder too.
+
+### Zooms on real clicks
+
+The frame pushes in on what you clicked, as **ordinary keyframes on the
+screen clip** you can drag, retime or delete one at a time.
+
+Clicks are real clicks. `uiohook-napi` is a prebuilt native binding that
+sees mouse and keyboard events from other applications; on macOS that needs
+Accessibility, and the studio says so and opens the right settings pane. It
+is optional, and its absence is not an error: without it the zoom is placed
+from where the pointer travelled to and stopped, which catches most clicks
+because a click is preceded by a settle. The studio always says which of
+the two is running.
+
+The raw event stream is not what drives the edit. **Runs are.** A burst of
+clicks in one place is one moment held for as long as the burst; typing
+that starts soon after a click extends that click rather than starting a
+second zoom, which is what makes filling in a form read as one idea; a
+scroll is its own kind of moment and gets a gentler push, because reading
+wants a wider frame than pointing.
+
+The curve is an expo-out bezier with a 3% overshoot that settles back over
+140ms. That is most of the feel: `easeInOut` spends as long arriving as it
+does leaving and reads as a slow machine. Zooms chain rather than bounce —
+a second moment arriving before the first has pulled out travels there at
+zoom instead of snapping back to full frame. Motion blur is on while the
+frame moves.
+
+Press **Alt+Shift+Z** during a take to mark a moment yourself. Marks always
+win. Auto zoom needs a whole display; a single-window capture has no frame
+to place the pointer in, and the recorder turns it off and says why.
+
+### The cinematic frame
+
+The picture is inset to 92% on a dark gradient backdrop, with rounded
+corners, a 10% vignette, and a dip from black at the head and to black at
+the tail. When the zoom pushes in, the padding collapses and the content
+fills the frame, which is a move rather than a crop.
+
+The inset also buys the zoom its aim. The pan is normally clamped so the
+edge of the footage never enters frame, and that clamp has a consequence
+worth knowing: **centring a point 10% from the edge needs a scale of five**,
+so a click on a toolbar can only ever get bigger where it is. With a
+backdrop behind the picture there is no background to protect, so the frame
+is allowed to travel 16% further and the corner click is genuinely framed.
+Measured on a synthetic take: 0.13 to 0.30 across the frame.
+
+### The camera takes over on pauses
+
+While you are talking and not doing, the webcam grows from its inset to
+fill the frame, then goes back. Two rules decide when:
+
+- **It must be talking, not merely idle.** A stretch with no speech in it
+  is dead air, and a static face over dead air is worse than a static
+  screen. This is why the transcript is made *before* the edit is built:
+  the words are the only signal that knows where a sentence ends, so the
+  cut lands between sentences rather than mid-word.
+- **The camera must be good enough.** Filling the frame is refused past
+  1.35x enlargement, because a 720p webcam blown up is visibly soft. The
+  studio says so and points at the 1080p setting.
+
+It also never starts while a zoom is still held — found by watching it take
+the frame 700ms after a push, so the zoom was correct and never seen.
+
+### Sound and captions
+
+A tick under every click and air under every zoom, synthesised from
+oscillators and noise by `sfxEngine` and written into the take's own folder
+so they travel with the recording. Quiet enough that you notice their
+absence rather than their presence; the whoosh starts before the picture
+moves, because the ear leads the eye.
+
+The narration is transcribed on device with Whisper and captioned in
+**Inter Bold** on a chip, which is what stays readable over screen content
+where an outline would compete with the type underneath.
+
+---
+
 ## The Copilot
 
 The Copilot panel does not implement an agent. It **runs** one. Each turn
@@ -183,8 +336,49 @@ is 36 checks, and the ones that matter are negative: an unsigned
 callback grants nothing, a replayed one grants nothing twice, and paying
 100 against a 5000 order grants nothing.
 
+### Trials
+
+A publisher sets how many times a skill may be run before it is bought:
+`"trial": { "uses": 3 }` in `skill.json`, `trialUses` in the catalogue.
+Zero means not gated, and bundled skills declare zero rather than omitting
+the field, so "no trial" and "nobody thought about it" do not look the same.
+
+**A trial run buys a subject, not an invocation.** Spend a run turning a
+recording into a tutorial and that recording stays yours: undo it, reopen
+the project, change your mind about the backdrop and apply it again, at no
+further cost, *including after every run is spent*. What costs a second run
+is pointing the skill at different footage, which is the thing a publisher
+is actually selling. A trial that took back what it gave would punish the
+one behaviour it exists to encourage.
+
+The count is held in `userData`, sealed with AES-256-GCM under a random
+per-install key at `0600`. **The useful property is not secrecy, it is
+tamper-evidence**: an edited ledger does not decrypt to a smaller number,
+it fails to decrypt at all, and a failed decrypt is treated as *spent*
+rather than as *fresh*. That single decision is the difference between a
+trial system and a decoration — the natural implementation falls back to
+zero there, which makes corrupting the file a reset button. Ownership is
+checked before the ledger is read at all, so a corrupt counter can never
+lock out somebody who paid.
+
+What it cannot do, said plainly rather than implied: **deleting the ledger
+resets the trials on that machine**, and nothing that also lives on that
+machine could prevent it. The UI says "counted on this computer" for
+exactly that reason. The durable version is server-side against an account,
+which the store already has the tables for. `licenceKey.ts` has said the
+same thing about signatures since it was written: Kerf is MIT, this ships
+as source, and the store's value is updates, verification and convenience
+rather than a lock.
+
+`src/services/trialPolicy.test.ts` is 17 checks on the properties the whole
+thing rests on: a spent trial stays spent including when the file will not
+open, a granted subject does *not* survive a tampered ledger (or asserting
+you had a run before would be enough to get one), and an edited envelope
+fails rather than decrypting to something plausible.
+
 **Not built yet, and named rather than implied:** nothing publishes a
-package, and nothing installs a downloaded one.
+package, nothing installs a downloaded one, and trials are not yet
+recorded against an account.
 
 ---
 
@@ -250,12 +444,19 @@ never overwrite a live release.
 ```
 electron/         main process, preload bridge, auto-updater
   build.mjs       bundles both halves to CommonJS (.cjs, see the file)
+  screenRecorder.ts  capture sources, take files, cursor track, floating bar
+  inputEvents.ts  real clicks from other apps, optional and degradable
+  vault.ts        sealed files at rest; the format is in src/services
+  skillTrials.ts  the sealed trial ledger a publisher's count is kept in
 src/
   components/     UI, organised by region of the window
     ui/icons.ts   the platform icon set, in ONE file so it stays swappable
   engine/         compositor, effects, export, geometry, snapping
                   previewRender.ts renders effect and transition previews
                   through the real compositor, not an illustration
+                  screenCapture.ts / cursorZoom.ts / recordingProject.ts
+                  cinematicLook.ts / recordingSound.ts / tutorialSkill.ts
+                  are the recorder and the skill it feeds
   services/       the store client, session, and licence verification
   store/          zustand stores, the single source of truth
   mcp/            tool registry exposed over MCP

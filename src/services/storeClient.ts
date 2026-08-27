@@ -29,6 +29,16 @@ export interface StoreSkill {
   toolApi: number;
   price: { amount: number; currency: string };
   free: boolean;
+  /**
+   * How many times this may be run before it is bought, set by the
+   * publisher. 0 or absent means no trial: a paid skill with no trial
+   * simply cannot be run until it is owned.
+   *
+   * Optional because the catalogue is served by a Worker that may be
+   * older than this build. An absent field is "no trial", which is the
+   * safe direction: it never hands out runs nobody granted.
+   */
+  trialUses?: number;
   posterUrl: string | null;
   previewUrl: string | null;
   verifiedAt: number | null;

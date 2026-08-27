@@ -1,7 +1,7 @@
 {
   "name": "kerf",
   "version": "1.2.0",
-  "description": "Kerf \u2014 open-source AI video editor with full Model Context Protocol (MCP) integration",
+  "description": "Kerf — open-source AI video editor with full Model Context Protocol (MCP) integration",
   "author": {
     "name": "teminali",
     "email": "muhasibudigital@gmail.com"
@@ -53,6 +53,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.0.1",
+    "uiohook-napi": "^1.5.5",
     "zod": "^3.24.2",
     "zustand": "^5.0.3"
   },

@@ -29,6 +29,7 @@ import { HomeTopBar } from './HomeTopBar';
 import { HomeSidebar, HomeView } from './HomeSidebar';
 import { HeroRow } from './HeroRow';
 import { MoreTools } from './MoreTools';
+import { NewProjectSheet } from './NewProjectSheet';
 import { ProjectsSection } from './ProjectsSection';
 import { SkillsView } from './SkillsView';
 import { useHomeActions } from './homeActions';
@@ -48,6 +49,13 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
   const [view, setView] = React.useState<HomeView>('home');
   const [recoverable, setRecoverable] = React.useState(false);
   const [pickerOpen, setPickerOpen] = React.useState(false);
+  /*
+    "New project" means two things now, so the hero opens a chooser
+    rather than doing one of them. The hero keeps its `data-home`
+    attribute: it is still the same slot, and `verify_home` still starts
+    from it — it now clicks through to `new-blank` or `new-record`.
+  */
+  const [newSheetOpen, setNewSheetOpen] = React.useState(false);
 
   const recents = useRecentsStore((s) => s.recents);
   const forget = useRecentsStore((s) => s.forget);
@@ -150,7 +158,7 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
                wall is a different one and gets air before it. */
             <div className="flex flex-col gap-14">
               <HeroRow
-                onNewProject={actions.newProject}
+                onNewProject={() => setNewSheetOpen(true)}
                 onOpenCopilot={actions.openCopilot}
                 mostRecent={recents[0]}
                 onOpenRecent={actions.openRecent}
@@ -184,6 +192,14 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
           if (file) void actions.openFile(file);
         }}
       />
+
+      {newSheetOpen && (
+        <NewProjectSheet
+          onClose={() => setNewSheetOpen(false)}
+          onBlank={() => { setNewSheetOpen(false); actions.newProject(); }}
+          onRecord={() => { setNewSheetOpen(false); actions.startRecording(); }}
+        />
+      )}
 
       {pickerOpen && (
         <AgentPicker

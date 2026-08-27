@@ -81,7 +81,7 @@ export const HeroRow: React.FC<Props> = ({ onNewProject, onOpenCopilot, mostRece
               New project
             </span>
             <span className="block text-ui-xl text-white/70 mt-1.5">
-              Start from an empty timeline
+              Record your screen, or start from an empty timeline
             </span>
           </span>
 

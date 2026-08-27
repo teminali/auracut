@@ -1,0 +1,183 @@
+{
+  "_comment": [
+    "The second skill, and the format's first real test. beat-montage's",
+    "manifest says every field earned its place by being something the",
+    "by-hand build could not do without, and that the fields a SECOND skill",
+    "turns out to need should be added then rather than designed now.",
+    "",
+    "This one needed one field added and one field omitted. Both are",
+    "explained where they appear, because the interesting thing about a",
+    "format's second user is what it got wrong the first time."
+  ],
+
+  "id": "tutorial",
+  "name": "Tutorial",
+  "version": "1.0.0",
+  "summary": "Turns a screen recording into a finished tutorial: zooms on real clicks, an inset frame, the camera on pauses, captions.",
+
+  "toolApi": 1,
+
+  "requiresTools": [
+    "build_tutorial_from_recording",
+    "describe_timeline",
+    "get_frame_context"
+  ],
+
+  "_noTemplate": [
+    "beat-montage ships template.kerf and opens it as its first recipe step,",
+    "so that a fumbled run still leaves a real project on the timeline. This",
+    "skill deliberately ships NONE, and shipping one would be worse than",
+    "shipping nothing:",
+    "",
+    "  · The canvas is not knowable in advance. It is cut to the recorded",
+    "    display's own aspect ratio so the picture is neither cropped nor",
+    "    letterboxed, and that number comes out of the take.",
+    "  · `build_tutorial_from_recording` calls loadProject([], []) as its",
+    "    first act, because a take must not stack on top of whatever was",
+    "    open. Any template would be wiped one call later.",
+    "",
+    "So the safety net is somewhere else, and it is real: the tool has a",
+    "`raw` mode that lays the take down with no interpretation at all, and",
+    "the recorder offers `Open raw` beside `Open with the Tutorial skill`.",
+    "The buyer's floor is their own footage on a timeline, which is a",
+    "better floor than somebody else's title card."
+  ],
+
+  "trial": { "uses": 0 },
+  "_trial": [
+    "The second field this skill added, and the reason the trial system",
+    "exists at all: a publisher says how many times their skill may be run",
+    "before it is bought, and `electron/skillTrials.ts` counts.",
+    "",
+    "Zero here, and zero means NOT GATED. This skill ships inside Kerf, so",
+    "counting runs of it would be gating somebody out of something they",
+    "already have. The field is declared anyway rather than omitted,",
+    "because 'no trial' and 'nobody thought about it' should not look the",
+    "same in a manifest.",
+    "",
+    "What the count is worth, stated where a publisher will read it: the",
+    "ledger is sealed with AES-GCM and held 0600, so it is tamper-EVIDENT —",
+    "an edited file fails to decrypt and is then treated as SPENT rather",
+    "than as fresh, which is the decision the whole thing turns on. It is",
+    "not tamper-PROOF: deleting the ledger resets the count on that",
+    "machine, and nothing that also lives on that machine can prevent it.",
+    "The durable version is server-side against an account, which the",
+    "store already has the tables for and which is not built yet."
+  ],
+
+  "assets": [],
+  "_assets": [
+    "None, and this is the field that changed. beat-montage ships a music",
+    "bed because a montage needs music it did not record. Everything this",
+    "skill needs, it either finds in the take or SYNTHESISES: the click",
+    "ticks and the zoom air are rendered from oscillators and noise by",
+    "sfxEngine at build time and written into the take's own folder, so",
+    "they travel with the recording rather than with the skill. Nothing to",
+    "license, nothing to download, nothing to 404."
+  ],
+
+  "slots": [
+    {
+      "id": "recording",
+      "kind": "folder",
+      "required": true,
+      "description": "A take folder written by Kerf's screen recorder, holding screen.mp4 and cursor.json."
+    },
+    {
+      "id": "captions",
+      "kind": "boolean",
+      "required": false,
+      "default": true,
+      "description": "Transcribe the narration on device. The words also decide where the camera cuts, so turning this off changes more than the captions."
+    },
+    {
+      "id": "zoomStrength",
+      "kind": "number",
+      "required": false,
+      "default": 1.55,
+      "description": "How hard the frame pushes in on a click. 1.15 is a nudge; 2.4 is aggressive."
+    },
+    {
+      "id": "backdrop",
+      "kind": "enum",
+      "required": false,
+      "default": "graphite",
+      "options": ["graphite", "midnight", "clay", "none"],
+      "description": "What the inset picture sits on."
+    }
+  ],
+  "_slots": [
+    "`kind: enum` with an `options` list is the one field this skill added.",
+    "beat-montage's slots are a folder and a string, and neither needed a",
+    "vocabulary; a backdrop with four values and no list would be a free",
+    "text field that fails on the fifth character somebody types.",
+    "",
+    "`targetClipName` is absent throughout, and that is the other thing a",
+    "second skill teaches: it exists to find a slot's clip inside a",
+    "TEMPLATE. With no template there is nothing to point at, so the slots",
+    "here are all arguments rather than substitutions."
+  ],
+
+  "recipe": [
+    {
+      "tool": "build_tutorial_from_recording",
+      "args": {
+        "folder": "{slot:recording}",
+        "captions": "{slot:captions}",
+        "zoomStrength": "{slot:zoomStrength}",
+        "backdrop": "{slot:backdrop}"
+      }
+    }
+  ],
+  "_recipe": [
+    "One step, and that is the point rather than a shortcut. The work is",
+    "not a sequence of independent edits that happen to run in order: the",
+    "transcript has to exist before the camera cuts are placed, because it",
+    "is the only signal that knows where a sentence ends, and the cuts have",
+    "to exist before the zooms can chain around them. A recipe that",
+    "exposed those as three steps would let a caller run them in an order",
+    "that cannot work, and call the result a skill."
+  ],
+
+  "verify": "verify.py",
+  "_verify": [
+    "13 checks, every one against an artifact rather than a return value.",
+    "The take it runs on is SYNTHESISED with ffmpeg to have known colours —",
+    "a dark red screen with one bright green square in a corner, and a",
+    "solid blue camera — so that every claim the skill makes can be",
+    "measured as a change in what is on the canvas:",
+    "",
+    "  · the zoom is real, because the green square occupies several times",
+    "    more of the frame at the moment of the click than it does at rest;",
+    "  · it is aimed, because the square lands near the CENTRE rather than",
+    "    merely getting bigger;",
+    "  · the camera takeover is real, because the frame is blue during the",
+    "    pause and is not blue on either side of it;",
+    "  · the frame is inset, because the backdrop is visible at the edges",
+    "    at rest and gone once the zoom is in;",
+    "  · and the sounds are real files on the timeline, not a count.",
+    "",
+    "The colours are the method, not a convenience. A montage that reported",
+    "fifteen shots on the beat while rendering fifteen seconds of black has",
+    "happened in this codebase, and every suite here has been written since",
+    "on the rule that a tool's own report is not evidence."
+  ],
+
+  "provenance": {
+    "author": "kerf",
+    "builtWith": "Kerf 1.2.0",
+    "builtAt": "2026-08-27",
+    "verifiedOn": "macOS arm64"
+  },
+
+  "_notInHereYet": [
+    "Still absent, and still deliberately: no dependency graph (one step),",
+    "no pricing or entitlement (that is the store), and no install",
+    "lifecycle. New this time and worth naming: no way to declare a",
+    "REQUIREMENT that is not a tool. This skill is better with Whisper",
+    "installed and works without it, and the manifest has nowhere to say",
+    "so — `requiresTools` is a hard list, and 'better with' is not that.",
+    "The tool reports it at runtime instead. If a third skill needs the",
+    "same thing, that is when the field should exist."
+  ]
+}

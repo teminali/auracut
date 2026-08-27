@@ -25,6 +25,14 @@ files:
   - dist-electron/**/*
   - package.json
   - '!**/*.map'
+  # Everything else is bundled by esbuild, so node_modules is not shipped
+  # — except this. `uiohook-napi` is a native binding: esbuild leaves it
+  # external, so the real package has to be in the archive, and only the
+  # prebuilt binary for THIS platform is worth carrying.
+  - node_modules/uiohook-napi/dist/**/*
+  - node_modules/uiohook-napi/package.json
+  - node_modules/uiohook-napi/prebuilds/${platform}-${arch}/**/*
+  - node_modules/node-gyp-build/**/*
 
 # Anything a SEPARATE PROCESS has to open has to exist as a real file.
 # Paths inside app.asar are not spawnable and not readable — asar is a
@@ -41,6 +49,10 @@ files:
 # Unpacking puts a copy under app.asar.unpacked; `ffmpegSource()` in
 # electron/mediaPath.ts is what redirects the path to it.
 asarUnpack:
+  # A .node binary is dlopen'd by the OS loader, which does not understand
+  # asar. Inside the archive it is a slice of one file and the load fails
+  # with a path error that reads like a missing module.
+  - node_modules/uiohook-napi/**
   - dist-electron/mcpStdio.cjs
   - dist/assets/*.{wav,mp3,m4a,aac,ogg,flac,opus,mp4,mov,webm,mkv,m4v}
 
@@ -68,6 +80,20 @@ mac:
       arch: [arm64, x64]
   darkModeSupport: true
   hardenedRuntime: true
+  # macOS refuses a camera or microphone to a hardened-runtime app whose
+  # Info.plist does not say what it wants them for, and the refusal is a
+  # CRASH rather than a denied prompt. The screen recorder needs both.
+  #
+  # Screen capture itself has no usage-description key and no API to ask
+  # with: it is granted in System Settings and takes effect on the next
+  # launch. `recorder:requestPermission` opens that pane.
+  extendInfo:
+    NSCameraUsageDescription: >-
+      Kerf records your camera alongside your screen while you are making a
+      screen recording, and at no other time.
+    NSMicrophoneUsageDescription: >-
+      Kerf records your microphone alongside your screen while you are making a
+      screen recording, and at no other time.
   # Applied only when a real identity signs; ad-hoc builds get the
   # entitlements too, which is what keeps V8's JIT working locally.
   gatekeeperAssess: false

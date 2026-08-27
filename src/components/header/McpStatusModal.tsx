@@ -43,8 +43,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
               running
             </span>
           </div>
-          <button onClick={onClose} className="pro-btn w-6 h-6">
-            aria-label="Close"
+          <button onClick={onClose} className="pro-btn w-6 h-6" aria-label="Close">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>

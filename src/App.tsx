@@ -19,6 +19,7 @@ import { PreviewPlayer } from './components/preview/PreviewPlayer';
 import { InspectorPanel } from './components/inspector/InspectorPanel';
 import { Timeline } from './components/timeline/Timeline';
 import { CopilotDrawer } from './components/copilot/CopilotDrawer';
+import { RecorderStudio } from './components/recorder/RecorderStudio';
 import { ExportModal } from './components/header/ExportModal';
 import { CommandPalette } from './components/ui/CommandPalette';
 import { ContextMenu } from './components/ui/ContextMenu';
@@ -159,6 +160,14 @@ export const App: React.FC = () => {
     return (
       <div className="h-screen w-screen bg-spectrum-bg text-spectrum-text overflow-hidden font-sans">
         <HomeScreen onEnterEditor={() => setShowHome(false)} />
+        {/*
+          Mounted on BOTH screens, and driven by its own store rather
+          than by which one is showing. A take started from home can only
+          finish in the editor, and the window is hidden for most of the
+          time in between — so the studio has to outlive the screen it
+          was opened from.
+        */}
+        <RecorderStudio onEnterEditor={() => setShowHome(false)} />
         <Toasts />
       </div>
     );
@@ -240,6 +249,7 @@ export const App: React.FC = () => {
       </div>
 
       {/* Overlays */}
+      <RecorderStudio onEnterEditor={() => setShowHome(false)} />
       <ExportModal />
       <CommandPalette />
       <ShortcutsOverlay />

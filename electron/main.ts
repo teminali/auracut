@@ -14,6 +14,8 @@ import { startExport, writeFrame, finishExport, cancelExport, ExportClipAudio, S
 import { ffmpegSource } from './mediaPath';
 import { execFile } from 'child_process';
 import { startRpcServer } from './rpcServer';
+import { initScreenRecorder, shutdownScreenRecorder } from './screenRecorder';
+import { initSkillTrials } from './skillTrials';
 import { initCrashLog, logEvent, crashLogPath } from './crashLog';
 import {
   startSession, stopSession, resetSession, isRunning, findClaudeCli, getCliVersion,
@@ -515,6 +517,14 @@ app.whenReady().then(() => {
   initToolBridge();
   registerAgentIpc();
   registerCrashIpc();
+  /*
+    Passed as a getter, not as the window. `createWindow` runs AFTER
+    this and reassigns `mainWindow` on every relaunch from the dock, so
+    a captured reference would be the FIRST window for the rest of the
+    session — and the recorder would hide a window nobody is looking at.
+  */
+  initScreenRecorder(() => mainWindow);
+  initSkillTrials();
   // Only once the port is actually ours — see rpcServer's listen callback.
   startRpcServer(() => writeMcpConfig());
   createWindow();
@@ -531,3 +541,11 @@ app.whenReady().then(() => {
   explicit "I am done", not an accident.
 */
 app.on('window-all-closed', () => app.quit());
+
+/*
+  A recording holds three things that MUST NOT outlive the process: a
+  global shortcut (which would keep Alt+Shift+R away from every other
+  app on the machine), an always-on-top window, and open file handles.
+  `will-quit` is the last point all three are still reachable.
+*/
+app.on('will-quit', () => shutdownScreenRecorder());

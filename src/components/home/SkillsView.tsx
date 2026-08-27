@@ -23,10 +23,12 @@ import React from 'react';
 import { useAccountStore } from '../../store/accountStore';
 import { useUiStore } from '../../store/uiStore';
 import { formatPrice, type StoreSkill } from '../../services/storeClient';
+import { trialStatus } from '../../services/skillTrials';
+import type { TrialStatus } from '../../types/electron';
 import { SignInDialog } from './SignInDialog';
 import { BuySheet } from './BuySheet';
 import {
-  Blocks, BadgeCheck, Check, Loader2, WifiOff, ShieldAlert, Download,
+  Blocks, BadgeCheck, Check, Loader2, WifiOff, ShieldAlert, Download, Timer,
 } from '../ui/icons';
 
 export const SkillsView: React.FC = () => {
@@ -38,12 +40,35 @@ export const SkillsView: React.FC = () => {
   const claimFree = useAccountStore((s) => s.claimFree);
   const pushToast = useUiStore((s) => s.pushToast);
 
+  const [trials, setTrials] = React.useState<Record<string, TrialStatus>>({});
   const [signInOpen, setSignInOpen] = React.useState(false);
   const [buying, setBuying] = React.useState<StoreSkill | null>(null);
   const [claiming, setClaiming] = React.useState<string | null>(null);
 
   const ownedFor = (s: StoreSkill) =>
     owned.find((o) => o.skillId === s.id && o.majorVersion === s.majorVersion);
+
+  /*
+    How many trial runs are left, asked of the sealed ledger in main
+    rather than tracked here. The renderer is not allowed to be the one
+    that counts: a number in a React state is a number a page can
+    change, and the whole point of the ledger is that the count is not
+    editable by whatever is showing it.
+  */
+  React.useEffect(() => {
+    let cancelled = false;
+    const gated = skills.filter((s) => (s.trialUses ?? 0) > 0 && !s.free);
+    void Promise.all(
+      gated.map(async (skill) => [
+        skill.id,
+        await trialStatus(skill.id, skill.trialUses ?? 0, Boolean(ownedFor(skill))),
+      ] as const)
+    ).then((entries) => {
+      if (!cancelled) setTrials(Object.fromEntries(entries));
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skills, owned]);
 
   const act = async (skill: StoreSkill) => {
     if (status !== 'signed_in') { setSignInOpen(true); return; }
@@ -141,6 +166,26 @@ export const SkillsView: React.FC = () => {
                 <p className="text-micro text-spectrum-textFaint mt-2">
                   {skill.author} · v{skill.latestVersion} · tool API {skill.toolApi}
                 </p>
+
+                {!isOwned && trials[skill.id] && trials[skill.id].reason !== 'not-gated' && (
+                  <div
+                    className={`flex items-start gap-1.5 mt-2 ${
+                      trials[skill.id].canRun ? 'text-spectrum-textDim' : 'text-spectrum-amber'
+                    }`}
+                  >
+                    <Timer className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
+                    <span className="text-micro leading-snug">
+                      {trials[skill.id].message}
+                      {/* Said plainly, because the alternative is implying a
+                          guarantee that does not exist: the count is on this
+                          machine and deleting it resets it. A publisher
+                          reading "3 runs" should know what kind of 3 it is. */}
+                      {trials[skill.id].trialsAreLocal && trials[skill.id].canRun
+                        ? ' Counted on this computer.'
+                        : ''}
+                    </span>
+                  </div>
+                )}
 
                 {mine && mine.licenceState !== 'valid' && (
                   <div className="flex items-start gap-1.5 mt-2 text-spectrum-amber">

@@ -143,8 +143,9 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
       <div onClick={(e) => e.stopPropagation()} className="modal-shell w-[430px] max-w-[92vw]">
         <div className="panel-header">
           <span className="text-ui font-semibold text-spectrum-text">Copilot agent</span>
-          <button onClick={onClose} className="pro-btn w-6 h-6"><X className="w-3.5 h-3.5" /></button>
-            aria-label="Close the agent picker"
+          <button onClick={onClose} className="pro-btn w-6 h-6" aria-label="Close the agent picker">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
 
         <div className="p-2.5 space-y-1.5 max-h-[62vh] overflow-y-auto">

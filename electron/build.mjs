@@ -20,9 +20,17 @@ const shared = {
   bundle: true,
   platform: 'node',
   target: 'node20',
-  // Electron and anything with native bindings must stay external — they
-  // are resolved from the runtime, not bundled into it.
-  external: ['electron', 'electron-updater', 'electron-log'],
+  /*
+    Electron and anything with native bindings must stay external — they
+    are resolved from the runtime, not bundled into it.
+
+    `uiohook-napi` is the only native module here, and it is the reason
+    `files:` in electron-builder.yml ships a slice of node_modules at all.
+    esbuild cannot bundle a .node binary, and even the JS wrapper must
+    stay external so its `node-gyp-build` lookup resolves against the
+    real directory rather than against a rewritten path inside main.cjs.
+  */
+  external: ['electron', 'electron-updater', 'electron-log', 'uiohook-napi'],
   sourcemap: process.env.NODE_ENV !== 'production',
   logLevel: 'info',
   define: {

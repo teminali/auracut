@@ -108,8 +108,12 @@ export const ExportModal: React.FC = () => {
             <Download className="w-3.5 h-3.5 text-spectrum-accent" />
             <span className="text-ui font-semibold text-spectrum-text">Export</span>
           </div>
-          <button onClick={() => setOpen(false)} disabled={isExporting} className="pro-btn w-6 h-6">
+          <button
+            onClick={() => setOpen(false)}
+            disabled={isExporting}
+            className="pro-btn w-6 h-6"
             aria-label="Close the export dialog"
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>

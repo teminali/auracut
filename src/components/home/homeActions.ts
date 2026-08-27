@@ -12,6 +12,7 @@ import { useLayoutStore, SidebarTab } from '../../store/layoutStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
+import { useRecorderStore } from '../../store/recorderStore';
 import { RecentProject } from '../../store/recentsStore';
 import { buildStarterProject } from '../../engine/starterProject';
 import { deserializeProject, restoreAutosave } from '../../engine/projectIO';
@@ -20,6 +21,8 @@ import { INITIAL_PROJECT } from '../../mcp/defaultMedia';
 export interface HomeActions {
   /** Empty timeline, fresh settings, straight into the editor. */
   newProject: () => void;
+  /** Open the recorder. The project is built from the take, not from here. */
+  startRecording: () => void;
   /** Enter the editor with one of its eight panels already open. */
   openPanel: (tab: SidebarTab) => void;
   /** Enter the editor with the Copilot drawer open. */
@@ -55,6 +58,17 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
     setActiveTab('media');
     onEnterEditor();
   }, [onEnterEditor, setActiveTab]);
+
+  /*
+    Opens the studio and stops. Nothing about the project is decided
+    yet — the canvas size comes from the display that gets captured, the
+    clips from the files that get written — so there is deliberately no
+    `loadProject` here. `assembleRecording` builds the whole thing at the
+    end, from a take that exists.
+  */
+  const startRecording = useCallback(() => {
+    useRecorderStore.getState().open();
+  }, []);
 
   const openPanel = useCallback(
     (tab: SidebarTab) => {
@@ -147,7 +161,7 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
   }, [onEnterEditor, pushToast]);
 
   return useMemo(
-    () => ({ newProject, openPanel, openCopilot, openRecent, openFile, recover }),
-    [newProject, openPanel, openCopilot, openRecent, openFile, recover]
+    () => ({ newProject, startRecording, openPanel, openCopilot, openRecent, openFile, recover }),
+    [newProject, startRecording, openPanel, openCopilot, openRecent, openFile, recover]
   );
 }

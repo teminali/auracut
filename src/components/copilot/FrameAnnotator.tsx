@@ -279,8 +279,7 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
               {frame.timecode} · frame {frame.frameNumber}
             </span>
           </div>
-          <button onClick={onClose} className="pro-btn w-6 h-6">
-            aria-label="Close the annotator"
+          <button onClick={onClose} className="pro-btn w-6 h-6" aria-label="Close the annotator">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>

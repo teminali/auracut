@@ -3130,6 +3130,11 @@ node-api-version@^0.2.1:
   dependencies:
     semver "^7.3.5"
 
+node-gyp-build@^4.8.4:
+  version "4.8.4"
+  resolved "https://registry.npmjs.org/node-gyp-build/-/node-gyp-build-4.8.4.tgz"
+  integrity sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==
+
 node-gyp@^12.2.0:
   version "12.4.0"
   resolved "https://registry.npmjs.org/node-gyp/-/node-gyp-12.4.0.tgz"
@@ -4230,6 +4235,13 @@ typescript@^5.7.3, typescript@>=2.7:
   version "5.9.3"
   resolved "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz"
   integrity sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==
+
+uiohook-napi@^1.5.5:
+  version "1.5.5"
+  resolved "https://registry.npmjs.org/uiohook-napi/-/uiohook-napi-1.5.5.tgz"
+  integrity sha512-oSlTdnECw2GBfsJPTbBQBeE4v/EXP0EZmX6BJq5nzH/JgFaBE8JpFwEA/kLhiEP7HxQw28FViWiYgdIZzWuuJQ==
+  dependencies:
+    node-gyp-build "^4.8.4"
 
 undici-types@~6.21.0:
   version "6.21.0"

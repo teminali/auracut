@@ -14,5 +14,13 @@
     <!-- Importing media the user picks, and writing renders back out. -->
     <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
+    <!-- The screen recorder. Screen capture itself is a TCC grant with no
+         entitlement; the camera and the microphone need both, and under
+         the hardened runtime the missing entitlement kills the process
+         rather than denying the device. -->
+    <key>com.apple.security.device.camera</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
   </dict>
 </plist>

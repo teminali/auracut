@@ -132,10 +132,15 @@ SUITES = [
     # excused in writing, and every "patch_clip covers it" is proven by
     # driving patch_clip.
     'verify_tool_coverage',
-    # The home screen, driven through the real DOM. Last, because it is
-    # the only suite that navigates the app rather than only calling
-    # tools, and it restores the launch state on the way out.
+    # The home screen, driven through the real DOM. Last of the tool
+    # suites, because it is the only one that navigates the app rather
+    # than only calling tools, and it restores the launch state on the
+    # way out.
     'verify_home',
+    # A skill's own verification is a suite like any other, and is
+    # registered here so it cannot quietly rot. It synthesises its own
+    # take with ffmpeg and measures the result in pixels.
+    'skills/tutorial/verify',
 ]
 
 # Suites that shell out to ffmpeg/ffprobe themselves. Named so that a
@@ -144,7 +149,8 @@ SUITES = [
 NEEDS_FFMPEG = {'verify_audio', 'verify_ffmpeg_bridge',
                 'verify_playback_audio', 'verify_frame_context',
                 'verify_montage', 'verify_reference_analysis',
-                'verify_hardening', 'verify_tracks', 'verify_clip_ops'}
+                'verify_hardening', 'verify_tracks', 'verify_clip_ops',
+                'skills/tutorial/verify'}
 
 SUMMARY_RE = re.compile(r'^\s*(\d+)\s*/\s*(\d+)\s')
 BAD_LINE_RE = re.compile(r'^\s*(FAIL\b|ERROR\b|failing:)')
@@ -448,9 +454,23 @@ def judge(name, code, out):
     return True, n, m, summary_line, ''
 
 
+def suite_path(name):
+    """Where a suite lives.
+
+    A plain name is one of this folder's `verify_*.py`. A name with a
+    slash is a path from the repo root, which is how a SKILL's own
+    verification is registered: `skills/tutorial/verify` is as much a
+    check that must not rot as anything in tools/, and leaving it to be
+    run by hand is how it rots.
+    """
+    if '/' in name:
+        return os.path.join(ROOT, f'{name}.py')
+    return os.path.join(TOOLS, f'{name}.py')
+
+
 def run_suite(name, port, timeout, log_dir):
     r = Result(name)
-    path = os.path.join(TOOLS, f'{name}.py')
+    path = suite_path(name)
     if not os.path.isfile(path):
         r.reason = f'no such suite: {path}'
         return r
@@ -567,7 +587,7 @@ def preflight(vite_url, launching, suites):
     else:
         print('  ffmpeg        ffmpeg, ffprobe on PATH')
 
-    missing = [s for s in suites if not os.path.isfile(os.path.join(TOOLS, f'{s}.py'))]
+    missing = [s for s in suites if not os.path.isfile(suite_path(s))]
     if missing:
         print(f'{YELLOW}  suites        {len(missing)} named suite(s) do not exist: '
               f'{", ".join(missing)} — each is a FAILURE below{OFF}')
@@ -661,7 +681,14 @@ def main():
         # A suite may be given as a path (that is how the failure path is
         # exercised); show the basename so one long argument does not
         # stretch every column.
-        labels = {n: os.path.basename(n)[:34] for n in suites}
+        # `os.path.basename` alone turns `skills/tutorial/verify` into
+        # `verify`, which is the one row nobody could identify. A suite
+        # registered by path is labelled by the folder it belongs to.
+        labels = {
+            n: (f'{os.path.basename(os.path.dirname(n))} skill'[:34]
+                if '/' in n else os.path.basename(n)[:34])
+            for n in suites
+        }
         width = max(len(v) for v in labels.values())
         for name in suites:
             print(f'  {labels[name]:<{width}}  {DIM}running…{OFF}', end='\r', flush=True)

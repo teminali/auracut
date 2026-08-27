@@ -14,6 +14,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { BrowserWindow, ipcMain } from 'electron';
+import { recorderBarWindow } from './screenRecorder';
 import { registerFolderScan } from './folderScan';
 
 export interface ToolCallResult {
@@ -125,22 +126,38 @@ export interface WindowCapture {
   note?: string;
 }
 
-export async function captureWindow(): Promise<WindowCapture> {
-  if (!targetWindow || targetWindow.isDestroyed()) {
-    return { pngBase64: null, visibility: 'no-window', stale: true, note: 'Kerf is not running.' };
+export async function captureWindow(target: 'app' | 'recorder-bar' = 'app'): Promise<WindowCapture> {
+  /*
+    The recorder bar is its own window and cannot be screenshotted from
+    outside the app at all — `setContentProtection(true)` is what keeps
+    it out of the recording, and the OS applies that to every capture.
+    `capturePage()` draws from Electron's own compositor, so it is the
+    only way to look at the bar.
+  */
+  const window = target === 'recorder-bar' ? recorderBarWindow() : targetWindow;
+
+  if (!window || window.isDestroyed()) {
+    return {
+      pngBase64: null,
+      visibility: 'no-window',
+      stale: true,
+      note: target === 'recorder-bar'
+        ? 'The recorder bar is not open; it exists only while a take is running.'
+        : 'Kerf is not running.',
+    };
   }
 
   // A fixed expression, not caller input — this is not `debug/eval`.
   let visibility = 'unknown';
   try {
     visibility = String(
-      await targetWindow.webContents.executeJavaScript('document.visibilityState')
+      await window.webContents.executeJavaScript('document.visibilityState')
     );
   } catch {
     /* the page may be mid-navigation; 'unknown' is the honest answer */
   }
 
-  const image = await targetWindow.webContents.capturePage();
+  const image = await window.webContents.capturePage();
   const stale = visibility !== 'visible';
 
   return {

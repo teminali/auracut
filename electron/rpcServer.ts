@@ -116,7 +116,11 @@ export function startRpcServer(onReady?: () => void): http.Server {
           return;
 
         case 'debug/capture':
-          send(res, 200, { result: await captureWindow() });
+          send(res, 200, {
+            result: await captureWindow(
+              params?.window === 'recorder-bar' ? 'recorder-bar' : 'app'
+            ),
+          });
           return;
 
         default:

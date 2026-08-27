@@ -67,6 +67,19 @@
     height: 100%;
   }
 
+  /*
+    The floating recorder bar is its own BrowserWindow, transparent and
+    frameless, loaded from this same bundle. A body painted with --stage
+    would fill that window with a dark rectangle and the rounded pill
+    inside it would sit on a hard-edged square.
+  */
+  html.recorder-bar-window,
+  html.recorder-bar-window body,
+  html.recorder-bar-window #root {
+    background: transparent;
+    overflow: hidden;
+  }
+
   body {
     background-color: var(--stage);
     color: var(--text);

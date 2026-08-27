@@ -1127,7 +1127,7 @@ Kerf's own things:
 | account card | the agent connection — the one thing Kerf connects to |
 | Join Pro | Open project… |
 | Templates / Spaces nav | Skills, which says in writing that it is not built |
-| New project hero | New project — and it now really makes a new project |
+| New project hero | New project — a chooser now, blank timeline or a screen recording (§7a) |
 | Video Studio card | the Copilot |
 | ad carousel (right rail) | the most recent project, poster and all |
 | ad card (sidebar foot) | unsaved work to recover, or nothing |
@@ -1323,6 +1323,195 @@ an icon package**. Both had already been broken once.
 
 Note that `stroke-[N]` and `strokeWidth` do NOTHING to a Phosphor glyph
 — it is a filled path, not a stroked one. Use `weight`.
+
+---
+
+## 7a. The screen recorder
+
+`New project` on the home screen is a chooser rather than an action:
+**Blank timeline**, or **Record the screen**. `NewProjectSheet.tsx` is
+the chooser; everything under it is new.
+
+| Where | What it owns |
+|---|---|
+| `electron/screenRecorder.ts` | the source list, the take files, the cursor track, the floating bar |
+| `src/engine/screenCapture.ts` | the MediaRecorders, because only a renderer can hold a MediaStream |
+| `src/engine/cursorZoom.ts` | turning a cursor track into zoom moments and keyframes |
+| `src/engine/recordingProject.ts` | a finished take, turned into a project |
+| `src/store/recorderStore.ts` | the one place a take can be started or stopped |
+| `src/components/recorder/` | the studio, its options rail, and the floating bar |
+
+**The claim the whole thing rests on: a recording arrives as an EDIT,
+not as a render.** Every part of the assembled project is built from the
+same store actions the UI and the MCP tools use — tracks, clips, a
+transform, a mask, keyframes, markers — so there is nothing in a take an
+agent cannot then take apart. That rules out the shortcut every other
+screen recorder takes, which is to composite the camera into the picture
+while recording and hand over one flat file. Much less code, and a dead
+end: you cannot move the bubble, resize it, duck the music under the
+voice, or cut the camera away for a moment.
+
+Four decisions worth not re-litigating:
+
+**Two files, and which sound goes in which.** A MediaRecorder guarantees
+sync inside its own file and nothing across files, so each recorder is
+given the picture and the sound that must not drift from each other: the
+microphone rides with the camera, system audio rides with the screen.
+Put the voice on the screen file and lip sync becomes a thing that can
+go wrong. The camera clip is then pushed along the timeline by
+`cameraOffsetMs`, measured from both `onstart` timestamps rather than
+assumed to be zero.
+
+**Every take goes through ffmpeg before it reaches the timeline.** Not
+cosmetic. A raw MediaRecorder file carries no duration in its header and
+no cue index, so an `<video>` element reports `duration: Infinity` and
+seeking backwards re-decodes from zero. H.264 is preferred for recording
+precisely so the remux can be a stream copy; VP9 falls back to a
+transcode, which on a long 4K take is minutes rather than a second.
+
+**The auto zoom is not a click stream, and never says it is.** Nothing
+in Electron reports a mouse button pressed in another application;
+detecting one needs a system-wide event tap, which is a native module
+and, on macOS, an invisible Accessibility permission. A feature that
+silently produces nothing until you find a switch nobody told you about
+is worse than one that says what it measures. So it measures ATTENTION,
+from the only signal available: `screen.getCursorScreenPoint()` at 30Hz.
+Travel, then stillness. That catches clicks, because a click is preceded
+by a settle; it misses a click made without moving first, and the UI
+says so. `Alt+Shift+Z` marks a moment by hand, and marks always win.
+
+**The floating bar is a second BrowserWindow, and that is the point.**
+The editor window hides during a take, so the bar is the only control
+there is — and it is marked `setContentProtection(true)`, which is what
+keeps it out of the recording it is controlling. That is also why it
+cannot be screenshotted from outside the app, so `debug/capture` takes
+`{"window": "recorder-bar"}` and renders it from Electron's own
+compositor.
+
+Two things that were found by running it rather than reading it, and
+are pinned in `cursorZoom.test.ts` and in the capture code:
+
+  * `track.getSettings()` said 1920x1246 and the encoder wrote
+    **1918**x1246. Two pixels, and enough to matter: the canvas is cut
+    to the take's aspect ratio so the screen clip can rest at scale 1
+    with nothing cropped, and a canvas two pixels wider puts it at
+    0.9989 and a one-pixel line of background down two edges. The
+    finished file is probed for its real dimensions.
+  * `loadProject([], [])` does not clear `mediaPool`, so a new recording
+    opened onto the seed project's six demo stills with the take
+    somewhere among them. The assembler empties the pool. **The blank
+    New project still has this**, and it is a gap rather than a fix.
+
+macOS: screen capture, camera and microphone are three separate TCC
+grants. Only the last two have an ask-for API; screen capture is granted
+in System Settings and takes effect on the next launch, so the studio
+opens that pane rather than pretending it can ask.
+
+---
+
+## 7b. The Tutorial skill, and what it forced
+
+`skills/tutorial/`, one tool (`build_tutorial_from_recording`), and the
+second real test of the skill format. Three things it forced are worth
+carrying forward.
+
+**A skill can legitimately have no template.** beat-montage ships one so
+a fumbled run still leaves a project on the timeline. This one cannot:
+the canvas is cut to the recorded display's aspect ratio, so it is not
+knowable in advance, and the tool's first act is `loadProject([], [])`,
+so any template would be wiped one call later. The floor is somewhere
+else and it is better: a `raw` mode, offered in the recorder beside the
+skill, that lays the take down with no interpretation. The buyer's worst
+case is their own footage rather than somebody else's title card.
+
+**The manifest needed `kind: enum` with an options list**, because a
+backdrop with four values and no vocabulary is a free text field that
+fails on the fifth character. And `targetClipName` turned out to exist
+only to find a slot's clip inside a template, so with no template the
+slots are all arguments rather than substitutions.
+
+**The recipe is one step on purpose.** The transcript has to exist before
+the camera cuts are placed, and the cuts before the zooms chain around
+them. Exposing those as three steps would let a caller run them in an
+order that cannot work and call the result a skill.
+
+### What the skill actually does, and the three findings behind it
+
+Zooms are placed on REAL clicks. `uiohook-napi` is a prebuilt N-API
+binding, so no compile step and no Electron ABI to match; it is required
+lazily inside a try/catch and every failure returns a reason. macOS
+throws `UIOHOOK_ERROR_AXAPI_DISABLED` synchronously when Accessibility
+is not granted, which is a clean catchable failure and the reason this
+was worth building on. Without it the cursor-settle detector runs and
+the studio says which one it is.
+
+**It does not use uiohook's coordinates.** libuiohook's space varies by
+platform and display scale, which would silently put every zoom in the
+wrong place on a Retina screen. `screen.getCursorScreenPoint()` at the
+instant of the event is authoritative and is already the space the
+cursor track is in.
+
+Three things found by running it rather than reading it:
+
+  * **The pan clamp made the zoom pointless on edge clicks.** Centring a
+    point 10% from the frame edge needs a scale of FIVE, so at any sane
+    zoom a toolbar click merely got bigger where it was: measured at
+    0.13 across the frame before and 0.14 after. The clamp exists to
+    stop the project background showing, and with the cinematic backdrop
+    behind the picture there is no background to stop — so the travel is
+    extended by 16% of the canvas and the same click now lands at 0.30.
+  * **The camera took the frame 700ms after a push.** A quiet stretch
+    begins when INPUT stops, and the picture keeps moving for a second
+    or two after that. `keepClearOfZooms` moves each stretch past the
+    zoom that is still in flight; without it the zoom was correct and
+    never seen.
+  * **The sound assets were never in the pool.** `prepareSoundKit` runs
+    before the transaction (it renders audio and writes files), and
+    `assembleRecording` empties the media pool right after
+    `loadProject` — which happens in between. Five sound clips were
+    playing off two pool entries. Registration moved to placement.
+
+### Trials and encryption
+
+`electron/skillTrials.ts` counts runs against the publisher's
+`trial.uses`; `electron/vault.ts` seals the ledger with AES-256-GCM
+under a random per-install key at 0600.
+
+**A run buys a SUBJECT, not an invocation.** For this skill the subject is
+a take, identified by a content hash so moving the folder does not
+quietly charge again. Re-applying the skill to footage a run already
+covered is free forever, including after every run is spent — so a trial
+never takes back what it gave, and the thing that costs is new footage,
+which is what a publisher is selling. The one sharp edge: `alreadyGranted`
+is a claim READ FROM the ledger, so it is refused when the ledger did not
+open. Honouring it there would mean corrupting the file and asserting you
+had a run before was enough to get one.
+
+**The other decision this turns on: an unreadable ledger is SPENT, not
+fresh.** The natural implementation reads the counter, fails, and falls
+back to zero, which makes corrupting the file a reset button and the
+whole feature decorative. Ownership is checked BEFORE the ledger is
+read, so a corrupt counter can never lock out somebody who paid.
+
+The format and the decision are both pure modules in `src/services/`
+precisely so they can be tested without an app: `trialPolicy.test.ts` is
+17 checks, and the ones that matter assert that a tampered envelope
+fails rather than decrypting to something plausible, that a broken
+ledger refuses rather than resets, and that a granted subject does not
+survive that refusal.
+
+What this cannot do is written into the code and into the UI rather than
+left to be discovered: deleting the ledger resets the count on that
+machine, nothing that also lives on that machine could prevent it, and
+the durable version is server-side against an account. `licenceKey.ts`
+has said the same about signatures since it was written.
+
+A take's `cursor.json` is sealed under the same machinery, and the video
+deliberately is not. It is not the video that is sensitive — it is the
+sidecar, which logs every cursor position at 30Hz and the timing of
+every keystroke. Encrypting the video would mean decrypting it back onto
+the same disk before every export, which costs real time and buys
+nothing. Take folders are 0700 and their files 0600.
 
 ---
 

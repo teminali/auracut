@@ -51,6 +51,131 @@ export interface ClaudeEvent {
   [key: string]: unknown;
 }
 
+/* ── Screen recording ─────────────────────────────────────────────
+   Main owns the source list, the files and the cursor track; the
+   renderer owns the MediaRecorder, because only it can hold a
+   MediaStream. These are the shapes that cross between them.        */
+
+/** One capturable display or window, as `desktopCapturer` sees it. */
+export interface RecorderSource {
+  id: string;
+  name: string;
+  kind: 'screen' | 'window';
+  displayId: number | null;
+  /** Real captured pixels. Null for a window, whose size is only known once its stream starts. */
+  width: number | null;
+  height: number | null;
+  scaleFactor: number;
+  primary: boolean;
+  thumbnail: string | null;
+  icon: string | null;
+}
+
+export type MediaAccess = 'not-determined' | 'granted' | 'denied' | 'restricted' | 'unknown';
+
+export interface RecorderPermissions {
+  platform: string;
+  screen: MediaAccess;
+  camera: MediaAccess;
+  microphone: MediaAccess;
+  /** False on Linux, where the control bar cannot be kept out of the capture. */
+  barHiddenFromCapture: boolean;
+  /** Whether zooms can be placed on real clicks rather than inferred. */
+  input: InputCaptureStatus;
+}
+
+/**
+ * One cursor position.
+ *
+ * `x` and `y` are normalised against the captured display and are NOT
+ * clamped: outside 0..1 means the pointer was on another display and is
+ * not in frame at all, which the analyser has to be able to tell from
+ * "parked against the left edge".
+ */
+export interface CursorSample {
+  /** Milliseconds into the recording, with paused time already removed. */
+  tMs: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * One real input event, from `electron/inputEvents.ts`.
+ *
+ * `x` and `y` do NOT come from the input hook: libuiohook's coordinate
+ * space varies with platform and display scale, so main reads
+ * `screen.getCursorScreenPoint()` at the instant of the event instead —
+ * the same space the cursor track is in, and at a click the pointer IS
+ * the click point.
+ */
+export interface InputEvent {
+  /** Milliseconds into the recording, with paused time already removed. */
+  tMs: number;
+  kind: 'click' | 'rightclick' | 'scroll' | 'key';
+  x: number;
+  y: number;
+}
+
+export type InputCaptureReason = 'ready' | 'not-installed' | 'needs-accessibility' | 'failed';
+
+export interface InputCaptureStatus {
+  ok: boolean;
+  source: 'events' | 'cursor-only';
+  reason: InputCaptureReason;
+  /** One sentence, written for the person reading the studio. */
+  message: string;
+}
+
+export interface RecordedFile {
+  path: string;
+  /** A `file://` URL a `<video>` element can load. Empty when nothing was written. */
+  url: string;
+  bytes: number;
+  /** True when this is still the raw MediaRecorder .webm, because ffmpeg could not convert it. */
+  raw: boolean;
+  error?: string;
+}
+
+/** What main hands back when a take stops. */
+export interface RecordingResult {
+  ok: true;
+  dir: string;
+  durationMs: number;
+  files: Partial<Record<'screen' | 'camera', RecordedFile>>;
+  cursor: CursorSample[];
+  /** Real clicks, scrolls and keystrokes. Empty when the hook could not run. */
+  events: InputEvent[];
+  /** Moments the user marked by hand during the take, in recording ms. */
+  marks: number[];
+  /** False for a window capture, where cursor coordinates cannot be mapped into the frame. */
+  cursorTracked: boolean;
+  scaleFactor: number;
+}
+
+/**
+ * How many runs of a skill on trial are left.
+ *
+ * `trialsAreLocal` is returned with every answer and is always true for
+ * now: the ledger lives on this machine, so deleting it resets the
+ * count. The UI says so rather than implying a stronger guarantee than
+ * the one that exists. See `electron/skillTrials.ts`.
+ */
+export interface TrialStatus {
+  skillId: string;
+  /** What the publisher allows. 0 means the skill is not gated at all. */
+  allowed: number;
+  used: number;
+  remaining: number;
+  canRun: boolean;
+  /* 'granted' means an earlier run already covered this subject, so it
+     costs nothing. 'unlimited' was in this union and the policy never
+     produced it; a value no code path can return is a branch every
+     reader has to rule out by hand. */
+  reason: 'owned' | 'not-gated' | 'granted' | 'trial' | 'exhausted' | 'tampered';
+  message: string;
+  trialsAreLocal: boolean;
+}
+
 export interface KerfElectronAPI {
   openMediaDialog: () => Promise<string[] | null>;
   saveExportDialog: (defaultName: string) => Promise<string | null>;
@@ -122,12 +247,75 @@ export interface KerfElectronAPI {
     }>;
   };
 
+  /**
+   * Screen and camera capture. See `src/engine/screenCapture.ts` for the
+   * renderer half and `electron/screenRecorder.ts` for this one.
+   */
+  recorder: {
+    sources: (thumbWidth?: number) => Promise<{ ok: boolean; error?: string; sources: RecorderSource[] }>;
+    permissions: () => Promise<RecorderPermissions>;
+    requestPermission: (kind: 'camera' | 'microphone' | 'screen' | 'accessibility')
+      => Promise<{ granted: boolean; opened: boolean }>;
+    begin: (opts: { streams: ('screen' | 'camera')[]; displayId: number | null; hideWindow: boolean })
+      => Promise<
+        | { ok: true; sessionId: string; dir: string; cursorTracked: boolean;
+            shortcuts: string[]; barHiddenFromCapture: boolean; input: InputCaptureStatus }
+        | { ok: false; error: string }
+      >;
+    chunk: (sessionId: string, stream: 'screen' | 'camera', bytes: Uint8Array)
+      => Promise<{ ok: boolean; bytes?: number; error?: string }>;
+    pause: (sessionId: string, paused: boolean) => Promise<{ ok: boolean; elapsedMs?: number }>;
+    finish: (sessionId: string, copyable: boolean)
+      => Promise<RecordingResult | { ok: false; error: string }>;
+    cancel: (sessionId: string, discard: boolean)
+      => Promise<{ ok: boolean; dir?: string; discarded?: boolean }>;
+    /** Write generated bytes into a take folder, so the take stays self-contained. */
+    writeTakeAsset: (dir: string, name: string, bytes: Uint8Array)
+      => Promise<{ ok: boolean; path?: string; url?: string; bytes?: number; error?: string }>;
+    /** A take's cursor.json, decrypted if it is sealed. */
+    readManifest: (dir: string) => Promise<
+      | { ok: true; manifest: Record<string, unknown> }
+      | { ok: false; error: string; reason?: string }
+    >;
+    reveal: (path: string) => Promise<boolean>;
+    publishState: (state: Record<string, unknown>) => Promise<boolean>;
+    barCommand: (action: string) => Promise<boolean>;
+    onCommand: (cb: (p: { action: string; source: string }) => void) => () => void;
+    onState: (cb: (state: Record<string, unknown>) => void) => () => void;
+  };
+
+  project: {
+    read: (path: string) => Promise<{ ok: boolean; json?: string; error?: string }>;
+    write: (path: string, json: string) => Promise<{ ok: boolean; bytes?: number; error?: string }>;
+  };
+
+  ffmpeg: {
+    process: (opts: {
+      input: string; vf?: string; af?: string; fps?: number;
+      codec?: 'h264' | 'prores'; noAudio?: boolean; audioOnly?: boolean; name?: string;
+    }) => Promise<{ ok: boolean; path?: string; bytes?: number; error?: string }>;
+  };
+
   crash: {
     /** Record a renderer failure in the log file main owns. */
     report: (payload: { message: string; detail?: string; source?: string })
       => Promise<{ ok: boolean; logPath: string }>;
     logPath: () => Promise<string>;
   };
+  /** Trial runs of a paid skill, counted in a sealed ledger main owns. */
+  trials: {
+    /**
+     * `scope` identifies WHAT the run is for, so a run already spent on
+     * that subject does not cost another. For the tutorial skill it is
+     * the take: keep editing what you made, pay again for new footage.
+     */
+    status: (skillId: string, allowed: number, owned: boolean, scope?: string)
+      => Promise<TrialStatus>;
+    consume: (skillId: string, allowed: number, owned: boolean, scope?: string)
+      => Promise<{ ok: boolean; status: TrialStatus }>;
+    clearBought: (skillId: string) => Promise<{ ok: boolean }>;
+  };
+
   ui: {
     setScreen: (screen: 'home' | 'editor') => Promise<boolean>;
     onGoHome: (cb: () => void) => () => void;
