@@ -250,6 +250,63 @@ check('6 · at the right aspect, undistorted', abs((w / h) - (9 / 16)) < 0.02 if
       f'{w}/{h} = {w/h:.4f}, want {9/16:.4f}  — the compositor scaled non-uniformly and squashed the picture')
 check('6 · "1080p" means the SHORT edge', w == 1080, f'short edge {w}px')
 
+# ── 7. undo restores STATE, not just a count ────────────────────────
+#      Not one of §8's six. Added because the history snapshot is about
+#      to change from a deep clone to a shared reference, and the only
+#      existing coverage was "a clip survives a 3-step undo" — which a
+#      history restoring the right NUMBER of wrong clips would pass.
+#
+#      Measured on LUMA rather than on the store: a white rectangle at
+#      opacity 1.0 is brighter than the same rectangle at 0.4, so the
+#      undo has to be visible in the picture. A store that walked its
+#      history back without the compositor following would pass a
+#      store-only check and fail this one.
+ok(call('reset_project', {'name': 'h7', 'aspectRatio': '16:9', 'fps': 30,
+                          'backgroundColor': '#000000', 'durationMs': 4000}), 'reset')
+t7 = ok(call('add_track', {'type': 'video', 'name': 'H'}), 't')['trackId']
+c7 = ok(call('add_shape_layer', {'kind': 'rectangle', 'trackId': t7, 'startTimeMs': 0,
+                                 'durationMs': 4000, 'style': {'fill': '#ffffff'}}), 's')['clipId']
+ok(call('patch_clip', {'clipId': c7, 'properties': {'transform.scaleX': 3, 'transform.scaleY': 3}}), 'p')
+
+def bright():
+    settle(100)
+    return float(luma(pixels(frame(100))).mean())
+
+steps = []
+for value in (0.8, 0.5, 0.25):
+    ok(call('patch_clip', {'clipId': c7, 'properties': {'opacity': value}}), 'p')
+    steps.append(bright())
+
+check('7 · each edit changed the picture',
+      steps[0] > steps[1] > steps[2] and steps[0] - steps[2] > 8,
+      f'luma {steps[0]:.1f} -> {steps[1]:.1f} -> {steps[2]:.1f} at opacity 0.8/0.5/0.25')
+
+ok(call('undo', {'steps': 1}), 'undo')
+one = bright()
+check('7 · one undo restores the PREVIOUS state, not just a clip',
+      abs(one - steps[1]) < 2.0,
+      f'luma {one:.1f} after 1 undo, want {steps[1]:.1f} (the 0.5 state)')
+
+ok(call('undo', {'steps': 2}), 'undo')
+allback = bright()
+check('7 · three undos walk back through every edit',
+      allback > steps[0] + 3,
+      f'luma {allback:.1f}, brighter than the first edit at {steps[0]:.1f} — back to opacity 1.0')
+
+# Deep history: many commits, then walk a long way back.
+ok(call('reset_project', {'name': 'h7b', 'aspectRatio': '16:9', 'fps': 30, 'durationMs': 4000}), 'reset')
+t7b = ok(call('add_track', {'type': 'video', 'name': 'H'}), 't')['trackId']
+for i in range(30):
+    ok(call('add_shape_layer', {'kind': 'rectangle', 'trackId': t7b, 'startTimeMs': i * 100,
+                                'durationMs': 300, 'style': {'fill': '#ffffff'}}), 's')
+def clip_count():
+    d = ok(call('describe_timeline', {}), 'd')
+    return sum(len(tr.get('clips', [])) for tr in d['tracks'])
+full = clip_count()
+ok(call('undo', {'steps': 20}), 'undo')
+check('7 · 20 undos across 30 commits land exactly', clip_count() == full - 20,
+      f'{full} clips -> {clip_count()}, want {full - 20}')
+
 n = sum(results)
 print(f"\n{n}/{len(results)} hardening checks passed")
 if n != len(results):

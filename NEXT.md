@@ -161,7 +161,7 @@ Note also that Vite HMR full-reloads the page on some edits, which resets
 ### Verifying
 
 ```bash
-npm run verify          # all twelve suites, 298 checks, own Kerf, exits non-zero
+npm run verify          # all twelve suites, 322 checks, own Kerf, exits non-zero
 npm test                # 166 unit tests, no app needed
 ```
 
@@ -442,9 +442,40 @@ blind.
   a React component made to throw during render — all four recorded with
   stacks, and the crash screen screenshotted.
 - **Windows and Linux.** CI builds them; nobody has run either.
-- **Performance at scale.** Long timelines, hundreds of clips, memory over
-  a long session — all still unmeasured. The export is now instrumented;
-  nothing else is.
+- ~~**Performance at scale**~~ — **measured, and it found an O(n^2).**
+  `tools/measure_scale.py` reports the power-law exponent rather than
+  milliseconds, because §2 is the story of absolute timings on this
+  machine being untrustworthy. `k~1` is linear and fine; `k~2` means
+  something looks at every clip for every clip.
+
+  The renderer was never the problem — `get_frame_context` is **flat**
+  (6.3ms at 25 clips and at 400) and compositing is flat at
+  0.03–0.07ms/frame, which is what HANDOVER §3b already said. **Building
+  the timeline was `k=1.57`**: every tool call commits, and every commit
+  `structuredClone`d the entire timeline for the undo history.
+
+        400 clips   build 2659ms -> 277ms      k 1.57 -> 0.91
+        heap        +48.0MB      -> -0.2MB
+
+  Fixed by storing a REFERENCE rather than a clone. The store is wrapped
+  in immer, so the previous state is already immutable with structural
+  sharing — the clone was making a second copy of something nothing could
+  mutate. The `unchanged` test in `commitTransaction` is reference
+  equality now too, exact instead of `JSON.stringify` and O(1) instead of
+  O(clips).
+
+  **The invariant it rests on:** every write to `tracks`/`markers` goes
+  through `set`. That is what immer is for; a direct mutation outside
+  `set` would corrupt undo and was already a bug.
+
+  Found on the way: **undo needed two presses per action.** Five tools
+  made two committing store writes (`addShapeLayer` then the `patchClip`
+  that styles it), so one call left two entries on the stack — ten shapes
+  took twenty undos, one disappearing every second press.
+  `create_grid_layout` was paying it three times per cell. They run
+  inside a transaction now, and `verify_hardening.py` §7 walks undo back
+  through rendered luma so a store that undid without redrawing would
+  fail.
 - **The altitude tools** (Stage 3.9) — **five of six are done.**
   `apply_look_preset`, `batch_apply`, `create_picture_in_picture`,
   `auto_montage_to_beats` and `assemble_from_folder` shipped in `adb77e0`,

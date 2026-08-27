@@ -358,11 +358,30 @@ function packTrack(track: Track): void {
  * MUST be called with the finalised store state from `get()`, never with an
  * immer draft — `structuredClone` throws on the draft's Proxy objects.
  */
+/**
+ * A point in history. NOT a copy — a reference.
+ *
+ * This used to `structuredClone` the entire timeline on every commit,
+ * and every tool call commits. So building a project cost O(clips) per
+ * call and O(clips^2) overall: 43ms for 25 clips against 2.4 SECONDS for
+ * 400, measured by `tools/measure_scale.py`. The history also held up to
+ * `HISTORY_LIMIT` complete copies, which is where +48MB of heap at 400
+ * clips was going.
+ *
+ * The clone was redundant. This store is wrapped in `immer`, so every
+ * `set` produces a NEW tracks array and leaves the old one untouched —
+ * the previous state is already an immutable snapshot, with structural
+ * sharing so the parts that did not change are not duplicated at all.
+ * Cloning it threw that sharing away to produce a second copy of
+ * something nothing could mutate.
+ *
+ * **The invariant this rests on:** every write to `tracks` or `markers`
+ * goes through `set`. That is what immer is for and what the whole store
+ * already does; a direct mutation outside `set` would corrupt undo, and
+ * would already have been a bug for other reasons.
+ */
 function snapshot(state: Pick<TimelineState, 'tracks' | 'markers'>): { tracks: Track[]; markers: TimelineMarker[] } {
-  return {
-    tracks: structuredClone(state.tracks) as Track[],
-    markers: structuredClone(state.markers) as TimelineMarker[],
-  };
+  return { tracks: state.tracks, markers: state.markers };
 }
 
 /* ── motion presets ─────────────────────────────────────────────── */
@@ -515,11 +534,18 @@ export const useTimelineStore = create<TimelineStore>()(
 
       const before = state.txSnapshot;
 
-      // Nothing actually changed — don't pollute the undo stack.
+      /*
+        Nothing actually changed — don't pollute the undo stack.
+
+        Reference equality, not `JSON.stringify`. immer returns the SAME
+        array when a producer made no change, so this is exact rather
+        than approximate — and it is O(1) where stringifying the whole
+        timeline twice was O(clips) on every transaction.
+      */
       const unchanged =
         before !== null &&
-        JSON.stringify(before.tracks) === JSON.stringify(state.tracks) &&
-        JSON.stringify(before.markers) === JSON.stringify(state.markers);
+        before.tracks === state.tracks &&
+        before.markers === state.markers;
 
       if (!before || unchanged) {
         set((s) => { s.txDepth = 0; s.txSnapshot = null; });

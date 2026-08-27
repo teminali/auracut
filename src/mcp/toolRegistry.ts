@@ -78,6 +78,48 @@ function defineTool<S extends z.ZodTypeAny>(tool: KerfTool<S>): void {
 const timeline = () => useTimelineStore.getState();
 const project = () => useProjectStore.getState();
 
+/**
+ * Make a handler's several store writes ONE undoable edit.
+ *
+ * `addShapeLayer` commits, and the `patchClip` that styles the shape it
+ * just made commits again — so one tool call left TWO entries on the
+ * undo stack and the user had to press undo twice to remove one shape.
+ * Measured before this: ten `add_shape_layer` calls took twenty undos to
+ * walk back, one clip disappearing on every second press.
+ *
+ * It is also the cheaper path. Every commit deep-clones the whole
+ * timeline for the history, so halving the commits halves that cost —
+ * and `create_grid_layout` was paying it three times per cell.
+ *
+ * The store already had the mechanism (`beginTransaction` makes the
+ * caller own the snapshot boundary); nothing was using it.
+ */
+function asOneEdit<T>(label: string, fn: () => T): T {
+  timeline().beginTransaction();
+  try {
+    const out = fn();
+    timeline().commitTransaction(label);
+    return out;
+  } catch (err) {
+    // Leave no half-finished edit behind, and no dangling transaction
+    // depth that would swallow every later commit.
+    timeline().cancelTransaction();
+    throw err;
+  }
+}
+
+async function asOneEditAsync<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  timeline().beginTransaction();
+  try {
+    const out = await fn();
+    timeline().commitTransaction(label);
+    return out;
+  } catch (err) {
+    timeline().cancelTransaction();
+    throw err;
+  }
+}
+
 /** Resolve a clip reference: an id, "selected", or a fuzzy name match. */
 function resolveClipId(ref?: string): string {
   const state = timeline();
@@ -706,27 +748,30 @@ defineTool({
     style: z.record(z.any()).optional().describe('textStyle overrides, e.g. {"fontSize": 96, "color": "#ff0"}'),
   }),
   handler: ({ text, trackId, startTimeMs, durationMs, style }) => {
-    const state = timeline();
-    const tid = trackId ? resolveTrackId(trackId) : (state.tracks.find((t) => t.type === 'text')?.id ?? state.tracks[0].id);
-    const id = state.addTextLayer(tid, text, startTimeMs ?? state.playheadMs, durationMs ?? 4000);
+    return asOneEdit('Add text', () => {
+      const state = timeline();
+      const tid = trackId ? resolveTrackId(trackId) : (state.tracks.find((t) => t.type === 'text')?.id ?? state.tracks[0].id);
+      const id = state.addTextLayer(tid, text, startTimeMs ?? state.playheadMs, durationMs ?? 4000);
 
-    const warnings: string[] = [];
-    if (style) {
-      const patch: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(style)) patch[k.startsWith('textStyle.') ? k : `textStyle.${k}`] = v;
+      const warnings: string[] = [];
+      if (style) {
+        const patch: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(style)) patch[k.startsWith('textStyle.') ? k : `textStyle.${k}`] = v;
 
-      /* An unavailable family is accepted by the browser and rendered in
-         the default face, so the agent would report a font it did not get. */
-      const family = patch['textStyle.fontFamily'];
-      if (typeof family === 'string' && !isFontAvailable(family)) {
-        warnings.push(
-          `"${family}" is not installed on this machine, so the text will render in the default face. ` +
-          'Call list_fonts to see what is available.'
-        );
+        /* An unavailable family is accepted by the browser and rendered in
+           the default face, so the agent would report a font it did not get. */
+        const family = patch['textStyle.fontFamily'];
+        if (typeof family === 'string' && !isFontAvailable(family)) {
+          warnings.push(
+            `"${family}" is not installed on this machine, so the text will render in the default face. ` +
+            'Call list_fonts to see what is available.'
+          );
+        }
+        state.patchClip(id, patch);
       }
-      state.patchClip(id, patch);
-    }
-    return { clipId: id, text, ...(warnings.length ? { warnings } : {}) };
+      return { clipId: id, text, ...(warnings.length ? { warnings } : {}) };
+  
+    });
   },
 });
 
@@ -742,21 +787,24 @@ defineTool({
     style: z.record(z.any()).optional().describe('shapeStyle overrides, e.g. {"fill": "#4c9dff", "cornerRadius": 40}'),
   }),
   handler: ({ kind, trackId, startTimeMs, durationMs, style }) => {
-    const state = timeline();
-    const tid = trackId ? resolveTrackId(trackId) : (state.selectedTrackId ?? state.tracks[0].id);
-    const id = state.addShapeLayer(
-      tid,
-      oneOf(kind, SHAPE_KINDS, 'shape'),
-      startTimeMs ?? state.playheadMs,
-      durationMs ?? 3000
-    );
+    return asOneEdit('Add shape', () => {
+      const state = timeline();
+      const tid = trackId ? resolveTrackId(trackId) : (state.selectedTrackId ?? state.tracks[0].id);
+      const id = state.addShapeLayer(
+        tid,
+        oneOf(kind, SHAPE_KINDS, 'shape'),
+        startTimeMs ?? state.playheadMs,
+        durationMs ?? 3000
+      );
 
-    if (style) {
-      const patch: Record<string, unknown> = {};
-      for (const [k, v] of Object.entries(style)) patch[k.startsWith('shapeStyle.') ? k : `shapeStyle.${k}`] = v;
-      state.patchClip(id, patch);
-    }
-    return { clipId: id, kind };
+      if (style) {
+        const patch: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(style)) patch[k.startsWith('shapeStyle.') ? k : `shapeStyle.${k}`] = v;
+        state.patchClip(id, patch);
+      }
+      return { clipId: id, kind };
+  
+    });
   },
 });
 
@@ -1523,44 +1571,47 @@ defineTool({
     'what, so the basis is checkable. Returns nothing rather than guessing.',
   schema: z.object({ insert: z.boolean().optional().describe('Also place the suggestions on the overlay track') }),
   handler: ({ insert }) => {
-    const state = timeline();
-    const report = analyzeTranscriptForBroll(state.tracks, state.mediaPool);
+    return asOneEdit('Insert b-roll', () => {
+      const state = timeline();
+      const report = analyzeTranscriptForBroll(state.tracks, state.mediaPool);
 
-    if (report.suggestions.length === 0) {
-      /* A tool that cannot do the job says so and records why, instead of
-         returning a confident list of irrelevant stock footage. */
-      useGapStore.getState().record({
-        request: 'Suggest B-roll cutaways for the dialogue',
-        reason: report.note ?? 'Nothing in the media pool matched the captions.',
-        suggestion: 'A searchable stock library, or embedding-based matching instead of word overlap',
-      });
-      return { count: 0, inserted: false, suggestions: [], note: report.note, unmatchedWords: report.unmatched };
-    }
+      if (report.suggestions.length === 0) {
+        /* A tool that cannot do the job says so and records why, instead of
+           returning a confident list of irrelevant stock footage. */
+        useGapStore.getState().record({
+          request: 'Suggest B-roll cutaways for the dialogue',
+          reason: report.note ?? 'Nothing in the media pool matched the captions.',
+          suggestion: 'A searchable stock library, or embedding-based matching instead of word overlap',
+        });
+        return { count: 0, inserted: false, suggestions: [], note: report.note, unmatchedWords: report.unmatched };
+      }
 
-    let inserted = 0;
-    if (insert) {
-      const overlay = state.tracks.find((t) => t.type === 'overlay') ?? state.tracks[0];
-      for (const suggestion of report.suggestions) {
-        const clipId = state.insertClip(overlay.id, suggestion.mediaAsset, suggestion.startTimeMs);
-        if (clipId) {
-          state.patchClip(clipId, { durationMs: suggestion.durationMs });
-          inserted++;
+      let inserted = 0;
+      if (insert) {
+        const overlay = state.tracks.find((t) => t.type === 'overlay') ?? state.tracks[0];
+        for (const suggestion of report.suggestions) {
+          const clipId = state.insertClip(overlay.id, suggestion.mediaAsset, suggestion.startTimeMs);
+          if (clipId) {
+            state.patchClip(clipId, { durationMs: suggestion.durationMs });
+            inserted++;
+          }
         }
       }
-    }
 
-    return {
-      count: report.suggestions.length,
-      inserted,
-      suggestions: report.suggestions.map((x) => ({
-        asset: x.mediaAsset.name,
-        atMs: x.startTimeMs,
-        durationMs: x.durationMs,
-        matchedWord: x.keyword,
-        reason: x.reason,
-      })),
-      ...(report.unmatched.length ? { unmatchedWords: report.unmatched } : {}),
-    };
+      return {
+        count: report.suggestions.length,
+        inserted,
+        suggestions: report.suggestions.map((x) => ({
+          asset: x.mediaAsset.name,
+          atMs: x.startTimeMs,
+          durationMs: x.durationMs,
+          matchedWord: x.keyword,
+          reason: x.reason,
+        })),
+        ...(report.unmatched.length ? { unmatchedWords: report.unmatched } : {}),
+      };
+  
+    });
   },
 });
 
@@ -2973,50 +3024,53 @@ defineTool({
     volume: z.number().min(0).max(2).optional(),
   }),
   handler: async ({ kind, seconds, insert, atMs, volume }) => {
-    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
-    if (!api?.media) {
-      throw new Error('Generating audio needs the desktop app — the file has to reach the disk.');
-    }
+    return asOneEditAsync('Generate sound effect', async () => {
+      const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+      if (!api?.media) {
+        throw new Error('Generating audio needs the desktop app — the file has to reach the disk.');
+      }
 
-    const wanted = oneOf(kind, SFX_CATALOGUE.map((s) => s.kind), 'sound effect');
-    const rendered = await renderSfx(wanted, seconds);
+      const wanted = oneOf(kind, SFX_CATALOGUE.map((s) => s.kind), 'sound effect');
+      const rendered = await renderSfx(wanted, seconds);
 
-    /*
-      Written to a real file rather than kept as a blob URL: ffmpeg cannot
-      read `blob:`, so an in-memory sound would play in the preview and be
-      missing from the export with nothing to indicate why.
-    */
-    const filePath = await api.media.writeTemp(`${wanted}_${rendered.durationMs}ms.wav`, rendered.wav);
+      /*
+        Written to a real file rather than kept as a blob URL: ffmpeg cannot
+        read `blob:`, so an in-memory sound would play in the preview and be
+        missing from the export with nothing to indicate why.
+      */
+      const filePath = await api.media.writeTemp(`${wanted}_${rendered.durationMs}ms.wav`, rendered.wav);
 
-    const state = timeline();
-    const asset: MediaAsset = {
-      id: `asset_sfx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
-      name: `${rendered.label} ${(rendered.durationMs / 1000).toFixed(2)}s`,
-      type: 'audio',
-      url: `file://${encodeURI(filePath)}`,
-      thumbnailUrl: '',
-      durationMs: rendered.durationMs,
-      fileSizeFormatted: `${Math.round(rendered.wav.byteLength / 1024)} KB`,
-      codec: 'WAV 48kHz 16-bit · synthesised',
-    };
-    state.addMediaAsset(asset);
+      const state = timeline();
+      const asset: MediaAsset = {
+        id: `asset_sfx_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+        name: `${rendered.label} ${(rendered.durationMs / 1000).toFixed(2)}s`,
+        type: 'audio',
+        url: `file://${encodeURI(filePath)}`,
+        thumbnailUrl: '',
+        durationMs: rendered.durationMs,
+        fileSizeFormatted: `${Math.round(rendered.wav.byteLength / 1024)} KB`,
+        codec: 'WAV 48kHz 16-bit · synthesised',
+      };
+      state.addMediaAsset(asset);
 
-    let clipId: string | undefined;
-    if (insert) {
-      const trackId = resolveTrackId('audio');
-      clipId = state.insertClip(trackId, asset, atMs ?? state.playheadMs);
-      if (clipId && volume !== undefined) state.patchClip(clipId, { 'audio.volume': volume });
-    }
+      let clipId: string | undefined;
+      if (insert) {
+        const trackId = resolveTrackId('audio');
+        clipId = state.insertClip(trackId, asset, atMs ?? state.playheadMs);
+        if (clipId && volume !== undefined) state.patchClip(clipId, { 'audio.volume': volume });
+      }
 
-    return {
-      assetId: asset.id,
-      name: asset.name,
-      kind: wanted,
-      durationMs: rendered.durationMs,
-      path: filePath,
-      synthesised: true,
-      ...(clipId ? { clipId } : {}),
-    };
+      return {
+        assetId: asset.id,
+        name: asset.name,
+        kind: wanted,
+        durationMs: rendered.durationMs,
+        path: filePath,
+        synthesised: true,
+        ...(clipId ? { clipId } : {}),
+      };
+  
+    });
   },
 });
 
@@ -3182,126 +3236,129 @@ defineTool({
     audioFromCell: z.number().int().optional().describe('1-based cell index that keeps audio; omit to mute all'),
   }),
   handler: ({ assetIds, rows, columns, startTimeMs, durationMs, gapPx, audioFromCell }) => {
-    const state = timeline();
-    const proj = project().project;
+    return asOneEdit('Create grid layout', () => {
+      const state = timeline();
+      const proj = project().project;
 
-    const cells = rows * columns;
-    if (assetIds.length === 0) throw new Error('Give at least one asset for the grid.');
-    if (assetIds.length > cells) {
-      throw new Error(
-        `${assetIds.length} assets will not fit a ${rows}×${columns} grid (${cells} cells). ` +
-        `Increase rows/columns or pass fewer assets.`
-      );
-    }
-
-    const start = startTimeMs ?? state.playheadMs;
-    const dur = durationMs ?? 5000;
-    const gap = gapPx ?? 0;
-
-    /*
-      Scale UNIFORMLY by the larger of the two ratios so each clip covers
-      its cell, then crop the overflow with a mask. Scaling x and y
-      independently would fit the cell exactly and squash every face in
-      the shot — correct arithmetic, wrong picture.
-    */
-    const scale = Math.max(1 / columns, 1 / rows);
-    const cellW = proj.width / columns;
-    const cellH = proj.height / rows;
-
-    const placed: {
-      cell: number; clipId: string; assetName: string;
-      cropPct: { x: number; y: number };
-    }[] = [];
-    const cellWarnings: string[] = [];
-
-    assetIds.forEach((ref, index) => {
-      const asset =
-        state.mediaPool.find((a) => a.id === ref) ??
-        state.mediaPool.find((a) => a.name.toLowerCase().includes(ref.toLowerCase()));
-      if (!asset) {
-        throw new Error(`No media asset "${ref}". Available: ${state.mediaPool.map((a) => a.name).join(', ')}`);
+      const cells = rows * columns;
+      if (assetIds.length === 0) throw new Error('Give at least one asset for the grid.');
+      if (assetIds.length > cells) {
+        throw new Error(
+          `${assetIds.length} assets will not fit a ${rows}×${columns} grid (${cells} cells). ` +
+          `Increase rows/columns or pass fewer assets.`
+        );
       }
 
-      const row = Math.floor(index / columns);
-      const col = index % columns;
-
-      const trackId = state.addTrack('video', `Grid ${row + 1}·${col + 1}`);
-      const clipId = state.insertClip(trackId, asset, start);
+      const start = startTimeMs ?? state.playheadMs;
+      const dur = durationMs ?? 5000;
+      const gap = gapPx ?? 0;
 
       /*
-        The crop has to come from THIS clip's real box, not from the canvas.
-        `cover` fills the frame without distorting, so a portrait source in a
-        landscape project ends up far taller than the frame — assume the box
-        is canvas-sized and the mask does nothing, and that cell spills over
-        its neighbours. (Observed: a 4K portrait clip rendered 1609px tall in
-        a 540px cell.)
+        Scale UNIFORMLY by the larger of the two ratios so each clip covers
+        its cell, then crop the overflow with a mask. Scaling x and y
+        independently would fit the cell exactly and squash every face in
+        the shot — correct arithmetic, wrong picture.
       */
-      const placedClip = findClipById(timeline().tracks, clipId);
+      const scale = Math.max(1 / columns, 1 / rows);
+      const cellW = proj.width / columns;
+      const cellH = proj.height / rows;
 
-      /*
-        Measure the box the clip will have AFTER this patch, not the one
-        it has now. `insertClip` gives image assets `fitMode: 'contain'`
-        (55% of the frame) and the patch below switches them to 'cover'
-        (which fills it). Measuring first meant the crop was computed
-        against a box roughly half the final size, so it came out over
-        100%, clamped to 100 — no crop at all — and then the clip grew
-        and spilled across its neighbours.
+      const placed: {
+        cell: number; clipId: string; assetName: string;
+        cropPct: { x: number; y: number };
+      }[] = [];
+      const cellWarnings: string[] = [];
 
-        It was invisible for as long as the sample assets were mislabelled
-        as video, because video already took the 'cover' path.
-      */
-      const base = placedClip
-        ? getClipBaseSize({ ...placedClip, fitMode: 'cover' }, proj, getNaturalSize(placedClip))
-        : { width: proj.width, height: proj.height };
+      assetIds.forEach((ref, index) => {
+        const asset =
+          state.mediaPool.find((a) => a.id === ref) ??
+          state.mediaPool.find((a) => a.name.toLowerCase().includes(ref.toLowerCase()));
+        if (!asset) {
+          throw new Error(`No media asset "${ref}". Available: ${state.mediaPool.map((a) => a.name).join(', ')}`);
+        }
 
-      const boxW = base.width * scale;
-      const boxH = base.height * scale;
-      const maskX = Math.min(100, ((cellW - gap) / boxW) * 100);
-      const maskY = Math.min(100, ((cellH - gap) / boxH) * 100);
+        const row = Math.floor(index / columns);
+        const col = index % columns;
 
-      const patched = state.patchClip(clipId, {
-        name: `Grid ${row + 1}·${col + 1} · ${asset.name}`,
+        const trackId = state.addTrack('video', `Grid ${row + 1}·${col + 1}`);
+        const clipId = state.insertClip(trackId, asset, start);
+
+        /*
+          The crop has to come from THIS clip's real box, not from the canvas.
+          `cover` fills the frame without distorting, so a portrait source in a
+          landscape project ends up far taller than the frame — assume the box
+          is canvas-sized and the mask does nothing, and that cell spills over
+          its neighbours. (Observed: a 4K portrait clip rendered 1609px tall in
+          a 540px cell.)
+        */
+        const placedClip = findClipById(timeline().tracks, clipId);
+
+        /*
+          Measure the box the clip will have AFTER this patch, not the one
+          it has now. `insertClip` gives image assets `fitMode: 'contain'`
+          (55% of the frame) and the patch below switches them to 'cover'
+          (which fills it). Measuring first meant the crop was computed
+          against a box roughly half the final size, so it came out over
+          100%, clamped to 100 — no crop at all — and then the clip grew
+          and spilled across its neighbours.
+
+          It was invisible for as long as the sample assets were mislabelled
+          as video, because video already took the 'cover' path.
+        */
+        const base = placedClip
+          ? getClipBaseSize({ ...placedClip, fitMode: 'cover' }, proj, getNaturalSize(placedClip))
+          : { width: proj.width, height: proj.height };
+
+        const boxW = base.width * scale;
+        const boxH = base.height * scale;
+        const maskX = Math.min(100, ((cellW - gap) / boxW) * 100);
+        const maskY = Math.min(100, ((cellH - gap) / boxH) * 100);
+
+        const patched = state.patchClip(clipId, {
+          name: `Grid ${row + 1}·${col + 1} · ${asset.name}`,
+          durationMs: dur,
+          fitMode: 'cover',
+          'transform.scaleX': scale,
+          'transform.scaleY': scale,
+          // Cell centre, expressed as an offset from the canvas centre.
+          'transform.x': Math.round((col + 0.5) * cellW - proj.width / 2),
+          'transform.y': Math.round((row + 0.5) * cellH - proj.height / 2),
+          'mask.enabled': true,
+          'mask.type': 'rectangle',
+          'mask.sizeX': maskX,
+          'mask.sizeY': maskY,
+          'mask.offsetX': 0,
+          'mask.offsetY': 0,
+          'audio.volume': audioFromCell === index + 1 ? 1 : 0,
+        });
+
+        /* This used to discard patchClip's errors entirely, so a cell that
+           failed to crop reported the same success as one that worked. */
+        if (patched.errors.length > 0) {
+          cellWarnings.push(`Cell ${index + 1} (${asset.name}): ${patched.errors.join('; ')}`);
+        }
+
+        placed.push({
+          cell: index + 1,
+          clipId,
+          assetName: asset.name,
+          // Reporting the crop makes the framing checkable without a render.
+          cropPct: { x: Number(maskX.toFixed(1)), y: Number(maskY.toFixed(1)) },
+        });
+      });
+
+      return {
+        layout: `${rows}×${columns}`,
+        cellsFilled: placed.length,
+        cellsEmpty: cells - placed.length,
+        startTimeMs: start,
         durationMs: dur,
-        fitMode: 'cover',
-        'transform.scaleX': scale,
-        'transform.scaleY': scale,
-        // Cell centre, expressed as an offset from the canvas centre.
-        'transform.x': Math.round((col + 0.5) * cellW - proj.width / 2),
-        'transform.y': Math.round((row + 0.5) * cellH - proj.height / 2),
-        'mask.enabled': true,
-        'mask.type': 'rectangle',
-        'mask.sizeX': maskX,
-        'mask.sizeY': maskY,
-        'mask.offsetX': 0,
-        'mask.offsetY': 0,
-        'audio.volume': audioFromCell === index + 1 ? 1 : 0,
-      });
-
-      /* This used to discard patchClip's errors entirely, so a cell that
-         failed to crop reported the same success as one that worked. */
-      if (patched.errors.length > 0) {
-        cellWarnings.push(`Cell ${index + 1} (${asset.name}): ${patched.errors.join('; ')}`);
-      }
-
-      placed.push({
-        cell: index + 1,
-        clipId,
-        assetName: asset.name,
-        // Reporting the crop makes the framing checkable without a render.
-        cropPct: { x: Number(maskX.toFixed(1)), y: Number(maskY.toFixed(1)) },
-      });
+        clips: placed,
+        audio: audioFromCell ? `cell ${audioFromCell}` : 'all muted',
+        ...(cellWarnings.length ? { warnings: cellWarnings } : {}),
+      };
+  
     });
-
-    return {
-      layout: `${rows}×${columns}`,
-      cellsFilled: placed.length,
-      cellsEmpty: cells - placed.length,
-      startTimeMs: start,
-      durationMs: dur,
-      clips: placed,
-      audio: audioFromCell ? `cell ${audioFromCell}` : 'all muted',
-      ...(cellWarnings.length ? { warnings: cellWarnings } : {}),
-    };
   },
 });
 
