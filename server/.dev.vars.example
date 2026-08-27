@@ -1,0 +1,18 @@
+# Local development only. Copy to .dev.vars (gitignored) and fill in.
+# The real values live in `wrangler secret put`.
+
+LIPIA_API_URL=https://pay.mhasibudigital.com
+LIPIA_PUBLIC_KEY=
+LIPIA_SECRET=
+LIPIA_WEBHOOK_SECRET=
+
+# OAuth clients that permit the DEVICE grant. Leaving these empty makes
+# sign-in return 503 provider_not_configured, which is the honest answer
+# rather than a broken flow.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# node scripts/keygen.mjs — private JWK on one line.
+LICENCE_SIGNING_JWK=

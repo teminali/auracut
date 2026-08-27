@@ -1,0 +1,23 @@
+{
+  "name": "kerf-store",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kerf Store \u2014 accounts, catalogue, entitlements and Lipia payments",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:local": "wrangler d1 execute kerf-store --local --file=./schema.sql",
+    "db:remote": "wrangler d1 execute kerf-store --remote --file=./schema.sql",
+    "seed:local": "wrangler d1 execute kerf-store --local --file=./seed.sql",
+    "keygen": "node scripts/keygen.mjs",
+    "setup": "node scripts/setup.mjs",
+    "verify": "node verify_store.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "typescript": "^5.7.3",
+    "wrangler": "^3.99.0"
+  }
+}

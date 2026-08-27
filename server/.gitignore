@@ -1,0 +1,9 @@
+node_modules/
+.wrangler/
+# Local secrets for `wrangler dev`. The real ones live in
+# `wrangler secret put`, never in the repo.
+.dev.vars
+
+# Generated licence keys. The private half must NEVER be committed —
+# it is loaded into the Worker with `wrangler secret put`.
+.secrets/

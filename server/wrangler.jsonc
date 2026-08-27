@@ -1,0 +1,49 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kerf-store",
+  // Two accounts are on this OAuth token, so it has to be named.
+  // Not a secret — an account id is in every wrangler config in the wild.
+  "account_id": "9fbd2f7e0457951a680bce2f6d34bb09",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-01",
+  // Needed so `fetch` in a Worker behaves like the platform standard
+  // rather than the older Workers-specific redirect/body handling.
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": { "enabled": true },
+
+  // Every two minutes. The window that matters is between a buyer
+  // approving a payment and the webhook failing all five of its retries;
+  // anything slower than this and they have already given up.
+  "triggers": { "crons": ["*/2 * * * *"] },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kerf-store",
+      // Filled in by `wrangler d1 create kerf-store`.
+      "database_id": "6004a824-ff1e-4629-96df-0cb3b860bd39"
+    }
+  ],
+
+  // Package storage. Commented out until R2 is enabled on the account —
+  // it is a one-time toggle in the dashboard (R2 -> Enable), after which:
+  //     npx wrangler r2 bucket create kerf-skills
+  // then uncomment this block and redeploy. Everything except package
+  // DOWNLOAD works without it, and that route says so rather than 500ing.
+  // "r2_buckets": [
+  //   { "binding": "SKILLS", "bucket_name": "kerf-skills" }
+  // ],
+
+  "vars": {
+    "LIPIA_API_URL": "https://pay.mhasibudigital.com",
+    // Public client ids are not secrets; they are here so a fresh clone
+    // shows what has to be filled in.
+    "GOOGLE_CLIENT_ID": "",
+    "GITHUB_CLIENT_ID": ""
+  }
+
+  // Secrets — `wrangler secret put <NAME>`, never in this file:
+  //   LIPIA_PUBLIC_KEY, LIPIA_SECRET, LIPIA_WEBHOOK_SECRET,
+  //   GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_SECRET, LICENCE_SIGNING_JWK
+}
