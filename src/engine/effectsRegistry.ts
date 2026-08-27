@@ -76,7 +76,6 @@ export interface EffectDefinition {
   gpu?:
     | 'chroma_key'
     | 'displace'
-    | 'rgb_glitch'
     /* Mesh warps. These move GEOMETRY, not texture reads — the stage
        draws a subdivided grid for them instead of one quad. */
     | 'page_curl'

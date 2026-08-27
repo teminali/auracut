@@ -52,12 +52,26 @@ export function solveCubicBezier(p1x: number, p1y: number, p2x: number, p2y: num
   return sampleY(guess);
 }
 
-/** Named easing presets, exposed so the UI can preview the exact curve. */
-export const EASING_BEZIERS: Record<Exclude<Easing, 'hold'>, [number, number, number, number]> = {
+/**
+ * Control points for the easings that ARE cubic Béziers.
+ *
+ * This used to carry a row for every named easing and say it was
+ * "exposed so the UI can preview the exact curve". It was not. Three of
+ * the five rows were the CSS curves of the same NAME and not the curves
+ * `applyEasing` computes: `easeIn` here was [0.42, 0, 1, 1] while
+ * `applyEasing('easeIn')` is `t * t`, which at t=0.5 is 0.25 against the
+ * bezier's 0.315. Nothing outside this module read them, so nothing
+ * rendered wrong — but the first person to build that preview would have
+ * drawn the wrong curve and had no reason to doubt it.
+ *
+ * So the table now holds only the rows that are true: `linear`, which is
+ * the identity either way, and `bezier`, whose points are the actual
+ * default `applyEasing` falls back to. The polynomial easings are not
+ * here BECAUSE they are not Béziers, and a UI wanting their shape should
+ * sample `applyEasing` — which is what `EasingPreview` already does.
+ */
+export const EASING_BEZIERS: Record<'linear' | 'bezier', [number, number, number, number]> = {
   linear: [0, 0, 1, 1],
-  easeIn: [0.42, 0, 1, 1],
-  easeOut: [0, 0, 0.58, 1],
-  easeInOut: [0.42, 0, 0.58, 1],
   bezier: [0.25, 0.1, 0.25, 1],
 };
 

@@ -91,7 +91,18 @@ export function rotatePoint(p: Vec2, origin: Vec2, deg: number): Vec2 {
 
 /**
  * Fit the project canvas inside a stage of `stageW × stageH`, honouring a
- * user zoom factor (1 = fit). Rounded so the canvas lands on whole pixels.
+ * user zoom factor (1 = fit).
+ *
+ * **Not rounded.** This comment used to claim "rounded so the canvas
+ * lands on whole pixels", and there is no rounding here — an untrue
+ * comment about geometry is worse than none, because the next person
+ * chases a rounding bug that cannot exist.
+ *
+ * Nothing is broken by the absence: the gizmo and the compositor both
+ * come through this function, so they agree with each other to the last
+ * fractional pixel, which is the property that actually matters. If
+ * whole-pixel snapping is ever wanted it has to be added HERE and
+ * nowhere else, or those two stop agreeing.
  */
 export function computeViewport(
   stageW: number,

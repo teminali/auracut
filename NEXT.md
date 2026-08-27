@@ -623,15 +623,26 @@ package name rather than by line count before believing it.
   Separating them needs a different metric, and the obvious candidate is
   onset spacing saturating at the minimum gap: 36 onsets in 5s is one per
   139ms against a 90ms floor. Not attempted.
-- **`computeViewport`'s comment says "Rounded so the canvas lands on
-  whole pixels". There is no rounding.** Nothing is broken — the gizmo
-  and the compositor both come through it, so they agree — but the
-  comment is false.
-- **`EASING_BEZIERS` does not describe the curves `applyEasing` uses.**
-  `EASING_BEZIERS.easeIn` is the CSS bezier; `applyEasing('easeIn')` is
-  `t*t`. Nothing outside the module reads the table, so nothing renders
-  wrong, but its "exposed so the UI can preview the exact curve" comment
-  is stale and the first person to use it will draw the wrong curve.
+- ~~`computeViewport`'s false rounding claim~~ and ~~`EASING_BEZIERS`~~ —
+  **both fixed.** The comment said "Rounded so the canvas lands on whole
+  pixels" and there is no rounding; it now says so, and says that if
+  snapping is ever added it must go THERE, because the gizmo and the
+  compositor both come through that function and agreeing with each other
+  is the property that matters. `EASING_BEZIERS` held three rows that
+  were the CSS curves of the same NAME rather than the curves
+  `applyEasing` computes (`easeIn` was 0.315 at t=0.5 against `t*t`'s
+  0.25); those rows are gone, and the two that remain are checked against
+  `applyEasing` at five points.
+- ~~Two unreferenced shaders~~ — **deleted, not documented.**
+  `SHADER_RGB_GLITCH_FS` had a ShaderKey, a uniform builder in the
+  compositor and a member in the effect-type union: a fully wired path
+  that no effect named, so it never appeared in `list_effects` and
+  nothing could ask for it. `SHADER_FILM_GRAIN_FS` was reachable from
+  nothing, and wiring it to the real `film_grain` effect would have made
+  that effect slower — a GPU pass costs ~5ms per clip per frame at 1080p
+  against 0.05ms for the 2D grain. `SHADER_WHIP_PAN_FS` is KEPT with its
+  reason: it needs two textures and a `ClipTransition` has one clip, so
+  it is a correct shader waiting for a path that does not exist yet.
 
 ## How the maintainer wants this worked
 

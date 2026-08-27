@@ -194,21 +194,33 @@ describe('applyEasing', () => {
     expect(applyEasing(0.37, 'bezier')).not.toBeCloseTo(0.37, 3);
   });
 
-  it('EASING_BEZIERS does NOT describe the named curves applyEasing uses', () => {
+  it('EASING_BEZIERS holds only rows that agree with applyEasing', () => {
     /*
-      Recorded, not asserted as correct. `EASING_BEZIERS.easeIn` is the
-      CSS ease-in bezier; `applyEasing('easeIn')` is t*t. They are
-      different curves, and only the `bezier` entry is actually consumed
-      (as the default control points). Nothing outside this module reads
-      the table, so nothing is currently wrong on screen — the header
-      comment claiming the UI previews from it is stale, and anyone who
-      starts using it for a preview will draw the wrong curve.
+      This test used to RECORD that the table disagreed with itself:
+      `EASING_BEZIERS.easeIn` was the CSS ease-in bezier (0.315 at t=0.5)
+      while `applyEasing('easeIn')` is t*t (0.25). Nothing outside the
+      module read it, so nothing rendered wrong — but the header claimed
+      the UI previewed from it, and whoever built that preview would have
+      drawn the wrong curve.
+
+      The three polynomial rows are gone. What is left has to keep
+      agreeing, which is what this now checks.
     */
-    const t = 0.5;
-    expect(applyEasing(t, 'easeIn')).toBeCloseTo(0.25, 9);
-    expect(solveCubicBezier(...EASING_BEZIERS.easeIn, t)).not.toBeCloseTo(0.25, 2);
-    // The linear row is the one that does agree.
-    expect(solveCubicBezier(...EASING_BEZIERS.linear, t)).toBeCloseTo(applyEasing(t, 'linear'), 5);
+    /*
+      4 decimals, not 5, and I got that wrong here for the second time in
+      this file: `solveCubicBezier` stops refining at |x - t| < 1e-5, so
+      asking for 5 places (a tolerance of 5e-6) is asking for more than
+      the function promises. It failed at 8.7e-6 — the test being wrong
+      about the contract, not the solver being inaccurate.
+    */
+    for (const t of [0.1, 0.25, 0.5, 0.75, 0.9]) {
+      expect(solveCubicBezier(...EASING_BEZIERS.linear, t)).toBeCloseTo(applyEasing(t, 'linear'), 4);
+      expect(solveCubicBezier(...EASING_BEZIERS.bezier, t)).toBeCloseTo(applyEasing(t, 'bezier'), 4);
+    }
+    // And the polynomial easings are still polynomials, not Béziers —
+    // which is WHY they are not in the table.
+    expect(applyEasing(0.5, 'easeIn')).toBeCloseTo(0.25, 9);
+    expect(Object.keys(EASING_BEZIERS).sort()).toEqual(['bezier', 'linear']);
   });
 });
 

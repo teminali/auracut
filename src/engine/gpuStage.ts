@@ -28,7 +28,6 @@
 
 import {
   SHADER_CHROMA_KEY_FS,
-  SHADER_RGB_GLITCH_FS,
   SHADER_MESH_FS,
   SHADER_PAGE_CURL_VS,
   SHADER_FLAG_WAVE_VS,
@@ -103,7 +102,6 @@ export type ShaderKey =
   /* fragment programs over a flat quad */
   | 'chroma_key'
   | 'displace'
-  | 'rgb_glitch'
   | 'motion_streak'
   | 'glitch_tear'
   /* mesh warps — a subdivided grid with per-vertex displacement */
@@ -114,7 +112,6 @@ export type ShaderKey =
 const FRAGMENT_SOURCES: Record<ShaderKey, string> = {
   chroma_key: SHADER_CHROMA_KEY_FS,
   displace: SHADER_DISPLACE_FS,
-  rgb_glitch: SHADER_RGB_GLITCH_FS,
   motion_streak: SHADER_MOTION_STREAK_FS,
   glitch_tear: SHADER_GLITCH_TEAR_FS,
   /* Every mesh warp shades the same way and differs only in shape. */

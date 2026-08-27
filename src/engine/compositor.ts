@@ -1335,9 +1335,6 @@ function gpuEffectUniforms(pass: GpuEffectPass, offsetMs: number): Record<string
         u_angle: num(q.angle, 0) * RAD,
       };
 
-    case 'rgb_glitch':
-      return { u_amount: (num(q.amount, 20) / 100) * intensity };
-
     case 'page_curl':
       return {
         /* Wet/dry on a curl is how far the page has turned, which is the

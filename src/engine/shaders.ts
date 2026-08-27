@@ -49,23 +49,29 @@ void main() {
 `;
 
 /*
-  Unreferenced, and one of the three below cannot run here at all.
+  `SHADER_WHIP_PAN_FS` is unreferenced, and unusable as written.
 
-  `SHADER_WHIP_PAN_FS`, `SHADER_RGB_GLITCH_FS` and `SHADER_FILM_GRAIN_FS`
-  are exported and imported by nobody except the `rgb_glitch` key, which
-  no effect in the registry names. Left as written rather than deleted,
-  but with the reason recorded, because the whip pan one is not merely
-  unused — it is unusable:
+  It takes `u_from` AND `u_to` — two clips crossing — while a
+  `ClipTransition` belongs to ONE clip, so `runShader` uploads a single
+  texture. Kept rather than deleted: it is a correct two-texture
+  cross-transition waiting for a two-texture path, and the reason it
+  cannot run today is worth more than the lines it costs.
 
-  it takes `u_from` AND `u_to`, i.e. two clips crossing. Kerf's
-  transitions are not a pair. A `ClipTransition` belongs to ONE clip and
-  is an alpha-and-transform ramp on that clip alone; `runShader` uploads
-  exactly one texture, and there is no second one to give it. So this
-  shader was written against a transition model this app does not have,
-  and the working whip pan is `SHADER_MOTION_STREAK_FS` further down,
-  which streaks the one clip it does have. Anyone reading this file for
-  "does Kerf do GPU transitions" should not take these three as evidence
-  either way.
+  Two others that sat beside it have been DELETED rather than
+  documented, because they were dead in a way that MISLED.
+  `SHADER_RGB_GLITCH_FS` had a ShaderKey, a uniform builder in the
+  compositor and a member in the effect-type union — a fully wired path
+  that no effect in the registry named, so it never appeared in
+  `list_effects` and nothing could ever ask for it. `SHADER_FILM_GRAIN_FS`
+  was reachable from nothing at all, and wiring it to the real
+  `film_grain` effect would have made that effect SLOWER: a GPU pass
+  uploads the canvas and reads it back, ~5ms per clip per frame at 1080p,
+  against 0.05ms for the 2D grain it would have replaced (measured during
+  the transition work).
+
+  Dead code that advertises a capability is the same failure as a control
+  that reports success and does nothing: the next person reads the
+  shader, concludes the effect is GPU-accelerated, and is wrong.
 */
 export const SHADER_WHIP_PAN_FS = `
 precision mediump float;
@@ -94,42 +100,7 @@ void main() {
 }
 `;
 
-export const SHADER_RGB_GLITCH_FS = `
-precision mediump float;
-uniform sampler2D u_image;
-uniform float u_amount;
-varying vec2 v_texCoord;
 
-void main() {
-  vec2 p = v_texCoord;
-  float split = u_amount * 0.02;
-  
-  float r = texture2D(u_image, p + vec2(split, 0.0)).r;
-  float g = texture2D(u_image, p).g;
-  float b = texture2D(u_image, p - vec2(split, 0.0)).b;
-  float a = texture2D(u_image, p).a;
-
-  gl_FragColor = vec4(r, g, b, a);
-}
-`;
-
-export const SHADER_FILM_GRAIN_FS = `
-precision mediump float;
-uniform sampler2D u_image;
-uniform float u_intensity;
-uniform float u_time;
-varying vec2 v_texCoord;
-
-float random(vec2 p) {
-  return fract(sin(dot(p + u_time, vec2(12.9898, 78.233))) * 43758.5453);
-}
-
-void main() {
-  vec4 color = texture2D(u_image, v_texCoord);
-  float noise = (random(v_texCoord) - 0.5) * u_intensity * 0.15;
-  gl_FragColor = vec4(color.rgb + noise, color.a);
-}
-`;
 
 /* ═══════════════════════════════════════════════════════════════════
    MESH WARPS — vertex programs.
