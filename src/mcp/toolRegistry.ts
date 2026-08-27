@@ -895,7 +895,8 @@ defineTool({
     'textStyle.fontSize, textStyle.letterSpacing, and shapeStyle.* (strokeWidth, trimStart, ' +
     'trimEnd, cornerRadius). transform.x / transform.y and the other patch_clip paths are ' +
     'accepted as aliases. NOTE: this APPENDS — calling it twice on one property stacks both ' +
-    'sets and reports success both times.',
+    'sets and reports success both times; upsert_keyframe is the idempotent one. Returns the ' +
+    'ids it minted, which is what remove_keyframe / move_keyframe / set_keyframe_easing address.',
   schema: z.object({
     clipId: z.string().optional(),
     property: z.string(),
@@ -914,23 +915,466 @@ defineTool({
       whichever one you learned first, so both are accepted here and
       normalised to the stored name.
     */
-    const resolved = KEYFRAME_PATH_ALIASES[property] ?? (property as AnimatableProperty);
-    if (!(ANIMATABLE_PROPERTIES as readonly string[]).includes(resolved)) {
-      throw new Error(
-        `"${property}" is not animatable. Use one of: ${ANIMATABLE_PROPERTIES.join(', ')}`
-      );
-    }
+    const resolved = animatableProperty(property);
     const id = resolveClipId(clipId);
     const state = timeline();
+    /* The ids are minted in the store and were thrown away here, so the
+       only way to address a keyframe afterwards was list_keyframes.
+       Handing them back closes the loop for the caller that just made
+       them. */
+    const ids: string[] = [];
     for (const kf of keyframes) {
-      state.addKeyframe(id, {
+      const made = state.addKeyframe(id, {
         property: resolved,
         timeOffsetMs: kf.timeOffsetMs,
         value: kf.value,
         easing: kf.easing ? oneOf(kf.easing, EASINGS, 'easing') : 'easeInOut',
       });
+      if (made) ids.push(made);
     }
-    return { clipId: id, property: resolved, count: keyframes.length };
+    if (ids.length === 0) throw new Error(refuseReason(id));
+    return { clipId: id, property: resolved, count: ids.length, keyframeIds: ids };
+  },
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   KEYFRAME EDITING — the half of the animation surface that was missing
+
+   `add_keyframes` could put keys down and nothing could take one away,
+   move one, or change how it eases. An agent could start an animation and
+   then had exactly one move left: clear the clip and build it again.
+
+   The discovery half was worse. A keyframe id is minted inside the store,
+   `describe_timeline` reported only `keyframeCount`, `list_properties`
+   reported paths and never keys, and `add_keyframes` returned a count —
+   so there was no path, anywhere in the tool surface, from "this clip is
+   animated" to the id of one of its keyframes. A `remove_keyframe` on its
+   own would have been unusable. Hence `list_keyframes`, and hence
+   `add_keyframes` now handing back the ids it just minted.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/** Normalise a keyframe property name, accepting the `patch_clip` aliases. */
+function animatableProperty(property: string): AnimatableProperty {
+  const resolved = KEYFRAME_PATH_ALIASES[property] ?? property;
+  if (!(ANIMATABLE_PROPERTIES as readonly string[]).includes(resolved)) {
+    throw new Error(
+      `"${property}" is not animatable. Use one of: ${ANIMATABLE_PROPERTIES.join(', ')}`
+    );
+  }
+  return resolved as AnimatableProperty;
+}
+
+/**
+ * Find a keyframe by id, or fail with the ids that DO exist.
+ *
+ * "No keyframe kf_9f2" leaves a caller with nowhere to go. The ids are
+ * unguessable, so the error carries the list — the same reason `oneOf`
+ * prints the enum instead of just rejecting the value.
+ */
+function requireKeyframe(clip: Clip, keyframeId: string) {
+  const kf = clip.keyframes.find((k) => k.id === keyframeId);
+  if (kf) return kf;
+  const have = clip.keyframes.length
+    ? clip.keyframes
+        .map((k) => `${k.id} (${k.property} @${k.timeOffsetMs}ms)`)
+        .join(', ')
+    : 'none';
+  throw new Error(
+    `"${clip.name}" has no keyframe "${keyframeId}". On it: ${have}. ` +
+    'Call list_keyframes to read the current ids.'
+  );
+}
+
+function requireEffect(clip: Clip, effectRef: string) {
+  const fx = clip.effects.find((e) => e.id === effectRef || e.type === effectRef);
+  if (fx) return fx;
+  const have = clip.effects.map((e) => `${e.type} (${e.id})`).join(', ') || 'none';
+  throw new Error(`"${clip.name}" has no effect "${effectRef}". On it: ${have}.`);
+}
+
+defineTool({
+  name: 'list_keyframes',
+  category: 'discovery',
+  description:
+    'Read a clip\'s keyframes WITH THEIR IDS — id, property, time, value and easing — plus the ' +
+    'keyframes on its effect parameters. Every editing tool (remove_keyframe, move_keyframe, ' +
+    'set_keyframe_easing, remove_effect_keyframe) addresses a keyframe by id, and ids are minted ' +
+    'inside the editor, so call this first. describe_timeline reports only a keyframeCount.',
+  schema: z.object({
+    clipId: z.string().optional().describe('Clip id, clip name, or "selected"'),
+    property: z.string().optional().describe('Only this property. Accepts the patch_clip aliases (transform.x …)'),
+    includeEffects: z.boolean().optional().describe('Also list effect-parameter keyframes (default true)'),
+  }),
+  handler: ({ clipId, property, includeEffects }) => {
+    const { clip } = requireClip(clipId);
+    const wanted = property ? animatableProperty(property) : undefined;
+
+    const keys = clip.keyframes
+      .filter((k) => !wanted || k.property === wanted)
+      .slice()
+      .sort((a, b) => (a.property === b.property
+        ? a.timeOffsetMs - b.timeOffsetMs
+        : a.property.localeCompare(b.property)));
+
+    const effectKeys = includeEffects === false ? [] : clip.effects.flatMap((fx) =>
+      (fx.keyframes ?? []).map((k) => ({
+        id: k.id,
+        effectId: fx.id,
+        effectType: fx.type,
+        param: k.param,
+        timeOffsetMs: k.timeOffsetMs,
+        value: k.value,
+        easing: k.easing,
+      })));
+
+    return {
+      clipId: clip.id,
+      clipName: clip.name,
+      durationMs: clip.durationMs,
+      /* Times are offsets from the clip's own start, not timeline time —
+         the same convention add_keyframes takes them in. */
+      timesAreClipOffsets: true,
+      animatedProperties: [...new Set(clip.keyframes.map((k) => k.property))].sort(),
+      count: keys.length,
+      keyframes: keys.map((k) => ({
+        id: k.id,
+        property: k.property,
+        timeOffsetMs: k.timeOffsetMs,
+        value: k.value,
+        easing: k.easing,
+        ...(k.bezierPoints ? { bezierPoints: k.bezierPoints } : {}),
+      })),
+      effectKeyframeCount: effectKeys.length,
+      effectKeyframes: effectKeys.sort((a, b) => a.timeOffsetMs - b.timeOffsetMs),
+    };
+  },
+});
+
+defineTool({
+  name: 'remove_keyframe',
+  category: 'graphics',
+  description:
+    'Delete one keyframe by id. Get ids from list_keyframes. Removing a middle key does not stop ' +
+    'the animation — the two keys either side interpolate straight through where it was.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    keyframeId: z.string().describe('From list_keyframes or add_keyframes'),
+  }),
+  handler: ({ clipId, keyframeId }) => {
+    const { id, clip } = requireClip(clipId);
+    const kf = requireKeyframe(clip, keyframeId);
+    if (!timeline().removeKeyframe(id, keyframeId)) throw new Error(refuseReason(id));
+    const left = findClipById(timeline().tracks, id)?.keyframes.filter((k) => k.property === kf.property).length ?? 0;
+    return {
+      clipId: id,
+      keyframeId,
+      property: kf.property,
+      removedAtMs: kf.timeOffsetMs,
+      remainingOnProperty: left,
+      ...(left < 2
+        ? { note: `${kf.property} has ${left} keyframe(s) left, so it no longer animates — it holds that value.` }
+        : {}),
+    };
+  },
+});
+
+defineTool({
+  name: 'move_keyframe',
+  category: 'graphics',
+  description:
+    'Move a keyframe in TIME, in VALUE, or both. timeOffsetMs is clamped to the clip; the reply ' +
+    'says where it actually landed, so check it rather than assuming. Omit `value` to keep it.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    keyframeId: z.string(),
+    timeOffsetMs: z.number().describe('New offset from the clip start, in ms'),
+    value: z.number().optional().describe('New value. Omitted, the keyframe keeps its value'),
+  }),
+  handler: ({ clipId, keyframeId, timeOffsetMs, value }) => {
+    const { id, clip } = requireClip(clipId);
+    const before = requireKeyframe(clip, keyframeId);
+    const was = { timeOffsetMs: before.timeOffsetMs, value: before.value };
+
+    /* moveKeyframe does not commit — the UI drives it from a drag and owns
+       its own transaction. A tool call is one edit, so it owns one here. */
+    const moved = asOneEdit('Move keyframe', () =>
+      timeline().moveKeyframe(id, keyframeId, timeOffsetMs, value));
+    if (!moved) throw new Error(refuseReason(id));
+
+    const now = findClipById(timeline().tracks, id)?.keyframes.find((k) => k.id === keyframeId);
+    return {
+      clipId: id,
+      keyframeId,
+      property: before.property,
+      from: was,
+      to: { timeOffsetMs: now?.timeOffsetMs, value: now?.value },
+      ...(now && now.timeOffsetMs !== Math.round(timeOffsetMs)
+        ? { clampedToClip: `Asked for ${Math.round(timeOffsetMs)}ms; the clip is 0–${clip.durationMs}ms.` }
+        : {}),
+    };
+  },
+});
+
+defineTool({
+  name: 'set_keyframe_easing',
+  category: 'graphics',
+  description:
+    `Change how a keyframe eases into the NEXT one. Easings: ${EASINGS.join(', ')}. ` +
+    'Easing describes the segment that FOLLOWS the keyframe, so setting it on the last keyframe ' +
+    'of a property changes nothing until a later one exists — the reply says when that is the case. ' +
+    '`hold` freezes the value until the next key (a step, not a ramp).',
+  schema: z.object({
+    clipId: z.string().optional(),
+    keyframeId: z.string(),
+    easing: z.string().describe(`One of: ${EASINGS.join(', ')}`),
+    bezier: z.array(z.number()).length(4).optional()
+      .describe('[p1x, p1y, p2x, p2y] control points — only with easing "bezier"'),
+  }),
+  handler: ({ clipId, keyframeId, easing, bezier }) => {
+    const { id, clip } = requireClip(clipId);
+    const kf = requireKeyframe(clip, keyframeId);
+    const chosen = oneOf(easing, EASINGS, 'easing');
+    if (bezier && chosen !== 'bezier') {
+      /* Control points on a polynomial easing are stored and never read.
+         Accepting them would be a success report for nothing. */
+      throw new Error(
+        `Control points only apply to the "bezier" easing; you asked for "${chosen}". ` +
+        'Pass easing: "bezier" with them, or drop them.'
+      );
+    }
+    const points = bezier as [number, number, number, number] | undefined;
+    if (!timeline().setKeyframeEasing(id, keyframeId, chosen, points)) throw new Error(refuseReason(id));
+
+    const siblings = clip.keyframes
+      .filter((k) => k.property === kf.property)
+      .sort((a, b) => a.timeOffsetMs - b.timeOffsetMs);
+    const next = siblings.find((k) => k.timeOffsetMs > kf.timeOffsetMs);
+    return {
+      clipId: id,
+      keyframeId,
+      property: kf.property,
+      easing: chosen,
+      governsSegmentToMs: next?.timeOffsetMs ?? null,
+      ...(next ? {} : {
+        note: `This is the last keyframe on ${kf.property}. Easing governs the segment after a ` +
+              'keyframe, so nothing renders differently until a later keyframe exists.',
+      }),
+    };
+  },
+});
+
+defineTool({
+  name: 'clear_keyframes',
+  category: 'graphics',
+  description:
+    'Remove every keyframe on a clip, or every keyframe on ONE property when `property` is given — ' +
+    'the other properties keep animating. The property keeps whatever its base value is, which is ' +
+    'not necessarily the value it was showing at the playhead.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    property: z.string().optional().describe('Scope to one property. Omitted, clears the whole clip'),
+  }),
+  handler: ({ clipId, property }) => {
+    const { id, clip } = requireClip(clipId);
+    const wanted = property ? animatableProperty(property) : undefined;
+    const animated = [...new Set(clip.keyframes.map((k) => k.property))];
+
+    const removed = timeline().clearKeyframes(id, wanted);
+    if (removed === 0) {
+      throw new Error(
+        wanted
+          ? `"${clip.name}" has no keyframes on ${wanted}. Animated: ${animated.join(', ') || 'nothing'}.`
+          : `"${clip.name}" has no keyframes to clear.`
+      );
+    }
+    const left = findClipById(timeline().tracks, id)?.keyframes ?? [];
+    return {
+      clipId: id,
+      property: wanted ?? null,
+      removed,
+      stillAnimated: [...new Set(left.map((k) => k.property))].sort(),
+    };
+  },
+});
+
+defineTool({
+  name: 'upsert_keyframe',
+  category: 'graphics',
+  description:
+    'Set the value of a property at a time, whether or not a keyframe is already there: within a ' +
+    'frame (34ms) of an existing key it UPDATES that key, otherwise it INSERTS one. Use this ' +
+    'rather than add_keyframes when re-running an edit, since add_keyframes appends and stacks ' +
+    'duplicates. The reply says which of the two happened. New keys ease easeInOut.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    property: z.string().describe(`One of: ${ANIMATABLE_PROPERTIES.join(', ')} (patch_clip aliases accepted)`),
+    timeOffsetMs: z.number().describe('Milliseconds from the clip start'),
+    value: z.number(),
+  }),
+  handler: ({ clipId, property, timeOffsetMs, value }) => {
+    const resolved = animatableProperty(property);
+    const id = resolveClipId(clipId);
+    const outcome = timeline().upsertKeyframeAt(id, resolved, timeOffsetMs, value);
+    if (!outcome.ok) throw new Error(outcome.error ?? refuseReason(id));
+    const count = findClipById(timeline().tracks, id)?.keyframes.filter((k) => k.property === resolved).length ?? 0;
+    return {
+      clipId: id,
+      property: resolved,
+      keyframeId: outcome.id,
+      created: outcome.created,
+      action: outcome.created ? 'inserted' : 'updated',
+      keyframesOnProperty: count,
+    };
+  },
+});
+
+defineTool({
+  name: 'remove_effect_keyframe',
+  category: 'effects',
+  description:
+    'Delete one keyframe from an effect parameter, by id. Ids come from list_keyframes ' +
+    '(effectKeyframes). With fewer than two keys left the parameter stops animating and holds a ' +
+    'single value; with none it falls back to the effect\'s own parameter.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    effect: z.string().describe('Effect id or type, e.g. "glow"'),
+    keyframeId: z.string(),
+  }),
+  handler: ({ clipId, effect, keyframeId }) => {
+    const { id, clip } = requireClip(clipId);
+    const fx = requireEffect(clip, effect);
+    const kf = (fx.keyframes ?? []).find((k) => k.id === keyframeId);
+    if (!kf) {
+      const have = (fx.keyframes ?? [])
+        .map((k) => `${k.id} (${k.param} @${k.timeOffsetMs}ms)`).join(', ') || 'none';
+      throw new Error(
+        `"${fx.type}" on "${clip.name}" has no keyframe "${keyframeId}". On it: ${have}. ` +
+        'Call list_keyframes to read the current ids.'
+      );
+    }
+    if (!timeline().removeEffectKeyframe(id, effect, keyframeId)) throw new Error(refuseReason(id));
+
+    const now = findClipById(timeline().tracks, id)?.effects.find((e) => e.id === fx.id);
+    const left = (now?.keyframes ?? []).filter((k) => k.param === kf.param).length;
+    return {
+      clipId: id,
+      effect: fx.type,
+      effectId: fx.id,
+      keyframeId,
+      param: kf.param,
+      remainingOnParam: left,
+      ...(left < 2 ? { note: `${kf.param} has ${left} keyframe(s) left, so it no longer animates.` } : {}),
+    };
+  },
+});
+
+/* ── Motion path, point by point ────────────────────────────────
+   `set_motion_path` replaces the whole path and needs at least two
+   points. These three edit the path that is already there, which is what
+   an agent adjusting one corner of a move actually wants. A path with
+   fewer than two points does not drive the layer at all — the compositor
+   falls back to transform.x/y — so every reply here says how many points
+   are left and whether the path is still driving anything. */
+
+function motionPoints(clip: Clip) {
+  return clip.motionPath?.points ?? [];
+}
+
+defineTool({
+  name: 'add_motion_path_point',
+  category: 'graphics',
+  description:
+    'Add one point to a clip\'s motion path, creating and enabling the path if it has none. ' +
+    'Coordinates are ABSOLUTE canvas pixels (0,0 top-left), like set_motion_path and unlike ' +
+    'transform.x/y which are offsets from the centre. `index` inserts before that point; omitted, ' +
+    'it appends. The path only moves the layer once it has two points.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    x: z.number().describe('Canvas x in pixels'),
+    y: z.number().describe('Canvas y in pixels'),
+    index: z.number().int().optional().describe('Insert before this index. 0 puts it first; omitted, appends'),
+  }),
+  handler: ({ clipId, x, y, index }) => {
+    const { id, clip } = requireClip(clipId);
+    const pts = motionPoints(clip);
+    if (index !== undefined && (index < 0 || index > pts.length)) {
+      /* The store clamps, which would silently put the point somewhere
+         the caller did not ask for and then report success. */
+      throw new Error(
+        `index ${index} is out of range: the path has ${pts.length} point(s), so 0–${pts.length} inserts, ` +
+        'and omitting index appends.'
+      );
+    }
+    const res = timeline().addMotionPathPoint(id, x, y, index);
+    if (!res.ok) throw new Error(res.error ?? refuseReason(id));
+    return {
+      clipId: id,
+      index: res.index,
+      pointCount: res.pointCount,
+      pathDrivesLayer: (res.pointCount ?? 0) >= 2,
+      ...((res.pointCount ?? 0) < 2
+        ? { note: 'One point is not a path — the layer still sits at transform.x/y. Add another.' }
+        : {}),
+    };
+  },
+});
+
+defineTool({
+  name: 'update_motion_path_point',
+  category: 'graphics',
+  description:
+    'Move one existing motion-path point to new absolute canvas coordinates. Index is 0-based, in ' +
+    'path order — read the current points from list_properties (motionPath.points) or describe_timeline.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    index: z.number().int().describe('0-based index of the point to move'),
+    x: z.number(),
+    y: z.number(),
+  }),
+  handler: ({ clipId, index, x, y }) => {
+    const { id, clip } = requireClip(clipId);
+    const pts = motionPoints(clip);
+    if (!pts.length) {
+      throw new Error(`"${clip.name}" has no motion path. Build one with set_motion_path or add_motion_path_point.`);
+    }
+    const was = pts[index] ? { x: pts[index].x, y: pts[index].y } : undefined;
+    const moved = asOneEdit('Move path point', () => timeline().updateMotionPathPoint(id, index, x, y));
+    if (!moved) {
+      throw new Error(`index ${index} is out of range: the path has ${pts.length} point(s) (0–${pts.length - 1}).`);
+    }
+    return { clipId: id, index, from: was, to: { x: Math.round(x), y: Math.round(y) }, pointCount: pts.length };
+  },
+});
+
+defineTool({
+  name: 'remove_motion_path_point',
+  category: 'graphics',
+  description:
+    'Delete one point from a clip\'s motion path by 0-based index. Below two points the path stops ' +
+    'driving the layer and it returns to transform.x/y — the reply says when that has happened.',
+  schema: z.object({
+    clipId: z.string().optional(),
+    index: z.number().int().describe('0-based index of the point to remove'),
+  }),
+  handler: ({ clipId, index }) => {
+    const { id, clip } = requireClip(clipId);
+    const pts = motionPoints(clip);
+    if (!pts.length) throw new Error(`"${clip.name}" has no motion path, so there is no point ${index} to remove.`);
+    const was = pts[index] ? { x: pts[index].x, y: pts[index].y } : undefined;
+    if (!timeline().removeMotionPathPoint(id, index)) {
+      throw new Error(`index ${index} is out of range: the path has ${pts.length} point(s) (0–${pts.length - 1}).`);
+    }
+    const left = motionPoints(findClipById(timeline().tracks, id) ?? clip).length;
+    return {
+      clipId: id,
+      index,
+      removed: was,
+      pointCount: left,
+      pathDrivesLayer: left >= 2,
+      ...(left < 2
+        ? { note: `${left} point(s) left, so the path no longer moves the layer — it sits at transform.x/y again.` }
+        : {}),
+    };
   },
 });
 
