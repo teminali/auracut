@@ -682,9 +682,20 @@ defineTool({
   }),
   handler: ({ clipId, effect, param, value }) => {
     const id = resolveClipId(clipId);
-    const result = timeline().setEffectParam(id, effect, param, value);
-    if (!result.ok) throw new Error(result.error ?? `Could not set ${param} on "${effect}".`);
-    return { clipId: id, effect, param, value };
+    requireUnlocked(id);
+    /*
+      `setEffectParam` deliberately does not commit: the inspector's
+      sliders call it on every pointer move and commit at their own call
+      site, so committing in the store would push one history entry per
+      mouse pixel. That left the TOOL path with no undo entry at all —
+      an agent could set a parameter and the user could not take it
+      back. The boundary belongs here, where one call is one edit.
+    */
+    return asOneEdit('Set effect parameter', () => {
+      const result = timeline().setEffectParam(id, effect, param, value);
+      if (!result.ok) throw new Error(result.error ?? `Could not set ${param} on "${effect}".`);
+      return { clipId: id, effect, param, value };
+    });
   },
 });
 
@@ -1566,7 +1577,13 @@ defineTool({
         target?.locked ? `Track "${target.name}" is locked. Unlock it first.` : refuseReason(id)
       );
     }
-    state.commit('Move clip');
+    /*
+      `moveClip` commits for itself now, so the explicit commit that
+      used to be here became a SECOND identical entry — and one undo
+      then took the user only half way back. Caught by asserting that
+      one undo restores the exact prior state, which a check that only
+      asserted "history grew" would have passed.
+    */
     const moved = findClipById(timeline().tracks, id);
     return { clipId: id, trackId: tid, startTimeMs: moved?.startTimeMs ?? startTimeMs };
   },

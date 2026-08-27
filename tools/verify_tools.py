@@ -8,7 +8,7 @@ previous audit pass found working-looking code that did nothing, so each
 check here confirms the OUTCOME — pixels moved, a stack was copied, a
 depth of history was undone — rather than that the call returned success.
 """
-import sys, os, base64, io
+import sys, os, base64, io, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from kerf_rpc import call, ok
 import numpy as np
@@ -118,6 +118,122 @@ d = ok(call('describe_timeline'), 'd')
 clips = {c['id']: c for tr in d['tracks'] for c in tr['clips']}
 still_there = ids[0] in clips
 check('undo depth 3 leaves the clip', still_there, 'clip survives a 3-step undo')
+
+# ── one tool call is exactly one undo ──────────────────────────────
+"""
+Six store actions mutated the timeline and never recorded history, so a
+tool call could not be taken back at all: toggleEffect, updateMarker,
+moveClips, trimClip, moveClip and setEffectParam. The inspector's effect
+bypass button was the last edit in the app with no undo behind it.
+
+Fixing it exposed the opposite failure immediately. `move_clip` already
+called `commit` in the TOOL, so once the store committed too there were
+two identical entries and one undo took the user only half way back. A
+check that asserted "history grew" would have passed that happily; this
+one demands the state come BACK, so it caught it.
+
+Measured on the store shape AND the rendered picture, because effect
+params live in neither `describe_timeline` nor `list_effects` — the
+latter returns the 27-effect CATALOGUE rather than the clip's stack, and
+hashing it made two of these rows look like no-ops when they were not.
+"""
+
+
+def _shape():
+    d = ok(call('describe_timeline'), 'd')
+    return json.dumps({
+        'markers': d['markers'],
+        'clips': [(c['id'], c['startMs'], c['durationMs'], c['speed'],
+                   [(e['type'], e['enabled'], e['intensity']) for e in c['effects']])
+                  for tr in d['tracks'] for c in tr['clips']],
+    }, sort_keys=True)
+
+
+def _state():
+    return _shape(), frame(500)
+
+
+def _same(a, b):
+    return a[0] == b[0] and float(np.abs(a[1] - b[1]).mean()) < 0.05
+
+
+def _undo_scene():
+    ok(call('reset_project', {'name': 'undoprobe', 'aspectRatio': '16:9', 'fps': 30,
+                              'backgroundColor': '#000000', 'durationMs': 8000}), 'r')
+    ta = ok(call('add_track', {'type': 'video', 'name': 'V'}), 't')['trackId']
+    tb = ok(call('add_track', {'type': 'video', 'name': 'W'}), 't')['trackId']
+    c = ok(call('add_shape_layer', {'kind': 'rectangle', 'trackId': ta, 'startTimeMs': 0,
+                                    'durationMs': 2000,
+                                    'style': {'fill': '#ffffff', 'strokeWidth': 0}}), 's')['clipId']
+    ok(call('patch_clip', {'clipId': c, 'properties': {
+        'transform.scaleX': 0.4, 'transform.scaleY': 0.4}}), 'p')
+    ok(call('add_effect', {'clipId': c, 'effectType': 'gaussian_blur',
+                           'params': {'radius': 4}}), 'fx')
+    ok(call('add_marker', {'timeMs': 1000, 'label': 'M', 'kind': 'chapter'}), 'm')
+    return ta, tb, c
+
+
+_UNDO_CASES = [
+    ('toggle_effect', lambda ta, tb, c: {'clipId': c, 'effect': 'gaussian_blur'}),
+    ('update_marker', lambda ta, tb, c: {'marker': 'M', 'timeMs': 5000}),
+    ('move_clips', lambda ta, tb, c: {'moves': [{'clipId': c, 'trackId': tb, 'startTimeMs': 3000}]}),
+    # `targetTrackId`, not `trackId` — the wrong name is silently
+    # dropped by the schema and the clip moves in time only, which makes
+    # this a weaker row than it looks.
+    ('move_clip', lambda ta, tb, c: {'clipId': c, 'targetTrackId': tb, 'startTimeMs': 4000}),
+    ('trim_clip', lambda ta, tb, c: {'clipId': c, 'newEndMs': 1200}),
+    ('set_effect_param', lambda ta, tb, c: {'clipId': c, 'effect': 'gaussian_blur',
+                                            'param': 'radius', 'value': 60}),
+    ('set_speed', lambda ta, tb, c: {'clipId': c, 'multiplier': 2.0}),
+]
+
+for _tool, _args in _UNDO_CASES:
+    ta, tb, c = _undo_scene()
+    before = _state()
+    r = call(_tool, _args(ta, tb, c)).get('result', {})
+    if not r.get('success'):
+        check(f'{_tool} · one call, one undo', False, f"the call itself failed: {str(r)[:70]}")
+        continue
+    changed = not _same(before, _state())
+    ok(call('undo', {}), 'undo')
+    restored = _same(_state(), before)
+    detail = 'changed the timeline, and ONE undo puts it back exactly'
+    if changed and not restored:
+        ok(call('undo', {}), 'undo2')
+        detail = ('a SECOND undo was needed — duplicate history entry'
+                  if _same(_state(), before) else 'undo does not restore the prior state')
+    elif not changed:
+        detail = 'the call changed nothing, so this row proves nothing'
+    check(f'{_tool} · one call, one undo', changed and restored, detail)
+
+# The control: a REFUSED call must leave the undo stack alone. Without
+# this, every row above would pass on a build where each tool wrote two
+# entries and `undo` silently walked back two.
+ta, tb, c = _undo_scene()
+ok(call('patch_clip', {'clipId': c, 'properties': {'transform.x': 321}}), 'landmark')
+marked = _state()
+# Both of these must REFUSE, and the control asserts they did rather
+# than trusting them to. Two earlier attempts at this were not refusals
+# at all and the control failed for exactly the right reason:
+# `startTimeMs: -5` is CLAMPED to 0 by `moveClip`, and `trackId` is not
+# `move_clip`'s parameter name — the schema drops the unknown key and
+# the clip moves in time on the default track.
+_refusals = [
+    ('toggle_effect', {'clipId': c, 'effect': 'no_such_effect'}),
+    ('move_clip', {'clipId': c, 'targetTrackId': 'track_does_not_exist', 'startTimeMs': 100}),
+]
+_actually_refused = 0
+for _n, _a in _refusals:
+    if not call(_n, _a).get('result', {}).get('success'):
+        _actually_refused += 1
+check('the control\'s two calls really are refusals',
+      _actually_refused == 2,
+      f'{_actually_refused}/2 refused — a control built on a call that '
+      f'succeeds proves nothing')
+ok(call('undo', {}), 'undo')
+check('a refused call records no history at all',
+      not _same(_state(), marked),
+      'undo after two refusals walks back the landmark edit, not a phantom entry')
 
 # ── snapCutsToBeats ────────────────────────────────────────────────
 ok(call('reset_project', {'name': 'snapprobe', 'aspectRatio': '16:9', 'fps': 30,

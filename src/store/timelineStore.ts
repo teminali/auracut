@@ -1027,6 +1027,14 @@ export const useTimelineStore = create<TimelineStore>()(
         }
         sortClips(track);
       });
+      /*
+        The timeline's trim handle opens its own transaction on
+        pointerdown and commits on pointerup, and `commit` no-ops inside
+        one — so a drag is still a single entry. This is for every other
+        caller: `trim_clip` had no `asOneEdit` around it, so an agent
+        that trimmed a clip left the user nothing to undo.
+      */
+      if (trimmed) get().commit('Trim clip');
       return trimmed;
     },
 
@@ -1049,6 +1057,9 @@ export const useTimelineStore = create<TimelineStore>()(
         if (track !== target) sortClips(track);
         moved = true;
       });
+      // Same as `trimClip` and `moveClips`: the drag owns a transaction,
+      // every other caller had no undo entry at all.
+      if (moved) get().commit('Move clip');
       return moved;
     },
 
@@ -1097,6 +1108,16 @@ export const useTimelineStore = create<TimelineStore>()(
         for (const t of s.tracks) sortClips(t);
       });
 
+      /*
+        The UI drag already owns its own transaction — it opens one on
+        pointerdown and commits on pointerup — and `commit` no-ops inside
+        it, so a drag is still ONE entry and not one per pointer move.
+        This is for every other caller, which until now moved clips and
+        left nothing to undo.
+      */
+      if (moved.length > 0) get().commit(
+        moved.length > 1 ? `Move ${moved.length} clips` : 'Move clip'
+      );
       return { moved, refused };
     },
 
@@ -2033,6 +2054,17 @@ export const useTimelineStore = create<TimelineStore>()(
         fx.enabled = !fx.enabled;
         outcome = { ok: true, enabled: fx.enabled };
       });
+      /*
+        Bypassing an effect changes the picture, so it belongs on the
+        undo stack — the inspector's bypass button was the last edit in
+        the app that could not be taken back. Only on a real toggle: a
+        refusal used to be worth an identical snapshot, which is how
+        undo came to do nothing visible once.
+
+        `commit` no-ops inside a transaction, so the tool's `asOneEdit`
+        still produces exactly one entry rather than two.
+      */
+      if (outcome.ok) get().commit('Toggle effect');
       return outcome;
     },
 
@@ -2480,6 +2512,7 @@ export const useTimelineStore = create<TimelineStore>()(
         }
         found = true;
       });
+      if (found) get().commit('Update marker');
       return found;
     },
 
