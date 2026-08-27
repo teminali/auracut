@@ -196,6 +196,41 @@ JS = r'''
       window.__kerf.layout.getState().showHome === true,
       JSON.stringify(toasts.map((t) => t.kind + ':' + t.title)) || 'no toast');
 
+  /* ── Every control has a name a screen reader can read ────────── */
+  /*
+    Not a home-screen check, an app check, and it lives here because
+    this is the suite that can already drive the UI.
+
+    `grep -rn 'aria-' src/components` returned ONE hit across ~12k lines
+    at the start of this work, and it was a decorative `aria-hidden` on
+    the logo. 195 buttons, 202 `title` tooltips, zero accessible names.
+    A `title` is not a name: it is not announced reliably by any screen
+    reader, so an icon-only button was announced as "button" and nothing
+    else. Sixty-seven of them in the editor alone.
+  */
+  await window.__kerf.executeTool('open_starter_project', {}, 'verify_home');
+  await tick(700);
+  window.__kerf.layout.setState({ showHome: false, activeTab: 'media' });
+  await tick(1200);
+  const tl = window.__kerf.timeline.getState();
+  const firstClip = tl.tracks.flatMap((t) => t.clips)[0];
+  if (firstClip) tl.selectClip(firstClip.id);
+  await tick(900);
+
+  const controls = [...document.querySelectorAll('button, [role="button"]')];
+  const nameless = controls.filter((b) =>
+    !b.textContent.trim() && !b.getAttribute('aria-label') && !b.getAttribute('aria-labelledby'));
+  add('control: the editor is actually mounted', controls.length > 40,
+      controls.length + ' controls found', false);
+  add('every control has an accessible name', nameless.length === 0,
+      nameless.length === 0
+        ? controls.length + ' controls, none nameless'
+        : nameless.length + ' NAMELESS: ' + nameless.slice(0, 3).map(
+          (b) => b.title || b.className.slice(0, 40) || '?').join(' / '), false);
+
+  window.__kerf.layout.setState({ showHome: true });
+  await tick(300);
+
   /* Leave the app the way it launches: on home, with the starter loaded,
      so a suite after this one does not inherit an empty timeline. */
   await window.__kerf.executeTool('open_starter_project', {}, 'verify_home');

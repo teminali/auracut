@@ -47,7 +47,8 @@ export const MarkerLane: React.FC<MarkerLaneProps> = ({ pxPerMs, height }) => {
           className="absolute top-0 bottom-0 group"
           style={{ left: marker.timeMs * pxPerMs - 4, width: 8 }}
           title={marker.label || `${marker.kind} · ${(marker.timeMs / 1000).toFixed(2)}s`}
-        >
+        
+            aria-label={marker.label || `${marker.kind} · ${(marker.timeMs / 1000).toFixed(2)}s`}>
           <div
             className="absolute left-1/2 -translate-x-1/2 top-[2px] w-0 h-0 group-hover:scale-125 transition-transform"
             style={{

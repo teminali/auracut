@@ -88,10 +88,12 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
 
         {/* Sticky modes — these stay on, so they get the switch treatment. */}
         <div className="seg-group">
-          <button onClick={toggleSnapping} className={`seg-item ${snappingEnabled ? 'seg-item-on' : ''}`} title="Magnetic snapping (N)">
+          <button onClick={toggleSnapping} className={`seg-item ${snappingEnabled ? 'seg-item-on' : ''}`} title="Magnetic snapping (N)"
+            aria-label="Magnetic snapping (N)">
             <Magnet className="w-3 h-3" /> Snap
           </button>
-          <button onClick={toggleRippleEdit} className={`seg-item ${rippleEditMode ? 'seg-item-on' : ''}`} title="Ripple edit, downstream clips follow (R)">
+          <button onClick={toggleRippleEdit} className={`seg-item ${rippleEditMode ? 'seg-item-on' : ''}`} title="Ripple edit, downstream clips follow (R)"
+            aria-label="Ripple edit, downstream clips follow (R)">
             <ArrowLeftRight className="w-3 h-3" /> Ripple
           </button>
         </div>
@@ -144,7 +146,8 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
           onClick={() => addTrack('video')}
           className="pro-btn-filled h-[26px] px-2 gap-1 text-ui-xs font-medium"
           title="Add a new track"
-        >
+        
+            aria-label="Add a new track">
           <Plus className="w-3 h-3" />
           <span>Track</span>
         </button>
@@ -152,10 +155,12 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
 
       {/* Zoom */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
-        <button onClick={handleZoomFit} className="pro-btn w-[26px] h-[26px]" title="Zoom to fit sequence (⇧Z)">
+        <button onClick={handleZoomFit} className="pro-btn w-[26px] h-[26px]" title="Zoom to fit sequence (⇧Z)"
+            aria-label="Zoom to fit sequence (⇧Z)">
           <Maximize className="w-3.5 h-3.5" />
         </button>
-        <button onClick={() => setZoomLevel(zoomLevel / 1.4)} className="pro-btn w-[26px] h-[26px]" title="Zoom out (−)">
+        <button onClick={() => setZoomLevel(zoomLevel / 1.4)} className="pro-btn w-[26px] h-[26px]" title="Zoom out (−)"
+            aria-label="Zoom out (−)">
           <ZoomOut className="w-3.5 h-3.5" />
         </button>
         <input
@@ -168,7 +173,8 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
           className="w-28 range-accent"
           title={`Timeline zoom · ${zoomLevel.toFixed(2)}×`}
         />
-        <button onClick={() => setZoomLevel(zoomLevel * 1.4)} className="pro-btn w-[26px] h-[26px]" title="Zoom in (+)">
+        <button onClick={() => setZoomLevel(zoomLevel * 1.4)} className="pro-btn w-[26px] h-[26px]" title="Zoom in (+)"
+            aria-label="Zoom in (+)">
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -188,7 +194,8 @@ const ToolButton: React.FC<{
   disabled?: boolean;
   danger?: boolean;
 }> = ({ onClick, icon: Icon, label, title, disabled, danger }) => (
-  <button onClick={onClick} disabled={disabled} className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs font-medium" title={title}>
+  <button onClick={onClick} disabled={disabled} className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs font-medium" title={title}
+            aria-label={title}>
     <Icon className={`w-3 h-3 ${danger ? 'text-spectrum-red/85' : 'text-spectrum-textDim'}`} />
     <span>{label}</span>
   </button>
@@ -201,10 +208,11 @@ const IconButton: React.FC<{
   disabled?: boolean;
   badge?: number;
 }> = ({ onClick, icon: Icon, title, disabled, badge }) => (
-  <button onClick={onClick} disabled={disabled} className="pro-btn w-[26px] h-[26px] relative" title={title}>
+  <button onClick={onClick} disabled={disabled} className="pro-btn w-[26px] h-[26px] relative" title={title}
+            aria-label={title}>
     <Icon className="w-3.5 h-3.5" />
     {badge !== undefined && (
-      <span className="absolute -top-0.5 -right-0.5 min-w-[13px] h-[13px] px-0.5 rounded-full bg-spectrum-accent text-[9px] font-bold text-white flex items-center justify-center leading-none">
+      <span className="absolute -top-0.5 -right-0.5 min-w-[13px] h-[13px] px-0.5 rounded-full bg-spectrum-accent text-micro font-bold text-white flex items-center justify-center leading-none">
         {badge > 99 ? '99+' : badge}
       </span>
     )}

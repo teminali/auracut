@@ -207,14 +207,14 @@ export const CommandPalette: React.FC = () => {
               if (e.key === 'Escape') { e.preventDefault(); close(); }
             }}
             placeholder="Search commands, effects, animations…"
-            className="flex-1 bg-transparent outline-none text-[13px] text-spectrum-text placeholder:text-spectrum-textFaint"
+            className="flex-1 bg-transparent outline-none text-ui-lg text-spectrum-text placeholder:text-spectrum-textFaint"
           />
           <span className="kbd">esc</span>
         </div>
 
         <div ref={listRef} className="flex-1 overflow-y-auto py-1">
           {results.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[12px] text-spectrum-textDim">
+            <p className="px-3 py-6 text-center text-ui text-spectrum-textDim">
               Nothing matches “{query}”.
             </p>
           ) : (
@@ -226,7 +226,7 @@ export const CommandPalette: React.FC = () => {
               return (
                 <React.Fragment key={cmd.id}>
                   {showGroup && (
-                    <div className="px-3 pt-2 pb-1 text-[9px] font-semibold text-spectrum-textFaint uppercase tracking-wider">
+                    <div className="px-3 pt-2 pb-1 text-micro font-semibold text-spectrum-textFaint uppercase tracking-wider">
                       {cmd.group}
                     </div>
                   )}
@@ -239,7 +239,7 @@ export const CommandPalette: React.FC = () => {
                     }`}
                   >
                     <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-spectrum-accent' : 'text-spectrum-textDim'}`} />
-                    <span className={`flex-1 text-[12px] truncate ${active ? 'text-spectrum-text' : 'text-spectrum-textMuted'}`}>
+                    <span className={`flex-1 text-ui truncate ${active ? 'text-spectrum-text' : 'text-spectrum-textMuted'}`}>
                       {cmd.label}
                     </span>
                     {cmd.shortcut && <span className="kbd flex-shrink-0">{cmd.shortcut}</span>}
@@ -250,7 +250,7 @@ export const CommandPalette: React.FC = () => {
           )}
         </div>
 
-        <div className="px-3 h-8 border-t border-line flex items-center gap-3 text-[10px] text-spectrum-textFaint flex-shrink-0">
+        <div className="px-3 h-8 border-t border-line flex items-center gap-3 text-micro text-spectrum-textFaint flex-shrink-0">
           <span className="flex items-center gap-1"><span className="kbd">↑↓</span> navigate</span>
           <span className="flex items-center gap-1"><span className="kbd">↵</span> run</span>
           <span className="flex items-center gap-1 ml-auto"><CommandIcon className="w-2.5 h-2.5" /> {commands.length} commands</span>

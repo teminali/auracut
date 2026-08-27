@@ -81,7 +81,7 @@ export const FiltersPanel: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {shown.length === 0 && (
-          <p className="text-[10px] text-spectrum-textFaint text-center py-4">Nothing matches “{query}”.</p>
+          <p className="text-micro text-spectrum-textFaint text-center py-4">Nothing matches “{query}”.</p>
         )}
         {shown.map((look) => (
           <div key={look.id} className="card-interactive p-2 flex items-center gap-2.5 group">
@@ -96,22 +96,24 @@ export const FiltersPanel: React.FC = () => {
               className="w-[58px] aspect-video rounded-[5px] flex-shrink-0"
             />
             <span className="flex-1 min-w-0">
-              <span className="block text-[11px] font-medium text-spectrum-text truncate">{look.label}</span>
-              <span className="block text-[9px] text-spectrum-textFaint truncate">{look.hint}</span>
+              <span className="block text-ui-sm font-medium text-spectrum-text truncate">{look.label}</span>
+              <span className="block text-micro text-spectrum-textFaint truncate">{look.hint}</span>
             </span>
             <span className="flex flex-col gap-0.5 flex-shrink-0">
               <button
                 onClick={() => apply(look, false)}
-                className="pro-btn-filled h-5 px-1.5 text-[9px]"
+                className="pro-btn-filled h-5 px-1.5 text-micro"
                 title="Apply to the selected clips"
-              >
+              
+            aria-label="Apply to the selected clips">
                 Selected
               </button>
               <button
                 onClick={() => apply(look, true)}
-                className="pro-btn h-5 px-1.5 text-[9px]"
+                className="pro-btn h-5 px-1.5 text-micro"
                 title="Apply to every video clip in the sequence"
-              >
+              
+            aria-label="Apply to every video clip in the sequence">
                 All clips
               </button>
             </span>
@@ -124,7 +126,7 @@ export const FiltersPanel: React.FC = () => {
             commit('Reset grade');
           }}
           disabled={selectedClipIds.length === 0}
-          className="pro-btn-filled w-full h-7 gap-1.5 text-[11px] mt-1"
+          className="pro-btn-filled w-full h-7 gap-1.5 text-ui-sm mt-1"
         >
           <Sliders className="w-3 h-3" /> Reset grade on selection
         </button>

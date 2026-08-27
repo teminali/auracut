@@ -80,7 +80,8 @@ export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         title="Transform"
         icon={Move3d}
         action={
-          <button onClick={() => resetClipTransform(clip.id)} className="pro-btn w-5 h-5" title="Reset transform">
+          <button onClick={() => resetClipTransform(clip.id)} className="pro-btn w-5 h-5" title="Reset transform"
+            aria-label="Reset transform">
             <RotateCcw className="w-3 h-3" />
           </button>
         }
@@ -165,7 +166,7 @@ export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         <div className="grid grid-cols-2 gap-1 pt-0.5">
           <button
             onClick={() => { updateClipTransform(clip.id, { flipH: !t.flipH }); endEdit('Flip H'); }}
-            className={`h-7 rounded-squircle-xs border text-[10px] flex items-center justify-center gap-1 transition-colors ${
+            className={`h-7 rounded-squircle-xs border text-micro flex items-center justify-center gap-1 transition-colors ${
               t.flipH ? 'bg-spectrum-accentSoft border-spectrum-accentLine text-spectrum-accent' : 'bg-spectrum-card border-line text-spectrum-textDim hover:text-spectrum-text'
             }`}
           >
@@ -173,7 +174,7 @@ export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           </button>
           <button
             onClick={() => { updateClipTransform(clip.id, { flipV: !t.flipV }); endEdit('Flip V'); }}
-            className={`h-7 rounded-squircle-xs border text-[10px] flex items-center justify-center gap-1 transition-colors ${
+            className={`h-7 rounded-squircle-xs border text-micro flex items-center justify-center gap-1 transition-colors ${
               t.flipV ? 'bg-spectrum-accentSoft border-spectrum-accentLine text-spectrum-accent' : 'bg-spectrum-card border-line text-spectrum-textDim hover:text-spectrum-text'
             }`}
           >
@@ -185,11 +186,11 @@ export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
       {/* ── Compositing ── */}
       <Section title="Compositing" icon={Layers2}>
         <div className="space-y-1">
-          <span className="text-[11px] text-spectrum-textMuted">Blend mode</span>
+          <span className="text-ui-sm text-spectrum-textMuted">Blend mode</span>
           <select
             value={clip.blendMode}
             onChange={(e) => setClipBlendMode(clip.id, e.target.value as any)}
-            className="pro-input w-full h-7 px-2 text-[11px] cursor-pointer capitalize"
+            className="pro-input w-full h-7 px-2 text-ui-sm cursor-pointer capitalize"
           >
             {BLEND_MODES.map((m) => (
               <option key={m} value={m}>{m.replace(/-/g, ' ')}</option>
@@ -199,7 +200,7 @@ export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
 
         {clip.type !== 'text' && clip.type !== 'shape' && (
           <div className="space-y-1">
-            <span className="text-[11px] text-spectrum-textMuted">Fit to frame</span>
+            <span className="text-ui-sm text-spectrum-textMuted">Fit to frame</span>
             <SegmentedControl
               value={clip.fitMode}
               onChange={(v) => setClipFitMode(clip.id, v)}
@@ -238,7 +239,7 @@ export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               value={clip.motionBlur.samples}
               onChange={(v) => patchClip(clip.id, { 'motionBlur.samples': v })}
             />
-            <p className="text-[10px] text-spectrum-textFaint leading-relaxed">
+            <p className="text-micro text-spectrum-textFaint leading-relaxed">
               More samples look smoother but cost roughly that many extra renders per frame.
             </p>
           </>
@@ -282,18 +283,18 @@ export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               onChange={(v) => setMotionPath(clip.id, { closed: v })}
             />
             <div className="space-y-1">
-              <span className="text-[11px] text-spectrum-textMuted">Travel easing</span>
+              <span className="text-ui-sm text-spectrum-textMuted">Travel easing</span>
               <select
                 value={clip.motionPath.easing}
                 onChange={(e) => setMotionPath(clip.id, { easing: e.target.value as any })}
-                className="pro-input w-full h-7 px-2 text-[11px] cursor-pointer"
+                className="pro-input w-full h-7 px-2 text-ui-sm cursor-pointer"
               >
                 {['linear', 'easeIn', 'easeOut', 'easeInOut'].map((e) => (
                   <option key={e} value={e}>{e}</option>
                 ))}
               </select>
             </div>
-            <p className="text-[10px] text-spectrum-textFaint">
+            <p className="text-micro text-spectrum-textFaint">
               {clip.motionPath.points.length} points. Drag them in the program monitor.
             </p>
           </>
@@ -338,7 +339,7 @@ export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               onChange={(v) => updateClipMask(clip.id, { inverted: v })} />
           </>
         ) : (
-          <p className="text-[10px] text-spectrum-textFaint">
+          <p className="text-micro text-spectrum-textFaint">
             Turn the mask on to crop this layer to a shape.
           </p>
         )}

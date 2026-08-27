@@ -64,7 +64,8 @@ export const BuySheet: React.FC<Props> = ({ skill, onClose }) => {
 
         <div className="flex items-center justify-between px-4 h-11 border-b border-line">
           <h2 className="text-ui-lg font-semibold text-spectrum-text truncate">{skill.name}</h2>
-          <button onClick={close} disabled={busy} className="pro-btn w-6 h-6" title="Close">
+          <button onClick={close} disabled={busy} className="pro-btn w-6 h-6" title="Close"
+            aria-label="Close">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>

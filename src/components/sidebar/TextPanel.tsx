@@ -2,14 +2,21 @@
 
 import React from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
-import { ShapeKind } from '../../types/edl';
+import { ShapeKind, ClipTextStyle } from '../../types/edl';
 import { Section } from '../ui/Controls';
 import {
   Type, Plus, Square, Circle, Triangle, Star, Minus, MoveRight, Heart, Hexagon, Spline, Layers,
 } from '../ui/icons';
 import { PanelSearch, matchesQuery } from './PanelSearch';
+import { MotionThumb } from '../ui/MotionThumb';
+import { textPreview } from '../../engine/previewRender';
 
-const TITLE_PRESETS = [
+/* Typed rather than inferred, so `kineticAnimation` stays a
+   KineticAnimation and not a widened `string`. */
+const TITLE_PRESETS: {
+  id: string; label: string; text: string;
+  style: Partial<ClipTextStyle>;
+}[] = [
   { id: 'headline', label: 'Bold Headline', text: 'YOUR HEADLINE', style: { fontSize: 108, fontWeight: 900, uppercase: true, strokeWidth: 10, kineticAnimation: 'pop_in' } },
   { id: 'lower_third', label: 'Lower Third', text: 'Name Surname\nRole · Company', style: { fontSize: 46, fontWeight: 600, align: 'left', strokeWidth: 0, background: '#0a0b0ecc', backgroundPadding: 20, kineticAnimation: 'fade_slide' } },
   { id: 'subtitle', label: 'Subtitle', text: 'Supporting line of copy', style: { fontSize: 44, fontWeight: 500, strokeWidth: 4, kineticAnimation: 'fade_slide' } },
@@ -78,7 +85,7 @@ export const TextPanel: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto">
         {titles.length === 0 && shapes.length === 0 && (
-          <p className="text-[10px] text-spectrum-textFaint text-center py-5">Nothing matches “{query}”.</p>
+          <p className="text-micro text-spectrum-textFaint text-center py-5">Nothing matches “{query}”.</p>
         )}
         {titles.length > 0 && (
         <Section title="Titles" icon={Type}>
@@ -87,17 +94,26 @@ export const TextPanel: React.FC = () => {
               <button
                 key={preset.id}
                 onClick={() => addTitle(preset)}
-                className="card-interactive w-full p-2 flex items-center justify-between gap-2 group text-left"
+                className="card-interactive w-full p-2 flex items-center gap-2.5 group text-left"
               >
-                <span className="min-w-0">
-                  <span className="block text-[11px] font-medium text-spectrum-text truncate group-hover:text-spectrum-accent transition-colors">
+                {/* Each preset carries a kinetic animation. Showing it
+                    is the difference between picking a title by name
+                    and picking one by what it does. */}
+                <MotionThumb
+                  load={() => textPreview(preset.style.kineticAnimation ?? 'none', preset.label)}
+                  label={`${preset.label} preview`}
+                  restAt={0.5}
+                  className="w-[52px] aspect-video rounded-[4px] flex-shrink-0"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-ui-sm font-medium text-spectrum-text truncate group-hover:text-spectrum-accent transition-colors">
                     {preset.label}
                   </span>
-                  <span className="block text-[9px] text-spectrum-textFaint truncate">
+                  <span className="block text-micro text-spectrum-textFaint truncate">
                     {preset.text.split('\n')[0]}
                   </span>
                 </span>
-                <span className="w-5 h-5 rounded-full bg-spectrum-panel border border-line group-hover:bg-spectrum-accent group-hover:border-spectrum-accent text-spectrum-textDim group-hover:text-white flex items-center justify-center transition-colors flex-shrink-0">
+                <span className="w-5 h-5 rounded-full bg-spectrum-panel group-hover:bg-spectrum-accent text-spectrum-textDim group-hover:text-[#2a1806] flex items-center justify-center transition-colors flex-shrink-0">
                   <Plus className="w-3 h-3" />
                 </span>
               </button>
@@ -117,9 +133,10 @@ export const TextPanel: React.FC = () => {
                   onClick={() => addShapeLayer(overlayTrackId, shape.kind, playheadMs)}
                   className="card-interactive h-14 flex flex-col items-center justify-center gap-1 group"
                   title={`Add ${shape.label}`}
-                >
+                
+            aria-label={`Add ${shape.label}`}>
                   <Icon className="w-4 h-4 text-spectrum-textDim group-hover:text-spectrum-accent transition-colors" />
-                  <span className="text-[9px] text-spectrum-textFaint group-hover:text-spectrum-textMuted">
+                  <span className="text-micro text-spectrum-textFaint group-hover:text-spectrum-textMuted">
                     {shape.label}
                   </span>
                 </button>
@@ -136,10 +153,10 @@ export const TextPanel: React.FC = () => {
             className="card-interactive w-full p-2 flex items-center justify-between gap-2 group text-left"
           >
             <span className="min-w-0">
-              <span className="block text-[11px] font-medium text-spectrum-text group-hover:text-spectrum-accent transition-colors">
+              <span className="block text-ui-sm font-medium text-spectrum-text group-hover:text-spectrum-accent transition-colors">
                 Adjustment layer
               </span>
-              <span className="block text-[9px] text-spectrum-textFaint">
+              <span className="block text-micro text-spectrum-textFaint">
                 Grades every layer beneath it
               </span>
             </span>

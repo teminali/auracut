@@ -137,7 +137,8 @@ export const AlignmentBar: React.FC = () => {
       {ALIGN_BUTTONS.map(({ action, icon: Icon, label }, i) => (
         <React.Fragment key={action}>
           {i === 3 && <div className="w-px h-4 bg-line mx-0.5" />}
-          <button onClick={() => handleAlign(action)} className="pro-btn w-6 h-6" title={label}>
+          <button onClick={() => handleAlign(action)} className="pro-btn w-6 h-6" title={label}
+            aria-label={label}>
             <Icon className="w-3.5 h-3.5" />
           </button>
         </React.Fragment>
@@ -150,7 +151,8 @@ export const AlignmentBar: React.FC = () => {
         disabled={!canDistribute}
         className="pro-btn w-6 h-6"
         title={canDistribute ? 'Distribute horizontally' : 'Select 3+ layers to distribute'}
-      >
+      
+            aria-label={canDistribute ? 'Distribute horizontally' : 'Select 3+ layers to distribute'}>
         <AlignHorizontalSpaceAround className="w-3.5 h-3.5" />
       </button>
       <button
@@ -158,22 +160,27 @@ export const AlignmentBar: React.FC = () => {
         disabled={!canDistribute}
         className="pro-btn w-6 h-6"
         title={canDistribute ? 'Distribute vertically' : 'Select 3+ layers to distribute'}
-      >
+      
+            aria-label={canDistribute ? 'Distribute vertically' : 'Select 3+ layers to distribute'}>
         <AlignVerticalSpaceAround className="w-3.5 h-3.5" />
       </button>
 
       <div className="w-px h-4 bg-line mx-0.5" />
 
-      <button onClick={() => handleFlip('h')} className="pro-btn w-6 h-6" title="Flip horizontal">
+      <button onClick={() => handleFlip('h')} className="pro-btn w-6 h-6" title="Flip horizontal"
+            aria-label="Flip horizontal">
         <FlipHorizontal2 className="w-3.5 h-3.5" />
       </button>
-      <button onClick={() => handleFlip('v')} className="pro-btn w-6 h-6" title="Flip vertical">
+      <button onClick={() => handleFlip('v')} className="pro-btn w-6 h-6" title="Flip vertical"
+            aria-label="Flip vertical">
         <FlipVertical2 className="w-3.5 h-3.5" />
       </button>
-      <button onClick={handleFitToFrame} className="pro-btn w-6 h-6" title="Fit layer to frame">
+      <button onClick={handleFitToFrame} className="pro-btn w-6 h-6" title="Fit layer to frame"
+            aria-label="Fit layer to frame">
         <Maximize className="w-3.5 h-3.5" />
       </button>
-      <button onClick={handleReset} className="pro-btn w-6 h-6" title="Reset transform">
+      <button onClick={handleReset} className="pro-btn w-6 h-6" title="Reset transform"
+            aria-label="Reset transform">
         <RotateCcw className="w-3.5 h-3.5" />
       </button>
     </div>

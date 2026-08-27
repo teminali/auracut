@@ -71,9 +71,10 @@ export const ShortcutsOverlay: React.FC = () => {
         <div className="panel-header">
           <div className="flex items-center gap-2">
             <Keyboard className="w-3.5 h-3.5 text-spectrum-accent" />
-            <span className="text-[12px] font-semibold text-spectrum-text">Keyboard shortcuts</span>
+            <span className="text-ui font-semibold text-spectrum-text">Keyboard shortcuts</span>
           </div>
           <button onClick={() => setOpen(false)} className="pro-btn w-6 h-6">
+            aria-label="Close the shortcuts sheet"
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -85,8 +86,8 @@ export const ShortcutsOverlay: React.FC = () => {
               <div className="space-y-1">
                 {group.items.map(([keys, label]) => (
                   <div key={keys} className="flex items-center justify-between gap-3 py-0.5">
-                    <span className="text-[12px] text-spectrum-textMuted truncate">{label}</span>
-                    <span className="kbd !h-5 !px-1.5 !text-[10px] flex-shrink-0 whitespace-nowrap">{keys}</span>
+                    <span className="text-ui text-spectrum-textMuted truncate">{label}</span>
+                    <span className="kbd !h-5 !px-1.5 !text-micro flex-shrink-0 whitespace-nowrap">{keys}</span>
                   </div>
                 ))}
               </div>

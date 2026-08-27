@@ -110,7 +110,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
         ragged text — every name starts at the same x.
       */}
       <span
-        className={`flex-shrink-0 w-[22px] text-center text-[10px] font-mono font-bold tabular ${style.color}`}
+        className={`flex-shrink-0 w-[22px] text-center text-micro font-mono font-bold tabular ${style.color}`}
       >
         {style.badge}{laneNumber}
       </span>
@@ -155,7 +155,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
               className="flex-1 !h-3"
               title={`Track volume · ${Math.round(track.volume * 100)}%`}
             />
-            <span className="text-[9px] font-mono text-spectrum-textFaint tabular w-6 text-right">
+            <span className="text-micro font-mono text-spectrum-textFaint tabular w-6 text-right">
               {Math.round(track.volume * 100)}
             </span>
           </div>
@@ -173,7 +173,8 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
             onClick={(e) => { e.stopPropagation(); setTrackSolo(track.id); }}
             className={`pro-btn w-[22px] h-[22px] ${track.solo ? 'pro-btn-active' : ''}`}
             title={track.solo ? 'Un-solo track' : 'Solo track'}
-          >
+          
+            aria-label={track.solo ? 'Un-solo track' : 'Solo track'}>
             <Headphones className="w-3 h-3" />
           </button>
         ) : (
@@ -184,7 +185,8 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
           onClick={(e) => { e.stopPropagation(); setTrackMute(track.id); }}
           className={`pro-btn w-[22px] h-[22px] ${track.muted ? '!text-spectrum-red' : ''}`}
           title={isAudio ? (track.muted ? 'Unmute' : 'Mute') : track.muted ? 'Show track' : 'Hide track'}
-        >
+        
+            aria-label={isAudio ? (track.muted ? 'Unmute' : 'Mute') : track.muted ? 'Show track' : 'Hide track'}>
           {isAudio
             ? track.muted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />
             : track.muted ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
@@ -194,7 +196,8 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
           onClick={(e) => { e.stopPropagation(); setTrackLock(track.id); }}
           className={`pro-btn w-[22px] h-[22px] ${track.locked ? 'pro-btn-active !text-spectrum-amber' : ''}`}
           title={track.locked ? 'Unlock track' : 'Lock track'}
-        >
+        
+            aria-label={track.locked ? 'Unlock track' : 'Lock track'}>
           {track.locked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3 opacity-40" />}
         </button>
       </div>

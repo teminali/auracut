@@ -87,7 +87,7 @@ export const NumberField: React.FC<NumberFieldProps> = ({
           against the value, so a row of fields lines up on both edges. */}
       <span
         onPointerDown={onScrub}
-        className="scrub-label text-[10px] font-mono font-semibold text-spectrum-textDim flex-shrink-0 select-none w-[13px] text-center border-r border-line pr-1 mr-0.5"
+        className="scrub-label text-micro font-mono font-semibold text-spectrum-textDim flex-shrink-0 select-none w-[13px] text-center border-r border-line pr-1 mr-0.5"
         title={`Drag to scrub ${label} · ⇧ fine · ⌥ coarse`}
       >
         {label}
@@ -115,7 +115,7 @@ export const NumberField: React.FC<NumberFieldProps> = ({
           }
         }}
       />
-      {unit && <span className="text-[10px] text-spectrum-textFaint font-mono flex-shrink-0">{unit}</span>}
+      {unit && <span className="text-micro text-spectrum-textFaint font-mono flex-shrink-0">{unit}</span>}
     </div>
   );
 };
@@ -183,13 +183,14 @@ export const SliderRow: React.FC<SliderRowProps> = ({
               onClick={() => { onChange(defaultValue); onCommit?.(); }}
               className="opacity-0 group-hover/slider:opacity-100 text-spectrum-textFaint hover:text-spectrum-text transition-opacity"
               title={`Reset to ${defaultValue}`}
-            >
+            
+            aria-label={`Reset to ${defaultValue}`}>
               <RotateCcw className="w-2.5 h-2.5" />
             </button>
           )}
           {/* A value that has moved off its default says so in accent —
               the fastest way to see what you have actually touched. */}
-          <span className={`text-[10px] font-mono tabular ${isModified ? 'text-spectrum-accent font-semibold' : 'text-spectrum-textDim'}`}>
+          <span className={`text-micro font-mono tabular ${isModified ? 'text-spectrum-accent font-semibold' : 'text-spectrum-textDim'}`}>
             {displayed}{unit}
           </span>
         </div>
@@ -252,6 +253,7 @@ export const KeyframeToggle: React.FC<KeyframeToggleProps> = ({ animated, atPlay
       animated ? 'text-spectrum-amber hover:bg-spectrum-amber/15' : 'text-spectrum-textFaint hover:text-spectrum-textMuted hover:bg-spectrum-hover'
     }`}
     title={title ?? (atPlayhead ? 'Remove keyframe at playhead' : 'Add keyframe at playhead')}
+            aria-label={title ?? (atPlayhead ? 'Remove keyframe at playhead' : 'Add keyframe at playhead')}
   >
     {animated ? (
       <span
@@ -278,6 +280,7 @@ export const Section: React.FC<{
     <div className="border-b border-line last:border-b-0">
       <div className="w-full h-[30px] px-3 flex items-center justify-between gap-2 hover:bg-white/[0.022] transition-colors">
         <button onClick={() => setOpen((v) => !v)} className="flex items-center gap-2 min-w-0 flex-1 text-left group/sec">
+          aria-label="Expand or collapse this section"
           <ChevronRight
             className={`w-3 h-3 flex-shrink-0 text-spectrum-textFaint group-hover/sec:text-spectrum-textMuted transition-all ${open ? 'rotate-90' : ''}`}
           />
@@ -319,7 +322,8 @@ export function SegmentedControl<T extends string>({
                 ? 'bg-spectrum-card border-line-strong text-spectrum-text shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.4)]'
                 : 'border-transparent text-spectrum-textDim hover:text-spectrum-text hover:bg-white/[0.05]'
             }`}
-          >
+          
+            aria-label={opt.title ?? opt.label}>
             {Icon && <Icon className="w-3 h-3 flex-shrink-0" />}
             <span className="truncate">{opt.label}</span>
           </button>
@@ -340,7 +344,7 @@ export const ColorField: React.FC<{
   <div className="flex items-center justify-between gap-2 min-h-[26px]">
     <span className="prop-label">{label}</span>
     <div className="flex items-center gap-1.5 flex-shrink-0">
-      <span className="text-[10px] font-mono text-spectrum-textFaint uppercase tabular">{value || 'none'}</span>
+      <span className="text-micro font-mono text-spectrum-textFaint uppercase tabular">{value || 'none'}</span>
       <label className="w-[26px] h-[22px] rounded-squircle-xs border border-line-strong cursor-pointer overflow-hidden relative checkerboard">
         <span className="absolute inset-0" style={{ background: value || 'transparent' }} />
         <input
@@ -351,7 +355,8 @@ export const ColorField: React.FC<{
         />
       </label>
       {allowClear && (
-        <button onClick={() => onChange('')} className="pro-btn w-[22px] h-[22px]" title="Clear colour">
+        <button onClick={() => onChange('')} className="pro-btn w-[22px] h-[22px]" title="Clear colour"
+            aria-label="Clear colour">
           <RotateCcw className="w-2.5 h-2.5" />
         </button>
       )}
@@ -370,7 +375,7 @@ export const ToggleRow: React.FC<{
   <label className="flex items-center justify-between gap-3 cursor-pointer group/toggle min-h-[26px]">
     <span className="flex flex-col min-w-0 gap-0.5">
       <span className="prop-label group-hover/toggle:text-spectrum-text transition-colors">{label}</span>
-      {hint && <span className="text-[10px] text-spectrum-textFaint truncate leading-tight">{hint}</span>}
+      {hint && <span className="text-micro text-spectrum-textFaint truncate leading-tight">{hint}</span>}
     </span>
     <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
   </label>
@@ -385,7 +390,7 @@ export const EmptyState: React.FC<{
   action?: React.ReactNode;
 }> = ({ icon: Icon, title, detail, action }) => (
   <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-2.5">
-    <div className="w-11 h-11 rounded-squircle-md bg-spectrum-card border border-line flex items-center justify-center text-spectrum-textDim shadow-raised">
+    <div className="w-11 h-11 rounded-squircle-md bg-spectrum-card flex items-center justify-center text-spectrum-textDim shadow-raised">
       <Icon className="w-[18px] h-[18px]" />
     </div>
     <p className="text-ui font-medium text-spectrum-text">{title}</p>

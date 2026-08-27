@@ -26,7 +26,7 @@ export const UpdateIndicator: React.FC = () => {
     case 'downloading':
       return (
         <div
-          className="h-[26px] px-2 rounded-squircle-xs bg-spectrum-card border border-line flex items-center gap-2 text-ui-xs text-spectrum-textMuted"
+          className="h-[26px] px-2 rounded-squircle-xs bg-spectrum-card flex items-center gap-2 text-ui-xs text-spectrum-textMuted"
           title={`Downloading Kerf ${status.version}`}
         >
           <Download className="w-3 h-3 flex-shrink-0" />
@@ -46,6 +46,7 @@ export const UpdateIndicator: React.FC = () => {
           onClick={install}
           className="btn-primary h-[26px] px-2.5 gap-1.5 text-ui-xs"
           title={`Kerf ${status.version} is ready. Click to restart and update`}
+            aria-label={`Kerf ${status.version} is ready. Click to restart and update`}
         >
           <RefreshCw className="w-3 h-3" />
           Restart to update
@@ -59,6 +60,7 @@ export const UpdateIndicator: React.FC = () => {
           onClick={openReleases}
           className="h-[26px] px-2.5 rounded-squircle-xs border border-spectrum-accentLine bg-spectrum-accentSoft text-spectrum-accent text-ui-xs font-medium flex items-center gap-1.5"
           title={`Kerf ${status.version} is available. This build is not code-signed, so it cannot update itself. Open the download page.`}
+            aria-label={`Kerf ${status.version} is available. This build is not code-signed, so it cannot update itself. Open the download page.`}
         >
           <ExternalLink className="w-3 h-3" />
           Get {status.version}
@@ -71,6 +73,7 @@ export const UpdateIndicator: React.FC = () => {
           onClick={openReleases}
           className="pro-btn w-[26px] h-[26px] !text-spectrum-amber"
           title={`Update check failed: ${status.message}. Click to open the download page.`}
+            aria-label={`Update check failed: ${status.message}. Click to open the download page.`}
         >
           <AlertTriangle className="w-[15px] h-[15px]" />
         </button>

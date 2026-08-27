@@ -138,7 +138,7 @@ export const SpeedInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
             <button
               key={v}
               onClick={() => { updateClipSpeed(clip.id, { multiplier: v }); commit(`Set ${v}× speed`); }}
-              className={`h-6 rounded-squircle-xs border text-[10px] font-mono transition-colors ${
+              className={`h-6 rounded-squircle-xs border text-micro font-mono transition-colors ${
                 Math.abs(clip.speed.multiplier - v) < 0.01
                   ? 'bg-spectrum-accentSoft border-spectrum-accentLine text-spectrum-accent'
                   : 'bg-spectrum-card border-line text-spectrum-textDim hover:text-spectrum-text'
@@ -151,12 +151,12 @@ export const SpeedInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
 
         <div className="grid grid-cols-2 gap-2 pt-1">
           <div className="card px-2 py-1.5">
-            <span className="block text-[9px] text-spectrum-textFaint">Timeline length</span>
-            <span className="font-mono text-[11px] text-spectrum-text tabular">{(effectiveDuration / 1000).toFixed(2)}s</span>
+            <span className="block text-micro text-spectrum-textFaint">Timeline length</span>
+            <span className="font-mono text-ui-sm text-spectrum-text tabular">{(effectiveDuration / 1000).toFixed(2)}s</span>
           </div>
           <div className="card px-2 py-1.5">
-            <span className="block text-[9px] text-spectrum-textFaint">Source consumed</span>
-            <span className="font-mono text-[11px] text-spectrum-textDim tabular">{(originalDuration / 1000).toFixed(2)}s</span>
+            <span className="block text-micro text-spectrum-textFaint">Source consumed</span>
+            <span className="font-mono text-ui-sm text-spectrum-textDim tabular">{(originalDuration / 1000).toFixed(2)}s</span>
           </div>
         </div>
 
@@ -197,7 +197,7 @@ export const SpeedInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               className="absolute left-0 right-0 h-px bg-white/[0.06] pointer-events-none"
               style={{ top: speedToY(mult) }}
             >
-              <span className="absolute left-1 -top-[7px] text-[9px] font-mono text-spectrum-textFaint">{mult}×</span>
+              <span className="absolute left-1 -top-[7px] text-micro font-mono text-spectrum-textFaint">{mult}×</span>
             </div>
           ))}
           {[0.25, 0.5, 0.75].map((t) => (
@@ -228,16 +228,18 @@ export const SpeedInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
                 marginTop: -5,
               }}
               title={`${point.speedMult.toFixed(2)}× at ${Math.round(point.timePct * 100)}%. Right-click to remove`}
+            
+            aria-label={`${point.speedMult.toFixed(2)}× at ${Math.round(point.timePct * 100)}%. Right-click to remove`}
             />
           ))}
         </div>
 
-        <div className="flex items-center justify-between text-[9px] text-spectrum-textFaint">
+        <div className="flex items-center justify-between text-micro text-spectrum-textFaint">
           <span>Double-click to add a point · right-click to remove</span>
           {clip.speed.curvePreset === 'custom' && (
             <button
               onClick={() => { updateClipSpeed(clip.id, { curvePreset: 'linear' }); commit('Reset ramp'); }}
-              className="pro-btn px-1.5 h-5 gap-1 text-[9px]"
+              className="pro-btn px-1.5 h-5 gap-1 text-micro"
             >
               <RotateCcw className="w-2.5 h-2.5" /> Reset
             </button>

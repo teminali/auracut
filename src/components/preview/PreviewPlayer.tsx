@@ -253,17 +253,20 @@ export const PreviewPlayer: React.FC = () => {
           </div>
 
           <div className="seg-group">
-            <button onClick={() => stepZoom(-1)} className="seg-item !px-1.5" title="Zoom out">
+            <button onClick={() => stepZoom(-1)} className="seg-item !px-1.5" title="Zoom out"
+            aria-label="Zoom out">
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setZoomMode(zoomMode === 'fit' ? 1 : 'fit')}
               className="seg-item font-mono min-w-[42px]"
               title="Toggle fit / 100%"
-            >
+            
+            aria-label="Toggle fit / 100%">
               {zoomLabel}
             </button>
-            <button onClick={() => stepZoom(1)} className="seg-item !px-1.5" title="Zoom in">
+            <button onClick={() => stepZoom(1)} className="seg-item !px-1.5" title="Zoom in"
+            aria-label="Zoom in">
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -272,7 +275,8 @@ export const PreviewPlayer: React.FC = () => {
             onClick={() => setIsFullscreen((v) => !v)}
             className="pro-btn w-6 h-6"
             title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen monitor'}
-          >
+          
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen monitor'}>
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
         </div>
@@ -391,7 +395,7 @@ const LevelMeters: React.FC<{ left: number; right: number; peak: number }> = ({ 
   <div className="flex items-center gap-2 flex-shrink-0 pl-3 border-l border-line" title="Master output level">
     <div className="flex flex-col gap-[3px] justify-center">
       {(['L', 'R'] as const).map((ch) => (
-        <span key={ch} className="text-[9px] font-mono font-semibold text-spectrum-textFaint leading-[7px]">
+        <span key={ch} className="text-micro font-mono font-semibold text-spectrum-textFaint leading-[7px]">
           {ch}
         </span>
       ))}
@@ -427,7 +431,8 @@ const OverlayToggle: React.FC<{
   icon: React.ElementType;
   title: string;
 }> = ({ active, onClick, icon: Icon, title }) => (
-  <button onClick={onClick} className={`seg-item !px-1.5 ${active ? 'seg-item-on' : ''}`} title={title}>
+  <button onClick={onClick} className={`seg-item !px-1.5 ${active ? 'seg-item-on' : ''}`} title={title}
+            aria-label={title}>
     <Icon className="w-3.5 h-3.5" />
   </button>
 );

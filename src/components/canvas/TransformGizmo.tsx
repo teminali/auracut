@@ -328,7 +328,7 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({ viewport, stageR
         />
 
         {locked && (
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-spectrum-amber/95 text-black text-[9px] font-semibold whitespace-nowrap pointer-events-none">
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-spectrum-amber/95 text-black text-micro font-semibold whitespace-nowrap pointer-events-none">
             <Lock className="w-2.5 h-2.5" />
             Locked
           </div>
@@ -390,7 +390,7 @@ export const TransformGizmo: React.FC<TransformGizmoProps> = ({ viewport, stageR
       {/* ── Live readout ── */}
       {dragMode && (
         <div
-          className="absolute pointer-events-none z-50 px-2 py-1 rounded-squircle-xs bg-spectrum-panel/95 backdrop-blur border border-line-strong shadow-pop font-mono text-[10px] text-spectrum-text whitespace-nowrap"
+          className="absolute pointer-events-none z-50 px-2 py-1 rounded-squircle-xs bg-spectrum-panel/95 backdrop-blur border border-line-strong shadow-pop font-mono text-micro text-spectrum-text whitespace-nowrap"
           style={{
             left: Math.min(...corners.map((c) => c.x)) ,
             top: Math.max(...corners.map((c) => c.y)) + 10,
@@ -536,7 +536,7 @@ const SmartGuideLayer: React.FC<SmartGuideLayerProps> = ({ guides, spacing, view
                     top: sp.axis === 'x' ? a.y - 18 : a.y + length / 2,
                     transform: sp.axis === 'x' ? 'translateX(-50%)' : 'translateY(-50%)',
                   }}
-                  className="px-1 py-px rounded-[3px] bg-[#ff2d78] text-white text-[9px] font-mono font-semibold whitespace-nowrap"
+                  className="px-1 py-px rounded-[3px] bg-[#ff2d78] text-white text-micro font-mono font-semibold whitespace-nowrap"
                 >
                   {sp.distance}
                 </div>

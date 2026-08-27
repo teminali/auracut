@@ -37,13 +37,14 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
         <div className="panel-header">
           <div className="flex items-center gap-2">
             <Server className="w-3.5 h-3.5 text-spectrum-accent" />
-            <span className="text-[12px] font-semibold text-spectrum-text">Model Context Protocol</span>
+            <span className="text-ui font-semibold text-spectrum-text">Model Context Protocol</span>
             <span className="chip !text-spectrum-green !border-spectrum-green/30">
               <span className="w-1.5 h-1.5 rounded-full bg-spectrum-green" />
               running
             </span>
           </div>
           <button onClick={onClose} className="pro-btn w-6 h-6">
+            aria-label="Close"
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -62,7 +63,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`relative h-8 px-1 text-[11px] font-medium capitalize transition-colors ${
+              className={`relative h-8 px-1 text-ui-sm font-medium capitalize transition-colors ${
                 tab === t ? 'text-spectrum-accent' : 'text-spectrum-textDim hover:text-spectrum-text'
               }`}
             >
@@ -71,7 +72,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
             </button>
           ))}
           {tab === 'log' && logs.length > 0 && (
-            <button onClick={clearLogs} className="pro-btn h-6 px-2 text-[10px] ml-auto">Clear</button>
+            <button onClick={clearLogs} className="pro-btn h-6 px-2 text-micro ml-auto">Clear</button>
           )}
         </div>
 
@@ -83,7 +84,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search tools…"
-                className="flex-1 bg-transparent outline-none text-[11px] text-spectrum-text placeholder:text-spectrum-textFaint"
+                className="flex-1 bg-transparent outline-none text-ui-sm text-spectrum-text placeholder:text-spectrum-textFaint"
               />
             </div>
           </div>
@@ -99,16 +100,17 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
                     {list.map((tool) => (
                       <div key={tool.name} className="card p-2">
                         <div className="flex items-center justify-between gap-2">
-                          <code className="text-[11px] font-mono text-spectrum-accent">{tool.name}</code>
+                          <code className="text-ui-sm font-mono text-spectrum-accent">{tool.name}</code>
                           <button
                             onClick={() => navigator.clipboard?.writeText(tool.name)}
                             className="pro-btn w-4 h-4 flex-shrink-0"
                             title="Copy the tool name"
-                          >
+                          
+            aria-label="Copy the tool name">
                             <Copy className="w-2.5 h-2.5" />
                           </button>
                         </div>
-                        <p className="text-[10px] text-spectrum-textDim leading-snug mt-0.5">{tool.description}</p>
+                        <p className="text-micro text-spectrum-textDim leading-snug mt-0.5">{tool.description}</p>
                       </div>
                     ))}
                   </div>
@@ -116,7 +118,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
               ))}
             </div>
           ) : logs.length === 0 ? (
-            <p className="text-[11px] text-spectrum-textDim text-center py-8">No tool calls yet.</p>
+            <p className="text-ui-sm text-spectrum-textDim text-center py-8">No tool calls yet.</p>
           ) : (
             <div className="space-y-1">
               {logs.map((log) => (
@@ -127,15 +129,15 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
                     ) : (
                       <AlertCircle className="w-3 h-3 text-spectrum-red flex-shrink-0" />
                     )}
-                    <code className="text-[11px] font-mono text-spectrum-text flex-1 truncate">{log.toolName}</code>
-                    <span className="text-[9px] text-spectrum-textFaint font-mono tabular flex-shrink-0">
+                    <code className="text-ui-sm font-mono text-spectrum-text flex-1 truncate">{log.toolName}</code>
+                    <span className="text-micro text-spectrum-textFaint font-mono tabular flex-shrink-0">
                       {log.durationMs}ms
                     </span>
-                    <span className="text-[9px] text-spectrum-textFaint flex-shrink-0 truncate max-w-[110px]">
+                    <span className="text-micro text-spectrum-textFaint flex-shrink-0 truncate max-w-[110px]">
                       {log.agentName}
                     </span>
                   </div>
-                  <pre className="mt-1 text-[9px] font-mono text-spectrum-textDim whitespace-pre-wrap break-all max-h-16 overflow-y-auto">
+                  <pre className="mt-1 text-micro font-mono text-spectrum-textDim whitespace-pre-wrap break-all max-h-16 overflow-y-auto">
                     {JSON.stringify(log.parameters)}
                   </pre>
                 </div>
@@ -144,7 +146,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
           )}
         </div>
 
-        <div className="px-3 h-9 border-t border-line flex items-center gap-3 text-[10px] text-spectrum-textFaint flex-shrink-0">
+        <div className="px-3 h-9 border-t border-line flex items-center gap-3 text-micro text-spectrum-textFaint flex-shrink-0">
           <span className="flex items-center gap-1">
             <Activity className="w-2.5 h-2.5 text-spectrum-green" />
             SSE :{status.ssePort}
@@ -162,7 +164,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
 
 const Stat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div className="card px-2 py-1.5 text-center">
-    <span className="block text-[15px] font-semibold text-spectrum-text tabular">{value}</span>
-    <span className="block text-[9px] text-spectrum-textFaint uppercase tracking-wider">{label}</span>
+    <span className="block text-ui-xl font-semibold text-spectrum-text tabular">{value}</span>
+    <span className="block text-micro text-spectrum-textFaint uppercase tracking-wider">{label}</span>
   </div>
 );

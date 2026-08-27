@@ -143,9 +143,10 @@ export const AiToolsPanel: React.FC = () => {
         <span className="panel-title">AI Tools</span>
         <button
           onClick={() => setCopilotOpen(true)}
-          className="pro-btn-filled h-6 px-2 gap-1 text-[10px]"
+          className="pro-btn-filled h-6 px-2 gap-1 text-micro"
           title="Open the copilot for free-form instructions"
-        >
+        
+            aria-label="Open the copilot for free-form instructions">
           <MessageSquare className="w-3 h-3" /> Ask
         </button>
       </div>
@@ -164,10 +165,10 @@ export const AiToolsPanel: React.FC = () => {
                 >
                   <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${recipe.tone}`} />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[12px] font-medium text-spectrum-text group-hover:text-spectrum-accent transition-colors">
+                    <span className="block text-ui font-medium text-spectrum-text group-hover:text-spectrum-accent transition-colors">
                       {busy === recipe.id ? 'Working…' : recipe.label}
                     </span>
-                    <span className="block text-[10px] text-spectrum-textDim leading-snug mt-0.5">
+                    <span className="block text-micro text-spectrum-textDim leading-snug mt-0.5">
                       {recipe.hint}
                     </span>
                   </span>
@@ -178,10 +179,10 @@ export const AiToolsPanel: React.FC = () => {
         </Section>
 
         <Section title="Smart B-roll" icon={Film}>
-          <p className="text-[10px] text-spectrum-textFaint leading-relaxed">
+          <p className="text-micro text-spectrum-textFaint leading-relaxed">
             Scans the dialogue for keywords and proposes cutaways from the media pool.
           </p>
-          <button onClick={findBroll} className="pro-btn-filled w-full h-7 gap-1.5 text-[11px]">
+          <button onClick={findBroll} className="pro-btn-filled w-full h-7 gap-1.5 text-ui-sm">
             <Film className="w-3 h-3" /> Find B-roll
           </button>
 
@@ -190,8 +191,8 @@ export const AiToolsPanel: React.FC = () => {
               <div className="well max-h-32 overflow-y-auto p-1 space-y-1">
                 {suggestions.map((s) => (
                   <div key={s.id} className="flex items-center justify-between gap-2 px-1 py-0.5">
-                    <span className="text-[10px] text-spectrum-text truncate">{s.mediaAsset.name}</span>
-                    <span className="text-[9px] font-mono text-spectrum-textFaint tabular flex-shrink-0">
+                    <span className="text-micro text-spectrum-text truncate">{s.mediaAsset.name}</span>
+                    <span className="text-micro font-mono text-spectrum-textFaint tabular flex-shrink-0">
                       {(s.startTimeMs / 1000).toFixed(1)}s
                     </span>
                   </div>
@@ -202,7 +203,7 @@ export const AiToolsPanel: React.FC = () => {
                   await call('suggest_broll', { insert: true }, `${suggestions.length} cutaways inserted`);
                   setSuggestions([]);
                 }}
-                className="btn-primary w-full h-7 gap-1.5 text-[11px]"
+                className="btn-primary w-full h-7 gap-1.5 text-ui-sm"
               >
                 <Plus className="w-3 h-3" /> Insert all onto the overlay track
               </button>
@@ -211,14 +212,14 @@ export const AiToolsPanel: React.FC = () => {
         </Section>
 
         <Section title="Subject isolation" icon={Layers}>
-          <p className="text-[10px] text-spectrum-textFaint leading-relaxed">
+          <p className="text-micro text-spectrum-textFaint leading-relaxed">
             Keys the background out of the selected layer so the subject sits on top.
           </p>
           <button
             onClick={() => call('patch_clip', {
               properties: { 'chromaKey.enabled': true, 'chromaKey.targetColorHex': '#00ff00', 'chromaKey.similarity': 42 },
             }, 'Background keyed out')}
-            className="pro-btn-filled w-full h-7 gap-1.5 text-[11px]"
+            className="pro-btn-filled w-full h-7 gap-1.5 text-ui-sm"
           >
             <Sparkle className="w-3 h-3" /> Isolate subject
           </button>

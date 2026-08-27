@@ -55,14 +55,14 @@ export const ShapeInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
 
         {style.kind === 'path' && (
           <div className="space-y-1">
-            <span className="text-[11px] text-spectrum-textMuted">SVG path data (0–100 viewBox)</span>
+            <span className="text-ui-sm text-spectrum-textMuted">SVG path data (0–100 viewBox)</span>
             <textarea
               value={style.pathData ?? ''}
               onChange={(e) => set({ pathData: e.target.value })}
               onBlur={() => commit('Set path data')}
               rows={3}
               placeholder="M 10 50 C 30 10, 70 10, 90 50"
-              className="pro-input w-full px-2 py-1.5 text-[10px] font-mono resize-y"
+              className="pro-input w-full px-2 py-1.5 text-micro font-mono resize-y"
             />
           </div>
         )}
@@ -100,7 +100,7 @@ export const ShapeInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
       </Section>
 
       <Section title="Trim path" icon={Scissors} defaultOpen={style.trimStart > 0 || style.trimEnd < 1}>
-        <p className="text-[10px] text-spectrum-textFaint leading-relaxed">
+        <p className="text-micro text-spectrum-textFaint leading-relaxed">
           Animate trim end from 0 → 1 for a “draw on” reveal. Add keyframes from the Keys tab.
         </p>
         <SliderRow label="Trim start" min={0} max={1} step={0.01} precision={2} displayScale={100} unit="%" defaultValue={0}

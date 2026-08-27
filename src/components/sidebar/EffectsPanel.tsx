@@ -64,7 +64,7 @@ export const EffectsPanel: React.FC = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search effects…"
-            className="flex-1 bg-transparent outline-none text-[11px] text-spectrum-text placeholder:text-spectrum-textFaint min-w-0"
+            className="flex-1 bg-transparent outline-none text-ui-sm text-spectrum-text placeholder:text-spectrum-textFaint min-w-0"
           />
         </div>
 
@@ -86,7 +86,7 @@ export const EffectsPanel: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {results.length === 0 ? (
-          <p className="text-[11px] text-spectrum-textDim text-center py-6">
+          <p className="text-ui-sm text-spectrum-textDim text-center py-6">
             Nothing matches “{query}”.
           </p>
         ) : (
@@ -97,7 +97,8 @@ export const EffectsPanel: React.FC = () => {
               className="w-full p-2 flex items-start gap-2.5 text-left group rounded-squircle-md
                          bg-[#16191f] hover:bg-[#1f242c] transition-colors duration-base"
               title={`Add ${effect.label}`}
-            >
+            
+            aria-label={`Add ${effect.label}`}>
               {/* The effect running, not a picture suggesting it. Many
                   of these only exist in motion — a still of `shake`,
                   `zoom_pulse` or `film_grain` is the clip with nothing
@@ -110,12 +111,12 @@ export const EffectsPanel: React.FC = () => {
               />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-medium text-spectrum-text truncate group-hover:text-spectrum-accent transition-colors">
+                  <span className="text-ui-sm font-medium text-spectrum-text truncate group-hover:text-spectrum-accent transition-colors">
                     {effect.label}
                   </span>
                   <Plus className="w-3 h-3 text-spectrum-textFaint group-hover:text-spectrum-accent flex-shrink-0 transition-colors" />
                 </span>
-                <span className="block text-[10px] text-spectrum-textDim leading-snug mt-0.5">
+                <span className="block text-micro text-spectrum-textDim leading-snug mt-0.5">
                   {effect.description}
                 </span>
               </span>
@@ -126,7 +127,7 @@ export const EffectsPanel: React.FC = () => {
 
       {selectedClipIds.length === 0 && (
         <div className="p-2 border-t border-line flex-shrink-0">
-          <p className="text-[10px] text-spectrum-textFaint text-center">
+          <p className="text-micro text-spectrum-textFaint text-center">
             Select a layer to apply effects to it.
           </p>
         </div>

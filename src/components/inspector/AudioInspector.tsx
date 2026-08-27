@@ -56,7 +56,7 @@ export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           onChange={(v) => set({ volume: v })}
           onCommit={() => commit('Set volume')}
         />
-        <div className="flex items-center justify-between text-[10px] font-mono text-spectrum-textFaint">
+        <div className="flex items-center justify-between text-micro font-mono text-spectrum-textFaint">
           <span>{toDb(a.volume) <= -60 ? '−∞' : `${toDb(a.volume) >= 0 ? '+' : ''}${toDb(a.volume).toFixed(1)}`} dB</span>
           {a.volume > 1 && <span className="text-spectrum-amber">Gain above unity, watch for clipping</span>}
         </div>
@@ -66,7 +66,7 @@ export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
             <button
               key={v}
               onClick={() => { set({ volume: v }); commit('Set volume'); }}
-              className="h-6 rounded-squircle-xs border border-line bg-spectrum-card text-[10px] font-mono text-spectrum-textDim hover:text-spectrum-text transition-colors"
+              className="h-6 rounded-squircle-xs bg-spectrum-card text-micro font-mono text-spectrum-textDim hover:text-spectrum-text transition-colors"
             >
               {v === 0 ? 'Mute' : `${Math.round(v * 100)}%`}
             </button>
@@ -81,7 +81,7 @@ export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           <NumberField label="Out" unit="ms" min={0} max={maxFade} step={50} sensitivity={8}
             value={a.fadeOutMs} onChange={(v) => set({ fadeOutMs: v })} onCommit={() => commit('Set fade out')} />
         </div>
-        <p className="text-[10px] text-spectrum-textFaint">
+        <p className="text-micro text-spectrum-textFaint">
           You can also drag the white handles on the clip itself.
         </p>
       </Section>
@@ -90,7 +90,7 @@ export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         <SliderRow label="Pitch" min={-24} max={24} unit=" st" bipolar defaultValue={0}
           value={a.pitch} onChange={(v) => set({ pitch: v })} onCommit={() => commit('Set pitch')} />
         <div className="space-y-1">
-          <span className="text-[11px] text-spectrum-textMuted">Voice effect</span>
+          <span className="text-ui-sm text-spectrum-textMuted">Voice effect</span>
           <SegmentedControl
             value={a.voiceEffect}
             columns={4}
@@ -119,18 +119,18 @@ export const AudioInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         <div className="mx-3 mb-3 rounded-md border border-spectrum-amber/30 bg-spectrum-amber/10 p-2">
           <div className="flex items-center gap-1.5 mb-1">
             <EarOff className="w-3 h-3 text-spectrum-amber flex-shrink-0" />
-            <span className="text-[10px] font-semibold text-spectrum-amber">
+            <span className="text-micro font-semibold text-spectrum-amber">
               Not in the preview
             </span>
           </div>
           <ul className="space-y-1">
             {notPreviewed.map((u) => (
-              <li key={u.setting} className="text-[10px] leading-snug text-spectrum-textMuted">
+              <li key={u.setting} className="text-micro leading-snug text-spectrum-textMuted">
                 {u.short}
               </li>
             ))}
           </ul>
-          <p className="mt-1.5 text-[10px] leading-snug text-spectrum-textFaint">
+          <p className="mt-1.5 text-micro leading-snug text-spectrum-textFaint">
             The export applies {notPreviewed.length === 1 ? 'it' : 'them'}. Render a test
             clip before judging this by ear.
           </p>

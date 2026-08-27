@@ -135,7 +135,8 @@ export const MediaPanel: React.FC = () => {
             onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
             className="pro-btn w-[22px] h-[22px]"
             title={viewMode === 'list' ? 'Grid view' : 'List view'}
-          >
+          
+            aria-label={viewMode === 'list' ? 'Grid view' : 'List view'}>
             {viewMode === 'list' ? <LayoutGrid className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
           </button>
           <button onClick={() => fileInputRef.current?.click()} className="btn-primary h-[22px] px-2 gap-1 text-ui-xs">
@@ -168,11 +169,11 @@ export const MediaPanel: React.FC = () => {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2 px-4">
             <Film className="w-7 h-7 text-spectrum-textFaint" />
-            <p className="text-[11px] text-spectrum-textDim">
+            <p className="text-ui-sm text-spectrum-textDim">
               {query ? `Nothing matches “${query}”` : 'Drop video, audio or images here'}
             </p>
             {!query && (
-              <button onClick={() => fileInputRef.current?.click()} className="pro-btn-filled h-7 px-3 text-[11px] gap-1.5">
+              <button onClick={() => fileInputRef.current?.click()} className="pro-btn-filled h-7 px-3 text-ui-sm gap-1.5">
                 <Upload className="w-3 h-3" /> Choose files
               </button>
             )}
@@ -196,7 +197,7 @@ export const MediaPanel: React.FC = () => {
         <div className="absolute inset-0 bg-spectrum-accent/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">
           <div className="card px-4 py-3 text-center">
             <Upload className="w-5 h-5 text-spectrum-accent mx-auto mb-1" />
-            <p className="text-[11px] font-medium text-spectrum-text">Drop to import</p>
+            <p className="text-ui-sm font-medium text-spectrum-text">Drop to import</p>
           </div>
         </div>
       )}
@@ -248,7 +249,7 @@ const AssetRow: React.FC<{
         <p className="text-ui-sm font-medium text-spectrum-text truncate">
           {asset.name}
         </p>
-        <p className="text-[10px] text-spectrum-textFaint font-mono tabular truncate">
+        <p className="text-micro text-spectrum-textFaint font-mono tabular truncate">
           {formatDuration(asset.durationMs)} · {asset.fileSizeFormatted}
         </p>
       </div>
@@ -258,7 +259,8 @@ const AssetRow: React.FC<{
           onClick={(e) => { e.stopPropagation(); onRemove(asset.id); }}
           className="btn-ghost-danger w-[22px] h-[22px] opacity-0 group-hover:opacity-100 transition-opacity"
           title="Remove from pool"
-        >
+        
+            aria-label="Remove from pool">
           <Trash2 className="w-3 h-3" />
         </button>
         <span className="w-[22px] h-[22px] rounded-full bg-spectrum-sunken border border-line group-hover:bg-spectrum-accent group-hover:border-spectrum-accent text-spectrum-textDim group-hover:text-white flex items-center justify-center transition-colors">
@@ -285,7 +287,7 @@ const AssetCard: React.FC<{ asset: MediaAsset; onPlace: (a: MediaAsset) => void 
         ) : (
           <Icon className="w-5 h-5 text-spectrum-textDim" />
         )}
-        <span className="absolute bottom-1 right-1 px-1 rounded-[3px] bg-black/80 text-[9px] font-mono text-white/85 tabular leading-[14px]">
+        <span className="absolute bottom-1 right-1 px-1 rounded-[3px] bg-black/80 text-micro font-mono text-white/85 tabular leading-[14px]">
           {formatDuration(asset.durationMs)}
         </span>
       </div>

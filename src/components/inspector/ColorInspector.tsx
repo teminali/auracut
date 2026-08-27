@@ -51,19 +51,20 @@ export const ColorInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               onClick={() => applyLook(look)}
               className="group flex flex-col items-center gap-1"
               title={look.label}
-            >
+            
+            aria-label={look.label}>
               <span
                 className="w-full h-9 rounded-squircle-xs border border-line group-hover:border-spectrum-accent transition-colors"
                 style={{ background: look.swatch }}
               />
-              <span className="text-[9px] text-spectrum-textDim group-hover:text-spectrum-text truncate w-full text-center leading-tight">
+              <span className="text-micro text-spectrum-textDim group-hover:text-spectrum-text truncate w-full text-center leading-tight">
                 {look.label}
               </span>
             </button>
           ))}
         </div>
         {selectedClipIds.length > 1 && (
-          <button onClick={copyToSelection} className="pro-btn-filled w-full h-7 gap-1.5 text-[11px]">
+          <button onClick={copyToSelection} className="pro-btn-filled w-full h-7 gap-1.5 text-ui-sm">
             <Copy className="w-3 h-3" />
             Apply this grade to all {selectedClipIds.length} selected
           </button>
@@ -78,7 +79,8 @@ export const ColorInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
             onClick={() => { set({ brightness: 0, exposure: 0, contrast: 0, highlights: 0, shadows: 0 }); done('Reset light'); }}
             className="pro-btn w-5 h-5"
             title="Reset light"
-          >
+          
+            aria-label="Reset light">
             <RotateCcw className="w-3 h-3" />
           </button>
         }
@@ -130,7 +132,7 @@ export const ColorInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         {clip.chromaKey.enabled ? (
           <>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] text-spectrum-textMuted">Key colour</span>
+              <span className="text-ui-sm text-spectrum-textMuted">Key colour</span>
               <div className="flex items-center gap-1">
                 {['#00ff00', '#0000ff', '#ffffff'].map((c) => (
                   <button
@@ -162,7 +164,7 @@ export const ColorInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               value={clip.chromaKey.spill} onChange={(v) => updateClipChromaKey(clip.id, { spill: v })} />
           </>
         ) : (
-          <p className="text-[10px] text-spectrum-textFaint">
+          <p className="text-micro text-spectrum-textFaint">
             Enable to remove a green or blue screen background.
           </p>
         )}

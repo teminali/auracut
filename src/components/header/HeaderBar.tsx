@@ -100,6 +100,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           onClick={onGoHome}
           disabled={!onGoHome}
           title={onGoHome ? 'Back to home' : undefined}
+            aria-label={onGoHome ? 'Back to home' : undefined}
           className="flex items-center gap-2 flex-shrink-0 rounded-[6px] px-1 -mx-1 py-0.5
                      hover:bg-white/[0.05] transition-colors disabled:hover:bg-transparent"
         >
@@ -132,7 +133,8 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
             onClick={() => { setTitleDraft(project.name); setEditingTitle(true); }}
             className="pro-btn h-[26px] px-2 text-ui text-spectrum-textMuted hover:text-spectrum-text truncate max-w-[240px]"
             title="Click to rename the project"
-          >
+          
+            aria-label="Click to rename the project">
             {project.name}
           </button>
         )}
@@ -147,17 +149,21 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           disabled={!canUndo}
           className="pro-btn w-[26px] h-[26px]"
           title={canUndo ? `Undo ${lastLabel ?? ''} (⌘Z)` : 'Nothing to undo'}
+            aria-label={canUndo ? `Undo ${lastLabel ?? ''} (⌘Z)` : 'Nothing to undo'}
         >
           <Undo2 className="w-[15px] h-[15px]" />
         </button>
-        <button onClick={redo} disabled={!canRedo} className="pro-btn w-[26px] h-[26px]" title="Redo (⌘⇧Z)">
+        <button onClick={redo} disabled={!canRedo} className="pro-btn w-[26px] h-[26px]" title="Redo (⌘⇧Z)"
+            aria-label="Redo (⌘⇧Z)">
           <Redo2 className="w-[15px] h-[15px]" />
         </button>
         <div className="w-1" />
-        <button onClick={saveProject} className="pro-btn w-[26px] h-[26px]" title="Save project to a file (⌘S)">
+        <button onClick={saveProject} className="pro-btn w-[26px] h-[26px]" title="Save project to a file (⌘S)"
+            aria-label="Save project to a file (⌘S)">
           <Save className="w-[15px] h-[15px]" />
         </button>
-        <button onClick={() => fileInputRef.current?.click()} className="pro-btn w-[26px] h-[26px]" title="Open a saved project (⌘O)">
+        <button onClick={() => fileInputRef.current?.click()} className="pro-btn w-[26px] h-[26px]" title="Open a saved project (⌘O)"
+            aria-label="Open a saved project (⌘O)">
           <FolderOpen className="w-[15px] h-[15px]" />
         </button>
         <input
@@ -211,13 +217,15 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         {/* Renders nothing unless there is an update to act on. */}
         <UpdateIndicator />
 
-        <button onClick={openCommandPalette} className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs" title="Command palette (⌘K)">
+        <button onClick={openCommandPalette} className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs" title="Command palette (⌘K)"
+            aria-label="Command palette (⌘K)">
           <Command className="w-3 h-3" />
           <span className="hidden xl:inline">Commands</span>
           <span className="kbd hidden xl:inline-flex">⌘K</span>
         </button>
 
-        <button onClick={() => setShortcutsOpen(true)} className="pro-btn w-[26px] h-[26px]" title="Keyboard shortcuts (?)">
+        <button onClick={() => setShortcutsOpen(true)} className="pro-btn w-[26px] h-[26px]" title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts (?)">
           <Keyboard className="w-[15px] h-[15px]" />
         </button>
 
@@ -225,7 +233,8 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           onClick={() => setMcpOpen(true)}
           className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs font-mono tracking-wide"
           title="MCP server & tools"
-        >
+        
+            aria-label="MCP server & tools">
           <span className="w-1.5 h-1.5 rounded-full bg-spectrum-green animate-pulse-ring" />
           MCP
         </button>
@@ -240,7 +249,8 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
               : 'bg-spectrum-card border-line text-spectrum-textMuted hover:text-spectrum-text hover:bg-spectrum-cardHover'
           }`}
           title="AI Copilot (⌘J)"
-        >
+        
+            aria-label="AI Copilot (⌘J)">
           <Sparkle className="w-[15px] h-[15px]" />
           Copilot
         </button>

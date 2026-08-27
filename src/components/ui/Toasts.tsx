@@ -36,16 +36,17 @@ export const Toasts: React.FC = () => {
             <div className="px-3 py-2.5 flex items-start gap-2.5">
               <Icon className={`w-3.5 h-3.5 flex-shrink-0 mt-px ${TONES[toast.kind]} ${toast.kind === 'progress' ? 'animate-spin' : ''}`} />
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-medium text-spectrum-text leading-snug">{toast.title}</p>
+                <p className="text-ui font-medium text-spectrum-text leading-snug">{toast.title}</p>
                 {toast.detail && (
-                  <p className="text-[10px] text-spectrum-textDim leading-snug mt-0.5 break-words">{toast.detail}</p>
+                  <p className="text-micro text-spectrum-textDim leading-snug mt-0.5 break-words">{toast.detail}</p>
                 )}
               </div>
               <button
                 onClick={() => dismiss(toast.id)}
                 className="pro-btn w-4 h-4 flex-shrink-0 -mr-0.5"
                 title="Dismiss"
-              >
+              
+            aria-label="Dismiss">
                 <X className="w-2.5 h-2.5" />
               </button>
             </div>

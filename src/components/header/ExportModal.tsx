@@ -106,9 +106,10 @@ export const ExportModal: React.FC = () => {
         <div className="panel-header">
           <div className="flex items-center gap-2">
             <Download className="w-3.5 h-3.5 text-spectrum-accent" />
-            <span className="text-[12px] font-semibold text-spectrum-text">Export</span>
+            <span className="text-ui font-semibold text-spectrum-text">Export</span>
           </div>
           <button onClick={() => setOpen(false)} disabled={isExporting} className="pro-btn w-6 h-6">
+            aria-label="Close the export dialog"
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -118,13 +119,13 @@ export const ExportModal: React.FC = () => {
             <div className="w-11 h-11 rounded-full bg-spectrum-green/15 border border-spectrum-green/30 flex items-center justify-center">
               <Check className="w-5 h-5 text-spectrum-green" />
             </div>
-            <p className="text-[13px] font-semibold text-spectrum-text">Export complete</p>
-            <p className="text-[11px] font-mono text-spectrum-textDim break-all max-w-[320px]">{done}</p>
+            <p className="text-ui-lg font-semibold text-spectrum-text">Export complete</p>
+            <p className="text-ui-sm font-mono text-spectrum-textDim break-all max-w-[320px]">{done}</p>
             <div className="flex gap-2 pt-1">
-              <button onClick={() => setDone(null)} className="pro-btn-filled h-7 px-3 text-[11px]">
+              <button onClick={() => setDone(null)} className="pro-btn-filled h-7 px-3 text-ui-sm">
                 Export again
               </button>
-              <button onClick={() => { setDone(null); setOpen(false); }} className="btn-primary h-7 px-3 text-[11px]">
+              <button onClick={() => { setDone(null); setOpen(false); }} className="btn-primary h-7 px-3 text-ui-sm">
                 Done
               </button>
             </div>
@@ -134,8 +135,8 @@ export const ExportModal: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <Loader2 className="w-4 h-4 text-spectrum-accent animate-spin flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-medium text-spectrum-text">{exportStatusText || 'Rendering…'}</p>
-                <p className="text-[10px] text-spectrum-textDim">{Math.round(exportProgress)}% complete</p>
+                <p className="text-ui font-medium text-spectrum-text">{exportStatusText || 'Rendering…'}</p>
+                <p className="text-micro text-spectrum-textDim">{Math.round(exportProgress)}% complete</p>
               </div>
             </div>
             <div className="h-1.5 rounded-full bg-spectrum-sunken overflow-hidden">
@@ -160,8 +161,8 @@ export const ExportModal: React.FC = () => {
                           : ''
                       }`}
                     >
-                      <span className="block text-[11px] font-medium text-spectrum-text">{preset.label}</span>
-                      <span className="block text-[9px] text-spectrum-textFaint mt-0.5">{preset.detail}</span>
+                      <span className="block text-ui-sm font-medium text-spectrum-text">{preset.label}</span>
+                      <span className="block text-micro text-spectrum-textFaint mt-0.5">{preset.detail}</span>
                     </button>
                   ))}
                 </div>
@@ -169,7 +170,7 @@ export const ExportModal: React.FC = () => {
 
               <Section title="Settings">
                 <div className="space-y-1">
-                  <span className="text-[11px] text-spectrum-textMuted">Resolution</span>
+                  <span className="text-ui-sm text-spectrum-textMuted">Resolution</span>
                   <SegmentedControl
                     value={resolution}
                     onChange={setResolution}
@@ -177,7 +178,7 @@ export const ExportModal: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] text-spectrum-textMuted">Codec</span>
+                  <span className="text-ui-sm text-spectrum-textMuted">Codec</span>
                   <SegmentedControl
                     value={codec}
                     onChange={setCodec}
@@ -195,7 +196,7 @@ export const ExportModal: React.FC = () => {
               </Section>
 
               <Section title="Summary">
-                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="grid grid-cols-2 gap-2 text-ui-sm">
                   <SummaryCell label="Duration" value={formatDuration(exportDuration)} />
                   <SummaryCell label="Frame rate" value={`${project.fps} fps`} />
                   <SummaryCell label="Canvas" value={`${project.width}×${project.height}`} />
@@ -205,10 +206,10 @@ export const ExportModal: React.FC = () => {
             </div>
 
             <div className="p-3 border-t border-line flex items-center justify-end gap-2">
-              <button onClick={() => setOpen(false)} className="pro-btn-filled h-8 px-3 text-[12px]">
+              <button onClick={() => setOpen(false)} className="pro-btn-filled h-8 px-3 text-ui">
                 Cancel
               </button>
-              <button onClick={start} className="btn-primary h-8 px-4 gap-1.5 text-[12px]">
+              <button onClick={start} className="btn-primary h-8 px-4 gap-1.5 text-ui">
                 <Download className="w-3.5 h-3.5" />
                 Start export
               </button>
@@ -222,7 +223,7 @@ export const ExportModal: React.FC = () => {
 
 const SummaryCell: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div className="card px-2 py-1.5">
-    <span className="block text-[9px] text-spectrum-textFaint">{label}</span>
+    <span className="block text-micro text-spectrum-textFaint">{label}</span>
     <span className="block font-mono text-spectrum-text tabular truncate">{value}</span>
   </div>
 );

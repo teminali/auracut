@@ -142,18 +142,19 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
     <div className="scrim" onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} className="modal-shell w-[430px] max-w-[92vw]">
         <div className="panel-header">
-          <span className="text-[12px] font-semibold text-spectrum-text">Copilot agent</span>
+          <span className="text-ui font-semibold text-spectrum-text">Copilot agent</span>
           <button onClick={onClose} className="pro-btn w-6 h-6"><X className="w-3.5 h-3.5" /></button>
+            aria-label="Close the agent picker"
         </div>
 
         <div className="p-2.5 space-y-1.5 max-h-[62vh] overflow-y-auto">
-          <p className="text-[10px] text-spectrum-textDim leading-relaxed px-0.5 pb-1">
+          <p className="text-micro text-spectrum-textDim leading-relaxed px-0.5 pb-1">
             Whichever you pick gets Kerf's {48} editing tools over MCP, plus its own
             file, shell and web access.
           </p>
 
           {loading && (
-            <div className="flex items-center gap-2 py-4 justify-center text-[10px] text-spectrum-textDim">
+            <div className="flex items-center gap-2 py-4 justify-center text-micro text-spectrum-textDim">
               <Loader2 className="w-3 h-3 animate-spin" /> Looking for installed agents…
             </div>
           )}
@@ -178,16 +179,16 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                     className="flex-1 min-w-0 text-left disabled:cursor-not-allowed"
                   >
                     <span className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium text-spectrum-text truncate">
+                      <span className="text-ui-sm font-medium text-spectrum-text truncate">
                         {backend.label}
                       </span>
-                      <span className="text-[9px] text-spectrum-textFaint">{backend.vendor}</span>
+                      <span className="text-micro text-spectrum-textFaint">{backend.vendor}</span>
                       {!backend.checked && (
                         <Loader2 className="w-2.5 h-2.5 animate-spin text-spectrum-textFaint flex-shrink-0" />
                       )}
                       {isSelected && <Check className="w-3 h-3 text-spectrum-accent flex-shrink-0" />}
                     </span>
-                    <span className="block text-[9px] font-mono text-spectrum-textFaint truncate mt-0.5">
+                    <span className="block text-micro font-mono text-spectrum-textFaint truncate mt-0.5">
                       {!backend.checked
                         ? 'checking…'
                         : backend.ready
@@ -200,9 +201,10 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                     <button
                       onClick={() => install(backend)}
                       disabled={working}
-                      className="pro-btn-filled h-[24px] px-2 gap-1 text-[10px] flex-shrink-0"
+                      className="pro-btn-filled h-[24px] px-2 gap-1 text-micro flex-shrink-0"
                       title={backend.installHint}
-                    >
+                    
+            aria-label={backend.installHint}>
                       {working
                         ? <Loader2 className="w-3 h-3 animate-spin" />
                         : <Download className="w-3 h-3" />}
@@ -213,9 +215,10 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                   {backend.checked && backend.installed && !backend.ready && (
                     <button
                       onClick={() => signIn(backend)}
-                      className="pro-btn-filled h-[24px] px-2 gap-1 text-[10px] flex-shrink-0"
+                      className="pro-btn-filled h-[24px] px-2 gap-1 text-micro flex-shrink-0"
                       title={backend.fix}
-                    >
+                    
+            aria-label={backend.fix}>
                       <LogIn className="w-3 h-3" /> Sign in
                     </button>
                   )}
@@ -229,19 +232,19 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                 */}
                 {backend.ready && models[backend.id] && (
                   <div className="mt-1.5 flex items-center gap-1.5">
-                    <span className="text-[9px] text-spectrum-textFaint flex-shrink-0 w-[34px]">Model</span>
+                    <span className="text-micro text-spectrum-textFaint flex-shrink-0 w-[34px]">Model</span>
                     <input
                       list={`models-${backend.id}`}
                       value={models[backend.id].selected}
                       onChange={(e) => pickModel(backend, e.target.value)}
                       placeholder={`${backend.label} default`}
-                      className="pro-input flex-1 h-[22px] px-1.5 text-[10px] font-mono min-w-0"
+                      className="pro-input flex-1 h-[22px] px-1.5 text-micro font-mono min-w-0"
                     />
                     <datalist id={`models-${backend.id}`}>
                       {models[backend.id].models.map((m) => <option key={m} value={m} />)}
                     </datalist>
                     <span
-                      className="text-[9px] text-spectrum-textFaint flex-shrink-0"
+                      className="text-micro text-spectrum-textFaint flex-shrink-0"
                       title={
                         models[backend.id].source === 'queried'
                           ? 'This list came from the CLI itself.'
@@ -256,7 +259,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                 {backend.ready && !backend.streamVerified && (
                   /* Say it up front rather than let the panel look broken
                      the first time this backend runs a turn. */
-                  <p className="mt-1.5 flex items-start gap-1 text-[9px] text-spectrum-amber/90 leading-snug">
+                  <p className="mt-1.5 flex items-start gap-1 text-micro text-spectrum-amber/90 leading-snug">
                     <AlertTriangle className="w-2.5 h-2.5 mt-[1px] flex-shrink-0" />
                     Kerf has not verified how this CLI streams its output. Edits still work;
                     the answer arrives without the step-by-step.
@@ -264,7 +267,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                 )}
 
                 {backend.checked && !backend.ready && backend.fix && (
-                  <p className="mt-1.5 text-[9px] text-spectrum-textDim leading-snug">{backend.fix}</p>
+                  <p className="mt-1.5 text-micro text-spectrum-textDim leading-snug">{backend.fix}</p>
                 )}
 
                 {/* When a key is what it needs, take one here rather than
@@ -278,12 +281,12 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                       onChange={(e) => setKeyDraft((d) => ({ ...d, [backend.id]: e.target.value }))}
                       onKeyDown={(e) => { if (e.key === 'Enter') void saveKey(backend); }}
                       placeholder={backend.hasKey ? `${backend.needsKey} stored. Paste to replace` : backend.needsKey}
-                      className="pro-input flex-1 h-[24px] px-1.5 text-[10px] font-mono min-w-0"
+                      className="pro-input flex-1 h-[24px] px-1.5 text-micro font-mono min-w-0"
                     />
                     <button
                       onClick={() => saveKey(backend)}
                       disabled={busy === backend.id || !(keyDraft[backend.id] ?? '').trim()}
-                      className="pro-btn-filled h-[24px] px-2 text-[10px] flex-shrink-0"
+                      className="pro-btn-filled h-[24px] px-2 text-micro flex-shrink-0"
                     >
                       {busy === backend.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
                     </button>
@@ -294,7 +297,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
           })}
 
           {progress && (
-            <pre className="text-[9px] font-mono text-spectrum-textFaint whitespace-pre-wrap break-all max-h-20 overflow-y-auto border-t border-line pt-1.5 mt-1">
+            <pre className="text-micro font-mono text-spectrum-textFaint whitespace-pre-wrap break-all max-h-20 overflow-y-auto border-t border-line pt-1.5 mt-1">
               {progress}
             </pre>
           )}

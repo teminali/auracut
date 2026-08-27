@@ -3,6 +3,8 @@ import { loadFonts, loadedFonts, FontOption } from '../../engine/systemFonts';
 import { useTimelineStore } from '../../store/timelineStore';
 import { Clip, KineticAnimation } from '../../types/edl';
 import { Section, SliderRow, ColorField, ToggleRow, SegmentedControl, NumberField } from '../ui/Controls';
+import { MotionThumb } from '../ui/MotionThumb';
+import { textPreview } from '../../engine/previewRender';
 import {
   Type, Sparkle, PaintBucket, AlignLeft, AlignCenter, AlignRight, Bold, Italic, CaseUpper,
 } from '../ui/icons';
@@ -62,13 +64,13 @@ export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           onBlur={() => commit('Edit text')}
           rows={3}
           placeholder="Type your text…"
-          className="pro-input w-full px-2 py-1.5 text-[12px] resize-y leading-snug"
+          className="pro-input w-full px-2 py-1.5 text-ui resize-y leading-snug"
         />
 
         <div className="grid grid-cols-3 gap-1">
           <button
             onClick={() => { set({ fontWeight: style.fontWeight >= 700 ? 400 : 800 }); commit('Toggle bold'); }}
-            className={`h-7 rounded-squircle-xs border text-[10px] flex items-center justify-center gap-1 transition-colors ${
+            className={`h-7 rounded-squircle-xs border text-micro flex items-center justify-center gap-1 transition-colors ${
               style.fontWeight >= 700 ? 'bg-spectrum-accentSoft border-spectrum-accentLine text-spectrum-accent' : 'bg-spectrum-card border-line text-spectrum-textDim'
             }`}
           >
@@ -76,7 +78,7 @@ export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           </button>
           <button
             onClick={() => { set({ italic: !style.italic }); commit('Toggle italic'); }}
-            className={`h-7 rounded-squircle-xs border text-[10px] flex items-center justify-center gap-1 transition-colors ${
+            className={`h-7 rounded-squircle-xs border text-micro flex items-center justify-center gap-1 transition-colors ${
               style.italic ? 'bg-spectrum-accentSoft border-spectrum-accentLine text-spectrum-accent' : 'bg-spectrum-card border-line text-spectrum-textDim'
             }`}
           >
@@ -84,7 +86,7 @@ export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           </button>
           <button
             onClick={() => { set({ uppercase: !style.uppercase }); commit('Toggle caps'); }}
-            className={`h-7 rounded-squircle-xs border text-[10px] flex items-center justify-center gap-1 transition-colors ${
+            className={`h-7 rounded-squircle-xs border text-micro flex items-center justify-center gap-1 transition-colors ${
               style.uppercase ? 'bg-spectrum-accentSoft border-spectrum-accentLine text-spectrum-accent' : 'bg-spectrum-card border-line text-spectrum-textDim'
             }`}
           >
@@ -93,11 +95,11 @@ export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
         </div>
 
         <div className="space-y-1">
-          <span className="text-[11px] text-spectrum-textMuted">Font</span>
+          <span className="text-ui-sm text-spectrum-textMuted">Font</span>
           <select
             value={style.fontFamily}
             onChange={(e) => { set({ fontFamily: e.target.value }); commit('Set font'); }}
-            className="pro-input w-full h-7 px-2 text-[11px] cursor-pointer"
+            className="pro-input w-full h-7 px-2 text-ui-sm cursor-pointer"
           >
             {fonts.map((f) => (
               <option key={f.family} value={f.family} style={{ fontFamily: f.family }}>
@@ -127,7 +129,7 @@ export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               className="card-interactive h-11 flex items-center justify-center px-1"
             >
               <span
-                className="text-[11px] truncate"
+                className="text-ui-sm truncate"
                 style={{
                   color: preset.style.color,
                   fontFamily: (preset.style as any).fontFamily ?? 'Inter',
@@ -208,12 +210,38 @@ export const TextInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
       </Section>
 
       <Section title="Animation" icon={Sparkle}>
-        <SegmentedControl
-          value={style.kineticAnimation}
-          columns={2}
-          onChange={(v) => { set({ kineticAnimation: v }); commit('Set text animation'); }}
-          options={ANIMATIONS.map((a) => ({ value: a.value, label: a.label }))}
-        />
+        {/* Nine words in a segmented control told nobody what "Kinetic
+            Stack", "Glitch Pop" or "Wave" actually do. The only way to
+            find out was to apply one to a real title, scrub, and undo.
+            These run the animation. */}
+        <div className="grid grid-cols-3 gap-1.5">
+          {ANIMATIONS.map((a) => {
+            const active = style.kineticAnimation === a.value;
+            return (
+              <button
+                key={a.value}
+                onClick={() => { set({ kineticAnimation: a.value }); commit('Set text animation'); }}
+                className={`rounded-squircle-xs overflow-hidden text-left transition-colors duration-base ${
+                  active ? 'bg-spectrum-accentSoft' : 'bg-spectrum-card hover:bg-spectrum-cardHover'
+                }`}
+                title={a.label}
+              
+            aria-label={a.label}>
+                <MotionThumb
+                  load={() => textPreview(a.value)}
+                  label={`${a.label} animation preview`}
+                  restAt={0.45}
+                  className="w-full aspect-video"
+                />
+                <span className={`block px-1.5 py-1 text-micro truncate ${
+                  active ? 'text-spectrum-accent font-medium' : 'text-spectrum-textDim'
+                }`}>
+                  {a.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </Section>
     </div>
   );

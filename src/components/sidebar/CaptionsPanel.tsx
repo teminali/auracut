@@ -166,7 +166,8 @@ export const CaptionsPanel: React.FC = () => {
       <div className="panel-header">
         <span className="panel-title">Captions{captionCount > 0 ? ` · ${captionCount}` : ''}</span>
         {captionCount > 0 && (
-          <button onClick={restyleAll} className="pro-btn-filled h-6 px-2 gap-1 text-[10px]" title="Apply the selected style to every caption">
+          <button onClick={restyleAll} className="pro-btn-filled h-6 px-2 gap-1 text-micro" title="Apply the selected style to every caption"
+            aria-label="Apply the selected style to every caption">
             <Sparkle className="w-3 h-3" /> Restyle all
           </button>
         )}
@@ -180,14 +181,14 @@ export const CaptionsPanel: React.FC = () => {
               <div className="card p-2.5 space-y-1">
                 <div className="flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5 text-spectrum-green flex-shrink-0" />
-                  <span className="text-[11px] font-medium text-spectrum-text truncate">{pending.filename}</span>
+                  <span className="text-ui-sm font-medium text-spectrum-text truncate">{pending.filename}</span>
                 </div>
-                <p className="text-[10px] text-spectrum-textDim">
+                <p className="text-micro text-spectrum-textDim">
                   {pending.cues.length} cues · {pending.format.toUpperCase()} ·{' '}
                   {(pending.cues[pending.cues.length - 1].endMs / 1000).toFixed(1)}s long
                 </p>
                 {pending.warnings.length > 0 && (
-                  <p className="text-[10px] text-spectrum-amber flex items-start gap-1 pt-0.5">
+                  <p className="text-micro text-spectrum-amber flex items-start gap-1 pt-0.5">
                     <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-px" />
                     <span>{pending.warnings.slice(0, 2).join(' · ')}</span>
                   </p>
@@ -197,7 +198,7 @@ export const CaptionsPanel: React.FC = () => {
               {/* Preview */}
               <div className="well max-h-28 overflow-y-auto p-1.5 space-y-1">
                 {pending.cues.slice(0, 6).map((cue) => (
-                  <div key={cue.index} className="flex gap-2 text-[10px]">
+                  <div key={cue.index} className="flex gap-2 text-micro">
                     <span className="font-mono text-spectrum-textFaint tabular flex-shrink-0">
                       {(cue.startMs / 1000).toFixed(1)}s
                     </span>
@@ -205,7 +206,7 @@ export const CaptionsPanel: React.FC = () => {
                   </div>
                 ))}
                 {pending.cues.length > 6 && (
-                  <p className="text-[9px] text-spectrum-textFaint pt-0.5">
+                  <p className="text-micro text-spectrum-textFaint pt-0.5">
                     +{pending.cues.length - 6} more…
                   </p>
                 )}
@@ -235,10 +236,10 @@ export const CaptionsPanel: React.FC = () => {
               />
 
               <div className="grid grid-cols-2 gap-1.5">
-                <button onClick={() => setPending(null)} className="pro-btn-filled h-7 text-[11px]">
+                <button onClick={() => setPending(null)} className="pro-btn-filled h-7 text-ui-sm">
                   Cancel
                 </button>
-                <button onClick={confirmImport} className="btn-primary h-7 text-[11px] gap-1.5">
+                <button onClick={confirmImport} className="btn-primary h-7 text-ui-sm gap-1.5">
                   <Check className="w-3 h-3" /> Import
                 </button>
               </div>
@@ -250,10 +251,10 @@ export const CaptionsPanel: React.FC = () => {
                 className="w-full h-20 rounded-squircle-sm border border-dashed border-line-strong hover:border-spectrum-accent hover:bg-spectrum-accentSoft/40 transition-colors flex flex-col items-center justify-center gap-1.5 group"
               >
                 <Upload className="w-4 h-4 text-spectrum-textDim group-hover:text-spectrum-accent transition-colors" />
-                <span className="text-[11px] text-spectrum-textMuted group-hover:text-spectrum-text">
+                <span className="text-ui-sm text-spectrum-textMuted group-hover:text-spectrum-text">
                   Drop a subtitle file, or click to browse
                 </span>
-                <span className="text-[9px] text-spectrum-textFaint font-mono">
+                <span className="text-micro text-spectrum-textFaint font-mono">
                   SRT · VTT · ASS · SSA · SBV · JSON
                 </span>
               </button>
@@ -282,13 +283,13 @@ export const CaptionsPanel: React.FC = () => {
                 }`}
               >
                 <span
-                  className={`block text-[11px] font-semibold ${
+                  className={`block text-ui-sm font-semibold ${
                     styleId === preset.id ? 'text-spectrum-accent' : 'text-spectrum-text'
                   }`}
                 >
                   {preset.label}
                 </span>
-                <span className="block text-[9px] text-spectrum-textDim truncate">
+                <span className="block text-micro text-spectrum-textDim truncate">
                   {preset.style.kineticAnimation?.replace(/_/g, ' ')}
                 </span>
               </button>
@@ -299,13 +300,13 @@ export const CaptionsPanel: React.FC = () => {
         {/* ── Generate ── */}
         <Section title="Speech to text" icon={Sparkle}>
           <div className="space-y-1">
-            <span className="text-[11px] text-spectrum-textMuted flex items-center gap-1.5">
+            <span className="text-ui-sm text-spectrum-textMuted flex items-center gap-1.5">
               <Globe className="w-3 h-3 text-spectrum-accent" /> Language
             </span>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="pro-input w-full h-7 px-2 text-[11px] cursor-pointer"
+              className="pro-input w-full h-7 px-2 text-ui-sm cursor-pointer"
             >
               {LANGUAGES.map((l) => (
                 <option key={l.value} value={l.value}>{l.label}</option>
@@ -313,7 +314,7 @@ export const CaptionsPanel: React.FC = () => {
             </select>
           </div>
 
-          <button onClick={generate} disabled={isBusy} className="btn-primary w-full h-8 gap-1.5 text-[12px]">
+          <button onClick={generate} disabled={isBusy} className="btn-primary w-full h-8 gap-1.5 text-ui">
             <Subtitles className="w-3.5 h-3.5" />
             {isBusy ? 'Transcribing…' : 'Generate captions'}
           </button>
@@ -322,7 +323,7 @@ export const CaptionsPanel: React.FC = () => {
         {/* ── Export ── */}
         <Section title="Export" icon={Download} defaultOpen={captionCount > 0}>
           {captionCount === 0 ? (
-            <p className="text-[10px] text-spectrum-textFaint">
+            <p className="text-micro text-spectrum-textFaint">
               Import or generate captions first, then export them in any format.
             </p>
           ) : (
@@ -331,9 +332,10 @@ export const CaptionsPanel: React.FC = () => {
                 <button
                   key={format}
                   onClick={() => exportAs(format)}
-                  className="pro-btn-filled h-7 gap-1 text-[10px] uppercase font-mono"
+                  className="pro-btn-filled h-7 gap-1 text-micro uppercase font-mono"
                   title={`Download as .${format}`}
-                >
+                
+            aria-label={`Download as .${format}`}>
                   <FileText className="w-3 h-3" />
                   {format}
                 </button>
@@ -347,7 +349,7 @@ export const CaptionsPanel: React.FC = () => {
         <div className="absolute inset-0 bg-spectrum-accent/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">
           <div className="card px-4 py-3 text-center">
             <Subtitles className="w-5 h-5 text-spectrum-accent mx-auto mb-1" />
-            <p className="text-[11px] font-medium text-spectrum-text">Drop the subtitle file</p>
+            <p className="text-ui-sm font-medium text-spectrum-text">Drop the subtitle file</p>
           </div>
         </div>
       )}

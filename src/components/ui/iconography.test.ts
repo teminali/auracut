@@ -79,3 +79,32 @@ describe('copy', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+/* ── Type ────────────────────────────────────────────────────────── */
+
+describe('type scale', () => {
+  it('uses no size outside the scale', () => {
+    /*
+      tailwind.config.js: "ONE TYPE SCALE, 10 / 11 / 12 / 13 / 15.
+      Nothing in between. Half-pixel sizes are what make an interface
+      look improvised."
+
+      It had drifted to 285 raw pixel declarations, EIGHTY-TWO of them
+      at 9px, which is below the scale entirely and is most of what made
+      the panels feel cramped next to the home screen. Snapped back and
+      pinned here.
+
+      The allowed exceptions are the home screen's display sizes, which
+      the config declares for exactly that surface, and one 8.5px badge.
+    */
+    const ALLOWED = new Set(['8.5px', '17px', '26px', '30px']);
+    const offenders: string[] = [];
+
+    for (const f of FILES) {
+      for (const m of readFileSync(f, 'utf8').matchAll(/text-\[([0-9.]+px)\]/g)) {
+        if (!ALLOWED.has(m[1])) offenders.push(`${f}: ${m[0]}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

@@ -81,6 +81,7 @@ const ToolRow: React.FC<{ call: AgentToolCall }> = React.memo(({ call }) => {
   return (
     <div className="group">
       <button
+        aria-label="Expand or collapse this step"
         onClick={() => setOpen((v) => !v)}
         className={`w-full flex items-center gap-1.5 h-[22px] pl-1 pr-1.5 rounded-[4px] text-left
           hover:bg-white/[0.035] transition-colors ${failed ? 'bg-spectrum-red/[0.06]' : ''}`}
@@ -99,7 +100,7 @@ const ToolRow: React.FC<{ call: AgentToolCall }> = React.memo(({ call }) => {
         )}
 
         <span
-          className={`text-[10.5px] font-mono truncate flex-shrink-0 ${
+          className={`text-micro font-mono truncate flex-shrink-0 ${
             isEditorTool(call.name) ? 'text-spectrum-textMuted' : 'text-spectrum-amber/80'
           }`}
         >
@@ -107,20 +108,20 @@ const ToolRow: React.FC<{ call: AgentToolCall }> = React.memo(({ call }) => {
         </span>
 
         {subject && (
-          <span className="text-[10px] text-spectrum-textFaint truncate min-w-0 flex-1">{subject}</span>
+          <span className="text-micro text-spectrum-textFaint truncate min-w-0 flex-1">{subject}</span>
         )}
         {!subject && <span className="flex-1" />}
 
         {/* A count beats an expand for the common case: the row already
             says "three properties changed" without being opened. */}
         {changes.length > 0 && !open && (
-          <span className="text-[9px] font-mono text-spectrum-accent/70 flex-shrink-0 tabular">
+          <span className="text-micro font-mono text-spectrum-accent/70 flex-shrink-0 tabular">
             {changes.length}∆
           </span>
         )}
 
         {elapsed !== null && (
-          <span className="text-[9px] font-mono text-spectrum-textFaint/70 flex-shrink-0 tabular w-[38px] text-right">
+          <span className="text-micro font-mono text-spectrum-textFaint/70 flex-shrink-0 tabular w-[38px] text-right">
             {formatMs(elapsed)}
           </span>
         )}
@@ -131,7 +132,7 @@ const ToolRow: React.FC<{ call: AgentToolCall }> = React.memo(({ call }) => {
           {changes.length > 0 && (
             <div className="space-y-[3px]">
               {changes.map((c) => (
-                <div key={c.path} className="flex items-baseline gap-1.5 text-[10px] font-mono">
+                <div key={c.path} className="flex items-baseline gap-1.5 text-micro font-mono">
                   <span className="text-spectrum-textDim truncate min-w-0 flex-1">{formatPath(c.path)}</span>
                   <span className="text-spectrum-textFaint tabular flex-shrink-0 line-through decoration-spectrum-textFaint/40">
                     {formatValue(c.from)}
@@ -145,10 +146,10 @@ const ToolRow: React.FC<{ call: AgentToolCall }> = React.memo(({ call }) => {
 
           {Object.keys(call.input ?? {}).length > 0 && (
             <details className="group/args">
-              <summary className="text-[9px] font-mono text-spectrum-textFaint cursor-pointer hover:text-spectrum-textDim list-none select-none">
+              <summary className="text-micro font-mono text-spectrum-textFaint cursor-pointer hover:text-spectrum-textDim list-none select-none">
                 arguments
               </summary>
-              <pre className="mt-1 text-[9px] font-mono text-spectrum-textDim whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
+              <pre className="mt-1 text-micro font-mono text-spectrum-textDim whitespace-pre-wrap break-all max-h-32 overflow-y-auto">
                 {JSON.stringify(call.input, null, 2)}
               </pre>
             </details>
@@ -156,7 +157,7 @@ const ToolRow: React.FC<{ call: AgentToolCall }> = React.memo(({ call }) => {
 
           {call.resultPreview && (
             <pre
-              className={`text-[9px] font-mono whitespace-pre-wrap break-all max-h-32 overflow-y-auto ${
+              className={`text-micro font-mono whitespace-pre-wrap break-all max-h-32 overflow-y-auto ${
                 failed ? 'text-spectrum-red/90' : 'text-spectrum-textFaint'
               }`}
             >
@@ -198,6 +199,7 @@ const PhaseBlock: React.FC<{ group: PhaseGroup; defaultOpen: boolean }> = ({ gro
   return (
     <div className="rounded-squircle-xs border border-line/70 bg-spectrum-sunken/40 overflow-hidden">
       <button
+        aria-label="Expand or collapse this group"
         onClick={() => setOpen((v) => !v)}
         className="w-full h-[26px] px-1.5 flex items-center gap-1.5 hover:bg-white/[0.025] transition-colors"
       >
@@ -205,13 +207,13 @@ const PhaseBlock: React.FC<{ group: PhaseGroup; defaultOpen: boolean }> = ({ gro
           className={`w-2.5 h-2.5 text-spectrum-textFaint flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
         />
         <Icon className={`w-3 h-3 flex-shrink-0 ${failed ? 'text-spectrum-red' : PHASE_TINT[group.kind]}`} />
-        <span className="text-[10.5px] font-medium text-spectrum-textMuted truncate flex-1 text-left min-w-0">
+        <span className="text-micro font-medium text-spectrum-textMuted truncate flex-1 text-left min-w-0">
           {group.label}
         </span>
 
         {running && <Loader2 className="w-2.5 h-2.5 text-spectrum-accent animate-spin flex-shrink-0" />}
 
-        <span className="text-[9px] font-mono text-spectrum-textFaint/80 flex-shrink-0 tabular">
+        <span className="text-micro font-mono text-spectrum-textFaint/80 flex-shrink-0 tabular">
           {group.calls.length}
           {total > 0 ? ` · ${formatMs(total)}` : ''}
         </span>
@@ -287,7 +289,7 @@ const AgentTurnBlock: React.FC<{ turn: AgentTurn; isLast: boolean }> = React.mem
       )}
 
       {(elapsed !== null || turn.costUsd) && (
-        <div className="flex items-center gap-2 text-[9px] font-mono text-spectrum-textFaint/70 tabular pt-0.5">
+        <div className="flex items-center gap-2 text-micro font-mono text-spectrum-textFaint/70 tabular pt-0.5">
           {elapsed !== null && <span>{formatMs(elapsed)}</span>}
           {turn.toolCalls.length > 0 && <span>{turn.toolCalls.length} calls</span>}
           {editCount > 0 && <span className="text-spectrum-accent/60">{editCount} edits</span>}

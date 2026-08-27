@@ -53,6 +53,13 @@ export const HomeTopBar: React.FC<Props> = ({ onOpenAgentPicker }) => {
                 ? `${label} is connected, click to change`
                 : 'No agent CLI found, the editor still works. Click to set one up'
           }
+            aria-label={
+            state === 'unknown'
+              ? 'Looking for an agent CLI'
+              : state === 'ready'
+                ? `${label} is connected, click to change`
+                : 'No agent CLI found, the editor still works. Click to set one up'
+          }
         >
           <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dot}`} />
           {label}

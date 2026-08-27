@@ -56,7 +56,8 @@ export const SidebarNav: React.FC = () => {
                 : 'text-spectrum-textDim hover:text-spectrum-text hover:bg-white/[0.045]'
             }`}
             title={`${tab.label} · ${tab.hotkey}`}
-          >
+          
+            aria-label={`${tab.label} · ${tab.hotkey}`}>
             {/* Edge marker — flush to the window, not to the tile. */}
             <span
               className={`absolute -left-2 top-3 bottom-3 w-[3px] rounded-r-full bg-spectrum-accent transition-opacity duration-fast ${
@@ -67,7 +68,7 @@ export const SidebarNav: React.FC = () => {
                 signal "selected" with colour alone; a filled glyph reads
                 as selected at 18px before any colour is processed. */}
             <Icon className="w-[18px] h-[18px] transition-colors" weight={isActive ? 'fill' : 'regular'} />
-            <span className={`text-[9px] leading-none tracking-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>
+            <span className={`text-micro leading-none tracking-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>
               {tab.label}
             </span>
           </button>

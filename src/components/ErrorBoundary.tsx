@@ -75,13 +75,13 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
             window recovers the last autosave.
           </p>
 
-          <pre className="text-[11px] leading-relaxed font-mono text-spectrum-textMuted bg-black/40 border border-white/10 rounded-md p-3 mb-3 max-h-64 overflow-auto whitespace-pre-wrap">
+          <pre className="text-ui-sm leading-relaxed font-mono text-spectrum-textMuted bg-black/40 border border-white/10 rounded-md p-3 mb-3 max-h-64 overflow-auto whitespace-pre-wrap">
             {error.stack ?? `${error.name}: ${error.message}`}
             {componentStack ? `\n\nComponent stack:${componentStack}` : ''}
           </pre>
 
           {logPath && (
-            <p className="text-[11px] font-mono text-spectrum-textFaint mb-4 break-all">
+            <p className="text-ui-sm font-mono text-spectrum-textFaint mb-4 break-all">
               Written to {logPath}
             </p>
           )}

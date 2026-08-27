@@ -42,11 +42,13 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <span className="text-micro font-mono text-spectrum-textFaint tabular">{gaps.length}</span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <button onClick={copy} className="pro-btn-filled h-[22px] px-2 gap-1.5 text-ui-xs" title="Copy as markdown">
+            <button onClick={copy} className="pro-btn-filled h-[22px] px-2 gap-1.5 text-ui-xs" title="Copy as markdown"
+            aria-label="Copy as markdown">
               {copied ? <Check className="w-3 h-3 text-spectrum-green" /> : <Copy className="w-3 h-3" />}
               {copied ? 'Copied' : 'Export'}
             </button>
-            <button onClick={onClose} className="pro-btn w-[22px] h-[22px]" title="Close">
+            <button onClick={onClose} className="pro-btn w-[22px] h-[22px]" title="Close"
+            aria-label="Close">
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -74,7 +76,8 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         : 'border-line-strong hover:border-spectrum-textMuted'
                     }`}
                     title={gap.resolved ? 'Mark as still missing' : 'Mark as done'}
-                  >
+                  
+            aria-label={gap.resolved ? 'Mark as still missing' : 'Mark as done'}>
                     {gap.resolved && <Check className="w-2.5 h-2.5 text-white" />}
                   </button>
 
@@ -92,12 +95,13 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     onClick={() => remove(gap.id)}
                     className="btn-ghost-danger w-[22px] h-[22px] flex-shrink-0"
                     title="Remove"
-                  >
+                  
+            aria-label="Remove">
                     <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
 
-                <div className="pl-6 space-y-1 text-[10px] leading-relaxed">
+                <div className="pl-6 space-y-1 text-micro leading-relaxed">
                   <p className="text-spectrum-textDim">
                     <span className="text-spectrum-textFaint">Blocked by </span>
                     {gap.reason}
@@ -122,7 +126,7 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
         {gaps.length > 0 && (
           <div className="px-3 py-2 border-t border-line flex items-center justify-between flex-shrink-0">
-            <span className="text-[10px] text-spectrum-textFaint">
+            <span className="text-micro text-spectrum-textFaint">
               Sorted by how often each was asked for.
             </span>
             <button onClick={clear} className="btn-ghost-danger h-[22px] px-2 text-ui-xs">

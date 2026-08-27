@@ -37,17 +37,18 @@ export const PanelSearch: React.FC<Props> = ({ value, onChange, noun, countLabel
         }
       }}
       placeholder={`Search ${noun}…`}
-      className="flex-1 bg-transparent outline-none text-[11px] text-spectrum-text placeholder:text-spectrum-textFaint min-w-0"
+      className="flex-1 bg-transparent outline-none text-ui-sm text-spectrum-text placeholder:text-spectrum-textFaint min-w-0"
     />
     {value && countLabel && (
-      <span className="text-[9px] font-mono text-spectrum-textFaint tabular flex-shrink-0">{countLabel}</span>
+      <span className="text-micro font-mono text-spectrum-textFaint tabular flex-shrink-0">{countLabel}</span>
     )}
     {value && (
       <button
         onClick={() => onChange('')}
         className="w-3.5 h-3.5 flex items-center justify-center text-spectrum-textDim hover:text-spectrum-text flex-shrink-0"
         title="Clear (Esc)"
-      >
+      
+            aria-label="Clear (Esc)">
         <X className="w-3 h-3" />
       </button>
     )}

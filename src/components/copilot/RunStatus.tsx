@@ -54,7 +54,7 @@ export const RunStatus: React.FC<Props> = ({ activity, startedAt, toolCalls, cos
           <p className="text-ui-sm text-spectrum-text font-medium truncate leading-tight">
             {activity || 'Working…'}
           </p>
-          <p className="text-[9px] font-mono text-spectrum-textFaint tabular mt-0.5">
+          <p className="text-micro font-mono text-spectrum-textFaint tabular mt-0.5">
             {formatElapsed(elapsed)}
             {toolCalls > 0 && ` · ${toolCalls} call${toolCalls === 1 ? '' : 's'}`}
             {costUsd !== undefined && costUsd > 0 && ` · $${costUsd.toFixed(3)}`}
@@ -63,8 +63,9 @@ export const RunStatus: React.FC<Props> = ({ activity, startedAt, toolCalls, cos
 
         <button
           onClick={onStop}
-          className="btn-ghost-danger h-[20px] px-1.5 gap-1 text-[9px] flex-shrink-0 mt-[1px]"
+          className="btn-ghost-danger h-[20px] px-1.5 gap-1 text-micro flex-shrink-0 mt-[1px]"
           title="Stop the agent"
+            aria-label="Stop the agent"
         >
           <Square className="w-2 h-2 fill-current" /> Stop
         </button>

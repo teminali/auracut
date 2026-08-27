@@ -33,7 +33,7 @@ function renderInline(line: string): React.ReactNode[] {
     }
     if (part.startsWith('`') && part.endsWith('`')) {
       return (
-        <code key={i} className="font-mono text-[11px] px-1 py-px rounded-[3px] bg-black/30 text-spectrum-accent">
+        <code key={i} className="font-mono text-ui-sm px-1 py-px rounded-[3px] bg-black/30 text-spectrum-accent">
           {part.slice(1, -1)}
         </code>
       );

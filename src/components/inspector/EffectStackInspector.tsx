@@ -49,20 +49,23 @@ export const EffectStackInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               }}
               className="pro-btn w-6 h-6"
               title="Copy this stack to the rest of the selection"
-            >
+            
+            aria-label="Copy this stack to the rest of the selection">
               <Copy className="w-3.5 h-3.5" />
             </button>
           )}
           {clip.effects.length > 0 && (
-            <button onClick={() => clearEffects(clip.id)} className="btn-ghost-danger w-6 h-6" title="Remove all effects">
+            <button onClick={() => clearEffects(clip.id)} className="btn-ghost-danger w-6 h-6" title="Remove all effects"
+            aria-label="Remove all effects">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
           <button
             onClick={() => setBrowserOpen(true)}
-            className="btn-primary h-6 px-2 gap-1 text-[11px]"
+            className="btn-primary h-6 px-2 gap-1 text-ui-sm"
             title="Browse the VFX library"
-          >
+          
+            aria-label="Browse the VFX library">
             <Plus className="w-3 h-3" /> Add
           </button>
         </div>
@@ -74,7 +77,7 @@ export const EffectStackInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           title="No effects on this layer"
           detail="The VFX library has glow, grain, particles, light leaks, glitch, shake and more. All keyframable."
           action={
-            <button onClick={() => setBrowserOpen(true)} className="btn-primary h-7 px-3 gap-1.5 text-[11px] mt-1">
+            <button onClick={() => setBrowserOpen(true)} className="btn-primary h-7 px-3 gap-1.5 text-ui-sm mt-1">
               <Plus className="w-3 h-3" /> Browse effects
             </button>
           }
@@ -122,8 +125,9 @@ const EffectRow: React.FC<{
   if (!def) {
     return (
       <div className="px-3 py-2 flex items-center justify-between">
-        <span className="text-[11px] text-spectrum-red">Unknown effect "{effect.type}"</span>
+        <span className="text-ui-sm text-spectrum-red">Unknown effect "{effect.type}"</span>
         <button onClick={() => removeEffect(clip.id, effect.id)} className="btn-ghost-danger w-5 h-5">
+          aria-label="Remove this effect"
           <Trash2 className="w-3 h-3" />
         </button>
       </div>
@@ -159,13 +163,13 @@ const EffectRow: React.FC<{
             label={`${def.label} preview`}
             className="w-[34px] aspect-video rounded-[4px] flex-shrink-0"
           />
-          <span className="text-[11px] font-medium text-spectrum-text truncate">{def.label}</span>
+          <span className="text-ui-sm font-medium text-spectrum-text truncate">{def.label}</span>
           {keyframedParams.size > 0 && (
             <Diamond className="w-2.5 h-2.5 text-spectrum-amber fill-spectrum-amber flex-shrink-0" />
           )}
         </button>
 
-        <span className="text-[9px] font-mono text-spectrum-textFaint tabular flex-shrink-0">
+        <span className="text-micro font-mono text-spectrum-textFaint tabular flex-shrink-0">
           {Math.round(effect.intensity * 100)}%
         </span>
 
@@ -175,7 +179,8 @@ const EffectRow: React.FC<{
             disabled={index === 0}
             className="pro-btn w-5 h-5"
             title="Move earlier in the stack"
-          >
+          
+            aria-label="Move earlier in the stack">
             <ChevronUp className="w-3 h-3" />
           </button>
           <button
@@ -183,17 +188,20 @@ const EffectRow: React.FC<{
             disabled={index === total - 1}
             className="pro-btn w-5 h-5"
             title="Move later in the stack"
-          >
+          
+            aria-label="Move later in the stack">
             <ChevronDown className="w-3 h-3" />
           </button>
           <button
             onClick={() => toggleEffect(clip.id, effect.id)}
             className={`pro-btn w-5 h-5 ${effect.enabled ? '' : '!text-spectrum-textFaint'}`}
             title={effect.enabled ? 'Bypass effect' : 'Enable effect'}
-          >
+          
+            aria-label={effect.enabled ? 'Bypass effect' : 'Enable effect'}>
             {effect.enabled ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
           </button>
-          <button onClick={() => removeEffect(clip.id, effect.id)} className="btn-ghost-danger w-5 h-5" title="Remove effect">
+          <button onClick={() => removeEffect(clip.id, effect.id)} className="btn-ghost-danger w-5 h-5" title="Remove effect"
+            aria-label="Remove effect">
             <Trash2 className="w-3 h-3" />
           </button>
         </div>
@@ -202,7 +210,7 @@ const EffectRow: React.FC<{
       {/* Parameters */}
       {expanded && (
         <div className="px-3 pb-3 pt-1 space-y-2.5 bg-black/15">
-          <p className="text-[10px] text-spectrum-textFaint leading-relaxed">{def.description}</p>
+          <p className="text-micro text-spectrum-textFaint leading-relaxed">{def.description}</p>
 
           <SliderRow
             label="Intensity"
@@ -248,11 +256,11 @@ const EffectRow: React.FC<{
             if (param.type === 'select') {
               return (
                 <div key={param.key} className="space-y-1">
-                  <span className="text-[11px] text-spectrum-textMuted">{param.label}</span>
+                  <span className="text-ui-sm text-spectrum-textMuted">{param.label}</span>
                   <select
                     value={String(value ?? param.default)}
                     onChange={(e) => { setEffectParam(clip.id, effect.id, param.key, e.target.value); commit('Set effect option'); }}
-                    className="pro-input w-full h-7 px-2 text-[11px] cursor-pointer"
+                    className="pro-input w-full h-7 px-2 text-ui-sm cursor-pointer"
                   >
                     {param.options?.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -354,10 +362,11 @@ const EffectBrowser: React.FC<{
         <div className="panel-header">
           <div className="flex items-center gap-2">
             <Sparkle className="w-3.5 h-3.5 text-spectrum-accent" />
-            <span className="text-[12px] font-semibold text-spectrum-text">VFX Library</span>
+            <span className="text-ui font-semibold text-spectrum-text">VFX Library</span>
             <span className="chip">{results.length}</span>
           </div>
           <button onClick={onClose} className="pro-btn w-6 h-6">
+            aria-label="Close the effect browser"
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -370,7 +379,7 @@ const EffectBrowser: React.FC<{
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search effects…"
-              className="flex-1 bg-transparent outline-none text-[12px] text-spectrum-text placeholder:text-spectrum-textFaint"
+              className="flex-1 bg-transparent outline-none text-ui text-spectrum-text placeholder:text-spectrum-textFaint"
             />
           </div>
 
@@ -395,7 +404,7 @@ const EffectBrowser: React.FC<{
 
         <div className="flex-1 overflow-y-auto p-3">
           {results.length === 0 ? (
-            <p className="text-[11px] text-spectrum-textDim text-center py-8">
+            <p className="text-ui-sm text-spectrum-textDim text-center py-8">
               No effects match “{query}”.
             </p>
           ) : (
@@ -413,13 +422,13 @@ const EffectBrowser: React.FC<{
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center justify-between gap-2">
-                      <span className="text-[12px] font-medium text-spectrum-text truncate">{effect.label}</span>
+                      <span className="text-ui font-medium text-spectrum-text truncate">{effect.label}</span>
                       <Plus className="w-3 h-3 text-spectrum-textFaint group-hover:text-spectrum-accent flex-shrink-0 transition-colors" />
                     </span>
-                    <span className="block text-[10px] text-spectrum-textDim leading-snug mt-0.5">
+                    <span className="block text-micro text-spectrum-textDim leading-snug mt-0.5">
                       {effect.description}
                     </span>
-                    <span className="chip mt-1.5 !text-[9px]">{effect.category}</span>
+                    <span className="chip mt-1.5 !text-micro">{effect.category}</span>
                   </span>
                 </button>
               ))}

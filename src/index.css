@@ -391,6 +391,22 @@
     @apply bg-spectrum-cardHover;
   }
 
+  /*
+    THE RULE, since it decides every surface below.
+
+      RECESSED things keep a hairline. RAISED things do not.
+
+    Anything lighter than the panel behind it is already separated by
+    that difference, so a border on it is a second edge doing the same
+    job — and in a sidebar where twenty stack up it is twenty extra
+    lines the eye has to discount. Anything DARKER than its panel needs
+    the hairline, because a dark rectangle on dark chrome with no edge
+    reads as a hole punched through rather than as an inset.
+
+    So: buttons, cards, chips and badges have no border. Wells, text
+    inputs and the segmented control's track keep theirs.
+  */
+
   /* A well KEEPS its border. Everything above recedes by being lighter
      than the panel; a well is DARKER than the panel, and without a
      hairline a dark rectangle on dark chrome reads as a hole rather
@@ -439,21 +455,20 @@
 
   .pro-btn-filled,
   .squircle-btn {
-    @apply rounded-squircle-xs bg-spectrum-card text-spectrum-textMuted border border-line inline-flex items-center justify-center flex-shrink-0;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+    @apply rounded-squircle-xs bg-spectrum-card text-spectrum-textMuted inline-flex items-center justify-center flex-shrink-0;
+    border: 1px solid transparent;
     transition: background-color var(--t-fast) ease, color var(--t-fast) ease,
       border-color var(--t-fast) ease;
   }
 
   .pro-btn-filled:hover:not(:disabled),
   .squircle-btn:hover:not(:disabled) {
-    @apply bg-spectrum-cardHover text-spectrum-text border-line-strong;
+    @apply bg-spectrum-cardHover text-spectrum-text;
   }
 
   .pro-btn-filled:active:not(:disabled),
   .squircle-btn:active:not(:disabled) {
     @apply bg-spectrum-active;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
   }
 
   .pro-btn-filled:disabled,
@@ -687,7 +702,7 @@
   }
 
   .kbd {
-    @apply inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[4px] bg-spectrum-card border border-line text-micro font-mono text-spectrum-textDim;
+    @apply inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-[4px] bg-spectrum-card text-micro font-mono text-spectrum-textDim;
     box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
   }
 }

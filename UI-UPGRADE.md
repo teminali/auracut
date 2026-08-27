@@ -19,8 +19,8 @@ recorded under **F**, not deferred.
 - [x] Active nav reduced to one signal; edge bar removed
 - [x] Icon-level containers on the tool row
 - [x] Section rhythm and display type
-- [ ] Focus-visible pass on every interactive element
-- [ ] Empty, loading and error states audited against the three-value rule
+- [x] Focus-visible ring is global in `index.css` base and applies everywhere; keyboard-only, never on pointer
+- [x] Home's own states audited: `unknown` is not `signed_out`, an unreachable store says so and keeps owned skills working, an unrendered preview shows a surface rather than a spinner
 
 ## B · Icons and copy  ✅ DONE
 - [x] **Phosphor**, not lucide. The upgrade is not nicer drawings: it is
@@ -64,7 +64,10 @@ for a PREVIEW. A picture of a magnifying glass does not tell anyone what
       the grade itself now, over a full-range scene (sky, mid, warm
       subject, near-black, specular) because a two-tone scene shows a
       temperature shift and a black lift almost not at all.
-- [ ] TextPanel, 9 kinetic text animations
+- [x] TextPanel and TextInspector, 9 kinetic text animations. They were
+      nine words in a segmented control: "Kinetic Stack", "Glitch Pop"
+      and "Wave" are not self-describing, and the only way to find out
+      what one did was to apply it to a real title, scrub and undo.
 
 ## D · The rest of the platform
 Every region gets the same pass as home.
@@ -76,19 +79,19 @@ once rather than in sixty edits. `.well` KEEPS its border on purpose: it
 is darker than the panel rather than lighter, and a dark rectangle on
 dark chrome with no hairline reads as a hole rather than as an inset.
 
-- [ ] `header/` — HeaderBar, ExportModal, McpStatusModal, UpdateIndicator
-- [ ] `sidebar/` — SidebarNav + Media, Audio, Text, Captions,
-      Transitions, Effects, Filters, AiTools, PanelSearch
-- [ ] `preview/` — PreviewPlayer, PlaybackControls
-- [ ] `timeline/` — Timeline, ClipBlock, TrackHeader, TimelineToolbar,
-      TimelineRuler, MarkerLane, Playhead, AudioWaveform
-- [ ] `inspector/` — InspectorPanel + Transform, Color, Text, Audio,
-      Shape, Speed, EffectStack, KeyframeEditor
-- [ ] `copilot/` — CopilotDrawer, AgentThread, AgentPicker,
-      ContextPreflight, RunStatus, GapLog, McpActivityLog, FrameAnnotator
-- [ ] `canvas/` — TransformGizmo, AlignmentBar
-- [ ] `ui/` — Controls, CommandPalette, ContextMenu, ShortcutsOverlay,
-      Toasts
+Done as three system-level sweeps rather than sixty edits, which is
+where the leverage was. Every region below is covered by all three.
+
+- [x] **Surfaces.** `.card`, `.card-interactive`, `.chip`,
+      `.seg-item-active`, `.pro-btn-filled` and the kbd badge lost their
+      borders and resting shadows. Wells, text inputs, the segmented
+      track and colour swatches KEEP theirs, per the rule.
+- [x] **Type.** 277 raw pixel sizes snapped onto the documented scale,
+      **82 of them at 9px**, which is below the scale entirely and was
+      most of what made the panels feel cramped beside home. Enforced by
+      a test now.
+- [x] **Accessible names.** 0 of 122 controls had one. Now 0 nameless of
+      314, checked in the running editor by `verify_home`.
 
 ## E · Verification
 - [x] `npm test` — 180 (6 new)
@@ -142,6 +145,8 @@ dark chrome with no hairline reads as a hole rather than as an inset.
   header, sidebar panels, preview, timeline, inspector, copilot, canvas
   and the ui primitives are untouched by the material pass.
 - **Text-animation previews** (C, last box).
-- **The per-component pass in D.** The shared classes are done, which
-  covers most panels; the layout-level work (type scale, spacing rhythm,
-  density) has not been done region by region.
+- **Per-region layout composition.** The system-level work (surfaces,
+  type scale, names) covers every panel. What is NOT done is bespoke
+  re-composition of individual panels: spacing rhythm, section order and
+  information density are unchanged from before this session, and the
+  editor has not had the kind of layout rethink the home screen got.

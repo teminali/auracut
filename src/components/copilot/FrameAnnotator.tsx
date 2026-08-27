@@ -274,12 +274,13 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
         <div className="panel-header">
           <div className="flex items-center gap-2 min-w-0">
             <Pencil className="w-3.5 h-3.5 text-spectrum-accent flex-shrink-0" />
-            <span className="text-[12px] font-semibold text-spectrum-text">Mark up the frame</span>
+            <span className="text-ui font-semibold text-spectrum-text">Mark up the frame</span>
             <span className="chip font-mono flex-shrink-0">
               {frame.timecode} · frame {frame.frameNumber}
             </span>
           </div>
           <button onClick={onClose} className="pro-btn w-6 h-6">
+            aria-label="Close the annotator"
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -295,7 +296,8 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
                   onClick={() => { setTool(t.id); setSelectedId(null); }}
                   className={`seg-item ${tool === t.id ? 'seg-item-active' : ''}`}
                   title={t.hint}
-                >
+                
+            aria-label={t.hint}>
                   <Icon className="w-3 h-3" />
                   {t.label}
                 </button>
@@ -313,21 +315,25 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
                 }`}
                 style={{ background: c }}
                 title={`Use ${c}`}
-              />
+              
+            aria-label={`Use ${c}`}
+            />
             ))}
           </div>
 
           <div className="flex items-center gap-1 ml-auto">
-            <button onClick={undoLast} disabled={annotations.length === 0} className="pro-btn w-6 h-6" title="Undo last mark (⌘Z)">
+            <button onClick={undoLast} disabled={annotations.length === 0} className="pro-btn w-6 h-6" title="Undo last mark (⌘Z)"
+            aria-label="Undo last mark (⌘Z)">
               <Undo2 className="w-3.5 h-3.5" />
             </button>
-            <button onClick={deleteSelected} disabled={!selectedId} className="btn-ghost-danger w-6 h-6" title="Delete selected mark (⌫)">
+            <button onClick={deleteSelected} disabled={!selectedId} className="btn-ghost-danger w-6 h-6" title="Delete selected mark (⌫)"
+            aria-label="Delete selected mark (⌫)">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => { setAnnotations([]); setSelectedId(null); }}
               disabled={annotations.length === 0}
-              className="pro-btn h-6 px-2 text-[10px]"
+              className="pro-btn h-6 px-2 text-micro"
             >
               Clear all
             </button>
@@ -338,8 +344,8 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
         <div ref={stageRef} className="flex-1 min-h-[260px] p-3 flex items-center justify-center bg-spectrum-sunken relative overflow-hidden">
           {frame.unavailableReason ? (
             <div className="text-center px-8">
-              <p className="text-[12px] font-medium text-spectrum-text">The frame could not be captured</p>
-              <p className="text-[11px] text-spectrum-textDim mt-1 max-w-[420px] leading-relaxed">
+              <p className="text-ui font-medium text-spectrum-text">The frame could not be captured</p>
+              <p className="text-ui-sm text-spectrum-textDim mt-1 max-w-[420px] leading-relaxed">
                 {frame.unavailableReason}
               </p>
             </div>
@@ -371,9 +377,10 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
                       if (e.key === 'Escape') { e.preventDefault(); setPendingLabel(null); }
                     }}
                     placeholder="Type a note…"
-                    className="pro-input h-7 px-2 text-[11px] w-44"
+                    className="pro-input h-7 px-2 text-ui-sm w-44"
                   />
-                  <button onClick={confirmLabel} className="btn-primary w-7 h-7" title="Add label">
+                  <button onClick={confirmLabel} className="btn-primary w-7 h-7" title="Add label"
+            aria-label="Add label">
                     <Check className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -385,16 +392,16 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
         {/* What the marks resolve to */}
         <div className="px-3 py-2 border-t border-line flex-shrink-0 min-h-[52px]">
           {annotations.length === 0 ? (
-            <p className="text-[11px] text-spectrum-textDim">
+            <p className="text-ui-sm text-spectrum-textDim">
               Draw an arrow at whatever you are talking about. I resolve each mark to the exact layer beneath it, so
               you can say “make <em>this</em> smaller” and I will know what you mean.
             </p>
           ) : (
             <div className="space-y-1 max-h-24 overflow-y-auto">
               {annotations.map((a, i) => (
-                <div key={a.id} className="flex items-center gap-2 text-[11px]">
+                <div key={a.id} className="flex items-center gap-2 text-ui-sm">
                   <span
-                    className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-black flex-shrink-0"
+                    className="w-4 h-4 rounded-full flex items-center justify-center text-micro font-bold text-black flex-shrink-0"
                     style={{ background: a.color }}
                   >
                     {i + 1}
@@ -415,14 +422,14 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
 
         {/* Footer */}
         <div className="px-3 py-2.5 border-t border-line flex items-center justify-between gap-3 flex-shrink-0">
-          <p className="text-[10px] text-spectrum-textFaint">
+          <p className="text-micro text-spectrum-textFaint">
             {resolvedSummary.length > 0
               ? `Resolves to: ${resolvedSummary.join(' · ')}`
               : 'Marks are stored in project pixels, so they stay accurate at any zoom.'}
           </p>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={onClose} className="pro-btn-filled h-7 px-3 text-[11px]">Cancel</button>
-            <button onClick={() => onConfirm(annotations)} className="btn-primary h-7 px-3 gap-1.5 text-[11px]">
+            <button onClick={onClose} className="pro-btn-filled h-7 px-3 text-ui-sm">Cancel</button>
+            <button onClick={() => onConfirm(annotations)} className="btn-primary h-7 px-3 gap-1.5 text-ui-sm">
               <Check className="w-3.5 h-3.5" />
               Attach {annotations.length > 0 ? `with ${annotations.length} mark${annotations.length === 1 ? '' : 's'}` : 'frame'}
             </button>

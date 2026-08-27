@@ -81,8 +81,7 @@ export const SkillsView: React.FC = () => {
       </p>
 
       {reachable === false && (
-        <div className="flex items-start gap-2.5 rounded-squircle-md border border-line
-                        bg-spectrum-panel/60 p-3 mt-4">
+        <div className="flex items-start gap-2.5 rounded-squircle-md bg-spectrum-panel p-3 mt-4">
           <WifiOff className="w-4 h-4 text-spectrum-textDim flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-ui-lg text-spectrum-text">The store is not reachable.</p>
@@ -100,7 +99,7 @@ export const SkillsView: React.FC = () => {
           <span className="text-ui-lg">Loading the catalogue…</span>
         </div>
       ) : skills.length === 0 ? (
-        <div className="rounded-squircle-lg border border-line bg-spectrum-panel/60 p-5 mt-4">
+        <div className="rounded-squircle-lg bg-spectrum-panel p-5 mt-4">
           <div className="flex items-center gap-2">
             <Blocks className="w-4 h-4 text-spectrum-textDim" />
             <p className="text-ui-lg text-spectrum-text font-medium">Nothing published yet.</p>
@@ -118,7 +117,7 @@ export const SkillsView: React.FC = () => {
             return (
               <div
                 key={skill.id}
-                className="rounded-squircle-lg border border-line bg-spectrum-panel p-4 flex flex-col"
+                className="rounded-squircle-lg bg-spectrum-panel p-4 flex flex-col"
               >
                 <div className="flex items-start gap-2">
                   <h3 className="text-ui-xl font-semibold text-spectrum-text flex-1 min-w-0">

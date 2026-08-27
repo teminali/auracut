@@ -447,12 +447,12 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
       {!isCompact && (
         <div className="absolute bottom-0.5 right-1 flex items-center gap-1 pointer-events-none">
           {hasSpeedRamp && (
-            <span className="px-1 rounded-[3px] bg-black/65 text-[9px] font-mono text-spectrum-amber leading-[13px] tracking-normal">
+            <span className="px-1 rounded-[3px] bg-black/65 text-micro font-mono text-spectrum-amber leading-[13px] tracking-normal">
               {clip.speed.reversed ? '◀' : ''}{clip.speed.multiplier.toFixed(2).replace(/0$/, '')}×
             </span>
           )}
           {clip.blendMode !== 'normal' && (
-            <span className="px-1 rounded-[3px] bg-black/65 text-[9px] text-spectrum-purple leading-[13px] tracking-normal">
+            <span className="px-1 rounded-[3px] bg-black/65 text-micro text-spectrum-purple leading-[13px] tracking-normal">
               {clip.blendMode.slice(0, 4)}
             </span>
           )}

@@ -83,7 +83,7 @@ export const AudioPanel: React.FC = () => {
         */}
         <Section title="Sound effects · generated" icon={Waves}>
           {shownSfx.length === 0 ? (
-            <p className="text-[10px] text-spectrum-textFaint">Nothing matches “{query}”.</p>
+            <p className="text-micro text-spectrum-textFaint">Nothing matches “{query}”.</p>
           ) : (
             <div className="grid grid-cols-2 gap-1.5">
               {shownSfx.map((spec) => (
@@ -93,11 +93,12 @@ export const AudioPanel: React.FC = () => {
                   onClick={() => makeSfx(spec)}
                   className="card-interactive p-2 flex flex-col items-start gap-0.5 text-left group disabled:opacity-50"
                   title={`${spec.hint} · ${spec.seconds}s`}
-                >
-                  <span className="text-[11px] font-medium text-spectrum-text group-hover:text-spectrum-accent transition-colors truncate w-full">
+                
+            aria-label={`${spec.hint} · ${spec.seconds}s`}>
+                  <span className="text-ui-sm font-medium text-spectrum-text group-hover:text-spectrum-accent transition-colors truncate w-full">
                     {busy === spec.kind ? 'Rendering…' : spec.label}
                   </span>
-                  <span className="text-[9px] text-spectrum-textFaint truncate w-full">{spec.hint}</span>
+                  <span className="text-micro text-spectrum-textFaint truncate w-full">{spec.hint}</span>
                 </button>
               ))}
             </div>
@@ -106,7 +107,7 @@ export const AudioPanel: React.FC = () => {
 
         <Section title="Music & SFX" icon={Music}>
           {audioAssets.length === 0 ? (
-            <p className="text-[10px] text-spectrum-textFaint">
+            <p className="text-micro text-spectrum-textFaint">
               Import audio from the Media panel to see it here.
             </p>
           ) : (
@@ -121,10 +122,10 @@ export const AudioPanel: React.FC = () => {
                     <AudioLines className="w-3.5 h-3.5 text-lane-audio" />
                   </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-[11px] font-medium text-spectrum-text truncate group-hover:text-spectrum-accent transition-colors">
+                    <span className="block text-ui-sm font-medium text-spectrum-text truncate group-hover:text-spectrum-accent transition-colors">
                       {asset.name}
                     </span>
-                    <span className="block text-[9px] font-mono text-spectrum-textFaint tabular">
+                    <span className="block text-micro font-mono text-spectrum-textFaint tabular">
                       {formatDuration(asset.durationMs)} · {asset.fileSizeFormatted}
                     </span>
                   </span>
@@ -136,13 +137,13 @@ export const AudioPanel: React.FC = () => {
         </Section>
 
         <Section title="Beat tools" icon={Music4}>
-          <p className="text-[10px] text-spectrum-textFaint leading-relaxed">
+          <p className="text-micro text-spectrum-textFaint leading-relaxed">
             Analyses the music track, estimates the tempo and lays a beat grid on the timeline.
           </p>
           <button
             onClick={() => run('beats', 'detect_beats', {}, 'Beats detected')}
             disabled={busy !== null}
-            className="btn-primary w-full h-7 gap-1.5 text-[11px]"
+            className="btn-primary w-full h-7 gap-1.5 text-ui-sm"
           >
             <Music4 className="w-3 h-3" />
             {busy === 'beats' ? 'Analysing…' : 'Detect beats'}
@@ -150,7 +151,7 @@ export const AudioPanel: React.FC = () => {
           <button
             onClick={() => run('beats-snap', 'detect_beats', { snapCuts: true }, 'Cuts snapped to the beat')}
             disabled={busy !== null}
-            className="pro-btn-filled w-full h-7 gap-1.5 text-[11px]"
+            className="pro-btn-filled w-full h-7 gap-1.5 text-ui-sm"
           >
             <Waves className="w-3 h-3" />
             {busy === 'beats-snap' ? 'Snapping…' : 'Detect & snap cuts to beats'}
@@ -158,13 +159,13 @@ export const AudioPanel: React.FC = () => {
         </Section>
 
         <Section title="Cleanup" icon={Scissors}>
-          <p className="text-[10px] text-spectrum-textFaint leading-relaxed">
+          <p className="text-micro text-spectrum-textFaint leading-relaxed">
             Trims dialogue pauses and closes the gaps with a ripple edit.
           </p>
           <button
             onClick={() => run('silence', 'remove_silence', {}, 'Silence removed')}
             disabled={busy !== null}
-            className="pro-btn-filled w-full h-7 gap-1.5 text-[11px]"
+            className="pro-btn-filled w-full h-7 gap-1.5 text-ui-sm"
           >
             <Scissors className="w-3 h-3" />
             {busy === 'silence' ? 'Processing…' : 'Cut silence'}
@@ -175,8 +176,8 @@ export const AudioPanel: React.FC = () => {
           {tracks.filter((t) => t.type === 'audio').map((track) => (
             <div key={track.id} className="space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-spectrum-textMuted truncate">{track.name}</span>
-                <span className="text-[10px] font-mono text-spectrum-textFaint tabular">
+                <span className="text-ui-sm text-spectrum-textMuted truncate">{track.name}</span>
+                <span className="text-micro font-mono text-spectrum-textFaint tabular">
                   {Math.round(track.volume * 100)}%
                 </span>
               </div>

@@ -96,10 +96,12 @@ export const PlaybackControls: React.FC = () => {
 
         {/* Transport */}
         <div className="flex items-center gap-1">
-          <button onClick={() => setPlayheadMs(inPointMs ?? 0)} className="pro-btn w-7 h-7" title="Go to start (Home)">
+          <button onClick={() => setPlayheadMs(inPointMs ?? 0)} className="pro-btn w-7 h-7" title="Go to start (Home)"
+            aria-label="Go to start (Home)">
             <SkipBack className="w-[15px] h-[15px]" />
           </button>
-          <button onClick={() => stepFrame(-1)} className="pro-btn w-7 h-7" title="Previous frame (←)">
+          <button onClick={() => stepFrame(-1)} className="pro-btn w-7 h-7" title="Previous frame (←)"
+            aria-label="Previous frame (←)">
             <ChevronLeft className="w-[17px] h-[17px]" />
           </button>
 
@@ -111,36 +113,42 @@ export const PlaybackControls: React.FC = () => {
                 : 'bg-spectrum-card border border-line-strong text-spectrum-text hover:bg-spectrum-cardHover shadow-raised'
             }`}
             title="Play / pause (Space)"
+            aria-label="Play / pause (Space)"
           >
             {isPlaying
               ? <Pause className="w-[15px] h-[15px]" weight="fill" />
               : <Play className="w-[15px] h-[15px] ml-0.5" weight="fill" />}
           </button>
 
-          <button onClick={() => stepFrame(1)} className="pro-btn w-7 h-7" title="Next frame (→)">
+          <button onClick={() => stepFrame(1)} className="pro-btn w-7 h-7" title="Next frame (→)"
+            aria-label="Next frame (→)">
             <ChevronRight className="w-[17px] h-[17px]" />
           </button>
-          <button onClick={() => setPlayheadMs(outPointMs ?? project.durationMs)} className="pro-btn w-7 h-7" title="Go to end (End)">
+          <button onClick={() => setPlayheadMs(outPointMs ?? project.durationMs)} className="pro-btn w-7 h-7" title="Go to end (End)"
+            aria-label="Go to end (End)">
             <SkipForward className="w-[15px] h-[15px]" />
           </button>
         </div>
 
         {/* Marking & playback modes */}
         <div className="flex items-center gap-1 min-w-[136px] justify-end">
-          <button onClick={() => addMarker(playheadMs)} className="pro-btn w-7 h-7" title="Add marker (M)">
+          <button onClick={() => addMarker(playheadMs)} className="pro-btn w-7 h-7" title="Add marker (M)"
+            aria-label="Add marker (M)">
             <Flag className="w-[15px] h-[15px]" />
           </button>
           <button
             onClick={() => (inPointMs === null ? setInPoint(playheadMs) : setInPoint(null))}
             className={`pro-btn w-7 h-7 ${inPointMs !== null ? 'pro-btn-active' : ''}`}
             title="Set / clear in point (I)"
-          >
+          
+            aria-label="Set / clear in point (I)">
             <ScissorsLineDashed className="w-[15px] h-[15px]" />
           </button>
           <button
             onClick={toggleLoop}
             className={`pro-btn w-7 h-7 ${loopEnabled ? 'pro-btn-active' : ''}`}
             title="Loop playback (L)"
+            aria-label="Loop playback (L)"
           >
             <Repeat className="w-[15px] h-[15px]" />
           </button>

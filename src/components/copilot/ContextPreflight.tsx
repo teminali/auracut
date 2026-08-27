@@ -56,6 +56,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
     >
       {/* Summary line — the whole panel when nothing needs attention */}
       <button
+        aria-label="Show what the agent will be sent"
         onClick={() => setOpen((v) => !v)}
         className="w-full px-2.5 h-[28px] flex items-center gap-1.5 text-left hover:bg-white/[0.03] transition-colors"
       >
@@ -69,7 +70,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
             ? `Send will sort ${blockers.length} thing${blockers.length === 1 ? '' : 's'} first`
             : 'Context ready'}
         </span>
-        <span className="text-[10px] text-spectrum-textDim flex-shrink-0">{report.requirement.label}</span>
+        <span className="text-micro text-spectrum-textDim flex-shrink-0">{report.requirement.label}</span>
         <ChevronRight
           className={`w-3 h-3 text-spectrum-textFaint flex-shrink-0 transition-transform ${expanded ? 'rotate-90' : ''}`}
         />
@@ -77,7 +78,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
 
       {/* Why this contract exists */}
       {expanded && blockers.length > 0 && (
-        <p className="px-2.5 pb-1.5 text-[10px] text-spectrum-textDim leading-snug">
+        <p className="px-2.5 pb-1.5 text-micro text-spectrum-textDim leading-snug">
           {report.requirement.rationale}
         </p>
       )}
@@ -87,13 +88,13 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
         <div key={issue.id} className="px-2.5 py-1.5 border-t border-line/60 flex items-start gap-2">
           <AlertTriangle className="w-3 h-3 text-spectrum-amber flex-shrink-0 mt-[3px]" />
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-medium text-spectrum-text leading-snug">{issue.title}</p>
-            <p className="text-[10px] text-spectrum-textDim leading-snug mt-0.5">{issue.detail}</p>
+            <p className="text-ui-sm font-medium text-spectrum-text leading-snug">{issue.title}</p>
+            <p className="text-micro text-spectrum-textDim leading-snug mt-0.5">{issue.detail}</p>
           </div>
           {issue.fix && (
             <button
               onClick={issue.fix}
-              className="btn-primary h-6 px-2 text-[10px] flex-shrink-0 whitespace-nowrap"
+              className="btn-primary h-6 px-2 text-micro flex-shrink-0 whitespace-nowrap"
             >
               {issue.fixLabel ?? 'Fix'}
             </button>
@@ -108,11 +109,11 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-spectrum-textDim" />
           </span>
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-spectrum-textMuted leading-snug">{issue.title}</p>
-            <p className="text-[10px] text-spectrum-textFaint leading-snug">{issue.detail}</p>
+            <p className="text-micro text-spectrum-textMuted leading-snug">{issue.title}</p>
+            <p className="text-micro text-spectrum-textFaint leading-snug">{issue.detail}</p>
           </div>
           {issue.fix && (
-            <button onClick={issue.fix} className="pro-btn-filled h-5 px-1.5 text-[9px] flex-shrink-0">
+            <button onClick={issue.fix} className="pro-btn-filled h-5 px-1.5 text-micro flex-shrink-0">
               {issue.fixLabel ?? 'Fix'}
             </button>
           )}
@@ -123,7 +124,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
       {expanded && report.satisfied.length > 0 && (
         <div className="px-2.5 py-1.5 border-t border-line/60 flex flex-wrap gap-x-3 gap-y-0.5">
           {report.satisfied.map((s) => (
-            <span key={s} className="flex items-center gap-1 text-[10px] text-spectrum-textDim">
+            <span key={s} className="flex items-center gap-1 text-micro text-spectrum-textDim">
               <Check className="w-2.5 h-2.5 text-spectrum-green flex-shrink-0" />
               {s}
             </span>
@@ -139,23 +140,24 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
               onClick={onAnnotate}
               className="relative w-14 h-8 rounded-[3px] overflow-hidden border border-line-strong flex-shrink-0 group"
               title="Draw on this frame"
+            aria-label="Draw on this frame"
             >
               <img src={frame.dataUrl} alt="" className="w-full h-full object-cover" />
               <span className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <Pencil className="w-3 h-3 text-white" />
               </span>
               {annotations.length > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-[#ff2d78] text-white text-[9px] font-bold flex items-center justify-center">
+                <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-[#ff2d78] text-white text-micro font-bold flex items-center justify-center">
                   {annotations.length}
                 </span>
               )}
             </button>
 
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] text-spectrum-textMuted font-mono truncate">
+              <p className="text-micro text-spectrum-textMuted font-mono truncate">
                 {frame.timecode} · {frame.width}×{frame.height}
               </p>
-              <p className="text-[9px] text-spectrum-textFaint truncate">
+              <p className="text-micro text-spectrum-textFaint truncate">
                 {annotations.length > 0
                   ? annotations
                       .map((a, i) => `${i + 1}. ${a.targets[0]?.clipName ?? a.kind}`)
@@ -165,16 +167,18 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
             </div>
 
             <div className="flex items-center gap-1 flex-shrink-0">
-              <button onClick={onAnnotate} className="pro-btn-filled h-6 px-2 gap-1 text-[10px]">
+              <button onClick={onAnnotate} className="pro-btn-filled h-6 px-2 gap-1 text-micro">
                 <Pencil className="w-2.5 h-2.5" />
                 {annotations.length > 0 ? 'Edit marks' : 'Draw'}
               </button>
               {annotations.length > 0 && (
-                <button onClick={onClearAnnotations} className="pro-btn w-5 h-5" title="Remove all marks">
+                <button onClick={onClearAnnotations} className="pro-btn w-5 h-5" title="Remove all marks"
+            aria-label="Remove all marks">
                   <X className="w-2.5 h-2.5" />
                 </button>
               )}
-              <button onClick={onToggleFrame} className="pro-btn w-5 h-5" title="Detach the frame">
+              <button onClick={onToggleFrame} className="pro-btn w-5 h-5" title="Detach the frame"
+            aria-label="Detach the frame">
                 <X className="w-3 h-3" />
               </button>
             </div>
@@ -182,11 +186,11 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
         ) : (
           <>
             <Camera className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
-            <span className="text-[10px] text-spectrum-textDim flex-1 min-w-0 truncate">
+            <span className="text-micro text-spectrum-textDim flex-1 min-w-0 truncate">
               {frame?.unavailableReason ?? 'Share the frame so I can see what you see'}
             </span>
             {!frame?.unavailableReason && (
-              <button onClick={onToggleFrame} className="pro-btn-filled h-6 px-2 text-[10px] flex-shrink-0">
+              <button onClick={onToggleFrame} className="pro-btn-filled h-6 px-2 text-micro flex-shrink-0">
                 Attach frame
               </button>
             )}

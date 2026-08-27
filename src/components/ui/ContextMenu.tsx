@@ -54,7 +54,7 @@ export const ContextMenu: React.FC = () => {
                 close();
                 requestAnimationFrame(() => item.onSelect());
               }}
-              className={`w-full px-2.5 h-7 flex items-center gap-2 text-left text-[12px] transition-colors ${
+              className={`w-full px-2.5 h-7 flex items-center gap-2 text-left text-ui transition-colors ${
                 item.disabled
                   ? 'text-spectrum-textFaint cursor-not-allowed'
                   : item.danger

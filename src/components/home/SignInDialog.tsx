@@ -38,7 +38,8 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
 
         <div className="flex items-center justify-between px-4 h-11 border-b border-line">
           <h2 className="text-ui-lg font-semibold text-spectrum-text">Sign in to Kerf</h2>
-          <button onClick={close} className="pro-btn w-6 h-6" title="Close">
+          <button onClick={close} className="pro-btn w-6 h-6" title="Close"
+            aria-label="Close">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>

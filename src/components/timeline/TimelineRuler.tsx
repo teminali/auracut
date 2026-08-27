@@ -107,7 +107,7 @@ export const TimelineRuler: React.FC<TimelineRulerProps> = ({ pxPerMs, durationM
       {majorTicks.map((t) => (
         <div key={`M${t}`} className="absolute bottom-0 top-0 pointer-events-none" style={{ left: t * pxPerMs }}>
           <div className="absolute bottom-0 w-px bg-white/[0.22]" style={{ height: 9 }} />
-          <span className="absolute top-[4px] left-[5px] text-[9px] font-mono font-medium text-spectrum-textDim tabular whitespace-nowrap tracking-tight">
+          <span className="absolute top-[4px] left-[5px] text-micro font-mono font-medium text-spectrum-textDim tabular whitespace-nowrap tracking-tight">
             {labelFor(t, major)}
           </span>
         </div>

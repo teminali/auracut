@@ -108,7 +108,8 @@ export const InspectorPanel: React.FC = () => {
             onClick={() => toggleClipLock(clip.id)}
             className={`pro-btn w-[22px] h-[22px] ${clip.locked ? 'pro-btn-active !text-spectrum-amber' : ''}`}
             title={clip.locked ? 'Unlock layer' : 'Lock layer'}
-          >
+          
+            aria-label={clip.locked ? 'Unlock layer' : 'Lock layer'}>
             <Lock className="w-3 h-3" />
           </button>
         </div>
@@ -134,16 +135,17 @@ export const InspectorPanel: React.FC = () => {
               className={`relative flex items-center gap-1 px-1.5 h-[30px] text-ui-xs font-medium whitespace-nowrap transition-colors ${
                 active ? 'text-spectrum-text' : 'text-spectrum-textDim hover:text-spectrum-textMuted'
               }`}
-            >
+            
+            aria-label={tab.label}>
               <Icon className="w-3.5 h-3.5 flex-shrink-0" />
               <span>{tab.label}</span>
               {tab.id === 'effects' && effectCount > 0 && (
-                <span className="px-1 rounded-full bg-spectrum-accentSoft text-spectrum-accent text-[9px] font-bold leading-[13px]">
+                <span className="px-1 rounded-full bg-spectrum-accentSoft text-spectrum-accent text-micro font-bold leading-[13px]">
                   {effectCount}
                 </span>
               )}
               {tab.id === 'keys' && clip.keyframes.length > 0 && (
-                <span className="px-1 rounded-full bg-spectrum-amber/20 text-spectrum-amber text-[9px] font-bold leading-[13px]">
+                <span className="px-1 rounded-full bg-spectrum-amber/20 text-spectrum-amber text-micro font-bold leading-[13px]">
                   {clip.keyframes.length}
                 </span>
               )}

@@ -20,7 +20,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { createClip, type Clip, type Track, type ProjectSettings, type TransitionType } from '../types/edl';
-import type { ClipFilters } from '../types/edl';
+import type { ClipFilters, KineticAnimation } from '../types/edl';
 import { captureFrame } from './frameCapture';
 import { getEffectDefinition } from './effectsRegistry';
 
@@ -254,4 +254,40 @@ function gradeScene(filters: Partial<ClipFilters>): Clip[] {
  */
 export function lookPreview(id: string, filters: Partial<ClipFilters>): Promise<string[]> {
   return render(`l:${id}`, gradeScene(filters), 60, 700);
+}
+
+/* ═══ Kinetic text ══════════════════════════════════════════════════
+   Nine text animations, previously offered as nine words in a
+   segmented control. "Kinetic Stack", "Glitch Pop" and "Wave" are not
+   self-describing, and the only way to find out what one did was to
+   apply it to a real title, scrub, and undo.
+
+   These run the animation itself. They are sampled over the FIRST part
+   of the clip, because a kinetic animation is an entrance: by the time
+   a title has settled, every one of them looks the same.
+   ═══════════════════════════════════════════════════════════════════ */
+
+export function textPreview(animation: KineticAnimation, sample = 'Title'): Promise<string[]> {
+  const clips = [
+    createClip({
+      id: 'tx_ground', trackId: 'pv_base', type: 'shape', name: 'ground',
+      startTimeMs: 0, durationMs: CLIP_MS, sourceStartMs: 0, sourceDurationMs: CLIP_MS,
+      shapeStyle: { kind: 'rectangle', fill: '#14181f', strokeWidth: 0 },
+      transform: { scaleX: 3, scaleY: 3 },
+    }),
+    createClip({
+      id: 'tx_text', trackId: 'pv_top', type: 'text', name: sample,
+      startTimeMs: 0, durationMs: CLIP_MS, sourceStartMs: 0, sourceDurationMs: CLIP_MS,
+      textStyle: {
+        text: sample, fontSize: 54, fontWeight: 800, color: '#ffffff',
+        strokeWidth: 0, kineticAnimation: animation,
+      },
+    }),
+  ];
+  /*
+    0 to 900ms. Entrances are typically under a second, and starting at
+    exactly 0 matters here in a way it does not for a transition: frame
+    zero IS the animation for `pop_in` and `typewriter`.
+  */
+  return render(`x:${animation}`, clips, 0, 900);
 }

@@ -88,7 +88,7 @@ export const TransitionsPanel: React.FC = () => {
 
       <div className="p-2.5 border-b border-line space-y-2.5 flex-shrink-0">
         <div className="space-y-1">
-          <span className="text-[11px] text-spectrum-textMuted">Placement</span>
+          <span className="text-ui-sm text-spectrum-textMuted">Placement</span>
           <SegmentedControl
             value={position}
             onChange={setPosition}
@@ -116,7 +116,7 @@ export const TransitionsPanel: React.FC = () => {
             {clip.clip.transitionIn && (
               <button
                 onClick={() => removeTransition(clip.clip.id, 'in')}
-                className="btn-ghost-danger flex-1 h-6 text-[10px] gap-1"
+                className="btn-ghost-danger flex-1 h-6 text-micro gap-1"
               >
                 Clear in · {clip.clip.transitionIn.type.replace(/_/g, ' ')}
               </button>
@@ -124,7 +124,7 @@ export const TransitionsPanel: React.FC = () => {
             {clip.clip.transitionOut && (
               <button
                 onClick={() => removeTransition(clip.clip.id, 'out')}
-                className="btn-ghost-danger flex-1 h-6 text-[10px] gap-1"
+                className="btn-ghost-danger flex-1 h-6 text-micro gap-1"
               >
                 Clear out · {clip.clip.transitionOut.type.replace(/_/g, ' ')}
               </button>
@@ -144,7 +144,7 @@ export const TransitionsPanel: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto p-2 grid grid-cols-2 gap-2 content-start auto-rows-max">
         {shown.length === 0 && (
-          <p className="col-span-2 text-[10px] text-spectrum-textFaint text-center py-4">
+          <p className="col-span-2 text-micro text-spectrum-textFaint text-center py-4">
             Nothing matches “{query}”.
           </p>
         )}
@@ -155,7 +155,8 @@ export const TransitionsPanel: React.FC = () => {
             className="rounded-squircle-md overflow-hidden text-left group
                        bg-[#16191f] hover:bg-[#1f242c] transition-colors duration-base"
             title={item.hint}
-          >
+          
+            aria-label={item.hint}>
             {/* The real transition, rendered by the real compositor.
                 This replaced an emoji, which told nobody anything: a
                 magnifying glass for zoom, a spiral for spin, and a film
@@ -190,7 +191,7 @@ export const TransitionsPanel: React.FC = () => {
 
       {!clip && (
         <div className="p-2 border-t border-line flex-shrink-0">
-          <p className="text-[10px] text-spectrum-textFaint text-center">
+          <p className="text-micro text-spectrum-textFaint text-center">
             Select a clip to apply a transition.
           </p>
         </div>

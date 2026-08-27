@@ -275,8 +275,8 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
                 onClick={() => applyMotionPreset(clip.id, preset.id)}
                 className="card-interactive p-2 text-left"
               >
-                <span className="block text-[11px] font-medium text-spectrum-text">{preset.label}</span>
-                <span className="block text-[9px] text-spectrum-textFaint truncate">{preset.hint}</span>
+                <span className="block text-ui-sm font-medium text-spectrum-text">{preset.label}</span>
+                <span className="block text-micro text-spectrum-textFaint truncate">{preset.hint}</span>
               </button>
             ))}
           </div>
@@ -292,16 +292,19 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
       {/* ── Toolbar ── */}
       <div className="h-9 px-3 flex items-center justify-between gap-2 border-b border-line bg-spectrum-panelHeader/50 flex-shrink-0">
         <div className="seg-group">
-          <button onClick={() => setMode('lanes')} className={`seg-item ${mode === 'lanes' ? 'seg-item-active' : ''}`} title="Lane view">
+          <button onClick={() => setMode('lanes')} className={`seg-item ${mode === 'lanes' ? 'seg-item-active' : ''}`} title="Lane view"
+            aria-label="Lane view">
             <Rows3 className="w-3 h-3" /> Lanes
           </button>
-          <button onClick={() => setMode('graph')} className={`seg-item ${mode === 'graph' ? 'seg-item-active' : ''}`} title="Value graph">
+          <button onClick={() => setMode('graph')} className={`seg-item ${mode === 'graph' ? 'seg-item-active' : ''}`} title="Value graph"
+            aria-label="Value graph">
             <LineChart className="w-3 h-3" /> Graph
           </button>
         </div>
 
         <div className="flex items-center gap-0.5">
-          <button onClick={() => jumpToAdjacentKey(-1)} className="pro-btn w-6 h-6" title="Previous keyframe">
+          <button onClick={() => jumpToAdjacentKey(-1)} className="pro-btn w-6 h-6" title="Previous keyframe"
+            aria-label="Previous keyframe">
             <ChevronLeft className="w-3.5 h-3.5" />
           </button>
           <button
@@ -309,17 +312,20 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
             className="pro-btn w-6 h-6"
             disabled={!isPlayheadOverClip}
             title="Add keyframe at playhead"
-          >
+          
+            aria-label="Add keyframe at playhead">
             <Plus className="w-3.5 h-3.5" />
           </button>
-          <button onClick={() => jumpToAdjacentKey(1)} className="pro-btn w-6 h-6" title="Next keyframe">
+          <button onClick={() => jumpToAdjacentKey(1)} className="pro-btn w-6 h-6" title="Next keyframe"
+            aria-label="Next keyframe">
             <ChevronRight className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={() => clearKeyframes(clip.id)}
             className="btn-ghost-danger w-6 h-6"
             title="Delete all keyframes on this clip"
-          >
+          
+            aria-label="Delete all keyframes on this clip">
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -327,7 +333,7 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
 
       {/* ── Time ruler ── */}
       <div className="px-3 pt-2 flex-shrink-0">
-        <div className="flex items-center justify-between text-[9px] font-mono text-spectrum-textFaint mb-1">
+        <div className="flex items-center justify-between text-micro font-mono text-spectrum-textFaint mb-1">
           <span>0.0s</span>
           <span className={isPlayheadOverClip ? 'text-spectrum-accent font-semibold' : ''}>
             {(clipOffsetMs / 1000).toFixed(2)}s
@@ -357,7 +363,7 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
               {/* Horizontal value grid */}
               {[0, 0.25, 0.5, 0.75, 1].map((f) => (
                 <div key={f} className="absolute left-0 right-0 h-px bg-white/[0.05] pointer-events-none" style={{ top: 4 + f * GRAPH_HEIGHT }}>
-                  <span className="absolute left-1 -top-[7px] text-[9px] font-mono text-spectrum-textFaint tabular">
+                  <span className="absolute left-1 -top-[7px] text-micro font-mono text-spectrum-textFaint tabular">
                     {(graphRange.max - f * (graphRange.max - graphRange.min)).toFixed(graphMeta.precision)}
                   </span>
                 </div>
@@ -382,7 +388,9 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
                     borderColor: '#000000aa',
                   }}
                   title={`${graphMeta.label} = ${kf.value.toFixed(graphMeta.precision)}${graphMeta.unit} @ ${(kf.timeOffsetMs / 1000).toFixed(2)}s · ${kf.easing}`}
-                />
+                
+            aria-label={`${graphMeta.label} = ${kf.value.toFixed(graphMeta.precision)}${graphMeta.unit} @ ${(kf.timeOffsetMs / 1000).toFixed(2)}s · ${kf.easing}`}
+            />
               ))}
             </>
           ) : (
@@ -418,7 +426,7 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
                   })}
 
                   <span
-                    className="absolute left-1.5 text-[9px] font-medium pointer-events-none z-10 px-1 rounded bg-spectrum-sunken/85"
+                    className="absolute left-1.5 text-micro font-medium pointer-events-none z-10 px-1 rounded bg-spectrum-sunken/85"
                     style={{ color: meta.color }}
                   >
                     {meta.label}
@@ -437,7 +445,9 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
                         background: selectedKeyframeId === kf.id ? '#ffffff' : meta.color,
                       }}
                       title={`${meta.label} = ${kf.value.toFixed(meta.precision)}${meta.unit} @ ${(kf.timeOffsetMs / 1000).toFixed(2)}s · ${kf.easing}`}
-                    />
+                    
+            aria-label={`${meta.label} = ${kf.value.toFixed(meta.precision)}${meta.unit} @ ${(kf.timeOffsetMs / 1000).toFixed(2)}s · ${kf.easing}`}
+            />
                   ))}
                 </div>
               );
@@ -469,13 +479,13 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
       {/* ── Selected keyframe editor ── */}
       {selectedKeyframe && (
         <Section title="Selected keyframe" icon={Diamond}>
-          <div className="grid grid-cols-2 gap-2 text-[10px]">
+          <div className="grid grid-cols-2 gap-2 text-micro">
             <div className="card px-2 py-1.5">
-              <span className="block text-[9px] text-spectrum-textFaint">Time</span>
+              <span className="block text-micro text-spectrum-textFaint">Time</span>
               <span className="font-mono text-spectrum-text tabular">{(selectedKeyframe.timeOffsetMs / 1000).toFixed(3)}s</span>
             </div>
             <div className="card px-2 py-1.5">
-              <span className="block text-[9px] text-spectrum-textFaint">Value</span>
+              <span className="block text-micro text-spectrum-textFaint">Value</span>
               <span className="font-mono text-spectrum-text tabular">
                 {selectedKeyframe.value.toFixed(3)}
               </span>
@@ -483,11 +493,11 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
           </div>
 
           <div className="space-y-1">
-            <span className="text-[10px] text-spectrum-textMuted">Easing out of this key</span>
+            <span className="text-micro text-spectrum-textMuted">Easing out of this key</span>
             <select
               value={selectedKeyframe.easing}
               onChange={(e) => setKeyframeEasing(clip.id, selectedKeyframe.id, e.target.value as Easing)}
-              className="pro-input w-full h-7 px-2 text-[11px] cursor-pointer"
+              className="pro-input w-full h-7 px-2 text-ui-sm cursor-pointer"
             >
               {EASING_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -506,7 +516,7 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
 
           <button
             onClick={() => { removeKeyframe(clip.id, selectedKeyframe.id); setSelectedKeyframeId(null); }}
-            className="btn-ghost-danger w-full h-7 gap-1.5 text-[11px]"
+            className="btn-ghost-danger w-full h-7 gap-1.5 text-ui-sm"
           >
             <Trash2 className="w-3 h-3" /> Delete keyframe
           </button>
@@ -522,8 +532,8 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
               onClick={() => applyMotionPreset(clip.id, preset.id)}
               className="card-interactive p-2 text-left"
             >
-              <span className="block text-[11px] font-medium text-spectrum-text">{preset.label}</span>
-              <span className="block text-[9px] text-spectrum-textFaint truncate">{preset.hint}</span>
+              <span className="block text-ui-sm font-medium text-spectrum-text">{preset.label}</span>
+              <span className="block text-micro text-spectrum-textFaint truncate">{preset.hint}</span>
             </button>
           ))}
         </div>
@@ -618,7 +628,7 @@ const BezierEditor: React.FC<{
           className="absolute w-2.5 h-2.5 -ml-[5px] -mt-[5px] rounded-full bg-spectrum-amber border border-white/70 cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
         />
       </div>
-      <div className="text-[9px] font-mono text-spectrum-textFaint text-center tabular">
+      <div className="text-micro font-mono text-spectrum-textFaint text-center tabular">
         cubic-bezier({p1x}, {p1y}, {p2x}, {p2y})
       </div>
     </div>
