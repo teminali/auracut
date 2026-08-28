@@ -37,7 +37,7 @@ export interface Release {
 export const CHANGELOG: Release[] = [
   {
     version: '1.9.0',
-    date: '2026-08-28',
+    date: '2026-08-29',
     headline: 'Renders that use the whole machine',
     detail:
       'Export encodes on the GPU and can render several parts of the timeline at once, ' +
