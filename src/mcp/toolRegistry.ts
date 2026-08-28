@@ -4300,6 +4300,11 @@ defineTool({
       'The light set (daylight, linen, blossom, lagoon, dusk), the dark set '
       + '(graphite, midnight, clay), or none. Default daylight.'),
     cameraOnPauses: z.boolean().optional().describe('Let the camera fill the frame during pauses; default true'),
+    language: z.string().optional().describe(
+      'Spoken language as a two-letter code, or `auto` to detect it. Leave unset for English. '
+      + 'This picks the WEIGHTS as well as the decode: an English-only model handed another '
+      + 'language returns one "(speaking in foreign language)" marker for the whole stretch '
+      + 'rather than a bad transcript, so the words simply go missing.'),
     cameraOnIntro: z.boolean().optional().describe(
       'Open on the face when the take opens with a spoken introduction; default true. Needs a '
       + 'transcript, and it is refused unless the take starts by talking, nothing is done on '
@@ -4480,6 +4485,7 @@ defineTool({
       ...(backdrop ? { look: { ...DEFAULT_LOOK_OPTIONS, backdrop } } : {}),
       ...(args.cameraOnPauses !== undefined ? { cameraOnPauses: args.cameraOnPauses } : {}),
       ...(args.cameraOnIntro !== undefined ? { cameraOnIntro: args.cameraOnIntro } : {}),
+      ...(args.language ? { language: args.language } : {}),
       ...(args.cameraCorner ? { cameraCorner: args.cameraCorner } : {}),
     });
 

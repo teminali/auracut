@@ -231,6 +231,35 @@ async function transcribe(
       };
     }
 
+    /*
+      Whisper heard sound here and produced no words for it. Say so.
+
+      These are filtered out of the captions on purpose — nobody wants a
+      line reading "[Music]" — and used to be filtered out of existence.
+      On a take that opened with 25 seconds of Swahili, an English-only
+      model returned one `(speaking in foreign language)` marker for the
+      whole opening, and every layer above saw a take whose first words
+      were 25 seconds in. The introduction detector refused, correctly,
+      on a transcript that was wrong, and nothing anywhere said why.
+    */
+    const notes: string[] = [];
+    const lost = (result.nonSpeech ?? []).filter((m) => m.endMs > m.startMs);
+    const lostMs = lost.reduce((sum, m) => sum + (m.endMs - m.startMs), 0);
+    if (lostMs >= 3000) {
+      const foreign = lost.some((m) => /foreign|language|spanish|french/i.test(m.text));
+      notes.push(
+        `${Math.round(lostMs / 1000)}s of this take made sound that Whisper produced no words `
+        + `for, the longest at ${Math.round(lost[0].startMs / 1000)}s: "${lost[0].text}". `
+        + (foreign
+          ? `The model that ran was \`${result.model}\`, and a \`.en\` model cannot transcribe `
+            + 'anything but English: it returns exactly this marker instead. Pass `language` to '
+            + 'get the multilingual weights. Captions and the camera cuts are both placed from '
+            + 'the words, so they are missing from that stretch.'
+          : 'Captions and the camera cuts are both placed from the words, so they are missing '
+            + 'from that stretch.')
+      );
+    }
+
     return {
       cues: result.segments
         .filter((segment) => segment.text.trim().length > 0)
@@ -239,7 +268,7 @@ async function transcribe(
           endMs: segment.endMs + source.offsetMs,
           text: segment.text.trim(),
         })),
-      notes: [],
+      notes,
     };
   } finally {
     off();

@@ -1863,6 +1863,109 @@ transcript was overwritten by the empty local.
 
 ---
 
+## 7f. What a real take found that synthesised pixels could not
+
+§7e was verified against fixtures with known colours, which is the right
+gate and caught nothing here. One 69-second take of somebody actually
+introducing themselves found six things, and each was invisible to a
+fixture because each depended on a property real takes have and
+constructed ones do not.
+
+### The camera could never fill the frame on the machine this was built on
+
+`cameraCanFillFrame` had a single ceiling of 1.35, justified against a
+720p camera in a 1080p sequence needing 1.5. The ordinary case fails it:
+a 1080p webcam with a Retina display captured at 2560x1662 needs **1.54**
+and is refused. So the camera takeover — and, once it existed, the
+introduction — were both silently off for most users.
+
+The ratio was the wrong test. What makes an enlarged picture soft is how
+much REAL detail is behind it, and a ratio only says that when the source
+size is fixed: 720p stretched 1.5x delivers 720 lines, 1080p stretched
+1.54x delivers 1080. It is two limits now, and a 720p camera still cannot
+fill a 2560 frame, which is the case the original rule was written for.
+
+### The pointer was ignored whenever the input hook worked
+
+`findQuietStretches` took activity as real input **or** pointer travel,
+never both. On a machine with the hook — the good case — moving the mouse
+around a dashboard pointing at things without clicking counted as a quiet
+screen, and the camera would take the frame over exactly the moment
+somebody was showing you something.
+
+Reported as: "detect when I'm explaining stuff rather than instructing
+things on the dashboard, where my mouse has not moved." It is the union
+now, and `minQuietMs` is 5000 rather than 2600: two and a half seconds of
+stillness happens constantly while working, and five seconds of a parked
+pointer with a voice over it is somebody talking rather than pointing.
+
+### An introduction died on one stray click
+
+The rule was "the first thing done on screen ends the opening". The real
+take's events: an isolated click at **204ms**, another at 21804ms, and
+the actual work starting at 30725ms with a click and a scroll burst 1.5s
+later. The 204ms click is a window being focused. Work is SUSTAINED input
+now — an event with another within 2.5s — and a lone click is not work.
+
+### Pointing at the screen threw away the introduction instead of ending it
+
+The take opens in Swahili and switches at 25.3s to "As you can see, we
+have a couple of integration options". `POINTING_AT_SCREEN` vetoed the
+entire opening on the strength of what was said afterwards. It truncates
+now, and only vetoes when it is the FIRST thing said, which is a take
+that never introduced anything.
+
+### Every word marker is English, and the take was not
+
+Requiring markers makes this an English-only feature. Behaviour and shape
+do not have that problem, so an opening of 8s or more, spoken
+continuously with nothing done on screen, is now taken as an introduction
+without any marker at all. Nobody talks for eight uninterrupted seconds
+at the very start of a screen recording, over a screen they are not
+touching, for another reason — and if they are narrating the screen, the
+pointing test still catches it.
+
+### And the transcript was missing 25 seconds, silently
+
+The deepest of the six. `ggmlNameFor` appended `.en` unconditionally,
+because "narration for a screen tutorial is overwhelmingly English".
+
+An `.en` model handed Swahili does not transcribe it badly. It returns a
+single `(speaking in foreign language)` marker for the whole stretch.
+That marker is then correctly filtered out of the captions by
+`transcribe.ts` — nobody wants a line reading "[Music]" — and with it
+went any evidence that 25 seconds of narration had ever existed. Every
+layer above saw a take whose first words were at 25.3s, and the
+introduction detector refused, correctly, on a transcript that was wrong.
+
+Proved rather than guessed. The audio is not the problem: the first 25s
+measures RMS -23.2 dB with a -70 dB noise floor, an SNR of 46.7 dB,
+against 44.0 dB for the part that transcribes fine. Forced to `-l sw`,
+the same whisper.cpp binary returns continuous speech across the whole
+opening.
+
+Three changes: `.en` weights now have to be ASKED for and `auto` gets the
+multilingual ones; `language` is exposed on the skill and the tool; and
+the dropped markers come back on `TranscribeResult.nonSpeech` so the
+skill can say "25s of this take made sound that Whisper produced no words
+for" instead of nothing.
+
+### The result on that take
+
+Before: `introductionMs 0`, camera an inset throughout. After: **24.0s**
+of introduction, the camera taking the frame for it, and the two zooms
+that would have played underneath it dropped.
+
+### Still broken, and it is not any of the above
+
+**The camera clip composites black.** See NEXT.md for what has been ruled
+out by measurement; the short version is that the file decodes and paints
+fine in the same renderer when driven by hand, and renders as the
+placeholder gradient when driven by the compositor. It is not the colour
+tags, the audio, the resolution, the timestamps, or decoder exhaustion.
+
+---
+
 ## 8. Product hardening — mostly not started
 
 The roadmap in §5 is about capability. This is about being software

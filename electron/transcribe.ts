@@ -43,6 +43,22 @@ export interface TranscribeResult {
   words: TranscriptWordOut[];
   model: string;
   elapsedMs: number;
+  /**
+   * Stretches whisper heard as sound but produced no words for, and it
+   * matters far more than it looks.
+   *
+   * whisper marks them `(speaking in foreign language)`, `[Music]`,
+   * `(silence)`. Dropping them from the CAPTIONS is right — nobody wants
+   * a line on screen reading "[Music]". Dropping them silently is not:
+   * on a take that opened with 25 seconds of Swahili, an English-only
+   * model returned one such marker for the whole opening, it was
+   * filtered here, and every layer above saw a take whose first words
+   * were 25 seconds in. The introduction detector refused, correctly, on
+   * a transcript that was wrong.
+   *
+   * So they come out as well as being taken out.
+   */
+  nonSpeech: { startMs: number; endMs: number; text: string }[];
 }
 
 export interface TranscribeFailure {
@@ -159,10 +175,10 @@ export function ggmlModels(): string[] {
  * twelve minutes" has exactly one answer and the UI should be able to
  * give it.
  */
-export function chooseBackend(): { backend: WhisperBackend; model: string | null } {
+export function chooseBackend(language?: string): { backend: WhisperBackend; model: string | null } {
   const ggml = ggmlModels();
   if (whisperCli() && ggml.length > 0) {
-    return { backend: 'whisper.cpp', model: pickGgml(ggml) };
+    return { backend: 'whisper.cpp', model: pickGgml(ggml, undefined, language) };
   }
   const pt = cachedModels();
   if (whisper() && pt.length > 0) return { backend: 'python', model: pickModel() };
@@ -177,12 +193,20 @@ export function chooseBackend(): { backend: WhisperBackend; model: string | null
  * screen tutorial is overwhelmingly English. A multilingual model is
  * still picked when it is what is there.
  */
-function pickGgml(available: string[], preferred?: string): string | null {
+function pickGgml(available: string[], preferred?: string, language?: string): string | null {
   if (preferred && available.includes(preferred)) return preferred;
-  for (const candidate of [
-    'small.en', 'small', 'medium.en', 'medium', 'base.en', 'base',
-    'large-v3', 'large-v2', 'large', 'tiny.en', 'tiny',
-  ]) {
+
+  /* Multilingual first unless English was asked for, for the reason on
+     `ggmlNameFor`: an `.en` model on other speech returns a marker, not
+     a bad transcript, and the failure is invisible from above. */
+  const english = language === 'en';
+  const order = english
+    ? ['small.en', 'small', 'medium.en', 'medium', 'base.en', 'base',
+      'large-v3', 'large-v2', 'large', 'tiny.en', 'tiny']
+    : ['small', 'medium', 'large-v3', 'large-v2', 'large', 'base', 'tiny',
+      'small.en', 'medium.en', 'base.en', 'tiny.en'];
+
+  for (const candidate of order) {
     if (available.includes(candidate)) return candidate;
   }
   return available[0] ?? null;
@@ -467,7 +491,7 @@ export async function transcribeMedia(
     };
   }
 
-  const chosen = chooseBackend();
+  const chosen = chooseBackend(options.language);
   if (!chosen.backend) {
     return whisper()
       ? {
@@ -577,9 +601,11 @@ export async function transcribeMedia(
       observations and terrible captions: a tutorial does not want a line
       on screen reading "[Music]" over its own title sequence.
     */
-    const speech = segments.filter(
-      (seg) => seg.text.length > 0 && !/^[[(][^\])]*[\])]$/.test(seg.text)
-    );
+    const isMarker = (text: string) => /^[[(][^\])]*[\])]$/.test(text);
+    const speech = segments.filter((seg) => seg.text.length > 0 && !isMarker(seg.text));
+    const nonSpeech = segments
+      .filter((seg) => seg.text.length > 0 && isMarker(seg.text))
+      .map((seg) => ({ startMs: seg.startMs, endMs: seg.endMs, text: seg.text }));
 
     if (speech.length === 0) {
       cleanup();
@@ -601,6 +627,7 @@ export async function transcribeMedia(
       words,
       model,
       elapsedMs: Date.now() - startedAt,
+      nonSpeech,
     };
   } catch (err) {
     cleanup();
@@ -811,14 +838,32 @@ function findPython(): string | null {
   ]);
 }
 
-/** The GGML file name for a model, preferring the English-only weights. */
-function ggmlNameFor(model: string): string {
-  const base = model.replace(/^ggml-/, '').replace(/\.bin$/, '');
-  /* `.en` is both faster and more accurate on English than the
-     multilingual weights of the same size, and narration for a screen
-     tutorial is overwhelmingly English. The large models have no
-     English-only build. */
-  return /^(tiny|base|small|medium)$/.test(base) ? `${base}.en` : base;
+/**
+ * The GGML file name for a model, given the language it will be asked
+ * for.
+ *
+ * `.en` weights are faster and more accurate on English than the
+ * multilingual ones of the same size, and that is still why they are
+ * preferred for English. What they are not is a safe DEFAULT, and this
+ * used to append `.en` unconditionally on the grounds that "narration
+ * for a screen tutorial is overwhelmingly English".
+ *
+ * That assumption fails silently and completely. An `.en` model handed
+ * Swahili does not transcribe it badly: it returns a single
+ * `(speaking in foreign language)` marker for the whole stretch, which
+ * is then correctly filtered out of the captions, and every layer above
+ * sees a take with no words in it. Found on a real take that opened with
+ * 25 seconds of Swahili and reported its first words at 25.3s.
+ *
+ * So `.en` now needs to be ASKED for. `auto` and anything non-English
+ * get the multilingual weights, which is the only choice that can be
+ * right when the language is not known.
+ */
+function ggmlNameFor(model: string, language?: string): string {
+  const base = model.replace(/^ggml-/, '').replace(/\.bin$/, '').replace(/\.en$/, '');
+  const english = language === 'en';
+  if (!/^(tiny|base|small|medium)$/.test(base)) return base;  // large has no .en build
+  return english ? `${base}.en` : base;
 }
 
 /**

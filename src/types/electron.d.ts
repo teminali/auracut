@@ -205,7 +205,9 @@ export interface KerfElectronAPI {
       mediaUrl: string; language?: string; model?: string; wordTimestamps?: boolean;
     }) => Promise<
       | { ok: true; language: string; text: string; segments: { startMs: number; endMs: number; text: string }[];
-          words: { word: string; startMs: number; endMs: number; confidence: number }[]; model: string; elapsedMs: number }
+          words: { word: string; startMs: number; endMs: number; confidence: number }[]; model: string; elapsedMs: number;
+          /** Stretches whisper heard as sound and produced no words for. See TranscribeResult. */
+          nonSpeech?: { startMs: number; endMs: number; text: string }[] }
       | { ok: false; reason: string; message: string }
     >;
     analyze: (opts: { mediaUrl: string; silenceThresholdDb?: number; minSilenceMs?: number }) => Promise<any>;

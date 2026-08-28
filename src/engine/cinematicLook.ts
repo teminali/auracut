@@ -518,14 +518,38 @@ export function addCameraMotion(clipId: string, motion: CameraMotion): void {
 /* ── Is the camera good enough to fill the frame? ───────────────── */
 
 /**
- * Past this much enlargement a webcam blown up to full frame is visibly
- * soft, and a soft full-frame shot is worse than a sharp small one.
+ * How far a webcam may be enlarged to fill the frame, and it is TWO
+ * limits rather than one, because the ratio alone was the wrong test.
  *
- * 1.35 is deliberately strict. A 720p camera in a 1080p sequence needs
- * 1.5 and does not pass, which is the right answer: it looks like a
- * webcam blown up, because it is.
+ * The original rule was a single ceiling of 1.35, justified like this: "a
+ * 720p camera in a 1080p sequence needs 1.5 and does not pass, which is
+ * the right answer, because it looks like a webcam blown up." That is
+ * still true of a 720p camera. It was never tested against the ordinary
+ * case, and the ordinary case fails it:
+ *
+ *     a 1080p camera, a Retina display captured at 2560x1662
+ *     -> 1.54x, refused
+ *
+ * That is most Macs with most webcams, so the camera takeover and the
+ * introduction both quietly never happened on the machine this was built
+ * on. Found by recording a real take and asking the skill why.
+ *
+ * The ratio conflates two different things. What makes an enlarged
+ * picture look soft is how much REAL detail is behind it, and the ratio
+ * only says that when the source size is held fixed. 720p stretched 1.5x
+ * delivers 720 real lines; 1080p stretched 1.54x delivers 1080. A face is
+ * not a spreadsheet, and 1080 lines of it fills a 1440-line frame
+ * perfectly well.
+ *
+ * So: pass on a gentle enlargement WHATEVER the source, or on a source
+ * that has enough real detail on its own. A 720p camera still cannot fill
+ * a 2560 frame, which is the case the original rule was written for.
  */
 export const MAX_CAMERA_UPSCALE = 1.35;
+/** Enough real lines for a face at any sane frame size. */
+export const FULL_FRAME_MIN_HEIGHT = 1080;
+/** Even a big source is not stretched further than this. */
+export const MAX_CAMERA_UPSCALE_HD = 2.0;
 
 export interface CameraFillVerdict {
   ok: boolean;
@@ -544,15 +568,21 @@ export function cameraCanFillFrame(
   }
 
   const upscale = Math.max(project.width / camera.width, project.height / camera.height);
-  if (upscale > MAX_CAMERA_UPSCALE) {
+  const detailed = camera.height >= FULL_FRAME_MIN_HEIGHT;
+  const ceiling = detailed ? MAX_CAMERA_UPSCALE_HD : MAX_CAMERA_UPSCALE;
+
+  if (upscale > ceiling) {
     return {
       ok: false,
       upscale,
       reason:
         `The camera records at ${camera.width}x${camera.height} and the sequence is `
         + `${project.width}x${project.height}, so filling the frame would enlarge it `
-        + `${upscale.toFixed(2)} times and it would look soft. It stays an inset. `
-        + 'Recording the camera at 1080p is what fixes this.',
+        + `${upscale.toFixed(2)} times, past the ${ceiling} allowed for a `
+        + `${camera.height}-line source, and it would look soft. It stays an inset. `
+        + (detailed
+          ? 'A smaller capture area, or a lower sequence resolution, is what fixes this.'
+          : 'A camera that records at 1080p or better is what fixes this.'),
     };
   }
   return { ok: true, upscale };

@@ -430,18 +430,48 @@ export interface IntroDetectOptions {
   gapMs: number;
   /** Shorter than this is a stray remark, not an opening. */
   minMs: number;
+  /**
+   * An opening this long, spoken continuously with nothing done on
+   * screen, is taken as an introduction WITHOUT any of the word markers.
+   *
+   * The markers are English phrases and always will be a finite list, so
+   * requiring them makes this an English-only feature. Behaviour and
+   * shape do not have that problem. Nobody talks for eight uninterrupted
+   * seconds at the very start of a screen recording, over a screen they
+   * are not touching, for any reason other than introducing what is
+   * about to happen — and if they are narrating the screen instead, the
+   * pointing test catches it in any case.
+   *
+   * Found on a real take that opened with 25 seconds of Swahili: every
+   * other test passed and the words could not be read at all.
+   */
+  confidentMs: number;
   /** Longer than this is truncated, and said so. */
   maxMs: number;
   /** Share of the span that has to be spoken over. */
   minCoverage: number;
+  /**
+   * Two input events closer together than this are WORK; one on its own
+   * is not.
+   *
+   * A single click with nine seconds of nothing on either side is a
+   * window being focused, a notification being dismissed, or the click
+   * that started the recording. Measured on a real take: clicks at
+   * 204ms and 21804ms, then the actual work beginning at 30725ms with a
+   * click and a scroll burst 1.5s later. Ending the introduction at
+   * 204ms was correct by the old rule and wrong about the take.
+   */
+  workBurstMs: number;
 }
 
 export const DEFAULT_INTRO: IntroDetectOptions = {
   leadMs: 2000,
   gapMs: 1200,
   minMs: 2500,
+  confidentMs: 8000,
   maxMs: 45000,
   minCoverage: 0.6,
+  workBurstMs: 2500,
 };
 
 export interface IntroductionVerdict {
@@ -472,34 +502,54 @@ export function detectIntroduction(
     );
   }
 
-  /* 1 — behaviour. The first thing done on screen ends any opening,
-         and something done immediately means there was not one. */
-  const firstAction = events
+  /* 1 — behaviour. WORK ends any opening, and work is sustained input
+         rather than a single event: see `workBurstMs`. */
+  const acted = events
     .filter((e) => e.kind === 'click' || e.kind === 'rightclick' || e.kind === 'scroll' || e.kind === 'key')
-    .reduce((min, e) => Math.min(min, e.tMs), Infinity);
+    .map((e) => e.tMs)
+    .sort((a, b) => a - b);
+  let firstWork = Infinity;
+  for (let i = 0; i < acted.length - 1; i++) {
+    if (acted[i + 1] - acted[i] <= o.workBurstMs) { firstWork = acted[i]; break; }
+  }
 
-  /* 2 — shape. Extend through the cues while they keep coming and
-         nothing has been done on screen. */
+  /* 2 — shape. Extend through the cues while they keep coming, nothing
+         has been done on screen, and nobody has started pointing at it.
+
+         Pointing TRUNCATES rather than vetoes, which it used to do. A
+         take that opens with an introduction and then moves on to "as
+         you can see, here is the dashboard" has an introduction in it;
+         throwing the whole thing away because of what was said forty
+         seconds later is the wrong answer. It is only a veto when it is
+         the FIRST thing said, which is a take that never introduced
+         anything. */
   let endMs = cues[0].endMs;
   let spoken = cues[0].endMs - cues[0].startMs;
   const text: string[] = [cues[0].text];
+  if (POINTING_AT_SCREEN.test(cues[0].text)) {
+    return none(
+      'The take opens by pointing at the screen, so whatever else it is doing it is showing '
+      + 'something, and the camera must not cover it.'
+    );
+  }
   for (let i = 1; i < cues.length; i++) {
     const cue = cues[i];
     if (cue.startMs - endMs > o.gapMs) break;
-    if (cue.startMs >= firstAction) break;
+    if (cue.startMs >= firstWork) break;
+    if (POINTING_AT_SCREEN.test(cue.text)) break;
     endMs = cue.endMs;
     spoken += cue.endMs - cue.startMs;
     text.push(cue.text);
   }
 
   const startMs = Math.min(cues[0].startMs, 0) === 0 ? 0 : cues[0].startMs;
-  endMs = Math.min(endMs, firstAction);
+  endMs = Math.min(endMs, firstWork);
 
   const lengthMs = endMs - startMs;
   if (lengthMs < o.minMs) {
     return none(
       `The opening runs ${Math.round(lengthMs)}ms before ${
-        Number.isFinite(firstAction) ? 'something is done on screen' : 'the talking stops'
+        Number.isFinite(firstWork) ? 'work starts on screen' : 'the talking stops'
       }, which is under the ${o.minMs}ms an introduction has to last.`
     );
   }
@@ -512,14 +562,8 @@ export function detectIntroduction(
     );
   }
 
-  /* 3 — words. */
+  /* 3 — words, unless the opening is long enough to speak for itself. */
   const said = text.join(' ');
-  if (POINTING_AT_SCREEN.test(said)) {
-    return none(
-      'The opening points at the screen, so whatever else it is doing it is showing '
-      + 'something, and the camera must not cover it.'
-    );
-  }
 
   const evidence: string[] = [];
   if (INTRO_MARKERS.greeting.test(said)) evidence.push('a greeting');
@@ -527,14 +571,20 @@ export function detectIntroduction(
   if (INTRO_MARKERS.framing.test(said)) evidence.push('framing what is coming');
 
   const decisive = NAMED.test(said);
-  if (!decisive && evidence.length < 2) {
+  const longEnoughToSpeakForItself = lengthMs >= o.confidentMs;
+
+  if (!decisive && evidence.length < 2 && !longEnoughToSpeakForItself) {
     return none(
       evidence.length === 0
         ? 'The opening does not read as an introduction: no greeting, no name, and nothing '
-          + 'framing what is about to be shown.'
+          + `framing what is about to be shown, and at ${Math.round(lengthMs / 1000)}s it is `
+          + `under the ${o.confidentMs / 1000}s that would carry it on its own.`
         : `The opening only ${evidence[0]}, and one marker on its own is ordinary speech. `
-          + 'Two kinds are needed, or somebody saying their own name.'
+          + 'Two kinds are needed, or somebody saying their own name, or a longer opening.'
     );
+  }
+  if (evidence.length === 0) {
+    evidence.push(`${Math.round(lengthMs / 1000)}s of uninterrupted talking before anything is done`);
   }
 
   const capped = Math.min(endMs, startMs + o.maxMs);
@@ -544,8 +594,9 @@ export function detectIntroduction(
     intro: { startMs, endMs: capped },
     evidence,
     reason:
-      `The take opens with ${evidence.join(' and ')} over ${Math.round((capped - startMs) / 100) / 10}s `
-      + 'with nothing happening on screen, so the camera takes the frame for it.'
+      `The take opens with ${evidence.join(' and ')}, over `
+      + `${Math.round((capped - startMs) / 100) / 10}s with nothing being done on screen, so the `
+      + 'camera takes the frame for it.'
       + (truncated
         ? ` It ran longer than the ${o.maxMs / 1000}s ceiling and was cut back to it.`
         : ''),

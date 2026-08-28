@@ -70,21 +70,77 @@ describe('hearing an introduction', () => {
     expect(v.intro!.endMs).toBeGreaterThan(5000);
   });
 
-  it('ends it the moment something is done on screen', () => {
+  it('ends it the moment WORK starts on screen', () => {
     const v = detectIntroduction(
       say(0, ["Hi, my name is Sam.", "Today I'll show you the importer.", "So first of all."]),
-      [click(4000)]
+      [click(4000), click(5200)]
     );
     expect(v.intro).not.toBeNull();
     expect(v.intro!.endMs).toBeLessThanOrEqual(4000);
   });
 
+  it('is not ended by ONE stray click with nothing around it', () => {
+    /*
+      Measured on a real take: an isolated click at 204ms, another at
+      21804ms, and the actual work starting at 30725ms with a click and a
+      scroll burst 1.5s later. Ending the introduction at 204ms was
+      correct by the old rule and wrong about the take. A lone click is a
+      window being focused or a notification going away.
+    */
+    const v = detectIntroduction(
+      say(0, ["Hi, my name is Sam.", "Today I'll show you the importer.", "Let's begin."]),
+      [click(204), click(21804), click(30725), click(32233)]
+    );
+    expect(v.intro).not.toBeNull();
+    expect(v.intro!.endMs).toBeGreaterThan(5000);
+  });
+
+  it('takes a long opening in a language it has no markers for', () => {
+    /*
+      Every marker is an English phrase, so requiring one makes this an
+      English-only feature. Eight uninterrupted seconds of talking at the
+      very start, over a screen nobody is touching, is an introduction in
+      any language. This is the Swahili take that found it.
+    */
+    const v = detectIntroduction(
+      say(0, [
+        'Habari zenu, jina langu ni Sam.',
+        'Leo nitawaonyesha jinsi mfumo huu unavyofanya kazi.',
+        'Tutaanza na integration.',
+        'Halafu tutaendelea na connection.',
+        'Ni rahisi sana kufanya hivi.',
+      ]),
+      [click(30000), click(31200)]
+    );
+    expect(v.intro).not.toBeNull();
+    expect(v.evidence.join(' ')).toMatch(/uninterrupted talking/);
+  });
+
+  it('stops the introduction where the pointing starts, rather than throwing it away', () => {
+    /* A take that introduces itself and THEN starts demoing has an
+       introduction in it. Discarding the whole thing because of what was
+       said thirty seconds later is the wrong answer. */
+    const v = detectIntroduction(
+      say(0, [
+        "Hi everyone, my name is Sam.",
+        "Today I'm going to show you the importer.",
+        "So here you can see the dashboard.",
+        "And this button runs it.",
+      ]),
+      [click(30000), click(31200)]
+    );
+    expect(v.intro).not.toBeNull();
+    /* Two cues of 1800ms plus a 120ms gap: the introduction ends before
+       the third one starts. */
+    expect(v.intro!.endMs).toBeLessThan(3840);
+  });
+
   /* ── The refusals, which are the point ─────────────────────────── */
 
-  it('refuses when the first thing that happens is a click', () => {
+  it('refuses when the first thing that happens is real work', () => {
     const v = detectIntroduction(
       say(0, ["Hi, my name is Sam and today I'll show you the importer."]),
-      [click(400)]
+      [click(400), click(1100)]
     );
     expect(v.intro).toBeNull();
     expect(v.reason).toMatch(/2500ms|introduction has to last/);
@@ -98,7 +154,7 @@ describe('hearing an introduction', () => {
       []
     );
     expect(v.intro).toBeNull();
-    expect(v.reason).toMatch(/points at the screen/);
+    expect(v.reason).toMatch(/pointing at the screen/);
   });
 
   it('refuses ordinary narration that happens to say "today"', () => {
@@ -145,10 +201,10 @@ describe('hearing an introduction', () => {
     expect(v.intro).toBeNull();
   });
 
-  it('refuses a keystroke as firmly as a click', () => {
+  it('refuses typing as firmly as clicking', () => {
     const v = detectIntroduction(
       say(0, ["Hi, my name is Sam and today I'll show you the importer."]),
-      [{ tMs: 300, kind: 'key' }]
+      [{ tMs: 300, kind: 'key' }, { tMs: 800, kind: 'key' }]
     );
     expect(v.intro).toBeNull();
   });

@@ -465,7 +465,18 @@ export interface QuietOptions {
 }
 
 export const DEFAULT_QUIET: QuietOptions = {
-  minQuietMs: 2600,
+  /*
+    Five seconds of the pointer parked, and it is a deliberate raise from
+    2600.
+
+    2600 was "a pause". This is a different claim: that somebody has
+    stopped working and started EXPLAINING. Two and a half seconds of
+    stillness happens constantly while you are working — reading a label,
+    deciding where to click next — and cutting to a face for it makes the
+    edit twitch. Five seconds of a pointer that has not moved, with a
+    voice over it, is a person talking rather than pointing.
+  */
+  minQuietMs: 5000,
   leadInMs: 550,
   leadOutMs: 800,
   maxStretches: 8,
@@ -479,10 +490,10 @@ export const DEFAULT_QUIET: QuietOptions = {
  * screen recording from a piece of film. A frozen screen with a voice
  * over it is dead air with a picture attached; a face is not.
  *
- * "Activity" is real input when there is any, and otherwise the moments
- * where the pointer was actually travelling. The distinction matters:
- * with no input hook, a pointer parked in one corner for a minute is
- * indistinguishable from a person reading, and both of those are quiet.
+ * "Activity" is real input AND the moments the pointer was travelling,
+ * together. A click is obviously working. So is moving the mouse across a
+ * dashboard to point at something, even though nothing is pressed, and
+ * that is the half this used to miss.
  *
  * `leadInMs` and `leadOutMs` are the whole reason this is not a naive
  * gap finder. Leaving the screen the instant somebody stops clicking
@@ -497,17 +508,31 @@ export function findQuietStretches(
 ): QuietStretch[] {
   const o = { ...DEFAULT_QUIET, ...DEFAULT_DETECT, ...options };
 
+  /*
+    BOTH signals, always, and this used to be either/or.
+
+    The old rule was: real input if there is any, and otherwise pointer
+    travel. Which meant that on a machine WITH the input hook — the good
+    case — the pointer was ignored completely, and a person moving the
+    mouse around a dashboard pointing at things without clicking counted
+    as a quiet screen. The camera would take the frame over exactly the
+    moment they were showing you something.
+
+    Reported from a real take: "detect when I'm explaining stuff rather
+    than instructing things on the dashboard, where my mouse has not
+    moved." A moving pointer IS activity, whether or not it clicks. The
+    fallback reasoning stands and is unchanged: without the hook, pointer
+    travel is the only signal there is.
+  */
   const activity: number[] = [];
-  if (input.events.length > 0) {
-    for (const event of input.events) activity.push(event.tMs);
-  } else {
-    const track = input.cursor.filter(inFrame).sort((a, b) => a.tMs - b.tMs);
-    for (let i = 1; i < track.length; i++) {
-      const dt = (track[i].tMs - track[i - 1].tMs) / 1000;
-      if (dt <= 0) continue;
-      const speed = Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y) / dt;
-      if (speed > o.moveSpeed) activity.push(track[i].tMs);
-    }
+  for (const event of input.events) activity.push(event.tMs);
+
+  const track = input.cursor.filter(inFrame).sort((a, b) => a.tMs - b.tMs);
+  for (let i = 1; i < track.length; i++) {
+    const dt = (track[i].tMs - track[i - 1].tMs) / 1000;
+    if (dt <= 0) continue;
+    const speed = Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y) / dt;
+    if (speed > o.moveSpeed) activity.push(track[i].tMs);
   }
 
   /* A mark is the user saying "look here", which is the opposite of

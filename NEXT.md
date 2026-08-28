@@ -95,32 +95,72 @@ kinds of evidence — behaviour, shape, words — and it refuses rather than
 guesses. `transcript.json` beside a take is used instead of transcribing,
 which is both a real feature and what makes this checkable.
 
-### THE NEXT JOB — pick one
+### Found by running it on a real 69s take, and fixed
 
-Nothing is half-finished. In the order they are worth doing:
+HANDOVER **§7f**. Everything in §7e was verified on synthesised pixels
+and every one of these was invisible there:
 
-1. **Look at it on real footage.** Everything above is verified in
-   synthesised pixels with known colours, which is the right gate and is
-   not the same as watching a real tutorial. Record 60–90 seconds —
-   introduce yourself for the first ten, then do something — and watch
-   it. What to watch for, because these are measured numbers that can
-   still be wrong on real footage: whether `holdMs` 2030 is too long when
-   clicks come in bursts, whether `factor` 2.8 is too far in on a dense
-   IDE, whether the 3%/s creep reads as intentional, and whether the
-   introduction detector fires on how YOU actually start a take. The
-   marker lists in `detectIntroduction` are the first thing to widen if
-   it does not.
+* **The camera could never fill the frame on a Retina Mac.** The gate was
+  a single upscale ceiling of 1.35, and a 1080p webcam in a 2560-wide
+  sequence needs 1.54. So the takeover AND the introduction were both
+  silently off on the ordinary setup. It is two limits now: a gentle
+  enlargement whatever the source, or a source with enough real lines.
+* **`findQuietStretches` ignored the pointer whenever the input hook
+  worked.** Activity was events OR pointer travel, never both, so moving
+  the mouse around a dashboard without clicking counted as a quiet
+  screen. It is the union now, and the threshold is 5s.
+* **A single stray click killed an introduction.** Real take: isolated
+  clicks at 204ms and 21804ms, the actual work starting at 30725ms. Work
+  is now SUSTAINED input, not one event.
+* **Pointing at the screen vetoed the whole introduction** instead of
+  ending it where the pointing starts.
+* **The word markers are English and the take was Swahili.** An opening
+  long enough (8s+) is now taken on behaviour and shape alone.
+* **`.en` Whisper weights were hard-coded.** An `.en` model handed
+  another language returns one `(speaking in foreign language)` marker
+  for the whole stretch rather than a bad transcript, and that marker was
+  then correctly filtered out of the captions and silently out of
+  existence. 25 seconds of narration vanished and nothing said so.
 
-2. **The introduction detector is English-only and says so.** Every
-   marker is an English phrase. It fails closed, so a French take simply
-   never opens on the face. If that matters, the markers are data and
-   want to be per-language data.
+On the real take, before: `introductionMs 0`. After: **24.0s**, camera
+takes the frame, two zooms dropped from under it.
 
-3. **Split `0b20afa`.** If the home-screen session is finished, its work
-   should be its own commit. Check whether anything is still writing to
-   those files first.
+### THE NEXT JOB — the camera renders black in the preview
 
-4. **Push.** Five commits deep on an unpushed `main`.
+**Not caused by any of the above, and not fixed.** On the real take the
+camera clip composites as the placeholder gradient rather than as video,
+both full frame and as the inset. What is known:
+
+* The file is fine. ffmpeg extracts a normal frame from it, and a
+  `<video>` element in the same renderer loads it (`readyState 4`,
+  `videoWidth 1920`) and `drawImage` paints it at 109/255 **when it is
+  not the first video painted in the page**.
+* Ruled out by measurement: colour tagging (three re-encodes with
+  consistent bt709, unspecified and smpte170m all behave the same), the
+  audio stream, the resolution (a synthetic 1920x1080 paints, and the
+  same camera downscaled to 640x360 paints), timestamps, VFR, and
+  decoder exhaustion (a fresh app with one build still shows it).
+* `ERROR:ffmpeg_common.cc(970)] Unsupported pixel format: -1` appears in
+  the app log, which is the same string `referenceAnalysis.ts` records
+  against a fixture it could never make decode.
+* `getVideoFrame` returns the element only at `readyState >= 2`, and the
+  compositor paints its placeholder otherwise, so the symptom is
+  consistent with the element never reaching that state under the
+  compositor's own seek pattern even though it does outside it.
+
+The next step is to instrument `videoEngine.ts` rather than the file:
+log `readyState`, `seeking` and `error` for the camera URL on every
+composite and find out what state it is actually in. `videos` is also a
+map keyed by URL that never evicts, which is worth fixing regardless.
+
+### Then
+
+1. **Look at the rest of it on real footage** once the camera paints.
+2. **The introduction markers are English-only** and fail closed. The
+   long-opening rule covers other languages, but a 4s Swahili
+   introduction still will not fire.
+3. **Split `0b20afa`** if the home-screen session is finished.
+4. **Push.** Six commits deep on an unpushed `main`.
 
 ## Getting a working loop (do this first, it has eight traps)
 
