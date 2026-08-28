@@ -86,6 +86,15 @@ that ship: `audio` for beds and stings, `image` for logos and overlays,
 `video` for footage, `lut` for a grade, `font` for a typeface, `json` for
 anything structured.
 
+**Some material is generated rather than shipped, and the manifest should
+say which.** The Tutorial skill's click ticks and zoom air are rendered
+from oscillators at build time and written into the take's own folder, so
+they travel with the recording rather than with the skill: nothing to
+licence, nothing to 404. That is a real answer to "slot or asset?" and it
+is a third one. `assets: []` cannot tell it apart from "nobody thought
+about it", which is the same complaint that manifest makes about leaving
+`trial` out.
+
 **Anything with a licence gets a `description` that says so.** A skill
 that quietly ships music somebody else owns is a problem you have handed
 to whoever runs it.
@@ -95,8 +104,14 @@ to whoever runs it.
 **A skill with no slots is refused**, by `create_skill`, on purpose. It is
 the single reliable sign that the content was never separated out.
 
-- `kind: "enum"` **must** carry `options`. Without it, it is a free text
-  field that fails on the fifth character somebody types.
+- `kind` must be one of `folder`, `file`, `string`, `number`, `boolean`,
+  `colour` or `enum`. A kind nothing recognises gives the person filling
+  it in no control and no validation.
+- `kind: "enum"` **must** carry `options`, and its `default` must be one
+  of them. Without the list it is a free text field that fails on the
+  fifth character somebody types; with a default outside the list, the
+  one value guaranteed to be used is the one value guaranteed to be
+  invalid.
 - Every slot needs a `description`. The person filling it in has nothing
   else to go on.
 - Give a `default` to everything that can have one. A skill with eight
@@ -104,6 +119,36 @@ the single reliable sign that the content was never separated out.
 - Prefer a slot over an asset when the answer is *personal* (their
   footage, their brand colour) and an asset when it is *editorial* (the
   sting that makes this look like your work).
+
+**`requiresSlot` when one slot is meaningless without another.** The
+Tutorial skill has three of these around one switch: with `captions`
+off, `language` does nothing, `cleanCaptions` does nothing, and the
+camera stops opening on an introduction. Before the field existed a
+caller could set all three and have nothing anywhere tell them why none
+of them took effect.
+
+It states a DEPENDENCY, not a constraint. A dependent slot whose parent
+is off is inert rather than an error, because refusing the combination
+would break anybody who sets a language once and toggles captions per
+take. What it buys is an interface that can grey the slot out and an
+agent that can be told why the argument it passed did nothing.
+
+### What else is refused, and why the list is mechanical
+
+Everything above is about your judgement. These are facts the app
+already has, and it checks them because the alternative is a skill that
+fails at run time in front of whoever bought it:
+
+- a recipe step naming a tool this build does not have;
+- `{slot:something}` where no slot is called `something`;
+- two slots with the same id, so `{slot:id}` cannot say which it means;
+- `requiresSlot` pointing at a slot that does not exist.
+
+One thing is **warned about and not refused**: a slot that no recipe step
+and no guide mentions. It is usually a rename that only got done on one
+side, but `recipe` is a specification an agent carries out rather than
+something the app runs, so an agent can act on a slot the guide only
+describes in prose. The warning comes back on `create_skill`; read it.
 
 ## The recipe
 
@@ -115,6 +160,25 @@ exist before the camera cuts are placed, and the cuts before the zooms
 chain around them; exposing those as three steps a caller could reorder
 would let somebody run them in an order that cannot work and call the
 result a skill. If two steps have a real dependency, they are one step.
+
+## The fields that are not slots
+
+`create_skill` also takes the parts of the format that are not inputs,
+and it is worth knowing they exist because a skill without them is
+three-quarters of a skill:
+
+| | |
+|---|---|
+| `verify` | A test inside the skill folder. HANDOVER §6's definition is tools **plus assets plus a template plus a test**, and this is the part that says the other three work. |
+| `template` | A project the recipe opens first. The floor under a fumbled run: something real is left on the timeline either way. Not every skill can have one — the Tutorial skill's canvas is not knowable until the take is read. |
+| `trial` | How many runs a publisher allows before the skill is bought. `0` means NOT GATED, and is deliberately different from leaving it out. |
+| `toolApi` | Manifest compatibility version. The shipped skills use `1`. |
+| `provenance` | Who built it, with what, when, and what it was verified on. |
+
+`verify` and `template` name FILES, and `create_skill` writes a manifest
+rather than files. Declare them, then put the files there; `create_skill`
+returns `declaredButNotOnDisk` and `list_skills` keeps reporting them
+until they exist, the same way a declared asset is reported.
 
 ## What Kerf does not do yet
 

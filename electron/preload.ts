@@ -239,8 +239,9 @@ export interface ElectronAPI {
   /** Skills the user built, stored under userData and read at runtime. */
   userSkills: {
     list: () => Promise<UserSkillRecord[]>;
-    write: (manifest: unknown) => Promise<
-      { ok: true; dir: string; manifest: Record<string, unknown> } | { ok: false; problems: string[] }>;
+    write: (manifest: unknown, knownTools?: string[]) => Promise<
+      { ok: true; dir: string; manifest: Record<string, unknown>; warnings: string[] }
+      | { ok: false; problems: string[] }>;
     remove: (id: string) => Promise<{ ok: boolean; error?: string }>;
     addAsset: (id: string, source: string, as?: string) => Promise<
       { ok: true; file: string; bytes: number } | { ok: false; error: string }>;
@@ -290,6 +291,10 @@ const api: ElectronAPI = {
       );
     },
     respond: (payload) => ipcRenderer.send('bridge:response', payload),
+  },
+
+  captions: {
+    clean: (prompt: string) => ipcRenderer.invoke('captions:clean', { prompt }),
   },
 
   stt: {
@@ -412,7 +417,8 @@ const api: ElectronAPI = {
 
   userSkills: {
     list: () => ipcRenderer.invoke('userSkills:list'),
-    write: (manifest: unknown) => ipcRenderer.invoke('userSkills:write', manifest),
+    write: (manifest: unknown, knownTools?: string[]) =>
+      ipcRenderer.invoke('userSkills:write', manifest, knownTools),
     remove: (id: string) => ipcRenderer.invoke('userSkills:delete', { id }),
     addAsset: (id: string, source: string, as?: string) =>
       ipcRenderer.invoke('userSkills:addAsset', { id, source, as }),

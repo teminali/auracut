@@ -125,28 +125,42 @@ and every one of these was invisible there:
 On the real take, before: `introductionMs 0`. After: **24.0s**, camera
 takes the frame, two zooms dropped from under it.
 
-### THE NEXT JOB — advance the Tutorial skill, using the skill builder
+### DONE — the Tutorial skill through the skill builder
 
-Shipped in 1.5.0 and not yet used in anger. HANDOVER **§7j** is the
-record; `skills/skill-builder/GUIDE.md` is the method.
+The record is HANDOVER **§7j** (what the builder got wrong) and **§7l**
+(the caption bug the exercise uncovered, which was worse). Summary:
 
-The point of the exercise is to find out where the builder is wrong by
-pointing it at the skill that already exists. The Tutorial skill was
-written by hand before any of this, so it is the honest test: run
-`inspect_project_for_skill` over a real tutorial build, work through the
-interrogation in GUIDE.md, and see what the builder makes of a skill
-somebody already got right. Where its answer differs from the hand-built
-manifest, one of the two is wrong and the difference is the finding.
+* Feeding the hand-written Tutorial manifest to `create_skill` had it
+  **accepted with four of its twelve fields silently dropped** and
+  `success: true`. `trial` among them, so a built skill could never be
+  sold. All of them round-trip now.
+* Eight obviously-broken manifests were all accepted. Seven are refused
+  now; the eighth was a false alarm on my part and is correct as it was.
+* `likelyRole` called the author's FACE part of the look. It counts time
+  on screen now rather than number of clips.
+* `inspect_project_for_skill` gave no asset LOCATION, which is the one
+  fact that answers the question GUIDE.md tells you to ask about every
+  asset.
+* `requiresSlot` exists, because the gap turned up three times in one
+  manifest rather than once.
 
-Specific things worth pushing on:
+Suite: skill-builder 10 checks -> 20, tutorial 24 -> 27.
 
-* The Tutorial skill has five slots and ships no assets. Is that right,
-  or should the sound kit be assets rather than synthesised every run?
-* `language` was added late and is not in `requiresTools`. What else is
-  declared badly?
-* The builder has no notion of a slot DEPENDING on another
-  (`captions: false` makes `language` meaningless). Real manifests need
-  that and the format cannot say it.
+**Still open out of it, and deliberately not built:**
+
+1. **The format cannot say an asset is GENERATED.** The Tutorial skill's
+   sound kit is synthesised into the take's folder at build time, which
+   is a real third answer to "slot or asset?", and `assets: []` cannot
+   be told apart from nobody having thought about it — the exact
+   complaint that manifest makes about omitting `trial`. GUIDE.md names
+   it; the field does not exist.
+2. **`requiresTools` conflates two lists.** It names
+   `describe_timeline` and `get_frame_context`, which the recipe never
+   calls and `verify.py` does. One instance, so it is recorded rather
+   than split.
+3. **Nothing declares a requirement that is not a tool.** The manifest's
+   own closing note, still true: the skill is better with Whisper and
+   works without it, and there is nowhere to say so.
 
 ### Then, in rough order
 

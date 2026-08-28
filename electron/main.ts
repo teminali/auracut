@@ -19,6 +19,7 @@ import { execFile } from 'child_process';
 import { startRpcServer } from './rpcServer';
 import { initScreenRecorder, shutdownScreenRecorder } from './screenRecorder';
 import { initUserSkills } from './userSkills';
+import { initCaptionCleanup } from './captionCleanup';
 import { initSkillTrials } from './skillTrials';
 import { initCrashLog, logEvent, crashLogPath } from './crashLog';
 import {
@@ -534,6 +535,7 @@ app.whenReady().then(() => {
   */
   initScreenRecorder(() => mainWindow);
   initUserSkills();
+  initCaptionCleanup();
   initSkillTrials();
   // Only once the port is actually ours — see rpcServer's listen callback.
   startRpcServer(() => writeMcpConfig());

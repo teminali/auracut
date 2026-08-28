@@ -583,6 +583,89 @@ def main():
                 if 'open' in n.lower() or 'introduc' in n.lower()), 'nothing said'),
           control=False)
 
+    # ── 12. The words are read before they go on screen ──────────────
+    #
+    # The check that was missing, and the reason it is here.
+    #
+    # A real 275-second Swahili take was transcribed on device and came
+    # back as 127 caption lines of which 109 were the SAME sentence,
+    # consecutively, from 37s to the end of the film. The build reported
+    # success and every number it checked was fine: the decoder exited 0,
+    # the language was detected correctly (`sw`, p=0.70), the segment
+    # timings were plausible, and 127 caption clips really were on the
+    # timeline. Nothing anywhere read the words.
+    #
+    # The cause is fixed at source, in `electron/transcribe.ts` — whisper
+    # feeds each window's output back in as context for the next one, so
+    # a sentence it is unsure of reinforces itself until it latches, and
+    # `-mc 0` cuts that path. Measured on that take, one flag apart: 124
+    # segments / 15 distinct against 70 segments / 70 distinct.
+    #
+    # This checks the SECOND line of defence rather than the flag,
+    # because the flag fixes the failure that was found and this catches
+    # the next one. A transcript is supplied directly, so no model has to
+    # misbehave on demand for the check to mean something.
+    looped = (
+        [{'startMs': 200, 'endMs': 1600, 'text': 'Right, here is the importer screen.'}]
+        + [{'startMs': 2000 + i * 800, 'endMs': 2700 + i * 800,
+            'text': 'Tukazumu zia iswi ya manu nuzi.'} for i in range(12)]
+    )
+    folder = tempfile.mkdtemp(prefix='kerf-tutorial-loop-')
+    build_take(folder, transcript=looped)
+    opts = {'folder': folder, 'captions': True, 'cleanCaptions': False}
+    if SELFTEST:
+        opts['raw'] = True
+    loop_rep = ok(call('build_tutorial_from_recording', opts), 'looped build')
+
+    tl = ok(call('describe_timeline', {}), 'looped timeline')
+    caption_text = [c['name'] for t in tl['tracks'] if t['type'] == 'text' for c in t['clips']]
+    repeats = sum(1 for n in caption_text if 'Tukazumu' in n)
+    shutil.rmtree(folder, ignore_errors=True)
+
+    # 13 cues went in, 12 of them identical. At most one may survive: the
+    # first occurrence is kept on purpose, because it may be a real line
+    # the decoder then got stuck on.
+    #
+    # The `>= 2` half is not decoration and was put there by the selftest.
+    # Written as `repeats <= 1` alone this passed on the RAW build, where
+    # there are no captions at all and so trivially no repeated ones —
+    # a check that asserts something did not happen, on a build where
+    # nothing happens. Requiring the surviving lines to BE there makes it
+    # measure the repair rather than the absence of captions, and makes
+    # it a control that genuinely goes red.
+    check('a repetition loop in the transcript does not reach the screen',
+          repeats <= 1 and len(caption_text) >= 2,
+          f'{repeats} of the 12 identical lines are on the timeline, '
+          f'{len(caption_text)} caption clips in total')
+
+    # Saying so matters as much as doing it. Captions that silently
+    # vanish read as a take with no narration in it.
+    check('and the build says the narration there was not transcribed',
+          any('not transcribed' in n.lower() or 'repetition loop' in n.lower()
+              for n in loop_rep['notes']),
+          next((n[:88] for n in loop_rep['notes']
+                if 'not transcribed' in n.lower() or 'repetition loop' in n.lower()),
+               'NOTHING SAID'))
+
+    # The control for both of the above: a clean transcript of the same
+    # shape must come through whole. Without this, "the loop was removed"
+    # would also pass on a build that dropped every caption it was given.
+    clean = [{'startMs': 200 + i * 800, 'endMs': 900 + i * 800,
+              'text': f'This is line number {i} of the narration.'} for i in range(13)]
+    folder = tempfile.mkdtemp(prefix='kerf-tutorial-clean-')
+    build_take(folder, transcript=clean)
+    opts = {'folder': folder, 'captions': True, 'cleanCaptions': False}
+    if SELFTEST:
+        opts['raw'] = True
+    ok(call('build_tutorial_from_recording', opts), 'clean build')
+    tl = ok(call('describe_timeline', {}), 'clean timeline')
+    kept = sum(1 for t in tl['tracks'] if t['type'] == 'text' for c in t['clips'])
+    shutil.rmtree(folder, ignore_errors=True)
+
+    check('and a clean transcript of the same shape is left alone',
+          kept >= 13,
+          f'{kept} caption clips from 13 distinct lines')
+
 
 main()
 

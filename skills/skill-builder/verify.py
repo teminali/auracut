@@ -152,6 +152,102 @@ check('a project can be read as structure and content',
       f"roles marked: {sum(1 for a in seen.get('assets', []) if a.get('likelyRole'))}")
 
 # ── 7. It says what Kerf cannot do yet, rather than implying it can ──
+# ── 5. The manifests it used to accept ─────────────────────────────
+#
+# This section exists because of one experiment: the hand-written
+# `skills/tutorial/skill.json` — the skill in this repo somebody got
+# right before any of the builder existed — was fed to `create_skill`,
+# and came back ACCEPTED with four of its twelve fields silently gone.
+# Then eight manifests that are each obviously broken were fed in, and
+# all eight were accepted with `success: true`.
+#
+# The two refusals above are about the AUTHOR'S JUDGEMENT and are the
+# right kind of refusal. Everything below is mechanical: facts the app
+# already had and was not checking. A recipe referring to {slot:nope} is
+# not a matter of taste, and letting it through produces a skill that
+# fails in front of whoever bought it.
+
+BROKEN = [
+    ('a recipe step naming a tool this build does not have', 'not a tool this build has', {
+        'slots': [{'id': 'src', 'kind': 'folder', 'description': 'd'}],
+        'recipe': [{'tool': 'no_such_tool_at_all', 'args': {'folder': '{slot:src}'}}]}),
+    ('a recipe referring to a slot that does not exist', 'no slot called', {
+        'slots': [{'id': 'src', 'kind': 'folder', 'description': 'd'}],
+        'recipe': [{'tool': 'describe_timeline', 'args': {'folder': '{slot:nope}'}}]}),
+    ('a slot kind that is not one of the kinds', 'which is not one of', {
+        'slots': [{'id': 'src', 'kind': 'bolean', 'description': 'd'}],
+        'recipe': [{'tool': 'describe_timeline', 'args': {'x': '{slot:src}'}}]}),
+    ('an enum defaulting to a value outside its own options', 'not one of its options', {
+        'slots': [{'id': 'src', 'kind': 'enum', 'options': ['a', 'b'],
+                   'default': 'zzz', 'description': 'd'}],
+        'recipe': [{'tool': 'describe_timeline', 'args': {'x': '{slot:src}'}}]}),
+    ('two slots with the same id', 'cannot say which one', {
+        'slots': [{'id': 'dup', 'kind': 'string', 'description': 'one'},
+                  {'id': 'dup', 'kind': 'string', 'description': 'two'}],
+        'recipe': [{'tool': 'describe_timeline', 'args': {'x': '{slot:dup}'}}]}),
+    ('requiresTools naming a tool this build does not have', 'not a tool this build has', {
+        'slots': [{'id': 'src', 'kind': 'folder', 'description': 'd'}],
+        'requiresTools': ['totally_made_up_tool'],
+        'recipe': [{'tool': 'describe_timeline', 'args': {'x': '{slot:src}'}}]}),
+    ('a slot requiring a slot that does not exist', 'and there is no such slot', {
+        'slots': [{'id': 'src', 'kind': 'folder', 'description': 'd'},
+                  {'id': 'lang', 'kind': 'string', 'description': 'd',
+                   'requiresSlot': 'captions'}],
+        'recipe': [{'tool': 'describe_timeline',
+                    'args': {'x': '{slot:src}', 'y': '{slot:lang}'}}]}),
+]
+
+for label, needle, extra in BROKEN:
+    body = {'id': PROBE_ID + '-b', 'name': 'Probe', 'summary': 'A broken one.'}
+    body.update(extra)
+    error = refused('create_skill', body)
+    check(f'refused: {label}',
+          error is not None and needle in error,
+          (error or 'IT WAS ACCEPTED').strip().split('\n')[-1][:88])
+    call('delete_skill', {'id': PROBE_ID + '-b'})
+
+# ── 6. The round trip that started it ──────────────────────────────
+#
+# The whole exercise in one check: take the manifest somebody wrote by
+# hand, put it through the builder, and read back what landed on disk.
+# Anything missing is a part of the format the builder cannot express,
+# and `trial` missing means a skill built here could never be sold.
+HAND = os.path.join(HERE, '..', 'tutorial', 'skill.json')
+hand = {k: v for k, v in json.load(open(HAND)).items() if not k.startswith('_')}
+hand['id'] = PROBE_ID + '-rt'
+made_rt = ok(call('create_skill', hand), 'round trip')
+back = json.load(open(os.path.join(made_rt['folder'], 'skill.json')))
+lost = sorted(set(hand) - set(back))
+
+check('the hand-written Tutorial manifest survives a round trip whole',
+      lost == [],
+      f"dropped: {lost}" if lost else f'all {len(hand)} fields kept, including '
+      f"trial={back.get('trial')} verify={back.get('verify')} toolApi={back.get('toolApi')}")
+
+# Declared and not on disk, said at creation rather than discovered
+# later. `verify` and `template` are declared exactly the way an asset
+# is and were not reported at all, so a manifest could claim a
+# verification test that had never been written.
+check('and a verification test it declares but has not written is reported',
+      'verify.py' in (made_rt.get('declaredButNotOnDisk') or []),
+      f"declaredButNotOnDisk={made_rt.get('declaredButNotOnDisk')}")
+
+# A slot nothing references is a WARNING, not a refusal, and the
+# difference is the runner: `recipe` is a specification an agent carries
+# out, so it can act on a slot the guide describes in prose. Refusing
+# would reject manifests that work.
+warned = ok(call('create_skill', {
+    'id': PROBE_ID + '-w', 'name': 'Probe', 'summary': 'One slot goes unused.',
+    'slots': [{'id': 'src', 'kind': 'folder', 'description': 'used'},
+              {'id': 'spare', 'kind': 'string', 'description': 'never mentioned'}],
+    'recipe': [{'tool': 'describe_timeline', 'args': {'x': '{slot:src}'}}],
+}), 'warned')
+check('a slot nothing references is warned about rather than refused',
+      any('spare' in w for w in (warned.get('warnings') or [])),
+      f"warnings={warned.get('warnings')}")
+call('delete_skill', {'id': PROBE_ID + '-w'})
+call('delete_skill', {'id': PROBE_ID + '-rt'})
+
 check('the skill list says there is no runner, rather than implying one',
       'runner' in listed.get('note', '').lower(),
       listed.get('note', 'nothing said')[:80])

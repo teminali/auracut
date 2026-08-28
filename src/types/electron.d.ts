@@ -187,6 +187,18 @@ export interface KerfElectronAPI {
     respond: (payload: { id: string; ok: boolean; data?: unknown; error?: string }) => void;
   };
 
+  captions: {
+    /**
+     * One plain-text turn to whichever agent CLI is configured, for
+     * correcting a transcript. No tools and no project access: the
+     * reply is text, and `parseCleanupReply` decides whether any of it
+     * is taken.
+     */
+    clean: (prompt: string) => Promise<{
+      ok: boolean; text?: string; backend?: string; error?: string;
+    }>;
+  };
+
   stt: {
     status: () => Promise<{
       ffmpeg: string | null;

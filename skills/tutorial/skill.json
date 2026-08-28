@@ -102,8 +102,17 @@
       "kind": "enum",
       "required": false,
       "default": "auto",
+      "requiresSlot": "captions",
       "options": ["auto", "en", "sw", "fr", "es", "pt", "de", "ar", "hi"],
       "description": "The spoken language, or `auto` to detect it. This decides more than the captions: the words are what place the camera cuts and what says whether the take opens with an introduction, so decoding the wrong language loses the edit rather than just the subtitles."
+    },
+    {
+      "id": "cleanCaptions",
+      "kind": "boolean",
+      "required": false,
+      "default": true,
+      "requiresSlot": "captions",
+      "description": "Spell-check the transcript with the agent CLI already configured in Kerf before the words go on screen: misspellings, word boundaries, punctuation, in the SAME language. It is only ever allowed to correct a line, never to rewrite one, and a reply that grows a line into a sentence nobody said is refused whole. This does NOT control the audit: repetition loops, non-speech markers and stutters are found and removed with no model at all, because those are deletions and a model asked to fill that hole will invent fluent narration instead."
     },
     {
       "id": "backdrop",
@@ -123,7 +132,22 @@
     "`targetClipName` is absent throughout, and that is the other thing a",
     "second skill teaches: it exists to find a slot's clip inside a",
     "TEMPLATE. With no template there is nothing to point at, so the slots",
-    "here are all arguments rather than substitutions."
+    "here are all arguments rather than substitutions.",
+    "",
+    "`requiresSlot` is the field the THIRD pass added, and it was added",
+    "because the same gap turned up three times rather than because it",
+    "looked tidy. `language` is meaningless with `captions: false`, and so",
+    "is `cleanCaptions`, and so is the camera opening on an introduction,",
+    "which is decided from the words and is not even a slot. Before this",
+    "field a caller could set the spoken language, get no captions, and",
+    "have nothing anywhere tell them the two settings were related.",
+    "",
+    "It says DEPENDENCY, not validation: a dependent slot with its parent",
+    "off is inert rather than an error, because refusing the combination",
+    "would break every caller that sets a language once and toggles",
+    "captions per take. What it buys is that an interface can grey the",
+    "slot out and an agent can be told why the argument it passed did",
+    "nothing."
   ],
 
   "recipe": [
@@ -134,7 +158,8 @@
         "captions": "{slot:captions}",
         "zoomStrength": "{slot:zoomStrength}",
         "backdrop": "{slot:backdrop}",
-        "language": "{slot:language}"
+        "language": "{slot:language}",
+        "cleanCaptions": "{slot:cleanCaptions}"
       }
     }
   ],

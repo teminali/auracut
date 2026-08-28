@@ -48,6 +48,17 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 
 const SLOW_TOOLS: Record<string, number> = {
   generate_auto_captions: 15 * 60_000,
+  /*
+    The tutorial skill transcribes the whole take and may then send the
+    transcript to an agent CLI to be spell-checked, so it is bounded by
+    two models rather than by the edit, which takes about a second.
+
+    It was on the 60s default until a 69-second take with the caption
+    cleanup on came back as HTTP 500 while the build itself was fine.
+    That is the trap in HANDOVER §9 a second time: the timeout is
+    per-tool and a tool that got slower does not inherit a new one.
+  */
+  build_tutorial_from_recording: 20 * 60_000,
   render_export: 30 * 60_000,
   detect_beats: 5 * 60_000,
   remove_silence: 5 * 60_000,

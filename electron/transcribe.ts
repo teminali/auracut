@@ -383,6 +383,40 @@ async function runWhisperCpp(
     '-l', options.language && options.language !== 'auto'
       ? options.language
       : (model.endsWith('.en') ? 'en' : 'auto'),
+    /*
+      ALWAYS `-mc 0`, and this is the second one-flag bug of exactly the
+      shape of the `-l` bug above.
+
+      whisper.cpp carries the previous window's decoded tokens into the
+      next window as text context (`-mc` defaults to 224). That is a
+      feedback path: once the model emits a sentence it is unsure of,
+      that sentence is in the prompt for the next window, which makes it
+      likelier again, which puts it in the prompt again. On a long take
+      it latches, and everything after the latch is one sentence
+      repeated to the end of the file.
+
+      It does not fail loudly. The decode succeeds, the language is
+      detected correctly, the segments have plausible timings, and the
+      captions that come out are a single hallucinated line laid down
+      every two seconds for four minutes.
+
+      Measured on the 275-second Swahili take in Kerf Recordings,
+      same binary, same model, same `-l auto`, one flag apart:
+
+          no -mc     124 segments, 15 distinct, ONE line 109 times
+                     — 86% of the film, from 37s to the end
+          -mc 0       70 segments, 70 distinct, no repeat at all
+                     — and 62.6s of compute against 83.7s
+
+      The same audio cut to a 70-second slice decodes cleanly WITHOUT
+      the flag, which is what says the length is the trigger and the
+      audio is fine.
+
+      What it costs is cross-window coherence, which is why upstream
+      defaults it on. For captions that is a trivial price: a caption is
+      read one line at a time, and the alternative is losing the film.
+    */
+    '-mc', '0',
   ];
 
   await new Promise<void>((resolve, reject) => {
@@ -467,6 +501,11 @@ async function runPythonWhisper(
     '--model_dir', path.join(os.homedir(), '.cache', 'whisper'),
   ];
   if (options.language && options.language !== 'auto') args.push('--language', options.language);
+  /* The Python implementation's name for the same feedback path, and it
+     latches the same way. See the `-mc 0` comment in runWhisperCpp for
+     the measurement; this backend is too slow to re-measure on, so it
+     is set from the same reasoning rather than from its own numbers. */
+  args.push('--condition_on_previous_text', 'False');
 
   await new Promise<void>((resolve, reject) => {
     const child = spawn(wh, args, { stdio: ['ignore', 'pipe', 'pipe'] });

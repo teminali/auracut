@@ -2198,6 +2198,248 @@ usual success lines, main silently kept the previous bundle, and the IPC
 handler was simply absent at runtime with no clue why. Read the top of
 that command's output, not the tail.
 
+**And a second way to get the same stale bundle, which cost this
+session twice.** `npm run build:electron | head -4` truncates the pipe,
+esbuild takes SIGPIPE partway through, and the shell reports success.
+`dist-electron/main.cjs` keeps the previous contents while the terminal
+shows the usual banner. Both times it looked like "my change did not
+take effect" and led to restarting the app instead of rebuilding it.
+Never pipe that command into `head`; if you want the top of the output,
+read the whole thing.
+
+---
+
+## 7k. Pointing the builder at a skill somebody got right
+
+The exercise NEXT.md asked for: run `inspect_project_for_skill` over a
+real tutorial build, work through GUIDE.md, and compare what the builder
+wants against the hand-written `skills/tutorial/skill.json`. The point
+was never a new skill. It was to find where the builder is wrong by
+aiming it at something known-correct.
+
+It found more than expected, and the sharpest test was the simplest one:
+**feed the hand-written manifest to `create_skill`.**
+
+### It accepted it, dropped a third of it, and reported success
+
+Twelve fields in, eight out. `toolApi`, `trial`, `verify` and
+`provenance` were silently discarded and the result said
+`success: true`. `beat-montage` loses the same four plus `template`, and
+`targetClipName` on its slots. So between them the two shipped skills
+use thirteen fields and the builder could express eight.
+
+`trial` is the worst of them, because it is not a decoration: it is the
+whole publishing story from §7b. A skill built through the builder could
+never be sold or trial-gated, and nothing anywhere said so. `verify` is
+next, because HANDOVER §6's own definition of a skill is tools plus
+assets plus a template plus a verification test, and the builder was
+writing three of the four and calling it finished.
+
+Fixed: all of them round-trip now, and `create_skill` returns
+`declaredButNotOnDisk` so a manifest that claims a `verify.py` it has
+not written says so at creation rather than never.
+
+### Eight broken manifests, eight acceptances
+
+Then eight manifests that are each obviously broken, to see what the
+validator was actually checking. It accepted all eight:
+
+| fed in | what it does |
+|---|---|
+| `recipe` naming a tool that does not exist | fails at run time |
+| `{slot:nope}` with no such slot | that step cannot run |
+| a slot no step references | a question that changes nothing |
+| `requiresTools` naming a tool that does not exist | a lie in the manifest |
+| `kind: "bolean"` | no control, no validation |
+| an enum defaulting outside its own options | the one value guaranteed to be used is invalid |
+| two slots with the same id | `{slot:id}` is ambiguous |
+| assets declared and absent | *correct* — `add_skill_asset` comes after |
+
+The last one is a false alarm and stays as it is; `list_skills` already
+reports it. The other seven are now refused, and the distinction matters
+more than the list: the two refusals that existed (**no slots**, **enum
+without options**) are about the AUTHOR'S JUDGEMENT and are exactly
+right. Everything added is MECHANICAL — facts the app already had and
+was not checking. `create_skill` was refusing the two things GUIDE.md
+talks about and nothing that GUIDE.md's own method depends on.
+
+The tool registry lives in the renderer, so the tool names are passed
+down with the manifest; when they are absent those two checks are
+skipped rather than guessed at.
+
+**One is a warning rather than a refusal, and the reason is the runner.**
+A slot nothing references is usually a rename done on one side only, but
+`recipe` is a specification an agent carries out rather than something
+the app executes, so an agent can act on a slot the guide only describes
+in prose. Refusing would reject manifests that work. This was not
+reasoned out in advance — the existing skill-builder suite's own fixture
+has two unreferenced slots, and turning the check on broke it.
+
+### `likelyRole` called the author's face part of the look
+
+`inspect_project_for_skill` marked each asset `subject` if it was used
+once and `recurring, probably part of the look` otherwise. On a real
+tutorial build it called **Camera.mp4** — the author's face, the most
+personal thing in the project — part of the look, because the narration
+is detached onto its own audio track and that counts as a second use.
+
+A count of clips measures how the project was CUT. It says nothing about
+who the material belongs to. It is time on screen now, which separates
+the same four assets the way an author would:
+
+```
+Screen.mp4    1 clip   100.0%   subject
+Camera.mp4    2 clips  100.0%   subject          (was "part of the look")
+Zoom air.wav 10 clips    7.3%   garnish
+Click.wav     9 clips    1.3%   garnish
+```
+
+### It withheld the one fact that answers the question it asks
+
+GUIDE.md says to go through every asset and ask "would somebody else
+bring their own, or expect this one?" The payload gave a name, a type
+and a duration, and no LOCATION. All four assets above live inside the
+take folder — the sound kit is synthesised there at build time — and
+that single fact settles NEXT.md's first question outright. There is now
+a `location` on every asset.
+
+### The three questions NEXT.md raised, answered
+
+**Should the sound kit be assets?** No, and the manifest's reasoning
+holds: synthesised at build time into the take's folder, nothing to
+licence, nothing to 404. But `assets: []` is still wrong, by the
+manifest's own argument about `trial` — "no trial" and "nobody thought
+about it" should not look the same, and neither should "no material" and
+"material this skill generates". The format has no way to say
+*generated*. GUIDE.md now names it as a third answer; the field does not
+exist yet.
+
+**What else is declared badly?** `requiresTools` lists
+`describe_timeline` and `get_frame_context`, and the recipe calls
+neither — they are what `verify.py` uses. So the field conflates the
+tools the RECIPE needs with the tools the TEST needs. Left as it is and
+recorded here, because splitting it is a format change with one instance
+behind it and this codebase adds a field on the second or third.
+
+**Slot dependencies.** Confirmed, three times over in one manifest, and
+now built: `requiresSlot`. With `captions: false`, `language` does
+nothing, the new `cleanCaptions` does nothing, and the camera stops
+opening on an introduction. It states a DEPENDENCY and not a constraint
+— a dependent slot with its parent off is inert rather than an error,
+because refusing the combination would break anybody who sets a language
+once and toggles captions per take.
+
+The skill-builder suite is 10 checks -> **20**, and the round trip of the
+hand-written manifest is one of them.
+
+---
+
+## 7l. The captions nobody was reading
+
+Found while doing the above, on the real tutorial build that was sitting
+on the timeline. It is the worst bug this session and nothing was
+looking at it.
+
+**A 275-second Swahili take produced 127 caption lines of which 109 were
+the same sentence**, consecutively, on a two-second grid, from 37s to the
+end of the film. 86% of the running time. The build reported success and
+every number it checked was fine: the decoder exited 0, the language was
+detected correctly (`sw`, p=0.70), the timings were plausible, and 127
+caption clips really were on the timeline. Nothing in eighteen suites
+read the words.
+
+### One flag, and it is the second time
+
+Reproduced outside the app, then bisected. `whisper.cpp` feeds each
+window's decoded tokens into the next window as text context (`-mc`
+defaults to 224). That is a feedback path: a sentence the model is
+unsure of enters the next prompt, which makes it likelier, which puts it
+in the prompt again. On a long take it latches. Measured, same binary,
+same model, same `-l auto`, one flag apart:
+
+```
+no -mc     124 segments, 15 distinct, ONE line 109 times   83.7s
+-mc 0       70 segments, 70 distinct, no repeat at all     62.6s
+```
+
+The same audio cut to a 70-second slice decodes cleanly WITHOUT the
+flag, which is what says the trigger is length and the audio is fine.
+
+This is `-l auto` from §7h all over again: one whisper.cpp flag, a
+catastrophic and completely silent failure, and Kerf faithfully
+reporting the garbage. The Python backend's name for the same feedback
+path is `--condition_on_previous_text`, set from the same reasoning
+rather than from its own numbers, because that backend is too slow to
+re-measure on.
+
+### The instrument, which matters more than the flag
+
+`src/engine/captionQuality.ts`. The flag fixes the failure that was
+found; this catches the next one. Deterministic, no model, always runs,
+33 unit tests:
+
+* **repetition loops** — 4+ consecutive identical lines, with the share
+  of the film they cover, and `usable: false` past 35%;
+* **stalled timing** — 3+ consecutive cues sharing a start time. A
+  DIFFERENT failure from a loop: there the text repeats and the clock
+  moves, here the text varies and the clock stands still, so eight lines
+  land on screen together and the eight after them are gone;
+* **phrase stutters** — a repeated unit of up to six words. A word-level
+  check was written first and passed cleanly on `"MCPs za AI existence
+  ndigito kwenye"` three times over, because no single word repeats;
+* non-speech markers, naming the wrong-language one as a language
+  problem, and empties.
+
+**Deliberately not a check: a uniform time grid.** 112 of the looped
+take's 126 gaps were exactly 2000ms, which looks decisive and is not —
+the same file decoded cleanly ALSO opens 0, 2000, 4000. A check that
+fires on clean output is an instrument that lies.
+
+The last two were found by running it on a second real take rather than
+by thinking about it, which is the only reason they exist.
+
+### Cleaning the words with the model, and what it is not allowed to do
+
+The ask was to use the LLM Kerf already has to fix typos, grammar and
+broken words. It does, through one plain-text turn to whichever agent
+CLI is configured — `electron/captionCleanup.ts`, no MCP, no tools, no
+project access, because a model correcting spelling does not need write
+access to the timeline.
+
+**The order is the whole design and it is not interchangeable.** The
+deterministic pass DELETES first; the model only ever sees lines that
+have real content. Those 109 identical lines are not a mangled version
+of what was said — they are what the decoder emitted while decoding
+nothing, and the words spoken under them are not in the text at all. Ask
+a model to tidy that and it will write four minutes of fluent, correctly
+inflected Swahili that nobody said, turning a failure anyone can see
+into one nobody can.
+
+So: **a model may repair what is there and may never supply what is
+missing.** Every reply is taken apart by `parseCleanupReply` and refused
+unless it is a correction: same line count, no index that does not
+exist, no line emptied, and nothing that grew past 2.2x, which is
+invention rather than spelling. A quarter of bad lines throws the whole
+reply away, because a model that misunderstood the task did not get the
+rest right by accident.
+
+Run on the real 69-second take, `claude` corrected 6 of 14 lines —
+`tuta petia zahidi kwenyo` to `tutapitia zaidi kwenye`, `chat GPT` to
+`ChatGPT`, `mcp` to `MCP` — stayed in Swahili, and left the one line it
+could not read completely untouched, which is what it was told to do.
+
+`cleanCaptions` is a slot and a tool argument, default on. The AUDIT has
+no switch: it costs nothing, needs nothing installed, and its absence is
+the entire bug.
+
+### And a third instance of the §9 timeout trap
+
+`build_tutorial_from_recording` was never in `SLOW_TOOLS`, so it has
+always been on the 60-second default while transcribing an
+arbitrarily long take. It only surfaced now because the model pass
+pushed a 69-second take past 60s and the bridge returned HTTP 500 while
+the build itself was perfectly fine. 20 minutes now.
+
 ---
 
 ## 8. Product hardening — mostly not started

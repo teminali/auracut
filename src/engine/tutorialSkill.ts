@@ -59,6 +59,9 @@ import {
   assembleRecording, AssembleOptions, AssembleReport, SpeechCue,
   TUTORIAL_ASSEMBLE, RAW_ASSEMBLE, CAPTION_STYLE,
 } from './recordingProject';
+import {
+  auditCaptions, repairCaptions, buildCleanupRequest, parseCleanupReply, CaptionAudit,
+} from './captionQuality';
 
 /* ── Who this skill is, for the trial gate ──────────────────────── */
 
@@ -140,9 +143,20 @@ export interface TutorialOptions extends Partial<AssembleOptions> {
   /** Whisper model name, when transcription runs. */
   model?: string;
   language?: string;
+  /**
+   * Send the transcript to the configured agent CLI to be spell-checked.
+   *
+   * Only the MODEL pass. The deterministic audit and the repairs that
+   * follow from it are not optional and have no switch: they cost
+   * nothing, they need nothing installed, and their absence is the bug
+   * that made this whole thing necessary — a caption track that was one
+   * hallucinated line repeated 109 times shipped as a success because
+   * nothing read the words.
+   */
+  cleanCaptions?: boolean;
 }
 
-export const DEFAULT_TUTORIAL: TutorialOptions = { transcribe: true };
+export const DEFAULT_TUTORIAL: TutorialOptions = { transcribe: true, cleanCaptions: true };
 
 /* ── Speech ─────────────────────────────────────────────────────── */
 
@@ -391,6 +405,26 @@ async function build(
     }
   }
 
+  /*
+    ── Read the words before putting them on screen ────────────────
+
+    Everything above this point trusts the transcriber. This is where
+    that stops. `reviewCaptions` never fails the build and never blocks
+    on anything optional: at worst it returns the cues it was given and
+    a note saying what it found and could not fix.
+
+    It runs on the supplied-transcript path as well as the transcribed
+    one, on purpose. A `transcript.json` beside a take is usually a
+    script and usually clean, but "usually" is not a reason to measure
+    one input and not the other, and a hand-written transcript with a
+    duplicated paragraph is a real thing.
+  */
+  if (speech.length > 0) {
+    const reviewed = await reviewCaptions(speech, o);
+    speech = reviewed.cues;
+    notes.push(...reviewed.notes);
+  }
+
   onProgress({ phase: 'building', percent: 45, note: 'Building the edit' });
 
   const report = await assembleRecording(take, {
@@ -410,6 +444,104 @@ async function build(
     );
   }
   return { ...report, notes: [...notes, ...report.notes], transcribedInBackground: background };
+}
+
+/* ── Reading the words before they go on screen ─────────────────── */
+
+export interface CaptionReview {
+  cues: SpeechCue[];
+  notes: string[];
+  audit: CaptionAudit;
+}
+
+/**
+ * Audit the transcript, repair what can be repaired, and only then let
+ * a model near it.
+ *
+ * The order is the whole design and it is not interchangeable. The
+ * deterministic pass DELETES: a run of identical lines is not a set of
+ * typos, it is what a latched decoder emits while decoding nothing, and
+ * the words that were spoken under it are not in the text at all. Ask a
+ * model to tidy that and it will write four minutes of fluent narration
+ * nobody said — in the right language, in the right register, and
+ * completely invented — which turns a failure anyone can see into one
+ * nobody can. So the loops go first, and the model only ever sees lines
+ * that have real content in them.
+ *
+ * Every path through here is non-fatal. No transcriber, no agent CLI,
+ * a refused reply, a timeout: the captions come out at least as good as
+ * they went in, and the report says what happened.
+ */
+export async function reviewCaptions(
+  cues: SpeechCue[],
+  options: TutorialOptions
+): Promise<CaptionReview> {
+  const notes: string[] = [];
+  const audit = auditCaptions(cues);
+
+  /*
+    Said whatever else happens, including when nothing is wrong — a
+    report that only speaks up on failure cannot be told apart from one
+    that is not running.
+  */
+  if (audit.defects.length > 0) notes.push(`Captions: ${audit.summary}`);
+
+  const repair = repairCaptions(cues, audit);
+  notes.push(...repair.notes);
+  let out = repair.cues;
+
+  if (!audit.usable) {
+    /*
+      Past this much loss the surviving lines are not a transcript, they
+      are the fragments around the edges of one, and captioning a film
+      with them implies the rest was silence. Said as loudly as a note
+      can say it, with the thing that actually fixes it.
+    */
+    notes.push(
+      `The transcriber lost ${Math.round(audit.loopedShare * 100)}% of this take to a repetition `
+      + 'loop, so most of the narration was never transcribed and has no captions. This is '
+      + 'usually the take being long rather than the audio being bad: try again with the '
+      + 'spoken language set explicitly, or transcribe from the Captions panel afterwards.'
+    );
+  }
+
+  if (options.cleanCaptions === false || out.length === 0) return { cues: out, notes, audit };
+
+  const api = window.electronAPI;
+  if (!api?.captions) return { cues: out, notes, audit };
+
+  const request = buildCleanupRequest(out, options.language);
+  const reply = await api.captions.clean(request.prompt);
+
+  if (!reply.ok || !reply.text) {
+    /*
+      A note rather than an error. Nobody recorded a tutorial in order
+      to run a language model over it, and captions the transcriber
+      wrote are what this shipped before any of this existed.
+    */
+    notes.push(`Captions were not spell-checked: ${reply.error ?? 'the agent returned nothing.'}`);
+    return { cues: out, notes, audit };
+  }
+
+  const outcome = parseCleanupReply(reply.text, out);
+  if (outcome.refused) {
+    notes.push(`The caption corrections were refused and none were applied: ${outcome.refused}`);
+    return { cues: out, notes, audit };
+  }
+
+  out = outcome.cues;
+  if (outcome.applied > 0) {
+    notes.push(
+      `Spell-checked the captions with ${reply.backend}: ${outcome.applied} of ${request.indices.length} `
+      + `lines corrected`
+      + (outcome.rejected.length > 0
+        ? `, and ${outcome.rejected.length} proposed change${outcome.rejected.length === 1 ? '' : 's'} `
+          + 'rejected for changing the line rather than correcting it.'
+        : '.')
+    );
+  }
+
+  return { cues: out, notes, audit };
 }
 
 /* ── The words, afterwards ──────────────────────────────────────── */
@@ -493,12 +625,35 @@ export function captionInBackground(
         return;
       }
 
-      const added = addCaptionTrack(result.cues, options.captionStyle ?? CAPTION_STYLE);
+      /*
+        The same review the foreground path runs, for the same reason.
+
+        This is the SLOW-Whisper path, so it is the one most likely to
+        be handed a long take, and length is what triggers the
+        repetition loop in the first place. Auditing one path and not
+        the other would mean the captions most at risk are the ones
+        nobody checks.
+      */
+      const reviewed = await reviewCaptions(result.cues, { ...DEFAULT_TUTORIAL, ...options });
+      if (reviewed.cues.length === 0) {
+        ui2.pushToast({
+          kind: 'info',
+          title: 'No captions were added',
+          detail: reviewed.notes[0] ?? 'Nothing usable was transcribed.',
+          ttl: 12000,
+        });
+        return;
+      }
+
+      const added = addCaptionTrack(reviewed.cues, options.captionStyle ?? CAPTION_STYLE);
       ui2.pushToast({
-        kind: 'success',
+        kind: reviewed.audit.usable ? 'success' : 'info',
         title: `${added} caption${added === 1 ? '' : 's'} added`,
-        detail: 'On their own track, in Inter Bold. Undo removes them in one step.',
-        ttl: 6000,
+        detail: reviewed.audit.usable
+          ? 'On their own track, in Inter Bold. Undo removes them in one step.'
+          : reviewed.notes.find((n) => n.includes('repetition loop'))
+            ?? 'Some of the narration was not transcribed.',
+        ttl: reviewed.audit.usable ? 6000 : 14000,
       });
     } catch (err) {
       const ui2 = useUiStore.getState();
