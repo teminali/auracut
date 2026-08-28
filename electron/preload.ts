@@ -87,6 +87,17 @@ export interface ElectronAPI {
     respond: (payload: { id: string; ok: boolean; data?: unknown; error?: string }) => void;
   };
 
+  /**
+   * One plain-text turn to the configured agent CLI, for correcting a
+   * transcript. No tools and no project access: a model fixing spelling
+   * does not need write access to the timeline.
+   */
+  captions: {
+    clean: (prompt: string) => Promise<{
+      ok: boolean; text?: string; backend?: string; error?: string;
+    }>;
+  };
+
   /** On-device speech-to-text (ffmpeg + Whisper, run in main). */
   stt: {
     status: () => Promise<{ ffmpeg: string | null; whisper: string | null; models: string[]; ready: boolean }>;
