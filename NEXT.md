@@ -1199,9 +1199,56 @@ comments so the reasoning survives.
   Chromium however many are in flight. Real parallel encoding needs
   OffscreenCanvas in workers or WebCodecs, not more canvases on the main
   thread. (`src/engine/exportPipeline.ts`)
+
+  **This entry's conclusion has since been acted on — 1.9.0.** The JPEG
+  path is no longer the default: `frameEncoder.ts` sends the canvas to a
+  WebCodecs `VideoEncoder` and ffmpeg stream-copies the result. Measured
+  on the starter project, 600 frames at 720p: ffmpeg 5836ms, WebCodecs
+  2280ms. Do not go looking for a faster `toBlob`; there is no longer one
+  on the hot path.
 - **Lowering JPEG quality to speed up export.** 0.95 → 0.80 moved the
   encode from 13,435ms to 13,235ms. The cost is the readback, not the
   compression.
+
+- **`-framerate` for the raw h264 input. It is `-r`.** `-framerate` is
+  the `image2pipe` demuxer's option and the raw h264 demuxer ignores it
+  in silence. A 90-frame 30fps render came out **90 frames long and
+  1.667 seconds long** — playing at 54fps, with audio muxed against a
+  timeline nearly twice its length. Measured on a real encoder stream:
+
+        -framerate 30 (input)                     90 frames   1.667s
+        -framerate 30 (input) + -r 30 (output)    90 frames   1.703s
+        -r 30 (input)                             90 frames   3.000s
+
+  Nothing is ever LOST — every variant carries all 90 frames. Only the
+  input `-r` spaces them correctly. Seven verify suites caught this and
+  nothing else would have: it typechecks, and 382 unit tests pass.
+
+- **B-frames in a raw Annex B stream.** A raw elementary stream carries
+  no timestamps, so ffmpeg numbers frames in arrival order; a reordered
+  stream gets non-monotonic DTS and the mp4 muxer DROPS the offending
+  samples. Measured: 90 frames in, **88 out**, exit code 0, no warning.
+  The same stream with `-bf 0`: 90/90 at exactly 3.000s. This is why
+  `frameEncoder.ts` asks for `latencyMode: 'realtime'` — it is a
+  correctness setting, not a speed one — and why `finishExport` probes
+  the written file's duration against the render that produced it.
+
+- **`await document.fonts.ready` to make sure a font is loaded. It does
+  not load fonts.** It waits for faces something has ALREADY requested,
+  and assigning `ctx.font` on a canvas requests nothing. A render-farm
+  worker mounts no DOM text at all, so `ready` resolved instantly and the
+  worker drew its first frames in the platform fallback. It surfaced as
+  ONE wrong frame in 600, in a band across the middle of the picture —
+  the title — and which chunk it hit was a race between four windows and
+  the font cache. `ensureFontsLoaded` calls `document.fonts.load()`,
+  which is what actually requests a face.
+
+- **Expecting the render farm to speed up the starter project.** It does
+  not, and the reason is the point: 600 frames at 720p took 2280ms in one
+  window and 2261ms across four. A project of stills has no decode to
+  parallelise and four window startups are not free. The farm is for
+  timelines whose cost is SEEKING REAL FOOTAGE. Benchmark it on video, or
+  it will look like it does nothing.
 - **Transitions on the GPU, beyond the two that are there.** All 14
   already worked, and `NEXT.md` called the job "quality and speed". The
   speed half goes the other way. Six stacked full-frame 1080p clips, 45

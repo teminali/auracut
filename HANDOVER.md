@@ -119,10 +119,13 @@ Nothing else matters until this is true.
 5. ~~Finish the audit: the seven tools listed in §3.~~ — **done** (§3b).
    All real; `snapCutsToBeats` needed a fix.
 6. Run Windows and Linux. CI builds them; nobody has.
-7. A performance pass — **started** (§3b): `render_export` reports a
-   timing breakdown and the export is 2.4x faster. Still unmeasured:
-   long timelines, memory over a long session, and why packaged encodes
-   ~1.6x slower than dev.
+7. A performance pass — **the export half is done** (1.9.0). The frame
+   no longer leaves the GPU: WebCodecs encodes it and ffmpeg
+   stream-copies, and a long render is cut into chunks drawn at once in
+   hidden windows. 600 frames at 720p: ffmpeg 5836ms, WebCodecs 2280ms.
+   Still unmeasured: long timelines, memory over a long session, and the
+   farm on a project whose cost is decoding real footage rather than
+   compositing stills.
 
 ### Stage 3 — Make it differentiated  *(2–4 weeks)*
 
@@ -566,6 +569,42 @@ than implementing one, so the registry stays the single catalogue.
 
 Every entry point returns null without WebGL and falls back to 2D. A
 machine with no GPU gets a film without a key, not a crash.
+
+### The export stopped paying for every frame three times
+
+`frameEncoder.ts`, `renderFarm.ts` and `renderWorker.ts` are new in
+1.9.0. The old path read the canvas back off the GPU, compressed it to
+JPEG, copied it across the bridge, and had ffmpeg decode and re-encode
+it. Now the canvas goes to the platform encoder and ffmpeg copies the
+bytes; what is left after that is the SEEK, so the timeline is cut into
+chunks rendered at once in hidden windows and joined in order.
+
+Chunks need no muxer. Both formats concatenate — a JPEG stream is
+concatenated JPEGs, an Annex B stream is concatenated NAL units — and
+every chunk opens on a keyframe because the encoder is asked for one.
+Joining is `cat`, in `drainChunks`.
+
+**Four defects, none of which reasoning found.** Each is written up with
+its numbers in `NEXT.md` §7, because each will be re-introduced by
+somebody who has not seen the measurement:
+
+  * `-framerate` is the image2pipe option; the raw h264 demuxer needs
+    `-r`. 90 frames came out spanning 1.667s instead of 3.000s.
+  * B-frames make ffmpeg silently drop samples from a raw stream.
+  * `document.fonts.ready` does not load fonts, so worker windows drew
+    their first frames in the fallback typeface.
+  * a chunk's timestamps must be derived from an absolute FRAME INDEX,
+    not a pre-multiplied start time, or they differ in the last bit and
+    land on the wrong side of a cut.
+
+**The bar for "it works" here is a pixel comparison, not a green suite.**
+All 382 unit tests passed and both typechecks were clean while the export
+was producing files at 54fps. What caught it was `npm run verify`; what
+caught the font race was rendering the same 20 seconds twice, once in one
+window and once across four, and comparing all 600 frames. They now agree
+to within 0.02 levels with no frame differing by as much as one. Do that
+comparison after touching the render path — `renderPlan.test.ts` covers
+the arithmetic, but nothing in the unit suite can see a wrong picture.
 
 ### The export was 2.4x slower for a flag that reads as an optimisation
 
