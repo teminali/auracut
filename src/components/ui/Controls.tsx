@@ -303,7 +303,13 @@ export function SegmentedControl<T extends string>({
   value, options, onChange, columns,
 }: {
   value: T;
-  options: { value: T; label: string; icon?: React.ElementType; title?: string }[];
+  /**
+   * `disabled` is real, not decorative: a choice that cannot be taken
+   * has to LOOK unavailable and refuse the click. Offering ProRes a
+   * "Fast" encoder that silently becomes the slow one is worse than not
+   * offering it.
+   */
+  options: { value: T; label: string; icon?: React.ElementType; title?: string; disabled?: boolean }[];
   onChange: (v: T) => void;
   columns?: number;
 }) {
@@ -318,12 +324,15 @@ export function SegmentedControl<T extends string>({
         return (
           <button
             key={opt.value}
-            onClick={() => onChange(opt.value)}
+            onClick={() => !opt.disabled && onChange(opt.value)}
+            disabled={opt.disabled}
             title={opt.title ?? opt.label}
             className={`h-[24px] rounded-[5px] border text-ui-xs font-medium flex items-center justify-center gap-1 transition-colors truncate px-1 ${
-              active
-                ? 'bg-spectrum-card border-line-strong text-spectrum-text shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.4)]'
-                : 'border-transparent text-spectrum-textDim hover:text-spectrum-text hover:bg-white/[0.05]'
+              opt.disabled
+                ? 'border-transparent text-spectrum-textFaint opacity-45 cursor-not-allowed'
+                : active
+                  ? 'bg-spectrum-card border-line-strong text-spectrum-text shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.4)]'
+                  : 'border-transparent text-spectrum-textDim hover:text-spectrum-text hover:bg-white/[0.05]'
             }`}
           
             aria-label={opt.title ?? opt.label}>

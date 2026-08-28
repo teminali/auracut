@@ -4,6 +4,26 @@ import { INITIAL_PROJECT } from '../mcp/defaultMedia';
 
 export type ExportPhase = 'idle' | 'preparing' | 'rendering' | 'encoding' | 'muxing' | 'done' | 'error';
 
+/**
+ * What a render is doing right now, beyond the percentage.
+ *
+ * Declared here rather than imported from `exportPipeline` on purpose:
+ * the store must not depend on the engine, and the engine's
+ * `ExportProgressDetail` is structurally the same shape. It lives in the
+ * store so an export the AGENT started shows the same dialog as one the
+ * user started — `render_export` sets this too.
+ */
+export interface ExportTelemetry {
+  frame: number;
+  totalFrames: number;
+  /** Frames a second, right now. */
+  fps: number;
+  etaMs: number | null;
+  engine: 'webcodecs' | 'ffmpeg';
+  /** One per render window; empty when the render is not chunked. */
+  lanes?: { worker: number; chunk: number; frames: number; totalFrames: number }[];
+}
+
 interface ProjectState {
   project: ProjectSettings;
 
@@ -11,6 +31,7 @@ interface ProjectState {
   exportProgress: number;
   exportStatusText: string;
   exportPhase: ExportPhase;
+  exportTelemetry: ExportTelemetry | null;
   lastExportPath: string | null;
 
   isCopilotOpen: boolean;
@@ -23,7 +44,12 @@ interface ProjectState {
   setDurationMs: (durationMs: number) => void;
   setBackgroundColor: (color: string) => void;
   setIsExporting: (exporting: boolean) => void;
-  setExportProgress: (progress: number, statusText?: string, phase?: ExportPhase) => void;
+  setExportProgress: (
+    progress: number,
+    statusText?: string,
+    phase?: ExportPhase,
+    telemetry?: ExportTelemetry | null
+  ) => void;
   setLastExportPath: (path: string | null) => void;
   toggleCopilot: () => void;
   setCopilotOpen: (open: boolean) => void;
@@ -41,6 +67,7 @@ export const useProjectStore = create<ProjectState>((set) => ({
   exportProgress: 0,
   exportStatusText: '',
   exportPhase: 'idle',
+  exportTelemetry: null,
   lastExportPath: null,
 
   isCopilotOpen: false,
@@ -61,8 +88,17 @@ export const useProjectStore = create<ProjectState>((set) => ({
   setBackgroundColor: (backgroundColor) => set((s) => ({ project: touch({ ...s.project, backgroundColor }) })),
 
   setIsExporting: (isExporting) => set({ isExporting }),
-  setExportProgress: (exportProgress, exportStatusText = '', exportPhase) =>
-    set((s) => ({ exportProgress, exportStatusText, exportPhase: exportPhase ?? s.exportPhase })),
+  setExportProgress: (exportProgress, exportStatusText = '', exportPhase, telemetry) =>
+    set((s) => ({
+      exportProgress,
+      exportStatusText,
+      exportPhase: exportPhase ?? s.exportPhase,
+      /* `undefined` leaves the last reading alone; `null` clears it.
+         The distinction matters because the phase lines between frames
+         ("Mixing audio…") carry no telemetry and must not blank the
+         numbers the user was just reading. */
+      exportTelemetry: telemetry === undefined ? s.exportTelemetry : telemetry,
+    })),
   setLastExportPath: (lastExportPath) => set({ lastExportPath }),
 
   toggleCopilot: () => set((s) => ({ isCopilotOpen: !s.isCopilotOpen })),

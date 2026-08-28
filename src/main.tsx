@@ -31,12 +31,27 @@ installGlobalErrorHandlers();
   The dev store bridge is skipped for the same reason: `__kerf` in two
   windows means the automated suites drive whichever answered first.
 */
-if (new URLSearchParams(window.location.search).get('window') === 'recorder-bar') {
+const windowRole = new URLSearchParams(window.location.search).get('window');
+
+if (windowRole === 'recorder-bar') {
   root.render(
     <React.StrictMode>
       <RecorderBar />
     </React.StrictMode>
   );
+} else if (windowRole === 'render-worker') {
+  /*
+    A render-farm window. It draws nothing anybody will look at — the
+    picture goes to a canvas and straight into an encoder — so it mounts
+    no React at all, and for the same reason as the bar it must not
+    register the tool bridge or the dev store: main sends a tool call to
+    a WINDOW, and four subscribed renderers means four answers to one
+    call.
+
+    The root is left empty on purpose. Rendering a placeholder into a
+    window nobody sees would be work competing with the render.
+  */
+  void import('./engine/renderWorker').then((m) => m.startRenderWorker());
 } else {
   mountEditor();
 }

@@ -16,6 +16,7 @@ import { Track, ProjectSettings, Clip } from '../types/edl';
 import { renderTimelineFrame, undecodableSources } from './compositor';
 import { seekVideosForFrame } from './videoEngine';
 import { interpolateKeyframes } from './keyframeMath';
+import { createFrameEncoder, probeFrameFormat, FrameEncoder } from './frameEncoder';
 
 export type ExportResolution = '720p' | '1080p' | '1440p' | '4k';
 
@@ -40,6 +41,47 @@ export interface ExportConfig {
    * A 1000-2000ms range still wrote all 60 frames from zero.
    */
   startMs?: number;
+  /**
+   * Which encoder produces the picture.
+   *
+   * `auto` uses WebCodecs when the platform will take the codec — the
+   * canvas goes to the hardware encoder and ffmpeg stream-copies the
+   * result, so the frame is never read back, never compressed to JPEG,
+   * and never encoded twice. `ffmpeg` forces the original path: JPEG
+   * stills over the bridge into libx264/libx265 at `-crf 18`.
+   *
+   * The difference is not only speed. WebCodecs is bitrate-targeted and
+   * ffmpeg's default here is quality-targeted, so `ffmpeg` remains the
+   * honest choice for a master, and it is the only path for ProRes.
+   */
+  engine?: 'auto' | 'ffmpeg';
+  /**
+   * How many hidden windows render at once.
+   *
+   * Absent means "ask the machine" — half its cores, capped at four.
+   * `1` keeps the whole render in the editor window, which is the old
+   * behaviour and the one to reach for when something looks wrong.
+   */
+  workers?: number;
+}
+
+/** Live numbers for the export UI, alongside the percentage. */
+export interface ExportProgressDetail {
+  frame: number;
+  totalFrames: number;
+  /** Frames per second the render is currently achieving. */
+  fps: number;
+  /** Milliseconds left at the current rate, or null before there is a rate. */
+  etaMs: number | null;
+  /** Which encoder is doing the work. */
+  engine: 'webcodecs' | 'ffmpeg';
+  phase: 'preparing' | 'rendering' | 'audio' | 'done';
+  /**
+   * One entry per render window when the farm is running, so the UI can
+   * show what each is doing rather than one average. Empty for a
+   * single-window render.
+   */
+  lanes?: { worker: number; chunk: number; frames: number; totalFrames: number }[];
 }
 
 export interface ExportResult {
@@ -62,6 +104,12 @@ export interface ExportResult {
   height: number;
   /** How many clips actually contributed sound to the mix. */
   audioSegments: number;
+  /** Which encoder produced the picture. */
+  engine: 'webcodecs' | 'ffmpeg';
+  /** How the work was split: 1 window and 1 chunk means it was not. */
+  farm: { workers: number; chunks: number };
+  /** Why the fast path was not taken, when it was asked for and refused. */
+  engineNote?: string;
   /** Where the render time went, so a slow one can be diagnosed. */
   timing?: {
     seekMs: number;
@@ -376,6 +424,195 @@ function windowAudioClips(
   return out;
 }
 
+/** Where a render's time went, accumulated as it goes. */
+export interface RenderTiming {
+  seekMs: number;
+  compositeMs: number;
+  encodeMs: number;
+  writeMs: number;
+}
+
+export interface FrameSequenceSpec {
+  tracks: Track[];
+  project: ProjectSettings;
+  width: number;
+  height: number;
+  fps: number;
+  /** Where on the timeline the RENDER starts, not this run of frames. */
+  startMs: number;
+  /**
+   * The index, within the whole render, of this run's first frame.
+   *
+   * Zero for a single-window export; the chunk's first frame for a farm
+   * worker. It exists so the two paths compute a timestamp with the
+   * IDENTICAL arithmetic, and that is not pedantry — it was measured.
+   *
+   * The farm used to be handed a pre-multiplied `startMs` of
+   * `(240 * 1000) / 30`, which is exactly 8000, while the single window
+   * reached the same instant as `0 + 240 * (1000 / 30)`, which is
+   * 8000.000000000001. Same moment, different bits, and at a clip
+   * boundary they fall on opposite sides of it: frame 240 of a 600-frame
+   * render came out visibly different between the two paths, and only
+   * that frame, and only at that one seam.
+   */
+  firstFrame?: number;
+  totalFrames: number;
+  canvas: HTMLCanvasElement;
+  ctx: CanvasRenderingContext2D;
+  /** The WebCodecs encoder, or null to fall back to JPEG stills. */
+  encoder: FrameEncoder | null;
+  /** Where a JPEG goes when there is no encoder. */
+  sendJpeg: (bytes: Uint8Array) => Promise<{ ok: boolean; error?: string }>;
+  timing: RenderTiming;
+  /**
+   * Called on a clock rather than per frame — see the comment at the
+   * call site. Receives frames finished so far.
+   */
+  onProgress: (framesDone: number) => void;
+}
+
+/** ~12 progress updates a second, whatever the render rate. */
+const PROGRESS_INTERVAL_MS = 80;
+
+/**
+ * Make sure every font the render will draw with is actually loaded.
+ *
+ * `await document.fonts.ready` is NOT enough, and the difference is a
+ * bug that shipped past a suite: `ready` only waits for faces something
+ * has ALREADY requested, and assigning `ctx.font` on a canvas requests
+ * nothing. A window that has not laid out any DOM text in Inter — which
+ * is every render-farm worker, because they mount no React at all —
+ * therefore resolves `ready` immediately and draws its first frames in
+ * the platform fallback.
+ *
+ * It was found as a single wrong frame: on a 600-frame farmed render,
+ * frame 240 differed from the single-window render by 6.2 mean levels,
+ * in a band across the middle of the picture and nowhere else. That band
+ * was the title. Whether it happens at all, and to which chunk, is a
+ * race between four windows and the font cache, so it is exactly the
+ * kind of defect that reproduces on somebody else's machine and not on
+ * yours.
+ *
+ * `load()` is what actually requests a face. Failures are swallowed on
+ * purpose: a missing font must fall back and render, not stop the export.
+ */
+export async function ensureFontsLoaded(tracks: Track[]): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) return;
+
+  /* Inter unconditionally: `fontString` names it as the fallback for
+     every text clip, so it is drawn even by clips that ask for something
+     else and do not get it. */
+  const families = new Set<string>(['Inter']);
+  for (const track of tracks) {
+    for (const clip of track.clips) {
+      const family = clip.textStyle?.fontFamily;
+      if (family) families.add(family);
+    }
+  }
+
+  await Promise.all(
+    [...families].flatMap((family) =>
+      /* Both weights the compositor commonly asks for. A face loaded at
+         one weight does not bring its siblings with it. */
+      [400, 700].map((weight) =>
+        document.fonts.load(`${weight} 16px "${family}"`).catch(() => [])
+      )
+    )
+  );
+  try { await document.fonts.ready; } catch { /* no font loading API */ }
+}
+
+/**
+ * Composite and encode a run of frames.
+ *
+ * THE one frame loop. The single-window export and every render-farm
+ * worker call this, because a second copy of it is a second definition
+ * of what a frame looks like — and the two would agree right up until
+ * somebody changed one of them.
+ */
+export async function renderFrameSequence(spec: FrameSequenceSpec): Promise<void> {
+  const {
+    tracks, project, width, height, fps, startMs, totalFrames,
+    canvas, ctx, encoder, sendJpeg, timing, onProgress,
+  } = spec;
+
+  const firstFrame = spec.firstFrame ?? 0;
+  const frameIntervalMs = 1000 / fps;
+  let lastReportAt = 0;
+
+  for (let frame = 0; frame < totalFrames; frame++) {
+    /*
+      Counted from the start of the RENDER, not of this chunk. See
+      `firstFrame` above: the alternative put one frame of a farmed
+      render on the wrong side of a cut.
+    */
+    const timestampMs = startMs + (firstFrame + frame) * frameIntervalMs;
+
+    /*
+      Park every <video> on the exact source frame this instant needs
+      BEFORE compositing. `renderTimelineFrame` is synchronous: it draws
+      whatever frame each element happens to be holding, so without this
+      the export writes one stale frame over and over — a real file, the
+      right duration, and completely the wrong picture.
+    */
+    let t0 = performance.now();
+    await seekVideosForFrame(tracks, timestampMs);
+    timing.seekMs += performance.now() - t0;
+
+    t0 = performance.now();
+    renderTimelineFrame(ctx, tracks, project, timestampMs, width, height);
+    timing.compositeMs += performance.now() - t0;
+
+    if (encoder) {
+      /*
+        `encode` hands the frame to the hardware and returns. The encoder
+        works while the loop seeks and composites the NEXT frame, which
+        is the second half of the win — the first is that the picture is
+        never read back off the GPU at all.
+
+        `settle` is where the waiting happens, and only when a queue is
+        actually deep. On a render that composites faster than the
+        encoder drains it costs the difference; on one that composites
+        slower it costs nothing.
+      */
+      t0 = performance.now();
+      encoder.encode(canvas, frame);
+      timing.encodeMs += performance.now() - t0;
+
+      t0 = performance.now();
+      await encoder.settle();
+      timing.writeMs += performance.now() - t0;
+    } else {
+      t0 = performance.now();
+      const jpeg = await canvasToJpeg(canvas);
+      timing.encodeMs += performance.now() - t0;
+
+      t0 = performance.now();
+      const written = await sendJpeg(jpeg);
+      timing.writeMs += performance.now() - t0;
+      if (!written.ok) throw new Error(written.error ?? 'The encoder stopped accepting frames.');
+    }
+
+    /*
+      Progress on a CLOCK, not a frame count.
+
+      `frame % 5` was written for a render that managed 22 frames a
+      second; the fast path does several hundred, which is a store write
+      and a React pass every 15ms, and a yield to the event loop with
+      them. Throttling to ~12 updates a second makes the reporting cost
+      independent of the render rate, and the number a viewer can
+      actually read is the same either way.
+    */
+    const now = performance.now();
+    if (now - lastReportAt >= PROGRESS_INTERVAL_MS || frame === totalFrames - 1) {
+      onProgress(frame + 1);
+      lastReportAt = now;
+      // Let the UI paint; without this the window locks for the whole render.
+      await new Promise((r) => setTimeout(r, 0));
+    }
+  }
+}
+
 /**
  * Render the sequence to a real file.
  *
@@ -386,7 +623,7 @@ export async function runHardwareExport(
   tracks: Track[],
   project: ProjectSettings,
   config: ExportConfig,
-  onProgress: (progressPct: number, statusText: string) => void
+  onProgress: (progressPct: number, statusText: string, detail?: ExportProgressDetail) => void
 ): Promise<ExportResult> {
   const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
   if (!api?.exporter) {
@@ -415,6 +652,7 @@ export async function runHardwareExport(
     looking exactly like a deliberate shot.
   */
   onProgress(1, 'Decoding video sources…');
+  await ensureFontsLoaded(tracks);
   const undecodable = await undecodableSources(tracks);
   if (undecodable.length > 0) {
     throw new Error(
@@ -426,12 +664,11 @@ export async function runHardwareExport(
 
   onProgress(2, 'Starting encoder…');
 
-  const started = await api.exporter.start({
-    width, height, fps: config.fps, codec: config.codec,
-    outputPath, hardware: config.hardware, bitrateMbps: config.bitrateMbps,
-  });
-  if (!started.sessionId) throw new Error(started.error ?? 'Could not start the encoder.');
-  const sessionId = started.sessionId;
+  /*
+    The canvas has to exist before the encoder is built, because the
+    encoder is configured against its exact size and the fallback path
+    reads the same surface.
+  */
 
   /*
     Render at the EXPORT resolution, not the project's. The compositor
@@ -458,12 +695,100 @@ export async function runHardwareExport(
     flight, so the ring bought nothing and cost 66MB at 1080p. If frame
     encoding is ever worth parallelising it needs OffscreenCanvas in
     workers, or WebCodecs, not more canvases on this thread.
+
+    It is WebCodecs, and `frameEncoder.ts` is it. `toBlob` is no longer
+    on the hot path at all when the platform will take the codec.
   */
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d', { alpha: false });
-  if (!ctx) throw new Error('Could not create a render context for export.');
+  /*
+    Built lazily, because a chunked render never draws in THIS window —
+    the workers each have their own — and `canvas.width = 3840` allocates
+    the backing store whether or not anything is ever drawn on it. 33MB
+    held for the length of a 4K render, for a surface nobody touches.
+  */
+  let surface: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null = null;
+  const editorCanvas = () => {
+    if (surface) return surface;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) throw new Error('Could not create a render context for export.');
+    surface = { canvas, ctx };
+    return surface;
+  };
+
+  /*
+    Build the hardware encoder BEFORE opening the ffmpeg session, because
+    what ffmpeg is told to expect on its stdin depends on whether this
+    succeeded. Asking for `-f h264` and then sending JPEGs produces a
+    file of the right length full of nothing.
+  */
+  const encoderOptions = {
+    width, height, fps: config.fps, codec: config.codec,
+    bitrateMbps: config.bitrateMbps, hardware: config.hardware ?? true,
+  };
+
+  /*
+    Decide the format ONCE, in front, before anything is opened.
+
+    ffmpeg is told what to expect on its stdin at the moment the session
+    starts, and every render window then has to produce exactly that. A
+    worker that probed for itself and fell back would send JPEG stills
+    into a pipe reading h264 — a file of the right length containing
+    nothing at all.
+  */
+  let engineNote: string | undefined;
+  let frameFormat: 'jpeg' | 'h264' | 'hevc' = 'jpeg';
+
+  if ((config.engine ?? 'auto') === 'auto') {
+    const probe = await probeFrameFormat(encoderOptions);
+    if (probe.format) frameFormat = probe.format;
+    else engineNote = probe.reason;
+  } else {
+    engineNote = 'The ffmpeg encoder was requested, so the picture is re-encoded from JPEG stills.';
+  }
+
+  const engine: 'webcodecs' | 'ffmpeg' = frameFormat === 'jpeg' ? 'ffmpeg' : 'webcodecs';
+
+  /*
+    How the work is split. `planFarm` in main owns the arithmetic; asking
+    it rather than repeating it here is what keeps the renderer's idea of
+    "how many chunks" and the farm's from drifting apart.
+  */
+  const plan = api.exporter.plan
+    ? await api.exporter.plan({ totalFrames, fps: config.fps, workers: config.workers })
+    : { workers: 1, chunks: 1, chunked: false, reason: '' };
+
+  onProgress(2, plan.chunked ? `Opening ${plan.workers} render windows…` : 'Starting encoder…');
+
+  const started = await api.exporter.start({
+    width, height, fps: config.fps, codec: config.codec,
+    outputPath, hardware: config.hardware, bitrateMbps: config.bitrateMbps,
+    frameFormat,
+  });
+  if (!started.sessionId) throw new Error(started.error ?? 'Could not start the encoder.');
+  const sessionId = started.sessionId;
+
+  /*
+    The encoder in THIS window, built only when this window is the one
+    doing the rendering. In farm mode each worker builds its own and the
+    editor's canvas is never touched — which is also why the UI stays
+    responsive during a chunked render.
+  */
+  let frameEncoder: FrameEncoder | null = null;
+  if (!plan.chunked && frameFormat !== 'jpeg') {
+    const built = await createFrameEncoder({
+      ...encoderOptions,
+      sink: (bytes, frames) => api.exporter!.frame(sessionId, bytes, frames),
+    });
+    frameEncoder = built.encoder;
+    if (!built.encoder) {
+      /* The probe said yes and the build said no. Rare, and it must not
+         become a silent JPEG render into an h264 pipe. */
+      await api.exporter.cancel(sessionId);
+      throw new Error(`The encoder could not start: ${(built as { reason: string }).reason}`);
+    }
+  }
 
   /*
     Where the time actually goes. The handover has listed a performance
@@ -474,48 +799,89 @@ export async function runHardwareExport(
   */
   const timing = { seekMs: 0, compositeMs: 0, encodeMs: 0, writeMs: 0 };
 
+  const renderBeganAt = performance.now();
+
+  /* One reporter for both paths, so the numbers mean the same thing
+     whether one window rendered or four did. */
+  const reportFrames = (
+    done: number,
+    lanes?: { worker: number; chunk: number; frames: number; totalFrames: number }[]
+  ) => {
+    const elapsed = performance.now() - renderBeganAt;
+    const rate = elapsed > 0 ? (done / elapsed) * 1000 : 0;
+    const pct = 2 + Math.round((done / totalFrames) * 88);
+    onProgress(pct, `Encoding frame ${done} of ${totalFrames}`, {
+      frame: done,
+      totalFrames,
+      fps: Math.round(rate * 10) / 10,
+      etaMs: rate > 0 ? Math.round(((totalFrames - done) / rate) * 1000) : null,
+      engine,
+      phase: 'rendering',
+      ...(lanes ? { lanes } : {}),
+    });
+  };
+
   try {
-    for (let frame = 0; frame < totalFrames; frame++) {
-      const timestampMs = startMs + frame * frameIntervalMs;
-
+    if (plan.chunked) {
       /*
-        Park every <video> on the exact source frame this instant needs
-        BEFORE compositing. `renderTimelineFrame` is synchronous: it draws
-        whatever frame each element happens to be holding, so without this
-        the export writes one stale frame over and over — a real file, the
-        right duration, and completely the wrong picture.
+        The farm. Main opens the windows, hands each a slice, and joins
+        the chunk files in timeline order when they are all in. This
+        window does no compositing at all while it runs, which is why the
+        editor stays usable during a long render.
       */
-      let t0 = performance.now();
-      await seekVideosForFrame(tracks, timestampMs);
-      timing.seekMs += performance.now() - t0;
-
-      t0 = performance.now();
-      renderTimelineFrame(ctx, tracks, project, timestampMs, width, height);
-      timing.compositeMs += performance.now() - t0;
-
-      t0 = performance.now();
-      const jpeg = await canvasToJpeg(canvas);
-      timing.encodeMs += performance.now() - t0;
-
-      t0 = performance.now();
-      const written = await api.exporter.frame(sessionId, jpeg);
-      timing.writeMs += performance.now() - t0;
-      if (!written.ok) throw new Error(written.error ?? 'The encoder stopped accepting frames.');
-
-      if (frame % 5 === 0 || frame === totalFrames - 1) {
-        const pct = 2 + Math.round((frame / totalFrames) * 88);
-        onProgress(pct, `Encoding frame ${frame + 1} of ${totalFrames}`);
-        // Let the UI paint; without this the window locks for the whole render.
-        await new Promise((r) => setTimeout(r, 0));
+      const stopListening = api.exporter.onChunkProgress?.((p) =>
+        reportFrames(p.frames, p.lanes)
+      );
+      try {
+        const farmed = await api.exporter.runChunked!({
+          sessionId,
+          width, height, fps: config.fps, codec: config.codec,
+          hardware: config.hardware, bitrateMbps: config.bitrateMbps,
+          frameFormat,
+          /* Plain JSON across the bridge — the workers rebuild nothing,
+             they render exactly these clips. */
+          project, tracks,
+          startMs, totalFrames,
+          workers: plan.workers,
+        });
+        if (!farmed.ok) throw new Error(farmed.error ?? 'The chunked render failed.');
+      } finally {
+        stopListening?.();
       }
+    } else {
+      const { canvas, ctx } = editorCanvas();
+      await renderFrameSequence({
+        tracks, project, width, height, fps: config.fps,
+        startMs, totalFrames, canvas, ctx,
+        encoder: frameEncoder,
+        sendJpeg: (bytes) => api.exporter!.frame(sessionId, bytes),
+        timing,
+        onProgress: (done) => reportFrames(done),
+      });
     }
 
-    onProgress(92, 'Mixing audio…');
+    /*
+      Drain the encoder before asking ffmpeg to close the file. Frames
+      are still inside the hardware at this point: closing the pipe first
+      truncates the render by however deep the queue happened to be.
+    */
+    if (frameEncoder) {
+      onProgress(90, 'Finishing the last frames…', {
+        frame: totalFrames, totalFrames, fps: 0, etaMs: 0, engine, phase: 'rendering',
+      });
+      await frameEncoder.finish();
+    }
+
+    onProgress(92, 'Mixing audio…', {
+      frame: totalFrames, totalFrames, fps: 0, etaMs: null, engine, phase: 'audio',
+    });
     const audioClips = windowAudioClips(collectAudioClips(tracks), startMs, renderMs);
     const result = await api.exporter.finish(sessionId, audioClips);
     if (!result.ok) throw new Error(result.error ?? 'Encoding failed.');
 
-    onProgress(100, `Wrote ${result.outputPath}`);
+    onProgress(100, `Wrote ${result.outputPath}`, {
+      frame: totalFrames, totalFrames, fps: 0, etaMs: 0, engine, phase: 'done',
+    });
 
     return {
       outputPath: result.outputPath!,
@@ -530,6 +896,9 @@ export async function runHardwareExport(
       width,
       height,
       audioSegments: audioClips.length,
+      engine,
+      farm: { workers: plan.chunked ? plan.workers : 1, chunks: plan.chunked ? plan.chunks : 1 },
+      ...(engineNote ? { engineNote } : {}),
       timing: {
         seekMs: Math.round(timing.seekMs),
         compositeMs: Math.round(timing.compositeMs),
@@ -542,6 +911,7 @@ export async function runHardwareExport(
       },
     };
   } catch (err) {
+    frameEncoder?.close();
     await api.exporter.cancel(sessionId);
     throw err;
   }

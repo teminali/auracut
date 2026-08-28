@@ -259,8 +259,12 @@ export interface KerfElectronAPI {
       width: number; height: number; fps: number;
       codec: 'h264' | 'hevc' | 'prores'; outputPath: string;
       hardware?: boolean; bitrateMbps?: number;
+      /* `jpeg` is one still per frame, decoded and re-encoded by ffmpeg.
+         `h264`/`hevc` mean the renderer already encoded it and main only
+         stream-copies. */
+      frameFormat?: 'jpeg' | 'h264' | 'hevc';
     }) => Promise<{ sessionId?: string; error?: string }>;
-    frame: (sessionId: string, jpeg: Uint8Array) => Promise<{ ok: boolean; error?: string }>;
+    frame: (sessionId: string, jpeg: Uint8Array, frames?: number) => Promise<{ ok: boolean; error?: string }>;
     finish: (sessionId: string, audioClips: unknown[]) => Promise<{
       ok: boolean; outputPath?: string; frames?: number; hasAudio?: boolean;
       bytes?: number; error?: string; audioError?: string;
@@ -273,7 +277,53 @@ export interface KerfElectronAPI {
         note?: string;
       };
     }>;
+    /** One render-farm worker's picture, appended to its own chunk file. */
+    chunk: (sessionId: string, index: number, bytes: Uint8Array, frames: number)
+      => Promise<{ ok: boolean; error?: string }>;
+    /**
+     * Render across several hidden windows at once and join the result.
+     * Resolves when every chunk has been written and fed to the encoder.
+     */
+    runChunked: (spec: {
+      sessionId: string;
+      width: number; height: number; fps: number;
+      codec: 'h264' | 'hevc' | 'prores';
+      hardware?: boolean; bitrateMbps?: number;
+      frameFormat: 'jpeg' | 'h264' | 'hevc';
+      project: unknown; tracks: unknown;
+      startMs: number; totalFrames: number; workers: number;
+    }) => Promise<{ ok: boolean; chunks?: number; error?: string }>;
+    /**
+     * How the render will be split. Decided in main, because that is
+     * where the chunk arithmetic lives and two copies of it would
+     * eventually disagree.
+     */
+    plan: (opts: { totalFrames: number; fps: number; workers?: number }) => Promise<{
+      workers: number; chunks: number; chunked: boolean; reason: string;
+    }>;
+    onChunkProgress: (cb: (p: {
+      frames: number;
+      totalFrames: number;
+      lanes: { worker: number; chunk: number; frames: number; totalFrames: number }[];
+    }) => void) => () => void;
     cancel: (sessionId: string) => Promise<boolean>;
+  };
+
+  /**
+   * Bound in every window, but only ever used by the hidden render-farm
+   * ones. `startRenderWorker` is the sole caller.
+   */
+  renderWorker: {
+    onJob: (cb: (job: unknown) => void) => () => void;
+    report: (msg: Record<string, unknown>) => void;
+  };
+
+  /** Show a finished file to the user, in their own file manager. */
+  shell: {
+    /** Highlight the file in Finder / Explorer / the desktop's manager. */
+    reveal: (path: string) => Promise<boolean>;
+    /** Open it in whatever the OS considers the right application. */
+    open: (path: string) => Promise<{ ok: boolean; error?: string }>;
   };
 
   media: {

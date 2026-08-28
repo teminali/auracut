@@ -79,6 +79,16 @@ export interface StartExportOptions {
   /** Prefer Apple VideoToolbox where the codec supports it. */
   hardware?: boolean;
   bitrateMbps?: number;
+  /**
+   * What arrives on the pipe.
+   *
+   * `jpeg` is the original path: one compressed still per frame, decoded
+   * and re-encoded here. `h264`/`hevc` mean the RENDERER has already
+   * encoded the picture with WebCodecs and this side does nothing but
+   * stream-copy it into a container — no decode, no second encode, and
+   * the bytes in the file are the bytes the encoder produced.
+   */
+  frameFormat?: 'jpeg' | 'h264' | 'hevc';
 }
 
 interface Session {
@@ -92,6 +102,23 @@ interface Session {
   /** Set when ffmpeg dies early, so writeFrame can fail loudly. */
   failed: Error | null;
   closed: Promise<void>;
+  /**
+   * Picture written out of order, one file per chunk.
+   *
+   * A chunked render has several windows compositing DIFFERENT parts of
+   * the timeline at once, and they finish at whatever rate their slice
+   * happens to take. They cannot share the one pipe — ffmpeg reads a
+   * stream, and interleaved slices are not a stream — so each writes to
+   * its own file and `drainChunks` feeds them in, in order, at the end.
+   *
+   * This works for BOTH formats, and it is the reason the chunked path
+   * is a hundred lines rather than a muxer. A JPEG stream is
+   * concatenated JPEGs. An Annex B stream is concatenated NAL units, and
+   * every chunk starts on an IDR with its own SPS/PPS because the
+   * encoder is asked for a keyframe on the chunk's first frame. Joining
+   * either is `cat`.
+   */
+  chunks: Map<number, { stream: fs.WriteStream; path: string; frames: number; done: boolean }>;
 }
 
 const sessions = new Map<string, Session>();
@@ -145,16 +172,52 @@ export function startExport(options: StartExportOptions): { sessionId: string } 
   const dir = fs.mkdtempSync(path.join(app.getPath('temp'), 'kerf-export-'));
   const videoPath = path.join(dir, options.codec === 'prores' ? 'video.mov' : 'video.mp4');
 
-  const args = [
-    '-y',
-    // Input: a stream of JPEGs, one per frame, at the project rate.
-    '-f', 'image2pipe',
-    '-framerate', String(options.fps),
-    '-i', 'pipe:0',
-    ...encoderArgs(options),
-    '-r', String(options.fps),
-    videoPath,
-  ];
+  /*
+    Two shapes of input, and the difference is the whole point of the
+    fast path. A JPEG stream has to be decoded and encoded here. An
+    elementary stream is already finished: ffmpeg's only job is to put
+    timestamps on it and write a container, which costs approximately
+    nothing and — more importantly — cannot degrade the picture.
+
+    A raw stream carries no timing of its own, so the INPUT side is what
+    gives the frames their spacing — and the option is `-r`, not
+    `-framerate`. That distinction is the whole of a bug that took a
+    verify run to find: `-framerate` is the image2pipe demuxer's option
+    and the raw h264 demuxer ignores it, so a 90-frame 30fps render came
+    out 90 frames long and 1.667 SECONDS long, playing at 54fps with the
+    audio muxed against a timeline nearly twice its length.
+
+    Measured on a real Chromium encoder stream, 90 frames at 30fps:
+
+        -framerate 30 (input)                  90 frames   1.667s
+        -framerate 30 (input) + -r 30 (output) 90 frames   1.703s
+        -r 30 (input)                          90 frames   3.000s
+
+    Nothing was ever lost — every variant carries all 90 frames. Only
+    the input `-r` gives them the right spacing.
+  */
+  const raw = options.frameFormat === 'h264' || options.frameFormat === 'hevc';
+
+  const args = raw
+    ? [
+        '-y',
+        '-f', options.frameFormat!,
+        '-r', String(options.fps),
+        '-i', 'pipe:0',
+        '-c:v', 'copy',
+        ...(options.codec === 'hevc' ? ['-tag:v', 'hvc1'] : []),
+        videoPath,
+      ]
+    : [
+        '-y',
+        // Input: a stream of JPEGs, one per frame, at the project rate.
+        '-f', 'image2pipe',
+        '-framerate', String(options.fps),
+        '-i', 'pipe:0',
+        ...encoderArgs(options),
+        '-r', String(options.fps),
+        videoPath,
+      ];
 
   const proc = spawn(ff, args, { stdio: ['pipe', 'ignore', 'pipe'] });
 
@@ -162,6 +225,7 @@ export function startExport(options: StartExportOptions): { sessionId: string } 
     id, proc, videoPath, outputPath: options.outputPath, options,
     framesWritten: 0, stderr: '', failed: null,
     closed: Promise.resolve(),
+    chunks: new Map(),
   };
 
   proc.stderr?.setEncoding('utf8');
@@ -185,8 +249,21 @@ export function startExport(options: StartExportOptions): { sessionId: string } 
   return { sessionId: id };
 }
 
-/** Push one composited frame. Applies backpressure so memory stays flat. */
-export function writeFrame(sessionId: string, jpeg: Uint8Array): Promise<{ ok: boolean; error?: string }> {
+/**
+ * Push composited picture. Applies backpressure so memory stays flat.
+ *
+ * `frames` is how many frames the bytes represent, and it is a parameter
+ * rather than an increment because the WebCodecs path batches: one write
+ * carries roughly a megabyte of h264, which is ~20 frames at 1080p.
+ * Counting writes instead would put `framesWritten` an order of
+ * magnitude low, and that number sets the mux's `-t` — the file would be
+ * cut to a twentieth of its length with the audio truncated to match.
+ */
+export function writeFrame(
+  sessionId: string,
+  jpeg: Uint8Array,
+  frames = 1
+): Promise<{ ok: boolean; error?: string }> {
   const session = sessions.get(sessionId);
   if (!session) return Promise.resolve({ ok: false, error: 'No such export session.' });
   if (session.failed) return Promise.resolve({ ok: false, error: session.failed.message });
@@ -196,13 +273,122 @@ export function writeFrame(sessionId: string, jpeg: Uint8Array): Promise<{ ok: b
     const ok = session.proc.stdin?.write(buffer, (err) =>
       err ? resolve({ ok: false, error: err.message }) : undefined
     );
-    session.framesWritten++;
+    session.framesWritten += frames;
 
     // `write` returning false means the buffer is full — wait for drain
     // instead of queueing gigabytes of frames in memory.
     if (ok === false) session.proc.stdin?.once('drain', () => resolve({ ok: true }));
     else resolve({ ok: true });
   });
+}
+
+/**
+ * Append one worker's picture to its own chunk file.
+ *
+ * Unlike `writeFrame` there is no backpressure to apply: a file accepts
+ * everything at disk speed, and the memory the pipe was protecting is
+ * not at risk. What IS at risk is losing a write, so the callback is
+ * awaited rather than fired and forgotten.
+ */
+export function writeChunk(
+  sessionId: string, index: number, bytes: Uint8Array, frames: number
+): Promise<{ ok: boolean; error?: string }> {
+  const session = sessions.get(sessionId);
+  if (!session) return Promise.resolve({ ok: false, error: 'No such export session.' });
+  if (session.failed) return Promise.resolve({ ok: false, error: session.failed.message });
+
+  let chunk = session.chunks.get(index);
+  if (!chunk) {
+    const chunkPath = path.join(path.dirname(session.videoPath), `chunk-${index}.bin`);
+    chunk = { stream: fs.createWriteStream(chunkPath), path: chunkPath, frames: 0, done: false };
+    session.chunks.set(index, chunk);
+  }
+  if (chunk.done) return Promise.resolve({ ok: false, error: `Chunk ${index} is already closed.` });
+
+  chunk.frames += frames;
+  return new Promise((resolve) => {
+    chunk!.stream.write(Buffer.from(bytes), (err) =>
+      resolve(err ? { ok: false, error: err.message } : { ok: true })
+    );
+  });
+}
+
+/**
+ * Throw away whatever a failed attempt wrote and start the chunk again.
+ *
+ * `writeChunk` APPENDS, so a retry without this would land on top of the
+ * half-written bytes of the attempt that died: a chunk containing the
+ * first two seconds twice, joined into the render without complaint.
+ */
+export function resetChunk(sessionId: string, index: number): Promise<{ ok: boolean }> {
+  const session = sessions.get(sessionId);
+  const chunk = session?.chunks.get(index);
+  if (!session || !chunk) return Promise.resolve({ ok: true });
+
+  session.chunks.delete(index);
+  return new Promise((resolve) => {
+    chunk.stream.destroy();
+    try { fs.rmSync(chunk.path, { force: true }); } catch { /* never written */ }
+    resolve({ ok: true });
+  });
+}
+
+/** Finish one chunk. Its file is complete after this resolves. */
+export function closeChunk(sessionId: string, index: number): Promise<{ ok: boolean; frames: number }> {
+  const session = sessions.get(sessionId);
+  const chunk = session?.chunks.get(index);
+  if (!session || !chunk) return Promise.resolve({ ok: false, frames: 0 });
+  if (chunk.done) return Promise.resolve({ ok: true, frames: chunk.frames });
+  chunk.done = true;
+  return new Promise((resolve) =>
+    chunk.stream.end(() => resolve({ ok: true, frames: chunk.frames }))
+  );
+}
+
+/**
+ * Feed every chunk into ffmpeg, in timeline order.
+ *
+ * Order is the entire contract. The chunks are byte-concatenable but not
+ * commutative: play them out of sequence and the render is shuffled,
+ * with no error anywhere, which is why a missing chunk is a hard failure
+ * rather than a gap to skip over.
+ */
+export async function drainChunks(sessionId: string, count: number): Promise<{ ok: boolean; error?: string }> {
+  const session = sessions.get(sessionId);
+  if (!session) return { ok: false, error: 'No such export session.' };
+
+  /*
+    Read through a helper rather than testing `session.failed` directly.
+    ffmpeg sets it from a `close` handler, so it changes underneath this
+    loop — but a direct test narrows the field to `never` for the rest of
+    the function and the compiler then refuses the re-check that is the
+    entire point of looking again.
+  */
+  const failure = () => sessions.get(sessionId)?.failed ?? null;
+  const early = failure();
+  if (early) return { ok: false, error: early.message };
+
+  for (let i = 0; i < count; i++) {
+    const chunk = session.chunks.get(i);
+    if (!chunk || !chunk.done) {
+      return { ok: false, error: `Chunk ${i} of ${count} never finished, so the render is incomplete.` };
+    }
+
+    const ok = await new Promise<boolean>((resolve) => {
+      const read = fs.createReadStream(chunk.path);
+      read.on('error', () => resolve(false));
+      // `end: false` — the pipe stays open for the chunks after this one.
+      read.pipe(session.proc.stdin!, { end: false });
+      read.on('end', () => resolve(true));
+    });
+    if (!ok) return { ok: false, error: `Chunk ${i} could not be read back.` };
+    const late = failure();
+    if (late) return { ok: false, error: late.message };
+
+    session.framesWritten += chunk.frames;
+    try { fs.rmSync(chunk.path, { force: true }); } catch { /* the temp dir goes anyway */ }
+  }
+  return { ok: true };
 }
 
 /* ── Audio ────────────────────────────────────────────────────────
@@ -494,6 +680,29 @@ async function buildAudioMix(clips: ExportClipAudio[], outPath: string): Promise
     : { path: null, included: 0, dropped, error: 'The audio mix failed even after dropping unreadable sources.' };
 }
 
+/**
+ * How long the written video actually is, in seconds, or null.
+ *
+ * Reads the container, so it costs ~20ms whatever the length — no
+ * decoding, no frame counting.
+ */
+function probeDuration(ff: string, file: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    execFile(
+      // Same directory, same suffix — `.exe` included on Windows.
+      ff.replace(/ffmpeg(\.exe)?$/i, 'ffprobe$1'),
+      ['-v', 'error', '-select_streams', 'v:0',
+       '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', file],
+      { timeout: 30_000 },
+      (err, out) => {
+        if (err) { resolve(null); return; }
+        const n = Number.parseFloat(String(out).trim());
+        resolve(Number.isFinite(n) ? n : null);
+      }
+    );
+  });
+}
+
 export interface FinishResult {
   ok: boolean;
   outputPath?: string;
@@ -544,6 +753,39 @@ export async function finishExport(
     return { ok: false, error: `Encoding produced no video. ${session.stderr.slice(-400)}` };
   }
 
+  /*
+    Is the file as long as the render that produced it?
+
+    This is here because of a measured failure, not a hypothetical one. A
+    raw Annex B stream carries no timestamps, so ffmpeg numbers the
+    frames in arrival order — and if the encoder emitted B-frames, the
+    DTS it derives are not monotonic and the mp4 muxer DROPS the
+    offending samples. Measured on a 90-frame test stream: 90 frames in,
+    88 out, 2.933s instead of 3.000s, exit code 0, no warning. The same
+    stream with `-bf 0` came out 90/90 at exactly 3.000s.
+
+    `frameEncoder.ts` asks for `latencyMode: 'realtime'` precisely so
+    that cannot happen. This checks that it did not, because the failure
+    it guards against produces a file that plays.
+  */
+  const expectedSeconds = session.framesWritten / session.options.fps;
+  const rawStream = session.options.frameFormat === 'h264' || session.options.frameFormat === 'hevc';
+  if (ff && rawStream && session.framesWritten > 0) {
+    const actual = await probeDuration(ff, session.videoPath);
+    const tolerance = 2 / session.options.fps;
+    if (actual !== null && Math.abs(actual - expectedSeconds) > tolerance) {
+      const lost = Math.round((expectedSeconds - actual) * session.options.fps);
+      cleanup();
+      return {
+        ok: false,
+        error:
+          `The container kept ${actual.toFixed(3)}s of a ${expectedSeconds.toFixed(3)}s render ` +
+          `(${lost} frame${Math.abs(lost) === 1 ? '' : 's'} lost at the mux). ` +
+          'Export again with the ffmpeg encoder, which re-encodes rather than stream-copying.',
+      };
+    }
+  }
+
   // Audio, if the timeline has any.
   const mix = await buildAudioMix(audioClips, path.join(workDir, 'audio.m4a'));
   const audioReport = {
@@ -578,7 +820,7 @@ export async function finishExport(
     where a long music tail would otherwise leave audio playing over
     nothing.
   */
-  const videoSeconds = session.framesWritten / session.options.fps;
+  const videoSeconds = expectedSeconds;
   // `ff` is `string | null`; without this the mux threw on a machine
   // with no ffmpeg instead of falling back to the silent copy above.
   const ffPath: string | null = ff;

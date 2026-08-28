@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import {
   readSession as readStoreSession,
   writeSession as writeStoreSession,
@@ -13,7 +13,11 @@ import {
   transcribeMedia, transcriberStatus, analyzeAudio, setupTranscription, ffmpeg,
   cancelTranscription,
 } from './transcribe';
-import { startExport, writeFrame, finishExport, cancelExport, ExportClipAudio, StartExportOptions } from './render';
+import {
+  startExport, writeFrame, writeChunk, finishExport, cancelExport,
+  ExportClipAudio, StartExportOptions,
+} from './render';
+import { runChunkedRender, planFarm, ChunkJobSpec } from './renderFarm';
 import { ffmpegSource } from './mediaPath';
 import { execFile } from 'child_process';
 import { startRpcServer } from './rpcServer';
@@ -411,14 +415,58 @@ function registerAgentIpc() {
     analyzeAudio(p.mediaUrl, p.silenceThresholdDb, p.minSilenceMs));
   ipcMain.handle('stt:setup', async (_e, p: { model?: string }) => setupTranscription(p?.model));
 
-  /* Export. Frames arrive from the renderer as JPEG and go straight to
+  /* Export. Picture arrives from the renderer — either as JPEG stills or
+     as an already-encoded h264/hevc stream — and goes straight to
      ffmpeg's stdin; audio is rebuilt from sources at the end. */
   ipcMain.handle('export:start', (_e, opts: StartExportOptions) => startExport(opts));
-  ipcMain.handle('export:frame', (_e, p: { sessionId: string; jpeg: Uint8Array }) =>
-    writeFrame(p.sessionId, p.jpeg));
+  ipcMain.handle('export:frame', (_e, p: { sessionId: string; jpeg: Uint8Array; frames?: number }) =>
+    writeFrame(p.sessionId, p.jpeg, p.frames ?? 1));
   ipcMain.handle('export:finish', (_e, p: { sessionId: string; audioClips: ExportClipAudio[] }) =>
     finishExport(p.sessionId, p.audioClips));
   ipcMain.handle('export:cancel', (_e, p: { sessionId: string }) => { cancelExport(p.sessionId); return true; });
+
+  /* ── The render farm ──────────────────────────────────────────────
+     Several hidden windows composite different slices of the timeline
+     at once, each into its own chunk file; `drainChunks` joins them in
+     order at the end. See `renderFarm.ts` for why chunks outnumber
+     windows.                                                          */
+  ipcMain.handle('export:chunk',
+    (_e, p: { sessionId: string; index: number; bytes: Uint8Array; frames: number }) =>
+      writeChunk(p.sessionId, p.index, p.bytes, p.frames));
+
+  ipcMain.handle('export:plan', (_e, p: { totalFrames: number; fps: number; workers?: number }) =>
+    planFarm(p.totalFrames, p.fps, p.workers));
+
+  ipcMain.handle('export:runChunked', async (e, spec: ChunkJobSpec) => {
+    try {
+      /* Progress goes back to the window that asked, not to `mainWindow`
+         — during a render there is exactly one asker, and addressing the
+         sender keeps this correct if that stops being true. */
+      const sender = e.sender;
+      const result = await runChunkedRender(spec, (p) => {
+        if (!sender.isDestroyed()) sender.send('export:chunkProgress', p);
+      });
+      return { ok: true, chunks: result.chunks };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  /* ── Showing a finished file to its owner ── */
+  ipcMain.handle('shell:reveal', (_e, p: { path: string }) => {
+    if (!p?.path) return false;
+    shell.showItemInFolder(p.path);
+    return true;
+  });
+
+  ipcMain.handle('shell:open', async (_e, p: { path: string }) => {
+    if (!p?.path) return { ok: false, error: 'No path was given.' };
+    /* `openPath` reports a REASON as a non-empty string rather than
+       throwing, so an unplayable or missing file says why instead of
+       silently doing nothing. */
+    const problem = await shell.openPath(p.path);
+    return problem ? { ok: false, error: problem } : { ok: true };
+  });
 
   /* ── Which CLI drives the Copilot ── */
 

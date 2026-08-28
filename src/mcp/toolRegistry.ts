@@ -4181,8 +4181,29 @@ defineTool({
       .boolean()
       .optional()
       .describe('Use Apple VideoToolbox where the codec supports it. Much faster, slightly larger'),
+    engine: z
+      .enum(['auto', 'ffmpeg'])
+      .optional()
+      .describe(
+        'auto (default) encodes the frame on the GPU and stream-copies it, so nothing is ' +
+        're-encoded. ffmpeg sends JPEG stills through libx264 at constant quality: slower, ' +
+        'and the only path for ProRes. Use ffmpeg if a render looks wrong.'
+      ),
+    workers: z
+      .number()
+      .int()
+      .min(1)
+      .max(8)
+      .optional()
+      .describe(
+        'How many hidden windows render at once. Omit to let the machine decide (half its ' +
+        'cores, capped at four). 1 renders the whole timeline in one window, which is the ' +
+        'setting to reach for when a chunked render looks wrong.'
+      ),
   }),
-  handler: async ({ resolution, fps, codec, outputPath, hardware, durationMs, startMs, useInOut }) => {
+  handler: async ({
+    resolution, fps, codec, outputPath, hardware, durationMs, startMs, useInOut, engine, workers,
+  }) => {
     const proj = project();
 
     /*
@@ -4224,6 +4245,8 @@ defineTool({
           durationMs: lengthMs,
           startMs: fromMs,
           hardware,
+          ...(engine ? { engine } : {}),
+          ...(workers ? { workers } : {}),
         },
         (progress, statusText) => proj.setExportProgress(progress, statusText)
       );
@@ -4267,6 +4290,16 @@ defineTool({
           ? { requested: result.audio.requested, included: result.audio.included }
           : undefined,
         elapsedMs: result.elapsedMs,
+        /*
+          How the render was produced, not just what came out. `engine`
+          is the difference between a stream-copied hardware encode and a
+          JPEG round trip through libx264, and `farm` says whether the
+          work was split across windows — both of which change what an
+          `elapsedMs` means and neither of which is visible in the file.
+        */
+        engine: result.engine,
+        ...(result.engineNote ? { engineNote: result.engineNote } : {}),
+        farm: result.farm,
         ...(result.timing ? { timing: result.timing } : {}),
         ...(warnings.length ? { warnings } : {}),
         ...(warnings.length
