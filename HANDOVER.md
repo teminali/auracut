@@ -2087,6 +2087,119 @@ There is a `language` slot on `skill.json` too.
 
 ---
 
+## 7i. Updating a build that cannot sign itself
+
+Squirrel refuses an unsigned macOS build because it cannot VALIDATE a
+signature. Replacing an app bundle does not require one: it is a
+directory swap. So `manual-only` is a real button now, not a link.
+
+`sideloadUpdate` in `electron/updater.ts` downloads the zip the release
+publishes, checks it against the SHA-512 in `latest-mac.yml`, extracts it
+with `ditto -xk`, and swaps the bundle. Two details that are not
+decoration:
+
+* **`ditto`, not `unzip`.** It is what preserves the symlinks, extended
+  attributes and executable bits. An app expanded with `unzip` does not
+  launch.
+* **The old bundle is MOVED aside, not deleted**, and moved back if the
+  copy fails. A half-replaced `/Applications/Kerf.app` leaves the user
+  with no working app and no obvious way back.
+
+**It is not a substitute for code signing and the code says so.** What is
+verified is the checksum the feed publishes, over HTTPS, against the
+bytes that arrive: that catches a corrupted or tampered DOWNLOAD and does
+nothing about a tampered RELEASE. Anyone who can publish to the repo can
+publish anything, exactly as they can today for the manual download this
+replaces.
+
+### And the part that makes it usable rather than a trap
+
+Every sideload changes the binary's cdhash. TCC binds an unsigned app's
+permissions to the cdhash. So a successful update **silently revokes
+screen recording and accessibility** while leaving both switches ON in
+System Settings, and macOS never re-asks because a row already exists.
+
+Shipping an update button without handling that would hand the user a
+button that quietly breaks the recorder every time they press it. So
+`resetStaleGrants` runs as part of the update, before the relaunch, and
+the user is asked once. Best effort: `tccutil` failing is not a reason to
+abandon an update that is already downloaded, verified and swapped in.
+
+The restart stays the user's move. The renderer knows whether there is
+unsaved work; main does not.
+
+---
+
+## 7j. The skill builder, and the three things missing under it
+
+Asked for: turn any project into a skill, and have it ask for the assets
+the skill needs to build something NEW rather than replay the project.
+
+**The Copilot could not do this, and not for want of prompting.** Four
+things were absent, and they are worth knowing because the last one
+defeats any amount of prompt engineering:
+
+1. It is never told skills exist. `SYSTEM_APPEND` does not mention them.
+2. **There is no skill RUNNER.** `recipe` in a manifest is declarative
+   and nothing reads it; the Tutorial skill runs through its own tool.
+3. No tool could write a skill.
+4. Skills are inlined at BUILD time by `import.meta.glob`, so anything
+   written at runtime is invisible to the app that wrote it.
+
+So user skills live under `userData/skills/<id>/` and are read at RUNTIME
+by main, which is the only side of the app that can read a file.
+`electron/userSkills.ts`.
+
+### Five tools, and the one refusal that matters
+
+`inspect_project_for_skill` reads a project as STRUCTURE and CONTENT and
+marks each asset with a `likelyRole` from how often it is used: used
+once is usually the subject, used throughout is usually part of the look.
+A hint, not a decision.
+
+**`create_skill` refuses a manifest with no slots.** That is the single
+reliable sign the content was never separated out: a skill with no slots
+can only rebuild the project it came from, which is a saved project
+wearing a skill's clothes. It also refuses an enum slot with no options,
+for the reason the Tutorial manifest already gives: a vocabulary-less
+enum is a free text field that fails on the fifth character.
+
+`add_skill_asset` COPIES material into the skill rather than referencing
+it. A skill pointing at `~/Desktop/track.mp3` breaks the first time that
+file moves, and it breaks silently at run time.
+
+`list_skills` and `delete_skill` complete it.
+
+### The skill is a method, not a converter
+
+`skills/skill-builder/GUIDE.md` is the interrogation, and it is the
+actual product: what does the new skill MAKE, which assets are the
+subject and which are the look, what must the person supply that this
+project did not need, what should it refuse. Plus how assets are
+standardised: copied not referenced, declared in the manifest, named by
+ROLE rather than by filename, licences stated.
+
+`verify.py` is 10 checks against artifacts. It cannot check that the
+slots are the RIGHT ones. Nothing can; that is the author's judgement and
+the reason this is an interrogation.
+
+### What is still missing, and is deliberately not faked
+
+**The runner.** A skill built here is a specification plus its material,
+which an agent reads and carries out step by step with the tools the
+recipe names. Building a fake runner would have produced skills that look
+finished and do nothing, which is worse than none.
+
+### One that cost a rebuild
+
+`skills/*/skill.json` inside a **block comment closes the comment**.
+esbuild caught it, `npm run build:electron` printed the error above its
+usual success lines, main silently kept the previous bundle, and the IPC
+handler was simply absent at runtime with no clue why. Read the top of
+that command's output, not the tail.
+
+---
+
 ## 8. Product hardening — mostly not started
 
 The roadmap in §5 is about capability. This is about being software
