@@ -2,6 +2,15 @@
    electron/preload.ts by hand — the renderer must not import from the
    Electron layer, so the shape is declared rather than shared. */
 
+/** One published release this build could switch to. */
+export interface ReleaseOption {
+  version: string;
+  tag: string;
+  publishedAt: string;
+  /** True for the version that is running right now. */
+  current: boolean;
+}
+
 export type UpdateStatus =
   | { state: 'idle' }
   | { state: 'checking' }
@@ -414,7 +423,11 @@ export interface KerfElectronAPI {
     install: () => Promise<boolean>;
     openReleases: () => Promise<void>;
     /** Update without Squirrel on an unsigned macOS build. See preload. */
-    sideload: () => Promise<{ ok: boolean; message: string; version?: string }>;
+    /** Replace this bundle. No version means the latest; a version rolls BACK. */
+    sideload: (version?: string) => Promise<{ ok: boolean; message: string; version?: string }>;
+    /** The releases this build could switch to, newest first. */
+    releases: (limit?: number) => Promise<
+      { ok: true; releases: ReleaseOption[] } | { ok: false; error: string }>;
     relaunch: () => Promise<boolean>;
     onStatus: (cb: (status: UpdateStatus) => void) => () => void;
   };

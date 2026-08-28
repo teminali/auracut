@@ -2652,6 +2652,64 @@ because a field persisted.
 
 ---
 
+## 7p. The version is a menu, and it goes backwards
+
+The foot of the home rail was a sentence saying work is autosaved every
+twenty seconds, which nobody needs told twice. It is the version now,
+and the version is a control.
+
+**Why the version and not a Settings page.** This build is unsigned, so
+every update invalidates screen recording and accessibility. "Which
+build am I on" is therefore the first useful question when the recorder
+starts behaving oddly, and hanging checking, updating and rolling back
+off that label puts the actions where somebody already is when they ask
+it.
+
+**Rolling back is the reason the menu exists.** A release that turns out
+to be broken is only recoverable in place if the app can install an
+older build over itself, and it can: `sideloadUpdate` takes a version,
+and every release publishes its own `latest-mac.yml` beside its
+artifacts, so a rollback verifies the old zip against the checksum that
+shipped WITH it rather than against the current feed. Verified before
+shipping that `releases/download/v1.6.3/latest-mac.yml` resolves, names
+the right asset, and that the asset is a 200.
+
+Three previous versions, not all of them. A list of everything ever
+released is an invitation to go somewhere nobody is testing.
+
+`updater:sideload` now allows a rollback on a build that CAN self-update
+while still refusing an update on one. Squirrel installs forward and
+refuses to go back, so "use Restart to update" is the right answer for
+the update and exactly the wrong one for somebody trying to get off a
+bad release.
+
+**Versions are compared numerically**, because string comparison sorts
+`1.10.0` before `1.9.0` and would offer somebody on 1.10 a "rollback" to
+something newer, which the sideloader would then happily install.
+`versionOrder.test.ts`.
+
+**A rollback is confirmed in place**, with the consequences named:
+it replaces the running application, clears the screen-recording grant,
+and projects saved by a newer build may not open. Not something to do
+because a menu was misread.
+
+### And the update announces itself in the card that was already there
+
+`UpdateBanner` reuses the unsaved-work card exactly: same surface, same
+icon-title-body, same full-width button. That card is the rail's
+established way of saying "something happened while you were away and
+here is the one thing to do about it", and an update is that. The
+unsaved-work notice was NOT replaced by it; both live in the rail, and
+recovery keeps its place because it is the only route back to unsaved
+work.
+
+The reachability check in `iconography.test.ts` now asserts the real
+invariant rather than one component's name: every screen the app can
+open on offers a route to a waiting update, and the home screen offers
+two on purpose, an announcement and a deliberate route.
+
+---
+
 ## 8. Product hardening — mostly not started
 
 The roadmap in §5 is about capability. This is about being software

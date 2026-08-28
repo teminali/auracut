@@ -287,7 +287,10 @@ export interface ElectronAPI {
      * whether or not anybody clears them. Does not relaunch; that is
      * `relaunch`, so the caller can save first.
      */
-    sideload: () => Promise<{ ok: boolean; message: string; version?: string }>;
+    sideload: (version?: string) => Promise<{ ok: boolean; message: string; version?: string }>;
+    releases: (limit?: number) => Promise<
+      { ok: true; releases: { version: string; tag: string; publishedAt: string; current: boolean }[] }
+      | { ok: false; error: string }>;
     /** Quit and come straight back up. */
     relaunch: () => Promise<boolean>;
     /** Subscribe to state changes; returns an unsubscribe function. */
@@ -467,7 +470,8 @@ const api: ElectronAPI = {
     check: () => ipcRenderer.invoke('updater:check'),
     install: () => ipcRenderer.invoke('updater:install'),
     openReleases: () => ipcRenderer.invoke('updater:openReleases'),
-    sideload: () => ipcRenderer.invoke('updater:sideload'),
+    sideload: (version?: string) => ipcRenderer.invoke('updater:sideload', { version }),
+    releases: (limit?: number) => ipcRenderer.invoke('updater:releases', { limit }),
     relaunch: () => ipcRenderer.invoke('updater:relaunch'),
     onStatus: (cb) => {
       const handler = (_e: unknown, status: UpdateStatus) => cb(status);

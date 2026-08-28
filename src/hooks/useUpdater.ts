@@ -7,7 +7,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { useCallback, useEffect, useState } from 'react';
-import type { UpdateStatus } from '../types/electron';
+import type { UpdateStatus, ReleaseOption } from '../types/electron';
 
 export interface Updater {
   status: UpdateStatus;
@@ -21,7 +21,9 @@ export interface Updater {
    * Update in place on a build Squirrel refuses. Resolves once the new
    * version is on disk; it does NOT relaunch.
    */
-  sideload: () => Promise<{ ok: boolean; message: string; version?: string }>;
+  sideload: (version?: string) => Promise<{ ok: boolean; message: string; version?: string }>;
+  /** The releases this build could switch to, newest first. */
+  releases: (limit?: number) => Promise<ReleaseOption[]>;
   relaunch: () => void;
 }
 
@@ -55,15 +57,21 @@ export function useUpdater(): Updater {
     finish and restart in their own time. Relaunching for them is the one
     thing the whole update flow is written to avoid.
   */
-  const sideload = useCallback(async () => {
+  const releases = useCallback(async (limit?: number) => {
+    if (!api) return [];
+    const reply = await api.updater.releases(limit);
+    return reply.ok ? reply.releases : [];
+  }, [api]);
+
+  const sideload = useCallback(async (version?: string) => {
     if (!api) return { ok: false, message: 'Updating in place needs the desktop app.' };
-    return api.updater.sideload();
+    return api.updater.sideload(version);
   }, [api]);
 
   const relaunch = useCallback(() => { void api?.updater.relaunch(); }, [api]);
 
   return {
     status, currentVersion, isDesktop: Boolean(api),
-    check, install, openReleases, sideload, relaunch,
+    check, install, openReleases, sideload, releases, relaunch,
   };
 }

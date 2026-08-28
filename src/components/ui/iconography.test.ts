@@ -99,15 +99,23 @@ describe('reachability', () => {
     drove the UI would need an update to exist to see anything, and this
     is the invariant that broke.
   */
-  const TOP_LEVEL_HEADERS = [
-    'src/components/header/HeaderBar.tsx',
-    'src/components/home/HomeTopBar.tsx',
+  /*
+    Every screen the app can OPEN on has to offer a route to an update
+    that is waiting, and the home screen offers two on purpose: the
+    banner announces one without being asked, and the version row is the
+    deliberate route to checking, updating and rolling back.
+  */
+  const MOUNTS: { file: string; needs: string[] }[] = [
+    { file: 'src/components/header/HeaderBar.tsx', needs: ['<UpdateIndicator'] },
+    { file: 'src/components/home/HomeTopBar.tsx', needs: ['<UpdateIndicator'] },
+    { file: 'src/components/home/HomeSidebar.tsx', needs: ['<UpdateBanner', '<VersionFooter'] },
   ];
 
-  it('offers the update indicator from both the editor and the home screen', () => {
-    const missing = TOP_LEVEL_HEADERS.filter(
-      (f) => !readFileSync(f, 'utf8').includes('<UpdateIndicator')
-    );
+  it('offers an update route from the editor and from the home screen', () => {
+    const missing = MOUNTS.flatMap(({ file, needs }) => {
+      const code = readFileSync(file, 'utf8');
+      return needs.filter((n) => !code.includes(n)).map((n) => `${file} is missing ${n}`);
+    });
     expect(missing).toEqual([]);
   });
 });

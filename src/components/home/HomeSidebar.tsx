@@ -23,6 +23,8 @@ import React from 'react';
 import { KerfMark } from '../ui/KerfMark';
 import { useAccountStore } from '../../store/accountStore';
 import { Scissors, Blocks, FolderOpen, Record, RotateCcw, X, Plus } from '../ui/icons';
+import { VersionFooter } from './VersionFooter';
+import { UpdateBanner } from './UpdateBanner';
 
 export type HomeView = 'home' | 'skills';
 
@@ -126,9 +128,20 @@ export const HomeSidebar: React.FC<Props> = ({
 
       <div className="flex-1" />
 
-      {/* ── The bottom card ── */}
-      <div className="px-4 pb-4">
-        {recoverable ? (
+      {/* ── The bottom of the rail ──
+
+          The version and the update check live here permanently; the
+          recovery card appears ABOVE them when there is something to
+          recover, rather than instead of them.
+
+          Not a compromise on "replace the recover component": what was
+          replaced is what occupied this slot when there was nothing to
+          recover, which was a sentence about autosave that nobody needs
+          twice. Recovery itself is the only route back to unsaved work
+          and there is no other way to reach it, so it keeps its place
+          on the takes where it matters. */}
+      <div className="px-4 pb-4 space-y-3">
+        {recoverable && (
           <div className="surface-card rounded-squircle-lg p-3">
             <div className="flex items-start gap-2.5">
               <RotateCcw className="w-4 h-4 text-spectrum-amber flex-shrink-0 mt-px" />
@@ -151,11 +164,15 @@ export const HomeSidebar: React.FC<Props> = ({
               Recover
             </button>
           </div>
-        ) : (
-          <p className="text-micro text-spectrum-textFaint leading-snug px-1">
-            Your work is saved automatically every 20 seconds.
-          </p>
         )}
+
+        {/* An update announces itself in the same card the unsaved-work
+            notice uses, because it is the same kind of message: something
+            happened while you were away, and here is the one thing to do
+            about it. It renders nothing when there is no update. */}
+        <UpdateBanner />
+
+        <VersionFooter />
       </div>
     </aside>
   );

@@ -250,7 +250,70 @@ export interface SideloadResult { ok: boolean; message: string; version?: string
  * is the one outcome worth extra code to avoid: it leaves the user with
  * no working app and no obvious way back.
  */
-async function sideloadUpdate(): Promise<SideloadResult> {
+/**
+ * The releases this build could switch to, newest first.
+ *
+ * From the GitHub API rather than from a list compiled here, because a
+ * list compiled here is wrong the moment anything ships. Unauthenticated
+ * and cached for a few minutes: it is asked for when a menu opens, and
+ * the rate limit is sixty an hour.
+ */
+export interface ReleaseOption {
+  version: string;
+  tag: string;
+  publishedAt: string;
+  /** True for the version that is running right now. */
+  current: boolean;
+}
+
+let releaseCache: { at: number; releases: ReleaseOption[] } | null = null;
+const RELEASE_CACHE_MS = 5 * 60_000;
+
+export async function listReleases(limit = 4): Promise<ReleaseOption[]> {
+  if (releaseCache && Date.now() - releaseCache.at < RELEASE_CACHE_MS) {
+    return releaseCache.releases.slice(0, limit);
+  }
+
+  const res = await fetch(
+    'https://api.github.com/repos/teminali/kerf/releases?per_page=15',
+    { headers: { Accept: 'application/vnd.github+json' } }
+  );
+  if (!res.ok) throw new Error(`GitHub answered ${res.status} when asked for the releases.`);
+
+  const raw = (await res.json()) as {
+    tag_name?: string; draft?: boolean; prerelease?: boolean; published_at?: string;
+  }[];
+
+  const running = app.getVersion();
+  const releases = raw
+    .filter((r) => r.tag_name && !r.draft && !r.prerelease)
+    .map((r) => ({
+      version: r.tag_name!.replace(/^v/, ''),
+      tag: r.tag_name!,
+      publishedAt: r.published_at ?? '',
+      current: r.tag_name!.replace(/^v/, '') === running,
+    }));
+
+  releaseCache = { at: Date.now(), releases };
+  return releases.slice(0, limit);
+}
+
+/**
+ * Replace this bundle with a specific version, or with the latest.
+ *
+ * `version` undefined means "the latest", which is what the update
+ * button asks for. A version string means GO THERE, including
+ * BACKWARDS, which is the whole point of being able to roll back: a
+ * release that turns out to be broken is only recoverable in place if
+ * the app can install an older one over itself.
+ *
+ * Every release publishes its own `latest-mac.yml` beside its
+ * artifacts, so the checksum a rollback verifies against is the one
+ * that shipped WITH that version rather than the current feed. Without
+ * that this would verify the old zip against the new manifest and fail
+ * every time.
+ */
+async function sideloadUpdate(version?: string): Promise<SideloadResult> {
   const bundle = bundlePath();
   if (!bundle) return { ok: false, message: 'This is not a packaged macOS build, so there is nothing to replace.' };
   if (!canSideload()) {
@@ -262,7 +325,9 @@ async function sideloadUpdate(): Promise<SideloadResult> {
   const cleanup = () => { try { rmTree(work); } catch { /* temp */ } };
 
   try {
-    const base = 'https://github.com/teminali/kerf/releases/latest/download';
+    const base = version
+      ? `https://github.com/teminali/kerf/releases/download/v${encodeURIComponent(version)}`
+      : 'https://github.com/teminali/kerf/releases/latest/download';
     const want = parseFeed(await fetchText(`${base}/latest-mac.yml`), process.arch);
     publish({ state: 'downloading', version: want.version, percent: 0, bytesPerSecond: 0 });
 
@@ -460,13 +525,27 @@ export function initAutoUpdater(window: BrowserWindow) {
    * update under somebody's hands is the failure the whole flow is built
    * to avoid.
    */
-  ipcMain.handle('updater:sideload', async (): Promise<SideloadResult> => {
-    if (canSelfUpdate()) {
+  ipcMain.handle('updater:sideload', async (_e, p?: { version?: string }): Promise<SideloadResult> => {
+    /*
+      A ROLLBACK is allowed on a build that can update itself, and an
+      update is not. Squirrel installs forward and refuses to go back, so
+      "use Restart to update" is the right answer for the update and the
+      wrong one for somebody trying to get off a bad release.
+    */
+    if (canSelfUpdate() && !p?.version) {
       return { ok: false, message: 'This build can update itself; use Restart to update.' };
     }
-    const result = await sideloadUpdate();
+    const result = await sideloadUpdate(p?.version);
     if (!result.ok) publish({ state: 'error', message: result.message });
     return result;
+  });
+
+  ipcMain.handle('updater:releases', async (_e, p?: { limit?: number }) => {
+    try {
+      return { ok: true as const, releases: await listReleases(p?.limit ?? 4) };
+    } catch (err) {
+      return { ok: false as const, error: (err as Error).message };
+    }
   });
 
   ipcMain.handle('updater:relaunch', () => {
