@@ -2044,6 +2044,49 @@ introduction), inset 16.9-23.7s (working), full frame again
 
 ---
 
+## 7h. One flag, and it was the whole language bug
+
+§7f said `.en` weights were hard-coded and that fixing the model choice
+fixed the Swahili take. That was half of it, and the smaller half. Even
+with the multilingual weights selected, `auto` still returned
+`(speaking in foreign language)` for the whole opening.
+
+**`whisper-cli --language` defaults to `en`.** Its own help says so:
+
+    -l LANG, --language LANG   [en] spoken language ('auto' for auto-detect)
+
+And `runWhisperCpp` omitted the flag entirely whenever the caller asked
+for `auto` or asked for nothing. So Kerf has never once auto-detected a
+language. It has always decoded as English, and an English decode of
+another language does not come back wrong, it comes back as one marker
+for the whole stretch, which is then correctly filtered out of the
+captions. Empty transcript, no explanation.
+
+Same binary, same multilingual model, same 54 seconds, one flag apart:
+
+| | detected | first words |
+|---|---|---|
+| no `-l` (what shipped) | `en` | 30.0s |
+| `-l auto` | **`sw`, p = 0.84** | **0s** |
+
+`-l` is now always passed: the caller's language when they gave one,
+`auto` when they did not, and `en` when the model is an `.en` build,
+because an English-only model cannot detect and asking it to is a silent
+failure of a different kind.
+
+With that, the take that started all of this builds correctly with NO
+language argument: 16.2s introduction, 2 camera takeovers, 8 captions —
+identical to forcing `-l sw` by hand.
+
+**The language is a recorder setting now**, sticky beside the microphone,
+because it is a property of the person rather than of the take. `Detect`
+is the default. It is worth being able to override even so: detection
+reads the language ONCE from the start of the file, so a take that opens
+in one language and continues in another gets whichever came first.
+There is a `language` slot on `skill.json` too.
+
+---
+
 ## 8. Product hardening — mostly not started
 
 The roadmap in §5 is about capability. This is about being software

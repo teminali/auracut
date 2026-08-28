@@ -125,19 +125,11 @@ and every one of these was invisible there:
 On the real take, before: `introductionMs 0`. After: **24.0s**, camera
 takes the frame, two zooms dropped from under it.
 
-### THE NEXT JOB — the language has to be pickable from the UI
+### THE NEXT JOB — `get_frame_context` lies when the editor is not mounted
 
-The skill reads `language`, and nothing in the app can set it. A take
-recorded through the recorder gets whatever `auto` gives, and on Swahili
-narration `auto` still returns `(speaking in foreign language)` for the
-opening even with the multilingual weights: forcing `-l sw` transcribes
-the same audio cleanly. So today the feature only works from an MCP call
-that passes the code by hand.
-
-It wants to be a sticky recorder setting beside the microphone, defaulted
-to the system language, and a `language` slot on `skill.json`.
-
-### And then, `get_frame_context` lies when the editor is not mounted
+(The language item that was here is done: see HANDOVER §7h. It was one
+flag. `whisper-cli --language` defaults to `en` and Kerf omitted it for
+`auto`, so detection had never run.)
 
 It returns a frame that is not a composite of the timeline, **and reports
 `mediaPending: 0` while doing it** — the guard every suite waits on.

@@ -26,6 +26,25 @@ import { DeviceOption, previewCamera, previewMicrophone } from '../../engine/scr
 import { StickySettings } from '../../store/recorderStore';
 import { RecorderPermissions } from '../../types/electron';
 import { BACKDROPS, BackdropId } from '../../engine/cinematicLook';
+
+/*
+  A short list on purpose. Whisper handles a hundred languages and a
+  hundred-row picker is a worse control than a text field; these are
+  `Detect` plus the ones a screen tutorial is actually narrated in often
+  enough to be worth one tap. Anything else goes through the skill's
+  `language` argument, which takes any code Whisper knows.
+*/
+const SPOKEN_LANGUAGES: { code: string; label: string }[] = [
+  { code: 'auto', label: 'Detect' },
+  { code: 'en', label: 'English' },
+  { code: 'sw', label: 'Kiswahili' },
+  { code: 'fr', label: 'Français' },
+  { code: 'es', label: 'Español' },
+  { code: 'pt', label: 'Português' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'ar', label: 'العربية' },
+  { code: 'hi', label: 'हिन्दी' },
+];
 import {
   Camera, Mic, MicOff, VideoOff, Monitor, CursorClick, AlertTriangle, Sparkle, Waves,
 } from '../ui/icons';
@@ -285,6 +304,26 @@ export const CaptureOptions: React.FC<Props> = ({
         onChange={(v) => onChange('captions', v)}
         hint="Transcribed on device, and the words place the camera cuts"
       />
+
+      {/*
+        The spoken language, and it earns its place in the rail rather
+        than living in a menu somewhere: the words are what decide the
+        camera cuts and whether the take opens on your face, so getting
+        this wrong does not merely lose the captions, it loses the edit.
+
+        `Detect` is the default and works now that `-l auto` is actually
+        passed. It reads the language ONCE from the start of the file, so
+        a take that opens in one language and carries on in another wants
+        the language set by hand.
+      */}
+      {settings.captions && (
+        <SegmentedControl
+          value={settings.language}
+          options={SPOKEN_LANGUAGES.map((l) => ({ value: l.code, label: l.label }))}
+          onChange={(v) => onChange('language', v)}
+          columns={3}
+        />
+      )}
 
       <ToggleRow
         label="Narration on its own track"

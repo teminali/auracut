@@ -98,6 +98,14 @@
       "description": "How far the frame CUTS in on a click. 2.8 is the reference video's own figure, measured; 1.5 is a nudge, 3 is the ceiling."
     },
     {
+      "id": "language",
+      "kind": "enum",
+      "required": false,
+      "default": "auto",
+      "options": ["auto", "en", "sw", "fr", "es", "pt", "de", "ar", "hi"],
+      "description": "The spoken language, or `auto` to detect it. This decides more than the captions: the words are what place the camera cuts and what says whether the take opens with an introduction, so decoding the wrong language loses the edit rather than just the subtitles."
+    },
+    {
       "id": "backdrop",
       "kind": "enum",
       "required": false,
@@ -125,7 +133,8 @@
         "folder": "{slot:recording}",
         "captions": "{slot:captions}",
         "zoomStrength": "{slot:zoomStrength}",
-        "backdrop": "{slot:backdrop}"
+        "backdrop": "{slot:backdrop}",
+        "language": "{slot:language}"
       }
     }
   ],

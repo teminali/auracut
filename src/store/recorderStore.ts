@@ -67,6 +67,15 @@ export interface StickySettings {
   clickSounds: boolean;
   /** Transcribe the narration, and let the words place the cuts. */
   captions: boolean;
+  /**
+   * Spoken language, as a two-letter code, or `auto` to detect it.
+   *
+   * It is a recorder setting rather than a skill argument because it is
+   * a property of the PERSON, not of the take: whoever is narrating will
+   * narrate the next one in the same language, and being asked every
+   * time is the kind of friction that makes a feature go unused.
+   */
+  language: string;
 }
 
 const STORAGE_KEY = 'kerf.recorder.v1';
@@ -96,6 +105,18 @@ const DEFAULT_STICKY: StickySettings = {
   cameraOnPauses: true,
   clickSounds: true,
   captions: true,
+  /*
+    `auto` is a real choice now and was not before. whisper.cpp's
+    `--language` defaults to `en`, and Kerf used to omit the flag
+    entirely for `auto`, so detection never ran and any other language
+    came back as one "(speaking in foreign language)" marker. With `-l
+    auto` actually passed, the same take detects `sw` at p=0.84.
+
+    Still worth being able to override: auto-detect reads the language
+    ONCE, from the start of the file, so a take that opens in one
+    language and continues in another gets whichever came first.
+  */
+  language: 'auto',
 };
 
 function loadSticky(): StickySettings {
@@ -335,6 +356,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
       cameraOnPauses: s.cameraOnPauses,
       sound: s.clickSounds,
       captions: s.captions,
+      language: s.language,
       captionStyle: CAPTION_STYLE,
     };
   },

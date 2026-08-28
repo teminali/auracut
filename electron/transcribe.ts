@@ -358,7 +358,31 @@ async function runWhisperCpp(
     '-sow',
     '-pp',
     ...(options.wordTimestamps ? ['-ojf'] : []),
-    ...(options.language && options.language !== 'auto' ? ['-l', options.language] : []),
+    /*
+      ALWAYS `-l`, and this one flag is the whole Swahili bug.
+
+      `whisper-cli --language` defaults to **`en`**, not to detection:
+      `-l LANG [en] spoken language ('auto' for auto-detect)`. Omitting
+      the flag is therefore not "let it decide", it is "assume English",
+      and an English decode of another language does not come back
+      wrong, it comes back as one `(speaking in foreign language)`
+      marker for the whole stretch. Which is then correctly filtered out
+      of the captions, so the transcript is simply empty and nothing
+      anywhere says why.
+
+      Measured on 54 seconds of Swahili narration, same binary, same
+      multilingual model, one flag apart:
+
+          no -l      language: en, first words at 30.0s
+          -l auto    auto-detected language: sw (p = 0.84), words at 0s
+
+      An `.en` model cannot detect anything, so it is told `en` rather
+      than `auto` — asking it to choose is how you get a silent failure
+      of a different kind.
+    */
+    '-l', options.language && options.language !== 'auto'
+      ? options.language
+      : (model.endsWith('.en') ? 'en' : 'auto'),
   ];
 
   await new Promise<void>((resolve, reject) => {

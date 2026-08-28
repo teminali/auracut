@@ -251,10 +251,10 @@ async function transcribe(
         `${Math.round(lostMs / 1000)}s of this take made sound that Whisper produced no words `
         + `for, the longest at ${Math.round(lost[0].startMs / 1000)}s: "${lost[0].text}". `
         + (foreign
-          ? `The model that ran was \`${result.model}\`, and a \`.en\` model cannot transcribe `
-            + 'anything but English: it returns exactly this marker instead. Pass `language` to '
-            + 'get the multilingual weights. Captions and the camera cuts are both placed from '
-            + 'the words, so they are missing from that stretch.'
+          ? `It ran \`${result.model}\` and read the language as \`${result.language}\`. That `
+            + 'marker is what Whisper returns when it is decoding the wrong language, so try '
+            + 'setting the spoken language explicitly. Captions and the camera cuts are both '
+            + 'placed from the words, so they are missing from that stretch.'
           : 'Captions and the camera cuts are both placed from the words, so they are missing '
             + 'from that stretch.')
       );
