@@ -106,6 +106,15 @@ export interface AssembleOptions {
   look: LookOptions;
   /** Let the camera take the whole frame while nothing is happening. */
   cameraOnPauses: boolean;
+  /**
+   * Open on the face when the take opens with an introduction.
+   *
+   * Separate from `cameraOnPauses` because it is a different decision
+   * with a different test: a pause is found in the POINTER track, an
+   * introduction is found in the WORDS, and somebody may well want one
+   * without the other. See `detectIntroduction`.
+   */
+  cameraOnIntro: boolean;
 
   /* sound */
   sound: boolean;
@@ -159,6 +168,7 @@ export const RAW_ASSEMBLE: AssembleOptions = {
   cinematic: false,
   look: DEFAULT_LOOK,
   cameraOnPauses: false,
+  cameraOnIntro: false,
   sound: false,
   soundOptions: DEFAULT_SOUND,
   captions: false,
@@ -184,6 +194,7 @@ export const TUTORIAL_ASSEMBLE: AssembleOptions = {
   markMoments: true,
   cinematic: true,
   cameraOnPauses: true,
+  cameraOnIntro: true,
   sound: true,
   captions: true,
 };
@@ -215,6 +226,11 @@ export interface AssembleReport {
   momentsFrom: 'events' | 'cursor' | 'none';
   keyframes: number;
   cameraTakeovers: number;
+  /**
+   * How long the film opens on the face, when it was found to open with
+   * an introduction. 0 when it did not.
+   */
+  introductionMs: number;
   soundClips: number;
   captionLines: number;
   narrationDetached: boolean;
@@ -330,6 +346,212 @@ export function alignToSpeech(
   return { startMs, endMs };
 }
 
+/* ── The introduction ───────────────────────────────────────────── */
+
+/**
+ * A spoken opening, with the camera on it.
+ *
+ * Somebody who starts a tutorial by saying who they are and what they
+ * are about to show you is not narrating a screen — the screen is
+ * usually sitting there doing nothing — and an inset webcam in the
+ * corner of a static desktop is the worst framing available for it.
+ * Every good tutorial opens on the face and cuts to the screen when the
+ * work starts.
+ *
+ * ── The whole difficulty is being SURE ──────────────────────────────
+ *
+ * Getting this wrong in the other direction is worse than not having it:
+ * a take that opens with "right, so first click on Settings" and gets a
+ * full-frame face over it has hidden the thing the viewer came for. So
+ * the test is deliberately hard to pass, and it is three independent
+ * kinds of evidence rather than one:
+ *
+ *   1. **BEHAVIOUR, and it is the one that can veto on its own.** An
+ *      introduction is a stretch where nothing is happening on screen.
+ *      If there is a click, a keystroke or a scroll, the person is
+ *      working, whatever they are saying. This does not depend on the
+ *      transcript being any good.
+ *   2. **SHAPE.** It starts at the start, it runs continuously, and it
+ *      is long enough to be a thing rather than a stray word.
+ *   3. **WORDS.** Greeting, self-identification, and framing of what is
+ *      to come. Two of the three kinds, because any one of them alone is
+ *      ordinary speech: "today" is not an introduction, "hi" is not an
+ *      introduction, and both together nearly always are. Saying your
+ *      own name counts as two, because nothing else in a screen
+ *      recording sounds like that.
+ *
+ * And one veto on the words: pointing at the screen. "Here you can see",
+ * "as you can see", "over on the left" — somebody doing that is looking
+ * at the picture even if they have not touched the mouse yet, and the
+ * camera must not be covering it.
+ *
+ * Every marker below is a phrase somebody would say out loud, so this
+ * fails on a language it has never been given markers for rather than
+ * guessing. That is the right failure: no introduction detected means
+ * the camera stays an inset, which is what the skill did before.
+ */
+const INTRO_MARKERS = {
+  greeting: /\b(hi|hey|hello|good (morning|afternoon|evening)|welcome (to|back)|what'?s up)\b/i,
+  /*
+    Two patterns, and the split is the point: the phrase markers are
+    case-insensitive, and the ones that lean on a CAPITALISED name
+    cannot be. Written as one case-sensitive alternation, "My name is"
+    at the start of a sentence did not match its own marker, the
+    introduction was still accepted through `NAMED`, and the evidence
+    came back empty. Whisper capitalises sentences and names, so both
+    halves are worth having.
+  */
+  self: [
+    /\b(my name(?:'s| is)|i work (?:at|on|with)|i'?m the )/i,
+    /\b(i'?m [A-Z][a-z]+|this is [A-Z][a-z]+ (?:here|from|with))/,
+  ],
+  framing: new RegExp(
+    "\\b(today|in this (video|tutorial|demo|walkthrough|one)"
+    + "|i'?m going to (show|walk|take|talk)|i'?m gonna (show|walk|take)"
+    + "|we'?re going to|we'?ll be|let me show you|let'?s (take a look|walk|dive)"
+    + "|i'?ll (show|walk)|i want(ed)? to show|quick (demo|tour|walkthrough|look)"
+    + "|walk you through|give you a (quick )?(tour|look)"
+    + "|in the next few minutes)\\b",
+    'i'
+  ),
+} as const;
+
+/** Somebody pointing at the screen is not introducing themselves. */
+const POINTING_AT_SCREEN =
+  /\b(here you (can )?see|as you can see|you'?ll see (here|there)|over (here|there)|on the (left|right)|down (here|there)|up (here|there)|this (screen|page|window|button|tab)|right here)\b/i;
+
+/** The self-identification marker is worth two on its own. */
+const NAMED = /\b(my name(?:'s| is))/i;
+
+export interface IntroDetectOptions {
+  /** The first cue has to start this soon, or the take opens with something else. */
+  leadMs: number;
+  /** A silence longer than this ends it. */
+  gapMs: number;
+  /** Shorter than this is a stray remark, not an opening. */
+  minMs: number;
+  /** Longer than this is truncated, and said so. */
+  maxMs: number;
+  /** Share of the span that has to be spoken over. */
+  minCoverage: number;
+}
+
+export const DEFAULT_INTRO: IntroDetectOptions = {
+  leadMs: 2000,
+  gapMs: 1200,
+  minMs: 2500,
+  maxMs: 45000,
+  minCoverage: 0.6,
+};
+
+export interface IntroductionVerdict {
+  /** The stretch to put the camera over, in TAKE time. Null when there is none. */
+  intro: QuietStretch | null;
+  /** Which markers fired. Empty when it was refused. */
+  evidence: string[];
+  /** Always set, and it says why either way. */
+  reason: string;
+}
+
+export function detectIntroduction(
+  speech: SpeechCue[],
+  events: { tMs: number; kind: string }[],
+  options: Partial<IntroDetectOptions> = {}
+): IntroductionVerdict {
+  const o = { ...DEFAULT_INTRO, ...options };
+  const none = (reason: string): IntroductionVerdict => ({ intro: null, evidence: [], reason });
+
+  const cues = [...speech].sort((a, b) => a.startMs - b.startMs);
+  if (cues.length === 0) {
+    return none('There is no transcript, so nothing here can tell an introduction from a demo.');
+  }
+  if (cues[0].startMs > o.leadMs) {
+    return none(
+      `The first words are ${Math.round(cues[0].startMs)}ms in, past the ${o.leadMs}ms an opening `
+      + 'has to start within, so the take does not begin by talking.'
+    );
+  }
+
+  /* 1 — behaviour. The first thing done on screen ends any opening,
+         and something done immediately means there was not one. */
+  const firstAction = events
+    .filter((e) => e.kind === 'click' || e.kind === 'rightclick' || e.kind === 'scroll' || e.kind === 'key')
+    .reduce((min, e) => Math.min(min, e.tMs), Infinity);
+
+  /* 2 — shape. Extend through the cues while they keep coming and
+         nothing has been done on screen. */
+  let endMs = cues[0].endMs;
+  let spoken = cues[0].endMs - cues[0].startMs;
+  const text: string[] = [cues[0].text];
+  for (let i = 1; i < cues.length; i++) {
+    const cue = cues[i];
+    if (cue.startMs - endMs > o.gapMs) break;
+    if (cue.startMs >= firstAction) break;
+    endMs = cue.endMs;
+    spoken += cue.endMs - cue.startMs;
+    text.push(cue.text);
+  }
+
+  const startMs = Math.min(cues[0].startMs, 0) === 0 ? 0 : cues[0].startMs;
+  endMs = Math.min(endMs, firstAction);
+
+  const lengthMs = endMs - startMs;
+  if (lengthMs < o.minMs) {
+    return none(
+      `The opening runs ${Math.round(lengthMs)}ms before ${
+        Number.isFinite(firstAction) ? 'something is done on screen' : 'the talking stops'
+      }, which is under the ${o.minMs}ms an introduction has to last.`
+    );
+  }
+
+  const coverage = spoken / Math.max(1, lengthMs);
+  if (coverage < o.minCoverage) {
+    return none(
+      `Only ${Math.round(coverage * 100)}% of the opening ${Math.round(lengthMs)}ms is spoken over, `
+      + `under the ${Math.round(o.minCoverage * 100)}% an introduction needs. That is a pause, not a talk.`
+    );
+  }
+
+  /* 3 — words. */
+  const said = text.join(' ');
+  if (POINTING_AT_SCREEN.test(said)) {
+    return none(
+      'The opening points at the screen, so whatever else it is doing it is showing '
+      + 'something, and the camera must not cover it.'
+    );
+  }
+
+  const evidence: string[] = [];
+  if (INTRO_MARKERS.greeting.test(said)) evidence.push('a greeting');
+  if (INTRO_MARKERS.self.some((re) => re.test(said))) evidence.push('naming themselves');
+  if (INTRO_MARKERS.framing.test(said)) evidence.push('framing what is coming');
+
+  const decisive = NAMED.test(said);
+  if (!decisive && evidence.length < 2) {
+    return none(
+      evidence.length === 0
+        ? 'The opening does not read as an introduction: no greeting, no name, and nothing '
+          + 'framing what is about to be shown.'
+        : `The opening only ${evidence[0]}, and one marker on its own is ordinary speech. `
+          + 'Two kinds are needed, or somebody saying their own name.'
+    );
+  }
+
+  const capped = Math.min(endMs, startMs + o.maxMs);
+  const truncated = capped < endMs;
+
+  return {
+    intro: { startMs, endMs: capped },
+    evidence,
+    reason:
+      `The take opens with ${evidence.join(' and ')} over ${Math.round((capped - startMs) / 100) / 10}s `
+      + 'with nothing happening on screen, so the camera takes the frame for it.'
+      + (truncated
+        ? ` It ran longer than the ${o.maxMs / 1000}s ceiling and was cut back to it.`
+        : ''),
+  };
+}
+
 /* ── Building it ────────────────────────────────────────────────── */
 
 let takeSeq = 0;
@@ -369,12 +591,34 @@ export async function assembleRecording(
   const detected = o.autoZoom && take.cursorTracked
     ? detectMoments({ cursor: take.cursor, events: take.events, marks: take.marks })
     : { moments: [] as ZoomMoment[], from: 'cursor' as const };
-  const moments = detected.moments;
+  /* Not `const`: an introduction takes the frame, and any zoom underneath
+     it is dropped rather than left playing where nobody can see it. */
+  let moments = detected.moments;
 
   let takeovers: QuietStretch[] = [];
+  let introMs = 0;
   const cameraFill = take.camera
     ? cameraCanFillFrame(take.camera, canvas)
     : { ok: false, upscale: Infinity };
+
+  /*
+    The introduction, decided BEFORE the pauses and merged in after them.
+
+    It is not a quiet stretch and must not go through their filters:
+    `findQuietStretches` reads the pointer and would not find this at
+    all when somebody sits still and talks, `alignToSpeech` trims a
+    stretch inward to a gap between sentences, which is exactly wrong for
+    an opening that should start on the first frame, and
+    `keepClearOfZooms` pushes a stretch past a zoom that is still in
+    flight, of which there are none at t=0.
+  */
+  const intro = o.cameraOnIntro && take.camera && cameraFill.ok
+    ? detectIntroduction(o.speech, take.events)
+    : null;
+
+  if (o.cameraOnIntro && take.camera && cameraFill.ok && intro && !intro.intro && o.speech.length > 0) {
+    notes.push(`The film does not open on the camera. ${intro.reason}`);
+  }
 
   if (o.cameraOnPauses && take.camera) {
     if (!cameraFill.ok) {
@@ -392,13 +636,46 @@ export async function assembleRecording(
         .map((stretch) => alignToSpeech(stretch, o.speech))
         .filter((stretch): stretch is QuietStretch => stretch !== null);
 
-      if (takeovers.length === 0 && o.speech.length > 0) {
+      if (takeovers.length === 0 && o.speech.length > 0 && !intro?.intro) {
         notes.push(
           'No pause was both long enough and spoken over, so the camera stays an inset. '
           + 'It takes the frame when you are talking and not doing, not merely when the '
           + 'screen is still.'
         );
       }
+    }
+  }
+
+  /*
+    Merge the introduction in, absorbing any pause that runs into it.
+
+    Two adjoining full-frame stretches would otherwise pull the camera
+    back to its inset and straight out again for a few frames, which is
+    the same bounce `planZoom` exists to avoid, in the other track.
+  */
+  if (intro?.intro) {
+    const opening = intro.intro;
+    const overlapping = takeovers.filter((t) => t.startMs <= opening.endMs + MIN_TAKEOVER_MS);
+    const merged: QuietStretch = {
+      startMs: opening.startMs,
+      endMs: Math.max(opening.endMs, ...overlapping.map((t) => t.endMs)),
+    };
+    takeovers = [merged, ...takeovers.filter((t) => t.startMs > opening.endMs + MIN_TAKEOVER_MS)];
+    introMs = merged.endMs - merged.startMs;
+    notes.push(intro.reason);
+
+    /*
+      And drop any zoom that would play under it. It would be invisible,
+      but it would still put a marker on the timeline and a whoosh on the
+      sound track for a move nobody can see.
+    */
+    const before = moments.length;
+    moments = moments.filter((m) => m.atMs >= merged.endMs);
+    if (moments.length < before) {
+      notes.push(
+        `${before - moments.length} zoom${before - moments.length === 1 ? '' : 's'} fell inside the `
+        + 'introduction and were dropped: the camera is covering the screen there.'
+      );
     }
   }
 
@@ -767,6 +1044,7 @@ export async function assembleRecording(
     momentsFrom: moments.length === 0 ? 'none' : detected.from,
     keyframes: keyframeCount,
     cameraTakeovers: takeovers.length,
+    introductionMs: introMs,
     soundClips,
     captionLines,
     narrationDetached: Boolean(o.detachNarration && take.camera?.hasAudio && cameraClipId),

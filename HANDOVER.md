@@ -1640,6 +1640,229 @@ nothing about how far ahead of a click to cut.
 
 ---
 
+## 7d. The backdrop, the shadow, and two bugs the backdrop found
+
+The ask was "a background just like Recordly and the other screen
+tutorial platforms, nice clean bg". What that turned out to need was one
+renderer feature, two number changes, a shadow that had been recorded as
+impossible, and two rendering bugs that only became visible once the
+backdrop stopped being nearly black.
+
+### Mesh gradients, because a ramp always looks like a ramp
+
+`shapeStyle.gradient` was two stops and an angle. It now also takes
+`stops` (extra colours along the axis) and `blobs` (soft radial washes
+over the base), both optional, so every project written before them
+means exactly what it did.
+
+`blobs` is the one that matters. What Screen Studio, Recordly and Tella
+actually ship is not a two-stop ramp — a ramp has a visible direction and
+a flat middle — it is two or three washes of colour pooling in the
+corners of a near-white field. And the reference video from §7c is
+itself a three-corner mesh: indigo `#95a0e8` top left, coral `#f1b3aa`
+top right, near-white `#e9ebfa` across the bottom.
+
+Fitted to the 35% of its opening frame the mockup does not cover:
+
+| model | RMS against those pixels |
+|---|---|
+| the two-stop linear that shipped in §7c | 20.9 / 255 (8.2%) |
+| base gradient + 1 blob | 5.8 (2.3%) |
+| **base gradient + 2 blobs** | **3.8 (1.5%)** |
+| base gradient + 3 blobs | 3.5 (1.4%) |
+
+Two blobs, because the third buys 0.1% and a preset nobody can read.
+
+**The first fit was thrown away and it is worth saying why.** It
+normalised the gradient axis its own way and produced an angle that would
+not have transferred: canvas projects a linear gradient perpendicularly
+onto the segment `(-cos·w/2, -sin·h/2) → (cos·w/2, sin·h/2)`, which for a
+non-square box is weighted by w² and h² rather than by cos and sin.
+Fitting a model the renderer does not implement is how you get a number
+that measures well and looks wrong.
+
+Eight presets now: five light — `daylight` (the measured one), `linen`,
+`blossom`, `lagoon`, `dusk` — and the three dark ones, unchanged.
+
+### The default is light now, and that was a judgement, not a measurement
+
+The old comment said a screen recording is mostly bright UI so a backdrop
+with colour in it competes. Still true, and still the reason the dark set
+exists. It was wrong as a DEFAULT: a light backdrop reads as paper behind
+a screen, a dark one reads as a video player with a small video in it.
+
+Three other numbers moved with it, and the first is measured:
+
+* **`insetPct` 92 → 84.** The mockup in the reference fills 84.1% of its
+  frame's width. 92 is a hairline, and a backdrop nobody can see is not
+  a backdrop.
+* **`cornerPct` 1.8 → 2.6.** Not measured — the reference is in
+  perspective wherever its outline shows. Set against the light
+  backdrops, where 1.8 read as a square-cornered screenshot.
+* **`vignette` 10 → 0.** On a dark backdrop it holds the eye in. On a
+  light one it puts grey smudges in the corners of a white app window
+  while the frame around it stays bright, which reads as a fault.
+
+### The shadow, which §7a said could not be had
+
+§7a recorded that a drop shadow was the obvious fifth item and could not
+coexist with the rounded corners, because `applyMask` calls `ctx.clip()`
+before the layer is drawn. **That is true of a shadow cast by the
+CONTENT, and it is the wrong thing to cast one from.** The mask's own
+outline can cast it, before the clip.
+
+Filling that outline in place does not work either, and the reason took a
+frame to see: the fill has to be OPAQUE for the shadow to be at full
+strength, and the picture is then drawn over it at whatever `globalAlpha`
+is in force — which under motion blur is not 1. A white app window came
+back at rgb(150,150,150). So the outline is traced a long way off the
+canvas and `shadowOffsetX` brings the shadow, and only the shadow, back.
+Canvas shadow offsets and blur are in DEVICE space and are not touched by
+the current transform, hence the scale factors read off it.
+
+`ClipMask.shadow` is optional, so nothing written before it changes, and
+`LookOptions.shadow` (0..100, default 34) drives it from the look.
+
+### Motion blur was making every blurred clip 32% transparent
+
+The single worst thing here, invisible for as long as the backdrop was
+near-black, and obvious the moment it was not: the backdrop was showing
+THROUGH the picture, everywhere, whenever motion blur was on — which the
+tutorial skill turns on whenever there are zooms.
+
+The samples were drawn onto the frame at `globalAlpha = 1 / samples`
+each. That is not an average. Source-over is `src + (1 − srcAlpha)·dst`,
+so four draws at 0.25 leave the layer **68.4%** opaque and twelve at
+1/12 leave it 64.8%. It reads as a washed-out grade rather than as
+transparency, which is why it survived.
+
+**A running mean, `1/(i+1)` into a transparent layer, was the second
+attempt and was also wrong** — right in the middle of the smear and wrong
+at both ends, because `globalAlpha` scales the SOURCE, so where a sample
+is transparent the destination is not attenuated at all. The trailing
+edge, covered only by the first sample at alpha 1, stayed fully opaque
+forever. Measured on a bar moving 36.7px per shutter: the leading edge
+ramped 251 down to 0 across 19 pixels and the trailing edge went 0, 33,
+255 in two.
+
+What works is additive accumulation of ISOLATED samples: each sample
+rendered alone at full opacity into one scratch layer, then added into
+another at `1/samples` with `lighter`. Premultiplied colour and alpha
+both add. The isolation is not optional — `lighter` applied to a clip
+that draws more than once, a shape with a stroke over its fill, would add
+the overlap to itself.
+
+Proved by compositing the same take on a light and a dark backdrop and
+comparing the picture's interior: **0.00 / 255** apart.
+
+### And `verify_tools` was passing on that bug
+
+`set_motion_blur softens motion` required `edges(blurred) < edges(sharp)
+* 0.85`, where `edges` is a mean of horizontal differences. **That metric
+is blind to blur**: smearing a step over 37 pixels replaces one
+difference of 255 with 37 averaging 7, and the sum over a fixed frame is
+unchanged. On a synthetic bar, mean |diff| after a 37px blur is 100.0% of
+sharp.
+
+The only thing that ever moved it was the 64.8%. The check was reporting
+soft motion on a translucent clip.
+
+It measures the steepest step now, as the mean of the 256 largest
+horizontal differences, and it has a control beside it that the paint
+stays as bright as it was. 233.8 → 22.0 with the brightest paint holding
+at 253. A percentile was the first attempt and was wrong for its own
+reason: the probe square's two vertical edges are 480 pixels of a
+2-megapixel frame, 0.02%, well inside a 99.9th percentile's tail, so it
+read 4.0 on a hard white-on-black edge.
+
+### The suite's own colour test had the same shape of problem
+
+`mask_for` in `skills/tutorial/verify.py` identifies the recording by
+which channel dominates by 40. A coral corner is red-dominant by that
+test, so the share of the frame edges reading as "the recording" went
+from 0% to 16% against a threshold of 20% without one pixel of recording
+moving. Still passing, no longer measuring what it says.
+
+Every colour in that fixture is dark and saturated — darkest channel 48.
+The miscounted backdrop pixels have a darkest channel of 180 to 197. The
+bound is 130, and it is ONE-SIDED so it cannot undo the lesson that put
+the hue test there: every grade in this skill darkens, and darkening only
+lowers the darkest channel. There was also a second, inline copy of the
+test, which is why the edge check did not move when `mask_for` was first
+corrected.
+
+---
+
+## 7e. Opening on the face
+
+If a take opens with somebody introducing themselves, the camera takes
+the whole frame for the whole introduction and hands it back when the
+work starts. `detectIntroduction` in `recordingProject.ts`,
+`cameraOnIntro` in `AssembleOptions`, on by default for the skill.
+
+**The whole difficulty is being SURE**, because the two failure
+directions are not symmetric. Missing an introduction costs nothing — the
+camera stays an inset, which is what the skill did before. Inventing one
+covers the screen with somebody's face while they are showing you the
+thing you came for. So it takes three independent kinds of evidence:
+
+1. **Behaviour, which can veto on its own.** A click, a keystroke or a
+   scroll means the person is working, whatever they are saying. This
+   does not depend on the transcript being any good, and it is what ends
+   the introduction as well as what refuses it.
+2. **Shape.** Starts within 2s, runs continuously (gaps under 1.2s), at
+   least 2.5s long, at least 60% spoken over, capped at 45s.
+3. **Words.** Greeting, self-identification, framing of what is coming —
+   **two of the three kinds**, because any one alone is ordinary speech.
+   "Today" is not an introduction and "hi" is not an introduction, and
+   both together nearly always are. Saying your own name counts as two.
+
+And one veto on the words: pointing at the screen. "Here you can see",
+"as you can see", "over on the left" — somebody doing that is looking at
+the picture even if they have not touched the mouse yet.
+
+Every marker is a phrase somebody says out loud, so this fails on a
+language it has no markers for rather than guessing, and failing means
+the camera stays an inset.
+
+Three consequences worth knowing:
+
+* **The camera opens ALREADY full frame.** `addCameraMotion` settles the
+  inset into place over 420ms, so a take that opens on a face would have
+  shown the inset growing and then immediately expanding — a move in the
+  wrong direction followed by a move to undo it. The pose at time zero is
+  the full frame instead.
+* **The introduction bypasses the pause filters, deliberately.**
+  `findQuietStretches` reads the POINTER and would not find somebody
+  sitting still and talking; `alignToSpeech` trims a stretch inward to a
+  gap between sentences, which is exactly wrong for an opening that
+  should start on the first frame.
+* **Zooms inside it are dropped.** They would be invisible, and they
+  would still put a marker on the timeline and a whoosh on the sound
+  track for a move nobody can see.
+
+### `transcript.json`, and why it is not a test hook
+
+A take folder may now carry `transcript.json` — `[{startMs, endMs,
+text}]`, or the `{segments: [...]}` shape Whisper returns — and it is
+used instead of transcribing. A scripted tutorial has its words written
+down before it is recorded.
+
+It is also what makes any of this checkable. The parts of the skill that
+read the WORDS cannot be verified end to end if the only way to get words
+in is a machine-dependent speech model. `verify.py` builds two takes that
+are identical in footage, timing and cursor track and differ only in what
+is said over them: one is introduced, one points at the screen. The first
+opens on the camera at 95% of the frame and hands it back by 11.8s; the
+second reports `introductionMs=0` and opens on the screen. Neither can
+pass by liking the start of takes.
+
+Note the ordering bug fixed alongside: `build()` called
+`assembleRecording` with `speech` AFTER `...options`, so a caller-supplied
+transcript was overwritten by the empty local.
+
+---
+
 ## 8. Product hardening — mostly not started
 
 The roadmap in §5 is about capability. This is about being software

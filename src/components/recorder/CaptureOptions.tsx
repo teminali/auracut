@@ -243,7 +243,9 @@ export const CaptureOptions: React.FC<Props> = ({
               { value: 'none' as BackdropId, label: 'None' },
             ]}
             onChange={(v) => onChange('backdrop', v)}
-            columns={2}
+            /* Nine of them now that the light set is here; two columns
+               made a very tall stack of very wide buttons. */
+            columns={3}
           />
           <SliderRow
             label="Inset"

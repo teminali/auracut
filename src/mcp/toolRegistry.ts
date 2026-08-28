@@ -4296,8 +4296,14 @@ defineTool({
     raw: z.boolean().optional().describe('Just the clips: no zooms, no look, no sound, no captions'),
     captions: z.boolean().optional().describe('Transcribe the narration; default true. The words also place the camera cuts.'),
     zoomStrength: z.number().min(1).max(3).optional().describe('How far the frame cuts in; default 2.8, measured off the reference video'),
-    backdrop: z.string().optional().describe('graphite, midnight, clay, daylight or none'),
+    backdrop: z.string().optional().describe(
+      'The light set (daylight, linen, blossom, lagoon, dusk), the dark set '
+      + '(graphite, midnight, clay), or none. Default daylight.'),
     cameraOnPauses: z.boolean().optional().describe('Let the camera fill the frame during pauses; default true'),
+    cameraOnIntro: z.boolean().optional().describe(
+      'Open on the face when the take opens with a spoken introduction; default true. Needs a '
+      + 'transcript, and it is refused unless the take starts by talking, nothing is done on '
+      + 'screen while it does, and the words read as an introduction rather than as a demo.'),
     cameraCorner: z.enum(['bottom-right', 'bottom-left', 'top-right', 'top-left']).optional(),
   }),
   handler: async (args) => {
@@ -4347,6 +4353,46 @@ defineTool({
         /* A take whose sidecar will not open is still a take. It loses
            its zooms and says why, rather than failing outright. */
         manifestNotes.push(`The cursor track could not be read, so there are no zooms. ${read.error}`);
+      }
+    }
+
+    /*
+      An optional transcript beside the take.
+
+      `[{startMs, endMs, text}]`, or the `{segments: [...]}` shape
+      Whisper itself returns. A scripted tutorial already has its words;
+      re-deriving them is slower and worse. Unlike `cursor.json` this is
+      NOT sealed: it is the script, not the exhaust.
+    */
+    const transcriptEntry = entries.find((e) => e.name === 'transcript.json');
+    let suppliedSpeech: { startMs: number; endMs: number; text: string }[] = [];
+    if (transcriptEntry) {
+      const read = await api.project.read(transcriptEntry.path);
+      if (read.ok && read.json) {
+        try {
+          const parsed = JSON.parse(read.json);
+          const rows = Array.isArray(parsed) ? parsed : parsed?.segments;
+          suppliedSpeech = (Array.isArray(rows) ? rows : [])
+            .filter((r: unknown): r is { startMs: number; endMs: number; text: string } =>
+              typeof r === 'object' && r !== null
+              && typeof (r as { startMs?: unknown }).startMs === 'number'
+              && typeof (r as { endMs?: unknown }).endMs === 'number'
+              && typeof (r as { text?: unknown }).text === 'string')
+            .map((r) => ({ startMs: r.startMs, endMs: r.endMs, text: r.text.trim() }))
+            .filter((r) => r.text.length > 0)
+            .sort((a, b) => a.startMs - b.startMs);
+          if (suppliedSpeech.length === 0) {
+            manifestNotes.push(
+              'transcript.json is beside the take but holds no usable lines, so the narration '
+              + 'is transcribed as normal. Each line needs startMs, endMs and text.'
+            );
+          }
+        } catch (error) {
+          manifestNotes.push(
+            `transcript.json beside the take could not be parsed, so the narration is `
+            + `transcribed as normal. ${(error as Error).message}`
+          );
+        }
       }
     }
 
@@ -4417,12 +4463,13 @@ defineTool({
     }
 
     const backdrop = args.backdrop
-      ? oneOf(args.backdrop, ['graphite', 'midnight', 'clay', 'daylight', 'none'], 'backdrop')
+      ? oneOf(args.backdrop, ['daylight', 'linen', 'blossom', 'lagoon', 'dusk', 'graphite', 'midnight', 'clay', 'none'], 'backdrop')
       : undefined;
 
     const outcome = await applyTutorialSkill(take, {
       transcribe: args.captions ?? true,
       captions: args.captions ?? true,
+      ...(suppliedSpeech.length > 0 ? { speech: suppliedSpeech } : {}),
       /*
         `CUT_SHAPE`, not `DEFAULT_SHAPE`. Spreading the pushing grammar
         here would mean that passing zoomStrength quietly turned the cuts
@@ -4432,6 +4479,7 @@ defineTool({
       ...(args.zoomStrength ? { zoomShape: { ...TUTORIAL_ZOOM_SHAPE, factor: args.zoomStrength } } : {}),
       ...(backdrop ? { look: { ...DEFAULT_LOOK_OPTIONS, backdrop } } : {}),
       ...(args.cameraOnPauses !== undefined ? { cameraOnPauses: args.cameraOnPauses } : {}),
+      ...(args.cameraOnIntro !== undefined ? { cameraOnIntro: args.cameraOnIntro } : {}),
       ...(args.cameraCorner ? { cameraCorner: args.cameraCorner } : {}),
     });
 

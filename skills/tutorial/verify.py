@@ -102,7 +102,7 @@ def ffmpeg():
     return None
 
 
-def build_take(directory):
+def build_take(directory, events=None, transcript=None):
     """A screen and a camera with known colours, plus a cursor track."""
     ff = ffmpeg()
     if not ff:
@@ -138,7 +138,7 @@ def build_take(directory):
         'durationMs': DURATION_S * 1000,
         'scaleFactor': 1,
         'marks': [],
-        'events': [
+        'events': events if events is not None else [
             {'tMs': CLICK_1_MS, 'kind': 'click', 'x': square_x, 'y': square_y},
             {'tMs': CLICK_1_MS + 180, 'kind': 'click', 'x': square_x, 'y': square_y},
             {'tMs': CLICK_2_MS, 'kind': 'click', 'x': 0.8, 'y': 0.8},
@@ -147,6 +147,13 @@ def build_take(directory):
     }
     with open(os.path.join(directory, 'cursor.json'), 'w') as f:
         json.dump(manifest, f)
+
+    # A transcript beside the take is used instead of running Whisper, so
+    # the parts of the skill that read the WORDS can be checked without a
+    # machine-dependent speech model deciding whether the suite passes.
+    if transcript is not None:
+        with open(os.path.join(directory, 'transcript.json'), 'w') as f:
+            json.dump(transcript, f)
 
     return {'square': (square_x, square_y)}
 
@@ -172,9 +179,17 @@ def frame(ms, tries=50):
     return None
 
 
+# Every colour in this fixture is dark AND saturated, so its darkest
+# channel is 48. Backdrop paint is pale: measured on the light default,
+# the pixels that were being miscounted have a darkest channel of 180 to
+# 197. 130 sits between the two with room on both sides.
+DARKEST_CHANNEL = 130
+
+
 def mask_for(img, channel):
     """
-    Pixels where `channel` dominates the other two by a clear margin.
+    Pixels where `channel` dominates the other two by a clear margin AND
+    the pixel is a dark, saturated colour rather than pale paint.
 
     A distance-to-colour test was the first version of this and it was
     wrong in a way that took a frame dump to see: the skill applies a
@@ -183,16 +198,30 @@ def mask_for(img, channel):
     (48,192,48) and falls outside any tolerance tight enough to be
     meaningful. Hue survives the grade; absolute colour does not, and a
     check that a grade can break is a check that will break.
+
+    `DARKEST_CHANNEL` is the second half of that lesson, and it was added
+    when the default backdrop became a light one. `daylight` has a coral
+    corner, and a coral corner is red-dominant by the hue test alone: the
+    share of the frame edges reading as "the recording" went from 0% to
+    16% against a threshold of 20% without one pixel of recording moving.
+    The check was still passing and had stopped measuring what it says.
+
+    The bound is deliberately ONE-SIDED, so it cannot undo the first
+    lesson. Every grade in this skill darkens — the vignette, the dip to
+    black — and darkening only lowers the darkest channel. Nothing that
+    was in range can be pushed out of it. What it excludes is pale
+    backdrop paint, which was never meant to count.
     """
     if img is None:
         return None
     r, g, b = img[:, :, 0], img[:, :, 1], img[:, :, 2]
+    saturated = img.min(axis=2) < DARKEST_CHANNEL
     if channel == 'green':
-        return (g > r + 40) & (g > b + 40)
+        return (g > r + 40) & (g > b + 40) & saturated
     if channel == 'blue':
-        return (b > r + 40) & (b > g + 40)
+        return (b > r + 40) & (b > g + 40) & saturated
     if channel == 'red':
-        return (r > g + 40) & (r > b + 40)
+        return (r > g + 40) & (r > b + 40) & saturated
     raise ValueError(channel)
 
 
@@ -273,10 +302,11 @@ def main():
 
     # ── 3. The frame is inset on a backdrop ──────────────────────────
     if rest is not None:
-        edge = np.concatenate([rest[:, :6].reshape(-1, 3), rest[:, -6:].reshape(-1, 3)])
-        edge_is_screen = float(
-            ((edge[:, 0] > edge[:, 1] + 40) & (edge[:, 0] > edge[:, 2] + 40)).mean()
-        )
+        # Through `mask_for`, not a second inline copy of it. There WAS a
+        # second copy, and it is why this check did not move when the
+        # colour test was corrected.
+        edge_cols = np.concatenate([rest[:, :6], rest[:, -6:]], axis=1)
+        edge_is_screen = float(mask_for(edge_cols, 'red').mean())
         check('the picture is inset, so the backdrop shows at the edges',
               edge_is_screen < 0.2,
               f'{edge_is_screen * 100:.0f}% of the left and right edges are the recording')
@@ -483,6 +513,75 @@ def main():
           control=False)
 
     shutil.rmtree(directory, ignore_errors=True)
+
+    # ── 10. Opening on the face, and only when it should ─────────────
+    #
+    # Somebody who starts by saying who they are and what they are about
+    # to show is not narrating a screen, and an inset webcam in the
+    # corner of a static desktop is the worst framing available for it.
+    #
+    # The pair of takes below is the whole check, and the SECOND one is
+    # what makes the first mean anything: identical footage, identical
+    # timings, identical cursor track, and words that point at the screen
+    # instead of introducing anybody. A detector that simply liked the
+    # start of takes would pass the first and fail the second.
+    intro_words = [
+        {'startMs': 200, 'endMs': 3600, 'text': 'Hi everyone, my name is Sam.'},
+        {'startMs': 3800, 'endMs': 8200,
+         'text': "Today I'm going to show you how the importer works."},
+    ]
+    demo_words = [
+        {'startMs': 200, 'endMs': 3600, 'text': 'Right, so here you can see the importer screen.'},
+        {'startMs': 3800, 'endMs': 8200, 'text': 'As you can see the queue is already full.'},
+    ]
+    late_click = [{'tMs': 10500, 'kind': 'click', 'x': 0.8, 'y': 0.8}]
+
+    def run(words):
+        folder = tempfile.mkdtemp(prefix='kerf-tutorial-intro-')
+        build_take(folder, events=late_click, transcript=words)
+        opts = {'folder': folder, 'captions': True}
+        if SELFTEST:
+            opts['raw'] = True
+        rep = ok(call('build_tutorial_from_recording', opts), 'intro build')
+        early = share(frame(300), 'blue')
+        middle = share(frame(6000), 'blue')
+        after = share(frame(11800), 'blue')
+        shutil.rmtree(folder, ignore_errors=True)
+        return rep, early, middle, after
+
+    intro_rep, intro_early, intro_mid, intro_after = run(intro_words)
+
+    check('the film opens on the face when the take opens with an introduction',
+          intro_early > 0.9,
+          f"{intro_early * 100:.0f}% of the very first frames are the camera, "
+          f"introductionMs={intro_rep['introductionMs']}")
+
+    # Not a control: it is the control FOR its neighbour. Without it,
+    # "the film opens on the face" would also pass on a build where the
+    # camera simply never left.
+    check('and hands the frame back when the work starts',
+          intro_mid > 0.9 and intro_after < 0.2,
+          f'{intro_mid * 100:.0f}% camera at 6.0s, {intro_after * 100:.0f}% at 11.8s',
+          control=False)
+
+    demo_rep, demo_early, _, _ = run(demo_words)
+
+    # Not a control, and it cannot be one: it asserts that something did
+    # NOT happen, and nothing happens on the raw build, so it would pass
+    # there for the least interesting reason available. It is the control
+    # for its NEIGHBOUR, and the stronger half of the pair — the two takes
+    # differ only in what is said over them.
+    check('and does not, on the same take, when the words point at the screen',
+          demo_rep['introductionMs'] == 0 and demo_early < 0.2,
+          f"introductionMs={demo_rep['introductionMs']}, "
+          f'{demo_early * 100:.0f}% of the first frames are the camera',
+          control=False)
+
+    check('and says why it decided either way',
+          any('open' in n.lower() or 'introduc' in n.lower() for n in demo_rep['notes']),
+          next((n[:80] for n in demo_rep['notes']
+                if 'open' in n.lower() or 'introduc' in n.lower()), 'nothing said'),
+          control=False)
 
 
 main()

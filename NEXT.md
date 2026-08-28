@@ -70,27 +70,57 @@ stops), a perspective/corner-pin transform (its cuts change the tilt by
 6.5–8.7 degrees and a flat capture has no third axis), and a note that
 the reference is NOT cut to music, so nobody re-derives it.
 
+### Also done this session
+
+**The backdrop, and two bugs it found.** HANDOVER **§7d** is the record.
+Mesh gradients (`stops` and `blobs` on a shape gradient), eight backdrop
+presets with five light ones, a light default, the measured 84% inset, a
+soft shadow under the picture — which §7a had recorded as impossible and
+is not — and:
+
+* **Motion blur was leaving every blurred clip 32% transparent**, so the
+  backdrop showed through the picture whenever the skill added zooms.
+  Invisible while the backdrop was near-black. Two wrong fixes before the
+  right one; all three are written up because the wrong ones both looked
+  correct.
+* **`verify_tools`' motion-blur check was passing ON that bug.** Its
+  metric is a mean of horizontal differences, which is mathematically
+  blind to blur; the only thing that ever moved it was the transparency.
+* **`verify.py`'s colour test had the same shape of problem** once the
+  backdrop went light, plus a second inline copy of itself.
+
+**Opening on the face.** HANDOVER **§7e**. If a take opens with somebody
+introducing themselves, the camera takes the whole frame for it. Three
+kinds of evidence — behaviour, shape, words — and it refuses rather than
+guesses. `transcript.json` beside a take is used instead of transcribing,
+which is both a real feature and what makes this checkable.
+
 ### THE NEXT JOB — pick one
 
-Nothing is half-finished. Three candidates, in the order they are worth
-doing:
+Nothing is half-finished. In the order they are worth doing:
 
-1. **Look at it.** Every claim above is verified in synthesised pixels
-   with known colours, which is the right gate and is not the same as
-   somebody watching a real tutorial built the new way. Record 60–90
-   seconds of something real, run the skill, and watch it. The specific
-   things to watch for, because they are where a measured number can
-   still be wrong on real footage: whether `holdMs` 2030 is too long
-   when clicks come in bursts, whether `factor` 2.8 is too far in on a
-   dense IDE, and whether the 3%/s creep reads as intentional or as
-   drift.
+1. **Look at it on real footage.** Everything above is verified in
+   synthesised pixels with known colours, which is the right gate and is
+   not the same as watching a real tutorial. Record 60–90 seconds —
+   introduce yourself for the first ten, then do something — and watch
+   it. What to watch for, because these are measured numbers that can
+   still be wrong on real footage: whether `holdMs` 2030 is too long when
+   clicks come in bursts, whether `factor` 2.8 is too far in on a dense
+   IDE, whether the 3%/s creep reads as intentional, and whether the
+   introduction detector fires on how YOU actually start a take. The
+   marker lists in `detectIntroduction` are the first thing to widen if
+   it does not.
 
-2. **Split `0b20afa`.** If the home-screen session is done, its work
-   should be its own commit with its own message. Check whether anything
-   is still writing to those files first.
+2. **The introduction detector is English-only and says so.** Every
+   marker is an English phrase. It fails closed, so a French take simply
+   never opens on the face. If that matters, the markers are data and
+   want to be per-language data.
 
-3. **Push.** Four commits deep on an unpushed `main` is further than
-   this repo usually runs.
+3. **Split `0b20afa`.** If the home-screen session is finished, its work
+   should be its own commit. Check whether anything is still writing to
+   those files first.
+
+4. **Push.** Five commits deep on an unpushed `main`.
 
 ## Getting a working loop (do this first, it has eight traps)
 

@@ -36,6 +36,34 @@ def edges(a):
     l = 0.299*a[:,:,0] + 0.587*a[:,:,1] + 0.114*a[:,:,2]
     return float(np.abs(np.diff(l, axis=1)).mean())
 
+def sharpest(a):
+    """
+    The steepest horizontal step in the frame.
+
+    `edges` above is the MEAN of the horizontal differences, and that
+    metric cannot see a blur: smearing a step over 37 pixels replaces one
+    difference of 255 with 37 differences averaging 7, and the sum, so
+    the mean over a fixed frame, is unchanged. Measured on a synthetic
+    bar: mean |diff| is 100.0% of sharp after a 37px blur, while the peak
+    is 2.7% of it.
+
+    The mean of the 256 steepest steps rather than the single maximum, so
+    one stray antialiased pixel cannot carry the check — and NOT a
+    percentile, which was the first attempt and was wrong: the probe
+    square is 240px tall, so its two vertical edges are about 480 pixels
+    of a 2-megapixel frame. That is 0.02%, well inside a 99.9th
+    percentile's tail, and the metric read 4.0 on a hard white-on-black
+    edge because it was measuring noise.
+    """
+    l = 0.299*a[:,:,0] + 0.587*a[:,:,1] + 0.114*a[:,:,2]
+    d = np.abs(np.diff(l, axis=1)).ravel()
+    return float(np.sort(d)[-256:].mean())
+
+def brightest(a):
+    """How opaque the white paint is: the mean of the 256 brightest pixels."""
+    l = 0.299*a[:,:,0] + 0.587*a[:,:,1] + 0.114*a[:,:,2]
+    return float(np.sort(l.ravel())[-256:].mean())
+
 def fresh(n=1, kind='rectangle'):
     ok(call('reset_project', {'name': 'toolprobe', 'aspectRatio': '16:9', 'fps': 30,
                               'backgroundColor': '#000000', 'durationMs': DUR}), 'r')
@@ -101,13 +129,33 @@ ok(call('add_keyframes', {'clipId': ids[0], 'property': 'positionX', 'keyframes'
     {'timeOffsetMs': 0, 'value': -700, 'easing': 'linear'},
     {'timeOffsetMs': DUR, 'value': 700, 'easing': 'linear'}]}), 'kf')
 sharp = frame(DUR // 2)
-e_sharp = edges(sharp)
 ok(call('set_motion_blur', {'clipId': ids[0], 'enabled': True,
                             'samples': 12, 'shutterAngle': 340}), 'mb')
 blurred = frame(DUR // 2)
-e_blur = edges(blurred)
-check('set_motion_blur softens motion', e_blur < e_sharp * 0.85,
-      f'horizontal edge energy {e_sharp:.3f} -> {e_blur:.3f}')
+
+#
+# This check used to read `edges(blurred) < edges(sharp) * 0.85` and it
+# was passing on a BUG rather than on the blur.
+#
+# `edges` is a mean of horizontal differences and is blind to blur, as
+# its own docstring now shows. What made the number move was that the
+# twelve samples were drawn onto the frame with `globalAlpha = 1/12`
+# each, and twelve source-over draws at 1/12 leave the layer 64.8%
+# opaque, not 100%. The white bar rendered at 165 instead of 255, the
+# mean fell to 64.8% of sharp, and 0.85 was comfortably cleared. The
+# clip was translucent and the check was reporting soft motion.
+#
+# So it is measured two ways now, and the second one is the control for
+# the first: the blur has to flatten the steepest step, AND the paint has
+# to stay as opaque as it was before the blur was switched on.
+#
+s_sharp, s_blur = sharpest(sharp), sharpest(blurred)
+check('set_motion_blur softens motion', s_blur < s_sharp * 0.5,
+      f'steepest horizontal step {s_sharp:.1f} -> {s_blur:.1f}')
+
+w_sharp, w_blur = brightest(sharp), brightest(blurred)
+check('and does not do it by going translucent', w_blur > w_sharp * 0.96,
+      f'brightest paint {w_sharp:.1f} -> {w_blur:.1f}')
 
 # ── undo depth ─────────────────────────────────────────────────────
 t, ids = fresh(1)

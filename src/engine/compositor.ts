@@ -685,6 +685,50 @@ function applyMask(
   const m = resolvedMask(clip, offsetMs);
   if (!m.enabled) return;
 
+  /*
+    The shadow, cast BEFORE the clip and from OFF THE CANVAS.
+
+    `cinematicLook.ts` used to record that a shadow could not be had at
+    the same time as the rounded corners, because `ctx.clip()` below
+    erases anything the clip casts outside itself. That is true of a
+    shadow cast by the CONTENT. The mask's own outline can cast one, and
+    the trick is not to let the outline itself be seen.
+
+    Filling it in place does not work, and the reason is worth writing
+    down because it looked fine at first: the fill has to be OPAQUE for
+    the shadow to be at full strength, and the picture is then drawn over
+    it at whatever `globalAlpha` is in force. At alpha 1 it covers. Under
+    motion blur each sample draws at 1/(i+1), so the picture only
+    partially covers its own black underlay and the whole frame comes
+    back grey. Measured: a white app window rendering at rgb(150,150,150).
+
+    So the outline is traced a long way off the canvas and the shadow
+    offset brings the shadow — and only the shadow — back to where the
+    picture is. Canvas shadow offsets and blur are in DEVICE space and
+    are not touched by the current transform, hence the scale factors
+    read off it.
+  */
+  const blur = m.shadow?.blur ?? 0;
+  if (m.shadow && blur > 0 && !m.inverted) {
+    const tf = ctx.getTransform();
+    const deviceX = Math.hypot(tf.a, tf.b) || 1;
+    const deviceY = Math.hypot(tf.c, tf.d) || 1;
+    /* Far enough that neither the shape nor its own blur can reach back
+       onto the frame, in the units this transform is drawing in. */
+    const push = Math.abs(box.width) * 4 + blur * 8 + 4000;
+
+    ctx.save();
+    ctx.shadowColor = m.shadow.color ?? 'rgba(15,20,35,0.28)';
+    ctx.shadowBlur = blur * deviceX;
+    ctx.shadowOffsetX = push * deviceX;
+    ctx.shadowOffsetY = (m.shadow.offsetY ?? 0) * deviceY;
+    ctx.translate(-push, 0);
+    traceMaskPath(ctx, m, box);
+    ctx.fillStyle = '#000000';
+    ctx.fill();
+    ctx.restore();
+  }
+
   traceMaskPath(ctx, m, box);
 
   if (m.inverted) {
@@ -1163,6 +1207,15 @@ function traceShape(ctx: CanvasRenderingContext2D, style: ShapeStyle, w: number,
   }
 }
 
+/** `#rrggbb` (or `#rgb`) at a given alpha, for a gradient stop. */
+function rgbaFromHex(hex: string, alpha: number): string {
+  const h = hex.trim().replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const n = parseInt(full.slice(0, 6), 16);
+  if (Number.isNaN(n)) return `rgba(0,0,0,${alpha})`;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+}
+
 function renderShapeClip(
   ctx: CanvasRenderingContext2D,
   clip: Clip,
@@ -1206,12 +1259,39 @@ function renderShapeClip(
       const dy = (Math.sin(rad) * box.height) / 2;
       const grad = ctx.createLinearGradient(-dx, -dy, dx, dy);
       grad.addColorStop(0, style.gradient.from);
+      for (const stop of style.gradient.stops ?? []) {
+        grad.addColorStop(Math.max(0, Math.min(1, stop.at)), stop.color);
+      }
       grad.addColorStop(1, style.gradient.to);
       ctx.fillStyle = grad;
     } else {
       ctx.fillStyle = style.fill;
     }
     ctx.fill();
+
+    /*
+      Blobs, over the base, in paint order.
+
+      `ctx.fill()` reuses the path already traced above rather than
+      re-tracing it, so a wash is clipped to the shape exactly as the
+      base fill is. Each one is a radial gradient from the colour at
+      `opacity` to the same colour at zero, which under source-over
+      composites to `out*(1-a) + colour*a` with `a` falling off linearly
+      — the same construction the mesh was measured against.
+    */
+    for (const blob of style.gradient?.blobs ?? []) {
+      const long = Math.max(box.width, box.height);
+      const radius = Math.max(1, blob.radius * long);
+      const cx = (blob.x - 0.5) * box.width;
+      const cy = (blob.y - 0.5) * box.height;
+      const alpha = Math.max(0, Math.min(1, blob.opacity));
+      if (alpha <= 0) continue;
+      const wash = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      wash.addColorStop(0, rgbaFromHex(blob.color, alpha));
+      wash.addColorStop(1, rgbaFromHex(blob.color, 0));
+      ctx.fillStyle = wash;
+      ctx.fill();
+    }
   }
 
   if (style.strokeWidth > 0 || isStrokeOnly) {
@@ -1540,20 +1620,115 @@ function renderClip(
     const shutterMs = (mb.shutterAngle / 360) * (1000 / project.fps);
     const samples = Math.min(16, Math.max(2, Math.round(mb.samples)));
     const { lo, hi } = shutterWindow(clip, playheadMs, shutterMs);
-    ctx.save();
-    ctx.globalAlpha = 1;
-    for (let i = 0; i < samples; i++) {
-      const t = samples > 1 ? lo + ((hi - lo) * i) / (samples - 1) : playheadMs;
+    const acc = blurScratch(canvasWidth, canvasHeight);
+
+    if (acc) {
+      /*
+        Accumulated ADDITIVELY, into a layer, one isolated sample at a
+        time. Two earlier versions of this were wrong and both were
+        wrong in ways that looked fine.
+
+        **Drawing the samples onto the frame at `1/samples` each.** Twelve
+        source-over draws at alpha 1/12 leave the layer 64.8% opaque, not
+        100%: source-over is `src + (1 - srcAlpha) * dst`, and repeating
+        it never reaches one. So the clip was translucent whenever motion
+        blur was on, and on a screen recording inset on a backdrop the
+        backdrop showed THROUGH the picture, everywhere. Measured at
+        31.6% of it. It reads as a washed-out grade rather than as
+        transparency, which is why it survived. `verify_tools`' own
+        motion-blur check was passing ON this: its metric is a mean of
+        horizontal differences, which is blind to blur, and the only
+        thing that ever moved it was the 64.8%.
+
+        **Then a running mean, `1/(i+1)` into a transparent layer.** Right
+        in the middle of the smear and wrong at both ends, for the same
+        reason: `globalAlpha` scales the SOURCE, so where a sample is
+        transparent the destination is not attenuated at all. The
+        trailing edge, covered only by the first sample at alpha 1,
+        stayed fully opaque forever. Measured on a bar moving 36.7px per
+        shutter: the leading edge ramped 251 down to 0 across 19 pixels
+        and the trailing edge went 0, 33, 255 in two.
+
+        So each sample is rendered ALONE, at full opacity, and then added
+        in at `1/samples` with `lighter`. Premultiplied colour and alpha
+        both add, so a pixel covered by every sample comes out opaque and
+        the mean colour, and a pixel covered by one comes out at 1/12 —
+        which is what a smear edge is. The isolation matters for its own
+        reason: `lighter` applied to a clip that draws more than once,
+        a shape with a stroke over its fill, would add the overlap to
+        itself.
+      */
+      const world = ctx.getTransform();
+      /* A blend mode belongs to the finished average, not to each sample
+         of it, so the samples go in `normal` and the layer carries it. */
+      const flat: Clip = clip.blendMode === 'normal' ? clip : { ...clip, blendMode: 'normal' };
+      for (let i = 0; i < samples; i++) {
+        const t = samples > 1 ? lo + ((hi - lo) * i) / (samples - 1) : playheadMs;
+
+        acc.sample.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        acc.sample.ctx.globalCompositeOperation = 'source-over';
+        acc.sample.ctx.globalAlpha = 1;
+        acc.sample.ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        acc.sample.ctx.save();
+        acc.sample.ctx.setTransform(world);
+        renderClipPass(acc.sample.ctx, flat, project, t, offsetMs + (t - playheadMs),
+                       canvasWidth, canvasHeight, 'source-over');
+        acc.sample.ctx.restore();
+
+        acc.accum.ctx.setTransform(1, 0, 0, 1, 0, 0);
+        acc.accum.ctx.globalCompositeOperation = 'lighter';
+        acc.accum.ctx.globalAlpha = 1 / samples;
+        acc.accum.ctx.drawImage(acc.sample.canvas, 0, 0);
+      }
+
       ctx.save();
-      ctx.globalAlpha = 1 / samples;
-      renderClipPass(ctx, clip, project, t, offsetMs + (t - playheadMs), canvasWidth, canvasHeight);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation =
+        (clip.blendMode === 'normal' ? 'source-over' : clip.blendMode) as GlobalCompositeOperation;
+      ctx.drawImage(acc.accum.canvas, 0, 0);
       ctx.restore();
+      return;
     }
-    ctx.restore();
+
+    /* No scratch layer available. One clean pass beats a translucent
+       smear: the blur is the thing being given up, not the clip. */
+    renderClipPass(ctx, clip, project, playheadMs, offsetMs, canvasWidth, canvasHeight);
     return;
   }
 
   renderClipPass(ctx, clip, project, playheadMs, offsetMs, canvasWidth, canvasHeight);
+}
+
+/*
+  A third scratch canvas, for motion blur only.
+
+  Separate from `scratchPair` on purpose: the layered path returns before
+  the blur runs today, but "these two never overlap" is the kind of thing
+  that stops being true silently.
+*/
+let blurAccum: HTMLCanvasElement | null = null;
+let blurSample: HTMLCanvasElement | null = null;
+
+function blurScratch(width: number, height: number) {
+  if (typeof document === 'undefined') return null;
+  if (!blurAccum) blurAccum = document.createElement('canvas');
+  if (!blurSample) blurSample = document.createElement('canvas');
+  const ready: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }[] = [];
+  for (const canvas of [blurAccum, blurSample]) {
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    const c = canvas.getContext('2d');
+    if (!c) return null;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.globalAlpha = 1;
+    c.globalCompositeOperation = 'source-over';
+    c.filter = 'none';
+    c.clearRect(0, 0, width, height);
+    ready.push({ canvas, ctx: c });
+  }
+  return { accum: ready[0], sample: ready[1] };
 }
 
 /**
@@ -1618,7 +1793,14 @@ function renderClipPass(
   sampleMs: number,
   offsetMs: number,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  /**
+   * Force the composite operation instead of taking it from the clip's
+   * blend mode. Motion blur needs it: its samples are accumulated, not
+   * layered, and a clip's real blend mode belongs to the finished
+   * average rather than to each sample of it.
+   */
+  compositeOverride?: GlobalCompositeOperation
 ): void {
   const natural = getNaturalSize(clip);
   const box = getClipBox(clip, project, sampleMs, natural);
@@ -1635,7 +1817,8 @@ function renderClipPass(
   ctx.save();
 
   ctx.globalAlpha = ctx.globalAlpha * alpha;
-  ctx.globalCompositeOperation = (clip.blendMode === 'normal' ? 'source-over' : clip.blendMode) as GlobalCompositeOperation;
+  ctx.globalCompositeOperation = compositeOverride
+    ?? ((clip.blendMode === 'normal' ? 'source-over' : clip.blendMode) as GlobalCompositeOperation);
 
   // A motion path overrides the transform's own translation.
   let originX = box.cx;

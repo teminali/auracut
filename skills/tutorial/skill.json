@@ -13,7 +13,7 @@
   "id": "tutorial",
   "name": "Tutorial",
   "version": "1.0.0",
-  "summary": "Turns a screen recording into a finished tutorial: zooms on real clicks, an inset frame, the camera on pauses, captions.",
+  "summary": "Turns a screen recording into a finished tutorial: hard cuts between framings, an inset frame on a light backdrop, the camera full frame over a spoken introduction and over pauses, captions.",
 
   "toolApi": 1,
 
@@ -81,7 +81,7 @@
       "id": "recording",
       "kind": "folder",
       "required": true,
-      "description": "A take folder written by Kerf's screen recorder, holding screen.mp4 and cursor.json."
+      "description": "A take folder written by Kerf's screen recorder, holding screen.mp4 and cursor.json. An optional transcript.json beside them is used instead of transcribing, which is what a scripted tutorial already has."
     },
     {
       "id": "captions",
@@ -101,9 +101,9 @@
       "id": "backdrop",
       "kind": "enum",
       "required": false,
-      "default": "graphite",
-      "options": ["graphite", "midnight", "clay", "daylight", "none"],
-      "description": "What the inset picture sits on. `daylight` is the reference video's own gradient, measured off it."
+      "default": "daylight",
+      "options": ["daylight", "linen", "blossom", "lagoon", "dusk", "graphite", "midnight", "clay", "none"],
+      "description": "What the inset picture sits on. The first five are light — the look every screen-tutorial tool ships — and `daylight` is the reference video's own backdrop, measured off it. The last three are dark, for a dark-theme subject."
     }
   ],
   "_slots": [

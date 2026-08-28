@@ -44,7 +44,10 @@ import { Easing, ProjectSettings } from '../types/edl';
 
 /* ── Backdrops ──────────────────────────────────────────────────── */
 
-export type BackdropId = 'graphite' | 'midnight' | 'clay' | 'daylight' | 'none';
+export type BackdropId =
+  | 'daylight' | 'linen' | 'blossom' | 'lagoon' | 'dusk'
+  | 'graphite' | 'midnight' | 'clay'
+  | 'none';
 
 export interface Backdrop {
   id: BackdropId;
@@ -52,41 +55,127 @@ export interface Backdrop {
   from: string;
   to: string;
   angle: number;
+  /** Extra colours along the axis, 0..1. */
+  stops?: { color: string; at: number }[];
+  /** Soft radial washes over the base — what makes a MESH rather than a ramp. */
+  blobs?: { color: string; x: number; y: number; radius: number; opacity: number }[];
+  /** True for the light set, so the UI can group them and the picture can be told apart. */
+  light?: boolean;
 }
 
 /*
-  Dark, all of them, and low in saturation. A screen recording is mostly
-  bright UI, and a backdrop with any real colour in it competes with the
-  thing it is meant to be holding.
+  ── The light set, and why it is now the front half of the list ─────
+
+  This list used to be three dark gradients and a paragraph explaining
+  that a screen recording is mostly bright UI, so a backdrop with any
+  real colour in it competes with the thing it is meant to be holding.
+  That reasoning is still true and the dark set is still here for the
+  cases it is right for — a dark-theme editor, a terminal, a demo shot
+  at night.
+
+  It was also, as a DEFAULT, wrong. Every tool people actually make
+  screen tutorials with — Screen Studio, Recordly, Tella, Focusee — puts
+  the picture on a soft light gradient, and that is not a coincidence of
+  taste: a light backdrop reads as PAPER behind a screen, and a dark one
+  reads as a video player with a small video in it. The rounded inset
+  only looks like an object sitting on something when the something is
+  lighter than the object's shadow would be.
+
+  ── Mesh, not ramps ─────────────────────────────────────────────────
+
+  Four of the five light backdrops carry `blobs`. A two-stop ramp always
+  looks like a two-stop ramp: it has a visible direction and a flat
+  middle. What those tools ship instead is two or three soft radial
+  washes over a near-white base, so the colour pools in corners and
+  fades to nothing in the centre, which is where the picture goes. The
+  measurement behind the whole feature is on `daylight` below.
+
+  Saturation is kept low on purpose and it is not only taste: the
+  verification suites identify the recording by which channel dominates
+  a pixel by 40 or more, so a backdrop that is strongly one colour would
+  start being counted as footage. `verify.py` asserts the edges are NOT
+  the recording, and a violently blue backdrop would quietly turn that
+  check into a different check.
 */
 export const BACKDROPS: Backdrop[] = [
+  /*
+    `daylight` is the measured one: the backdrop of the reference video
+    in HANDOVER §7c, read off the 35% of its opening frame that the
+    mockup does not cover. Indigo at the top left, coral at the top
+    right, near-white across the whole bottom.
+
+    The two-stop fit to that was 8.2% RMS wrong and shipped anyway,
+    labelled, because `Backdrop` could not say anything else. It can
+    now, and the fitted mesh is 1.5% — the same pixels, the same
+    measurement, five and a half times closer. A third blob buys 0.1%
+    and is not worth a preset that is harder to read.
+  */
+  {
+    id: 'daylight',
+    label: 'Daylight',
+    light: true,
+    from: '#eceefc',
+    to: '#f6f2f0',
+    angle: 90,
+    blobs: [
+      { color: '#8f9be8', x: 0.10, y: 0.06, radius: 0.62, opacity: 0.85 },
+      { color: '#f4a99a', x: 0.94, y: 0.05, radius: 0.55, opacity: 0.80 },
+    ],
+  },
+  /*
+    The minimal one, and the safest default for footage nobody has seen.
+    Barely a gradient at all — just enough separation for the inset's
+    edge to read against it.
+  */
+  {
+    id: 'linen',
+    label: 'Linen',
+    light: true,
+    from: '#f7f8fa',
+    to: '#e6e9ef',
+    angle: 112,
+  },
+  {
+    id: 'blossom',
+    label: 'Blossom',
+    light: true,
+    from: '#fdf3ee',
+    to: '#f7eef4',
+    angle: 100,
+    blobs: [
+      { color: '#f6b8a4', x: 0.08, y: 0.12, radius: 0.58, opacity: 0.62 },
+      { color: '#e7b6d4', x: 0.92, y: 0.88, radius: 0.60, opacity: 0.52 },
+    ],
+  },
+  {
+    id: 'lagoon',
+    label: 'Lagoon',
+    light: true,
+    from: '#eef7f8',
+    to: '#eaf1fb',
+    angle: 80,
+    blobs: [
+      { color: '#9fd6d2', x: 0.12, y: 0.86, radius: 0.60, opacity: 0.58 },
+      { color: '#a8c4ee', x: 0.90, y: 0.10, radius: 0.58, opacity: 0.58 },
+    ],
+  },
+  {
+    id: 'dusk',
+    label: 'Dusk',
+    light: true,
+    from: '#eeecfa',
+    to: '#f4eef6',
+    angle: 120,
+    blobs: [
+      { color: '#a99ce4', x: 0.85, y: 0.14, radius: 0.66, opacity: 0.60 },
+      { color: '#efc3b4', x: 0.14, y: 0.90, radius: 0.52, opacity: 0.45 },
+    ],
+  },
+
+  /* Dark, low in saturation, and right when the subject is dark too. */
   { id: 'graphite', label: 'Graphite', from: '#232830', to: '#0a0c10', angle: 135 },
   { id: 'midnight', label: 'Midnight', from: '#16203a', to: '#05070d', angle: 135 },
   { id: 'clay', label: 'Clay', from: '#33201a', to: '#0d0806', angle: 135 },
-  /*
-    `daylight` is the odd one out and it is measured rather than chosen.
-
-    It is the backdrop of the reference video the cutting grammar came
-    from, fitted by least squares over the 35% of that frame the mockup
-    does not cover: a 2-stop linear gradient at 70.5 degrees from
-    #a492c6 to #fcf5f7.
-
-    **The fit is 8.2% RMS wrong and it is offered anyway, labelled.** The
-    real backdrop is a three-corner mesh — indigo #95a0e8 top-left, coral
-    #f1b3aa top-right, near-white #e9ebfa the whole way across the bottom
-    — and no two-stop linear gradient holds that. `Backdrop` has `from`,
-    `to` and `angle` and nothing else, so this is the closest thing the
-    format can say. A mesh gradient is in the capability log rather than
-    faked here.
-
-    It is not the DEFAULT, and the reason is written in the paragraph at
-    the top of this list: a screen recording is mostly bright UI and a
-    bright backdrop competes with it. The reference gets away with it
-    because its subject is a mockup rendered on that gradient rather than
-    a window captured off somebody's desktop. One reference video is not
-    evidence that this is the better choice for arbitrary footage.
-  */
-  { id: 'daylight', label: 'Daylight', from: '#a492c6', to: '#fcf5f7', angle: 70.5 },
 ];
 
 /* ── Options ────────────────────────────────────────────────────── */
@@ -99,15 +188,63 @@ export interface LookOptions {
   cornerPct: number;
   /** 0..100, on the picture's own filter stack. */
   vignette: number;
+  /**
+   * How hard the picture sits on the backdrop, 0..100. 0 is flat.
+   *
+   * Blur and lift scale with the canvas, so the same number reads the
+   * same at 720p and at 4K.
+   */
+  shadow: number;
   fadeInMs: number;
   fadeOutMs: number;
 }
 
 export const DEFAULT_LOOK: LookOptions = {
-  backdrop: 'graphite',
-  insetPct: 92,
-  cornerPct: 1.8,
-  vignette: 10,
+  backdrop: 'daylight',
+  /*
+    84, and it is measured: the mockup in the reference video fills
+    84.1% of its frame's width, read off the largest bright low-saturation
+    region of the opening frame.
+
+    It was 92, which is a hairline. A backdrop nobody can see is not a
+    backdrop, and 92 was chosen when the backdrop was near-black and the
+    only job of the margin was to keep the picture off the edge. With a
+    light backdrop the margin IS the look: it is what makes the picture
+    read as an object resting on something rather than as a video with a
+    border.
+  */
+  insetPct: 84,
+  /*
+    2.6% of the canvas height, so ~28px at 1080p.
+
+    Not measured off the reference: its surface is in perspective in
+    every frame where the outline shows, so the arc there is a projection
+    of the tilt rather than a radius (HANDOVER §7c). This is set against
+    the light backdrops instead, where the corner is now visible against
+    something rather than lost against near-black, and 1.8% read as a
+    square-cornered screenshot.
+  */
+  cornerPct: 2.6,
+  /*
+    Off by default, and this is a consequence of the light set.
+
+    A vignette darkens the corners of the PICTURE, which on a dark
+    backdrop is invisible and helpfully holds the eye in. On a light one
+    it puts grey smudges in the corners of a white app window, and the
+    frame either side of the inset stays bright, so it reads as a
+    rendering fault rather than as framing.
+  */
+  vignette: 0,
+  /*
+    The last thing separating this from what Screen Studio, Recordly and
+    Tella produce, and the thing that makes the inset read as an object
+    resting on the backdrop rather than as a rectangle pasted onto it.
+
+    Soft and low: 6% of the canvas height of blur, lifted 1.6%. A
+    tighter, darker shadow reads as a UI card; this reads as a screen on
+    a surface.
+  */
+  shadow: 34,
   fadeInMs: 450,
   fadeOutMs: 620,
 };
@@ -145,7 +282,13 @@ export function addBackdrop(
   */
   store().updateShapeStyle(id, {
     fill: preset.to,
-    gradient: { from: preset.from, to: preset.to, angle: preset.angle },
+    gradient: {
+      from: preset.from,
+      to: preset.to,
+      angle: preset.angle,
+      ...(preset.stops ? { stops: preset.stops } : {}),
+      ...(preset.blobs ? { blobs: preset.blobs } : {}),
+    },
     strokeWidth: 0,
     cornerRadius: 0,
   });
@@ -169,8 +312,9 @@ export function addBackdrop(
  */
 export function applyScreenLook(clipId: string, project: ProjectSettings, look: LookOptions): void {
   const radius = Math.round((look.cornerPct / 100) * project.height);
+  const shadow = Math.max(0, Math.min(100, look.shadow));
   store().patchClip(clipId, {
-    'mask.enabled': radius > 0,
+    'mask.enabled': radius > 0 || shadow > 0,
     'mask.type': 'rectangle',
     'mask.sizeX': 100,
     'mask.sizeY': 100,
@@ -181,6 +325,20 @@ export function applyScreenLook(clipId: string, project: ProjectSettings, look: 
     'mask.featherPx': 0,
     'mask.inverted': false,
     'filters.vignette': look.vignette,
+  });
+  /*
+    `updateClipMask` rather than a property path, for the same reason
+    `addBackdrop` uses `updateShapeStyle`: the shadow is a nested object
+    and the path validator addresses scalars.
+  */
+  store().updateClipMask(clipId, {
+    shadow: shadow > 0
+      ? {
+        color: `rgba(24, 30, 48, ${(0.42 * shadow) / 100})`,
+        blur: Math.round(project.height * 0.06 * (shadow / 100) * 2.4),
+        offsetY: Math.round(project.height * 0.016 * (shadow / 100) * 2.4),
+      }
+      : undefined,
   });
 }
 
@@ -274,16 +432,54 @@ const ENTER_MS = 420;
  */
 export function addCameraMotion(clipId: string, motion: CameraMotion): void {
   type Prop = 'opacity' | 'scaleX' | 'scaleY' | 'positionX' | 'positionY' | 'mask.roundness';
-  const track: Record<Prop, [number, number][]> = {
-    opacity: [[0, 0], [ENTER_MS * 0.7, 1]],
-    scaleX: [[0, motion.pip.scale * 0.84], [ENTER_MS, motion.pip.scale]],
-    scaleY: [[0, motion.pip.scale * 0.84], [ENTER_MS, motion.pip.scale]],
-    positionX: [[0, motion.pip.x]],
-    positionY: [[0, motion.pip.y]],
-    'mask.roundness': [[0, motion.pip.roundness]],
-  };
 
-  for (const stretch of motion.fullFrame) {
+  /*
+    Does the film OPEN full frame?
+
+    An introduction starts on the first frame of the take, and the base
+    track below settles the camera into its inset over `ENTER_MS`. Left
+    alone, a take that opens on somebody saying hello would show the
+    inset growing into place and then immediately expanding to fill the
+    frame, which is a move in the wrong direction followed by a move to
+    undo it. So the pose at time zero is the full frame instead, and the
+    first stretch has nothing to arrive from.
+  */
+  const opensFull = motion.fullFrame.length > 0 && motion.fullFrame[0].startMs <= ENTER_MS;
+
+  const track: Record<Prop, [number, number][]> = opensFull
+    ? {
+      opacity: [[0, 0], [ENTER_MS * 0.7, 1]],
+      scaleX: [[0, motion.coverScale]],
+      scaleY: [[0, motion.coverScale]],
+      positionX: [[0, 0]],
+      positionY: [[0, 0]],
+      /* Square, because it is the whole frame. */
+      'mask.roundness': [[0, 0]],
+    }
+    : {
+      opacity: [[0, 0], [ENTER_MS * 0.7, 1]],
+      scaleX: [[0, motion.pip.scale * 0.84], [ENTER_MS, motion.pip.scale]],
+      scaleY: [[0, motion.pip.scale * 0.84], [ENTER_MS, motion.pip.scale]],
+      positionX: [[0, motion.pip.x]],
+      positionY: [[0, motion.pip.y]],
+      'mask.roundness': [[0, motion.pip.roundness]],
+    };
+
+  for (let index = 0; index < motion.fullFrame.length; index++) {
+    const stretch = motion.fullFrame[index];
+
+    /* The opening stretch is already there and only has to leave. */
+    if (opensFull && index === 0) {
+      const held = Math.max(1, stretch.endMs);
+      const outAt = Math.min(motion.durationMs, held + CAMERA_TAKEOVER_MS);
+      track.scaleX.push([held, motion.coverScale], [outAt, motion.pip.scale]);
+      track.scaleY.push([held, motion.coverScale], [outAt, motion.pip.scale]);
+      track.positionX.push([held, 0], [outAt, motion.pip.x]);
+      track.positionY.push([held, 0], [outAt, motion.pip.y]);
+      track['mask.roundness'].push([held, 0], [outAt, motion.pip.roundness]);
+      continue;
+    }
+
     const inAt = Math.max(ENTER_MS + 1, stretch.startMs);
     const held = Math.max(inAt + 1, stretch.endMs);
     const outAt = Math.min(motion.durationMs, held + CAMERA_TAKEOVER_MS);

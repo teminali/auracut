@@ -187,6 +187,27 @@ export interface ClipMask {
   roundness: number;
   featherPx: number;
   inverted: boolean;
+  /**
+   * A soft shadow cast by the mask's own outline.
+   *
+   * It lives on the MASK rather than on the clip because the mask is the
+   * shape being cast: a rounded inset needs a rounded shadow, and the
+   * clip box is square.
+   *
+   * `cinematicLook.ts` used to record that this could not be had at the
+   * same time as the rounded corners, because `applyMask` calls
+   * `ctx.clip()` before the layer is drawn and a shadow cast by the same
+   * clip is clipped away. That is true of a shadow cast by the CONTENT
+   * and it is the wrong place to cast one: the outline is filled, with
+   * the shadow set, BEFORE the clip is applied, and the picture then
+   * covers the fill exactly. Optional, so nothing written before it
+   * changes meaning.
+   */
+  shadow?: {
+    color?: string;
+    blur?: number;
+    offsetY?: number;
+  };
 }
 
 /* ── Colour ─────────────────────────────────────────────────────── */
@@ -379,7 +400,40 @@ export interface ShapeStyle {
   trimEnd: number;
   /** Custom SVG path data when `kind` is `path`. */
   pathData?: string;
-  gradient?: { from: string; to: string; angle: number };
+  /**
+   * A fill that is more than one colour.
+   *
+   * `from`/`to`/`angle` is the linear base and is all this ever was.
+   * `stops` and `blobs` are additive and optional, so every project and
+   * preset written before them still means exactly what it did.
+   *
+   * `blobs` is what makes a MESH gradient possible, and it exists
+   * because a two-stop ramp measurably could not hold one: the backdrop
+   * of the reference video in HANDOVER §7c is indigo at the top left,
+   * coral at the top right and near-white across the bottom, and the
+   * best two-stop fit to it is 8.2% RMS wrong. Each blob is a soft
+   * radial wash laid over the base, which is the same construction every
+   * mesh-gradient tool uses.
+   */
+  gradient?: {
+    from: string;
+    to: string;
+    /** Degrees. The axis runs corner to corner of the box, so it is relative to the box's shape. */
+    angle: number;
+    /** Extra colours between `from` and `to`, positioned 0..1 along the axis. */
+    stops?: { color: string; at: number }[];
+    /** Radial washes over the base, in paint order. */
+    blobs?: {
+      color: string;
+      /** Centre, normalised 0..1 across the box. */
+      x: number;
+      y: number;
+      /** Reach, as a fraction of the box's LONG edge, so it stays circular. */
+      radius: number;
+      /** Strength at the centre, 0..1. Falls to nothing at `radius`. */
+      opacity: number;
+    }[];
+  };
   shadow?: { color: string; blur: number; offsetX: number; offsetY: number };
 }
 

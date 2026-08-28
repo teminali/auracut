@@ -304,10 +304,30 @@ async function build(
 ): Promise<AssembleReport> {
   const o = { ...DEFAULT_TUTORIAL, ...options };
   const notes: string[] = [];
-  let speech: SpeechCue[] = [];
+  /*
+    A transcript the caller already has wins over one this could make.
+
+    It arrives from a `transcript.json` beside the take, which is a
+    feature rather than a test hook: a scripted tutorial has its words
+    written down before it is recorded, and somebody who has them should
+    not wait for Whisper to guess at them again. It also makes the parts
+    of this skill that READ the words — where the camera cuts, and
+    whether the take opens with an introduction — checkable end to end
+    without a machine-dependent speech model in the loop.
+
+    Note the ordering below: `assembleRecording` is called with `speech`
+    AFTER `...options`, so an options-supplied transcript used to be
+    overwritten by the empty local. This is the same value, kept.
+  */
+  let speech: SpeechCue[] = options.speech ?? [];
   let background = false;
 
-  if (o.transcribe) {
+  if (speech.length > 0) {
+    notes.push(
+      `Using the ${speech.length}-line transcript supplied with the take rather than `
+      + 'transcribing it again.'
+    );
+  } else if (o.transcribe) {
     /*
       ── Wait for the words, or not, decided by which Whisper is here ──
 
