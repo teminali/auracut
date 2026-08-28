@@ -19,6 +19,7 @@ import { webcrypto as crypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 const BASE = process.env.STORE_URL ?? 'http://127.0.0.1:8788';
+const PERSIST_TO = process.env.STORE_PERSIST_TO;
 const results = [];
 const check = (label, pass, detail) => {
   console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${label.padEnd(52)} ${detail ?? ''}`);
@@ -92,6 +93,8 @@ check('the catalogue is readable signed out',
       `${anon.json?.skills?.length} skills, signedIn=${anon.json?.signedIn}`);
 check('a free skill is priced 0 and flagged free', free?.price.amount === 0 && free?.free === true,
       `${free?.price.amount} ${free?.price.currency}`);
+check('the included skill is marked for public manifest updates', free?.included === true,
+      `included=${free?.included}`);
 check('a paid skill carries its real price', paid?.price.amount === 5000 && paid?.free === false,
       `${paid?.price.amount} ${paid?.price.currency}`);
 check('control: nothing is owned when signed out',
@@ -119,7 +122,8 @@ const USER = 'usr_verify_store';
 const nowMs = Date.now();
 const q = (sql, mayFail = false) => {
   try {
-    return execSync(`npx wrangler d1 execute kerf-store --local --command=${JSON.stringify(sql)}`,
+    const persist = PERSIST_TO ? ` --persist-to=${JSON.stringify(PERSIST_TO)}` : '';
+    return execSync(`npx wrangler d1 execute kerf-store --local${persist} --command=${JSON.stringify(sql)}`,
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (err) {
     // A statement expected to be REFUSED is not a broken harness.
@@ -134,6 +138,29 @@ q(`DELETE FROM sessions WHERE user_id='${USER}'`);
 q(`DELETE FROM users WHERE id='${USER}'`);
 q(`INSERT INTO users (id, provider, provider_sub, email, name, created_at, last_seen_at) VALUES ('${USER}','google','sub-verify','v@example.com','Verify Store',${nowMs},${nowMs})`);
 q(`INSERT INTO sessions (token_hash, user_id, created_at, last_used_at, expires_at) VALUES ('${tokenHash}','${USER}',${nowMs},${nowMs},${nowMs + 86400000})`);
+
+const updateManifest = {
+  id: 'beat-montage', name: 'Beat Montage', version: '1.0.0', toolApi: 1,
+  summary: 'Manifest update verification probe.', trial: { uses: 0 },
+  slots: [{ id: 'footage', kind: 'folder', required: true, description: 'A folder of clips.' }],
+  requiresTools: ['assemble_from_folder'],
+  recipe: [{ tool: 'assemble_from_folder', args: { folder: '{slot:footage}' } }],
+  assets: [],
+};
+const manifestSql = JSON.stringify(updateManifest).replaceAll("'", "''");
+q(`UPDATE skill_versions SET manifest_json='${manifestSql}' WHERE skill_id='beat-montage' AND version='1.0.0'`);
+
+const publicManifest = await api('GET', '/v1/skills/beat-montage/manifest?version=1.0.0');
+check('an included skill manifest updates without signing in',
+      publicManifest.status === 200
+      && publicManifest.json?.manifest?.id === 'beat-montage'
+      && publicManifest.json?.manifest?.version === '1.0.0',
+      `${publicManifest.status} ${publicManifest.json?.manifest?.id ?? publicManifest.json?.error}`);
+
+const paidManifest = await api('GET', '/v1/skills/cinematic-grade/manifest?version=1.0.0');
+check('control: a paid skill manifest stays behind entitlement',
+      paidManifest.status === 401 && paidManifest.json?.error === 'not_signed_in',
+      `${paidManifest.status} ${paidManifest.json?.error}`);
 
 const meRes = await api('GET', '/v1/me', { token });
 check('a real session resolves to its user',

@@ -416,6 +416,33 @@ export interface KerfElectronAPI {
     reset: () => Promise<boolean>;
     onEvent: (cb: (event: ClaudeEvent) => void) => () => void;
   };
+  /** Skills stored under userData and read at runtime. */
+  userSkills: {
+    list: () => Promise<Array<{
+      manifest: {
+        id: string; name: string; version: string; summary: string; toolApi?: number;
+        trial?: { uses: number };
+        slots: Array<{ id: string; kind: string; required?: boolean; default?: unknown; options?: string[]; description?: string }>;
+        requiresTools: string[];
+        recipe: Array<{ tool: string; args: Record<string, unknown> }>;
+        assets: Array<{
+          id?: string; file?: string; kind?: string; path?: string; role?: string; description?: string;
+        }>;
+        verify?: string;
+        provenance?: { author?: string; builtWith?: string; builtAt?: string };
+        guide?: string;
+      };
+      dir: string;
+      assetsPresent: string[];
+      assetsMissing: string[];
+    }>>;
+    write: (manifest: unknown, knownTools?: string[]) => Promise<
+      { ok: true; dir: string; manifest: Record<string, unknown>; warnings: string[] }
+      | { ok: false; problems: string[] }>;
+    remove: (id: string) => Promise<{ ok: boolean; error?: string }>;
+    addAsset: (id: string, source: string, as?: string) => Promise<
+      { ok: true; file: string; bytes: number } | { ok: false; error: string }>;
+  };
   updater: {
     getStatus: () => Promise<UpdateStatus>;
     getCurrentVersion: () => Promise<string>;

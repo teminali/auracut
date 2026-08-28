@@ -108,7 +108,7 @@ describe('reachability', () => {
   const MOUNTS: { file: string; needs: string[] }[] = [
     { file: 'src/components/header/HeaderBar.tsx', needs: ['<UpdateIndicator'] },
     { file: 'src/components/home/HomeTopBar.tsx', needs: ['<UpdateIndicator'] },
-    { file: 'src/components/home/HomeSidebar.tsx', needs: ['<UpdateBanner', '<VersionFooter'] },
+    { file: 'src/components/home/HomeSidebar.tsx', needs: ['kind="app"', 'kind="skill"', '<VersionFooter'] },
   ];
 
   it('offers an update route from the editor and from the home screen', () => {

@@ -208,6 +208,19 @@ export interface ClipMask {
     blur?: number;
     offsetY?: number;
   };
+  /**
+   * A rim drawn from the mask's own outline after the clip content.
+   *
+   * The compositor keeps the mask clip active while it draws this, so
+   * half of the doubled stroke and every pixel of its glow that would
+   * fall outside the picture are clipped away. `widthPx` is therefore
+   * the visible INNER width, not the centred canvas stroke width.
+   */
+  stroke?: {
+    color: string;
+    widthPx: number;
+    glowPx: number;
+  };
 }
 
 /* ── Colour ─────────────────────────────────────────────────────── */
@@ -743,6 +756,18 @@ export type ClipSeed = DeepPartial<Omit<Clip, 'id' | 'trackId' | 'type' | 'name'
 
 /** Build a fully-populated clip, filling every optional field with a default. */
 export function createClip(partial: ClipSeed): Clip {
+  const mask: ClipMask = {
+    ...DEFAULT_MASK,
+    ...partial.mask,
+    stroke: partial.mask?.stroke
+      ? {
+        color: partial.mask.stroke.color ?? '#ffffff',
+        widthPx: partial.mask.stroke.widthPx ?? 1,
+        glowPx: partial.mask.stroke.glowPx ?? 0,
+      }
+      : undefined,
+  };
+
   return {
     color: '#4c9dff',
     startTimeMs: 0,
@@ -760,7 +785,7 @@ export function createClip(partial: ClipSeed): Clip {
     type: partial.type,
     name: partial.name,
     transform: { ...DEFAULT_TRANSFORM, ...partial.transform },
-    mask: { ...DEFAULT_MASK, ...partial.mask },
+    mask,
     speed: { ...DEFAULT_SPEED, ...partial.speed },
     keyframes: (partial.keyframes as KeyframePoint[]) ?? [],
     filters: { ...DEFAULT_FILTERS, ...partial.filters },

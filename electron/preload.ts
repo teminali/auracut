@@ -15,10 +15,13 @@ export type UpdateStatus =
 export interface UserSkillRecord {
   manifest: {
     id: string; name: string; version: string; summary: string;
+    toolApi?: number;
+    trial?: { uses: number };
     slots: { id: string; kind: string; required?: boolean; default?: unknown; options?: string[]; description?: string }[];
     requiresTools: string[];
     recipe: { tool: string; args: Record<string, unknown> }[];
-    assets: { id: string; file: string; kind: string; description?: string }[];
+    assets: { id?: string; file?: string; kind?: string; path?: string; role?: string; description?: string }[];
+    verify?: string;
     provenance?: { author?: string; builtWith?: string; builtAt?: string };
     guide?: string;
   };

@@ -14,6 +14,7 @@ export interface SkillRow {
   major_version: number; latest_version: string; tool_api: number;
   price_amount: number; price_currency: string;
   poster_url: string | null; preview_url: string | null;
+  included: number;
   status: string; verified_at: number | null; verified_build: string | null;
   created_at: number; updated_at: number;
 }

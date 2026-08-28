@@ -68,7 +68,11 @@ export interface UserSkillManifest {
   }[];
   requiresTools: string[];
   recipe: { tool: string; args: Record<string, unknown> }[];
-  assets: { id: string; file: string; kind: string; description?: string }[];
+  assets: {
+    id?: string; file?: string; kind?: string;
+    /** Hand-authored bundled manifests use path/role for the same facts. */
+    path?: string; role?: string; description?: string;
+  }[];
   provenance?: { author?: string; builtWith?: string; builtAt?: string; verifiedOn?: string };
   /** Free text the agent reads before running it. */
   guide?: string;
@@ -143,6 +147,13 @@ function safeId(id: unknown): string | null {
   return trimmed;
 }
 
+/** A declared file must stay inside its own skill folder. */
+function safeRelativeFile(file: unknown): file is string {
+  if (typeof file !== 'string' || !file || path.isAbsolute(file) || file.includes('\0')) return false;
+  const normal = path.normalize(file);
+  return normal !== '..' && !normal.startsWith(`..${path.sep}`);
+}
+
 /**
  * The slot kinds a manifest may use.
  *
@@ -151,7 +162,7 @@ function safeId(id: unknown): string | null {
  * that fails on the fifth character. `kind: "bolean"` used to be
  * accepted, written to disk and reported as a created skill.
  */
-const KINDS = new Set(['folder', 'file', 'string', 'number', 'boolean', 'colour', 'color', 'enum']);
+const KINDS = new Set(['folder', 'file', 'string', 'text', 'number', 'boolean', 'colour', 'color', 'enum']);
 
 /** Every `{slot:id}` anywhere in a step's args, however deeply nested. */
 function slotRefs(value: unknown, into: Set<string>): void {
@@ -304,6 +315,19 @@ export function validateManifest(raw: unknown, knownTools?: string[]): { ok: tru
     }
   }
 
+  const assets = Array.isArray(m.assets) ? m.assets : [];
+  for (const [i, asset] of assets.entries()) {
+    const file = asset?.file ?? asset?.path;
+    if (!safeRelativeFile(file)) {
+      problems.push(`assets[${i}] needs a relative file or path inside the skill folder.`);
+    }
+  }
+  for (const [label, file] of [['verify', m.verify], ['template', m.template]] as const) {
+    if (file !== undefined && !safeRelativeFile(file)) {
+      problems.push(`\`${label}\` must be a relative path inside the skill folder.`);
+    }
+  }
+
   if (problems.length > 0) return { ok: false, problems };
 
   return {
@@ -316,7 +340,7 @@ export function validateManifest(raw: unknown, knownTools?: string[]): { ok: tru
       slots,
       requiresTools: Array.isArray(m.requiresTools) ? m.requiresTools : [],
       recipe,
-      assets: Array.isArray(m.assets) ? m.assets : [],
+      assets,
       provenance: m.provenance,
       guide: typeof m.guide === 'string' ? m.guide : undefined,
       ...(typeof m.toolApi === 'number' ? { toolApi: m.toolApi } : {}),
@@ -342,13 +366,15 @@ export function listUserSkills(): StoredUserSkill[] {
       const present: string[] = [];
       const missing: string[] = [];
       for (const asset of parsed.assets ?? []) {
-        (fs.existsSync(path.join(dir, asset.file)) ? present : missing).push(asset.file);
+        const file = asset.file ?? asset.path;
+        if (!safeRelativeFile(file)) continue;
+        (fs.existsSync(path.join(dir, file)) ? present : missing).push(file);
       }
       /* `verify` and `template` are declared the same way an asset is
          and were not being checked the same way, so a manifest could
          claim a verification test that had never been written. */
       for (const declared of [parsed.verify, parsed.template]) {
-        if (!declared) continue;
+        if (!safeRelativeFile(declared)) continue;
         (fs.existsSync(path.join(dir, declared)) ? present : missing).push(declared);
       }
       out.push({ manifest: parsed, dir, assetsPresent: present, assetsMissing: missing });

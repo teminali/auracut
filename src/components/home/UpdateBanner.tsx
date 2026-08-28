@@ -15,9 +15,21 @@
 
 import React from 'react';
 import { useUpdater } from '../../hooks/useUpdater';
-import { Download, RefreshCw, ExternalLink, X } from '../ui/icons';
+import { useBundledSkills } from '../../hooks/useBundledSkills';
+import { useAccountStore } from '../../store/accountStore';
+import { useUiStore } from '../../store/uiStore';
+import { SUPPORTED_SKILL_TOOL_API } from '../../services/bundledSkills';
+import { compareVersions } from '../../utils/version';
+import { Download, RefreshCw, ExternalLink, X, Sparkle } from '../ui/icons';
 
-export const UpdateBanner: React.FC = () => {
+export const UpdateBanner: React.FC<{
+  kind: 'app' | 'skill';
+  onOpenSkills?: () => void;
+}> = ({ kind, onOpenSkills }) => (
+  kind === 'app' ? <AppUpdateBanner /> : <SkillUpdateBanner onOpenSkills={onOpenSkills} />
+);
+
+const AppUpdateBanner: React.FC = () => {
   const { status, sideload, relaunch, openReleases } = useUpdater();
   const [busy, setBusy] = React.useState(false);
   const [ready, setReady] = React.useState<string | null>(null);
@@ -78,6 +90,65 @@ export const UpdateBanner: React.FC = () => {
       actionIcon={canSideload ? undefined : ExternalLink}
       busy={busy}
       onDismiss={() => setDismissed(version)}
+    />
+  );
+};
+
+const SkillUpdateBanner: React.FC<{ onOpenSkills?: () => void }> = ({ onOpenSkills }) => {
+  const { skills: local, loaded: localLoaded } = useBundledSkills();
+  const remote = useAccountStore((s) => s.skills);
+  const install = useAccountStore((s) => s.installManifestUpdate);
+  const pushToast = useUiStore((s) => s.pushToast);
+  const [busy, setBusy] = React.useState(false);
+  const [failed, setFailed] = React.useState<string | null>(null);
+  const [dismissed, setDismissed] = React.useState<string[]>([]);
+
+  /* One skill per card. Dismissing one reveals the next, so several
+     pending updates do not need several competing banners. */
+  const candidate = remote
+    .filter((s) => s.included)
+    .map((storeSkill) => ({ storeSkill, installed: local.find((s) => s.id === storeSkill.id) }))
+    .filter((x) => x.installed && compareVersions(x.storeSkill.latestVersion, x.installed.version) > 0)
+    .find((x) => !dismissed.includes(`${x.storeSkill.id}@${x.storeSkill.latestVersion}`));
+
+  if (!localLoaded || !candidate) return null;
+
+  const { storeSkill, installed } = candidate;
+  const key = `${storeSkill.id}@${storeSkill.latestVersion}`;
+  const compatible = storeSkill.toolApi <= SUPPORTED_SKILL_TOOL_API;
+
+  const update = async () => {
+    if (!compatible) {
+      onOpenSkills?.();
+      return;
+    }
+    setBusy(true);
+    setFailed(null);
+    const result = await install(storeSkill.id, storeSkill.latestVersion);
+    setBusy(false);
+    if (!result.ok) {
+      setFailed(result.message);
+      return;
+    }
+    pushToast({ kind: 'success', title: `${storeSkill.name} updated`, detail: result.message });
+  };
+
+  return (
+    <Card
+      tone="accent"
+      icon={Sparkle}
+      title={`${storeSkill.name} ${storeSkill.latestVersion}`}
+      body={
+        failed
+          ?? (compatible
+            ? `A newer skill manifest is available (installed ${installed!.version}). It updates `
+              + 'settings and guidance; compiled tool behaviour still comes from this Kerf build.'
+            : `This skill targets tool API ${storeSkill.toolApi}. Update Kerf before installing it.`)
+      }
+      actionLabel={compatible ? (busy ? 'Updating…' : 'Update skill') : 'Open Skills'}
+      onAction={() => void update()}
+      busy={busy}
+      onDismiss={() => setDismissed((ids) => [...ids, key])}
     />
   );
 };

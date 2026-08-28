@@ -24,17 +24,26 @@
    manifest the shipped app has never seen.
    ═══════════════════════════════════════════════════════════════════ */
 
+import { compareVersions } from '../utils/version';
+
 /** The slice of a `skill.json` this screen reads. The rest is for the runner. */
 export interface BundledSkill {
   id: string;
   name: string;
   version: string;
+  /** Tool contract this manifest expects from the app. */
+  toolApi: number;
   summary: string;
   /** How many trial runs the publisher allows. 0 means not gated. */
   trialUses: number;
   /** What the buyer is allowed to change without editing the recipe. */
-  slots: { id: string; kind: string; required?: boolean; description?: string }[];
+  slots: {
+    id: string; kind: string; required?: boolean; default?: unknown;
+    options?: string[]; description?: string; requiresSlot?: string;
+  }[];
   requiresTools: string[];
+  recipe: { tool: string; args: Record<string, unknown> }[];
+  guide?: string;
   /** Whether it carries its own verification test, which is what makes it a skill. */
   verified: boolean;
   provenance?: { author?: string; builtWith?: string; builtAt?: string };
@@ -44,10 +53,16 @@ interface RawManifest {
   id?: string;
   name?: string;
   version?: string;
+  toolApi?: number;
   summary?: string;
   trial?: { uses?: number };
-  slots?: { id: string; kind: string; required?: boolean; description?: string }[];
+  slots?: {
+    id: string; kind: string; required?: boolean; default?: unknown;
+    options?: string[]; description?: string; requiresSlot?: string;
+  }[];
   requiresTools?: string[];
+  recipe?: { tool: string; args: Record<string, unknown> }[];
+  guide?: string;
   verify?: string;
   provenance?: { author?: string; builtWith?: string; builtAt?: string };
 }
@@ -67,22 +82,62 @@ const MANIFESTS = import.meta.glob<RawManifest>('/skills/*/skill.json', {
  * Sorted by name rather than by whatever order the glob returns, which
  * is filesystem order and therefore differs between machines.
  */
-export const BUNDLED_SKILLS: BundledSkill[] = Object.values(MANIFESTS)
-  .filter((m): m is RawManifest => Boolean(m && m.id && m.name))
-  .map((m) => ({
+function asBundledSkill(m: RawManifest): BundledSkill {
+  return {
     id: m.id!,
     name: m.name!,
     version: m.version ?? '0.0.0',
+    toolApi: m.toolApi ?? 1,
     summary: m.summary ?? '',
     trialUses: m.trial?.uses ?? 0,
     slots: m.slots ?? [],
     requiresTools: m.requiresTools ?? [],
+    recipe: m.recipe ?? [],
+    guide: m.guide,
     /* A skill is tools, assets, a template and a VERIFICATION TEST. The
        badge is the presence of the fourth, not a claim about quality. */
     verified: Boolean(m.verify),
     provenance: m.provenance,
-  }))
+  };
+}
+
+export const BUNDLED_SKILLS: BundledSkill[] = Object.values(MANIFESTS)
+  .filter((m): m is RawManifest => Boolean(m && m.id && m.name))
+  .map(asBundledSkill)
   .sort((a, b) => a.name.localeCompare(b.name));
+
+/** Highest manifest/tool contract this app build knows how to satisfy. */
+export const SUPPORTED_SKILL_TOOL_API = Math.max(1, ...BUNDLED_SKILLS.map((s) => s.toolApi));
+
+/** Runtime records are intentionally structural to keep Electron types out of this module. */
+export interface RuntimeSkillRecord {
+  manifest: RawManifest;
+  assetsMissing?: string[];
+}
+
+/**
+ * Let a newer runtime manifest replace the copy inlined into the app.
+ *
+ * Equal and older versions never win. That makes deleting an override a
+ * safe rollback to the app copy and prevents a stale download from
+ * shadowing a newer Kerf release.
+ */
+export function mergeBundledSkills(
+  bundled: BundledSkill[],
+  runtime: RuntimeSkillRecord[]
+): BundledSkill[] {
+  const byId = new Map(runtime.map((r) => [r.manifest.id, r]));
+  return bundled.map((base) => {
+    const candidate = byId.get(base.id);
+    const manifest = candidate?.manifest;
+    if (!manifest?.id || !manifest.name || !manifest.version) return base;
+    if (compareVersions(manifest.version, base.version) <= 0) return base;
+    const resolved = asBundledSkill(manifest);
+    resolved.verified = Boolean(manifest.verify)
+      && !(candidate?.assetsMissing ?? []).includes(manifest.verify!);
+    return resolved;
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
 
 export function bundledSkill(id: string): BundledSkill | undefined {
   return BUNDLED_SKILLS.find((s) => s.id === id);

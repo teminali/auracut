@@ -3,8 +3,8 @@
    recording.
 
    A raw capture is a rectangle of someone's desktop, edge to edge, at
-   whatever brightness their theme happens to be. Four things turn that
-   into something that reads as shot rather than grabbed, and all four
+   whatever brightness their theme happens to be. Five things can turn that
+   into something that reads as shot rather than grabbed, and all five
    are cheap:
 
      1. **The frame is inset and rounded.** Pulling the picture off the
@@ -22,21 +22,13 @@
         black at the tail. Two half-second clips, and they do more for
         "finished" than anything else here.
 
-     4. **A vignette, barely.** Ten percent. Enough to hold the eye off
-        the corners, not enough to darken anything anybody has to read.
+     4. **A vignette, barely.** Enough to hold the eye off the corners,
+        not enough to darken anything anybody has to read.
 
-   ── The one thing deliberately NOT here ────────────────────────────
-
-   A drop shadow under the frame. It is the obvious fifth item and it
-   cannot be had at the same time as the rounded corners: `applyMask`
-   calls `ctx.clip()` before the layer is drawn, so a shadow cast by the
-   same clip is clipped away — `buildPipPatch` documents exactly this
-   trade and refuses to claim both. A shadow could be faked with a
-   rounded shape behind the picture, but that shape would then need
-   every one of the zoom's keyframes copied onto it to stay under the
-   frame, and two copies of a keyframe track drift the moment anybody
-   edits one. On a dark backdrop the corners carry the shape and the
-   shadow would barely be visible anyway. Corners win.
+     5. **An optional inner edge.** Clean by default means absent. When
+        selected, the edge is drawn from the same path as the mask and
+        clipped inward, so even a neon glow cannot contaminate the
+        backdrop or turn the inset into a larger, fuzzy rectangle.
    ═══════════════════════════════════════════════════════════════════ */
 
 import { useTimelineStore } from '../store/timelineStore';
@@ -48,6 +40,13 @@ export type BackdropId =
   | 'daylight' | 'linen' | 'blossom' | 'lagoon' | 'dusk'
   | 'graphite' | 'midnight' | 'clay'
   | 'none';
+
+export type FrameEdgeId =
+  | 'none'
+  | 'clean'
+  | 'neon-cyan'
+  | 'neon-violet'
+  | 'neon-coral';
 
 export interface Backdrop {
   id: BackdropId;
@@ -182,6 +181,11 @@ export const BACKDROPS: Backdrop[] = [
 
 export interface LookOptions {
   backdrop: BackdropId;
+  /**
+   * Optional mask rim. This is deliberately NOT part of the measured
+   * reference look in HANDOVER §7c; it is a selectable departure.
+   */
+  edge: FrameEdgeId;
   /** The picture's width as a percentage of the frame at rest. 100 is edge to edge. */
   insetPct: number;
   /** Corner radius, as a percentage of the canvas height. */
@@ -201,6 +205,11 @@ export interface LookOptions {
 
 export const DEFAULT_LOOK: LookOptions = {
   backdrop: 'daylight',
+  /*
+    The measured reference has no edge treatment. Keep the authored
+    cinematic rim available without quietly rewriting that evidence.
+  */
+  edge: 'none',
   /*
     84, and it is measured: the mockup in the reference video fills
     84.1% of its frame's width, read off the largest bright low-saturation
@@ -261,6 +270,17 @@ const BLEED = 1.02;
 
 const store = () => useTimelineStore.getState();
 
+const FRAME_EDGES: Record<Exclude<FrameEdgeId, 'none'>, {
+  color: string;
+  widthPct: number;
+  glowPct: number;
+}> = {
+  clean: { color: 'rgba(255,255,255,0.78)', widthPct: 0.14, glowPct: 0 },
+  'neon-cyan': { color: '#67e8f9', widthPct: 0.19, glowPct: 1.10 },
+  'neon-violet': { color: '#a78bfa', widthPct: 0.19, glowPct: 1.20 },
+  'neon-coral': { color: '#fb7185', widthPct: 0.19, glowPct: 1.20 },
+};
+
 /* ── The backdrop ───────────────────────────────────────────────── */
 
 /** Full-bleed gradient behind everything. Returns the clip id, or null. */
@@ -313,8 +333,9 @@ export function addBackdrop(
 export function applyScreenLook(clipId: string, project: ProjectSettings, look: LookOptions): void {
   const radius = Math.round((look.cornerPct / 100) * project.height);
   const shadow = Math.max(0, Math.min(100, look.shadow));
+  const edge = look.edge === 'none' ? undefined : FRAME_EDGES[look.edge];
   store().patchClip(clipId, {
-    'mask.enabled': radius > 0 || shadow > 0,
+    'mask.enabled': radius > 0 || shadow > 0 || edge !== undefined,
     'mask.type': 'rectangle',
     'mask.sizeX': 100,
     'mask.sizeY': 100,
@@ -328,8 +349,8 @@ export function applyScreenLook(clipId: string, project: ProjectSettings, look: 
   });
   /*
     `updateClipMask` rather than a property path, for the same reason
-    `addBackdrop` uses `updateShapeStyle`: the shadow is a nested object
-    and the path validator addresses scalars.
+    `addBackdrop` uses `updateShapeStyle`: the shadow and stroke are
+    nested objects and the path validator addresses scalars.
   */
   store().updateClipMask(clipId, {
     shadow: shadow > 0
@@ -337,6 +358,13 @@ export function applyScreenLook(clipId: string, project: ProjectSettings, look: 
         color: `rgba(24, 30, 48, ${(0.42 * shadow) / 100})`,
         blur: Math.round(project.height * 0.06 * (shadow / 100) * 2.4),
         offsetY: Math.round(project.height * 0.016 * (shadow / 100) * 2.4),
+      }
+      : undefined,
+    stroke: edge
+      ? {
+        color: edge.color,
+        widthPx: Math.max(1, (project.height * edge.widthPct) / 100),
+        glowPx: (project.height * edge.glowPct) / 100,
       }
       : undefined,
   });

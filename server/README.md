@@ -52,6 +52,7 @@ managed extensions.
 | GET | `/v1/skills` | optional (adds `owned`) |
 | GET | `/v1/skills/:id` | optional |
 | POST | `/v1/skills/:id/claim` | session · free skills only |
+| GET | `/v1/skills/:id/manifest?version=` | public when included; otherwise session · entitlement |
 | GET | `/v1/skills/:id/download?version=` | session · entitlement re-checked |
 | POST | `/v1/orders` | session |
 | GET | `/v1/orders/:id` | session |
@@ -82,6 +83,8 @@ cd server && npm install
 npx wrangler d1 create kerf-store          # put the id in wrangler.jsonc
 npx wrangler r2 bucket create kerf-skills
 npm run db:remote                          # applies schema.sql
+# Existing databases created before manifest-only updates also need:
+npx wrangler d1 execute kerf-store --remote --file=./migrations/0001_skill_manifest_updates.sql
 
 # 2. Licence signing pair
 node scripts/keygen.mjs
@@ -208,8 +211,10 @@ Named rather than implied, so nobody assumes otherwise:
   are written by hand. There is no author-facing publish flow.
   (`status='published'` IS now gated — by a CHECK constraint, not by
   code that could be bypassed.)
-- **Installing a downloaded package.** The entitlement and the download
-  route are real; unpacking into `userData/skills/` is not written.
+- **Installing a downloaded package.** Manifest-only updates are installed
+  into `userData/skills/` and can change settings and guidance without an
+  app release. Package assets and compiled tool behaviour still need the
+  full installer and runner; neither is claimed here.
 - **Refund initiation.** The webhook handles `payment.refunded` and
   revokes; nothing calls Lipia's `POST /api/v1/refund`.
 - **The seller side** — payouts, the 80/20 split, analytics (§6).

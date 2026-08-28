@@ -12,8 +12,8 @@
 
   "id": "tutorial",
   "name": "Tutorial",
-  "version": "1.0.0",
-  "summary": "Turns a screen recording into a finished tutorial: hard cuts between framings, an inset frame on a light backdrop, the camera full frame over a spoken introduction and over pauses, captions.",
+  "version": "1.1.0",
+  "summary": "Turns a screen recording into a finished tutorial: hard cuts between framings, an inset frame on a light backdrop with an optional inner edge, the camera full frame over a spoken introduction and over pauses, captions.",
 
   "toolApi": 1,
 
@@ -121,6 +121,14 @@
       "default": "daylight",
       "options": ["daylight", "linen", "blossom", "lagoon", "dusk", "graphite", "midnight", "clay", "none"],
       "description": "What the inset picture sits on. The first five are light — the look every screen-tutorial tool ships — and `daylight` is the reference video's own backdrop, measured off it. The last three are dark, for a dark-theme subject."
+    },
+    {
+      "id": "edge",
+      "kind": "enum",
+      "required": false,
+      "default": "none",
+      "options": ["none", "clean", "neon-cyan", "neon-violet", "neon-coral"],
+      "description": "An optional rim inside the picture boundary. `clean` is a fine white line; the neon choices add a restrained inward glow. `none` preserves the measured reference look."
     }
   ],
   "_slots": [
@@ -158,6 +166,7 @@
         "captions": "{slot:captions}",
         "zoomStrength": "{slot:zoomStrength}",
         "backdrop": "{slot:backdrop}",
+        "edge": "{slot:edge}",
         "language": "{slot:language}",
         "cleanCaptions": "{slot:cleanCaptions}"
       }

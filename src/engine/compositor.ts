@@ -740,6 +740,44 @@ function applyMask(
   }
 }
 
+/**
+ * Draw the mask's optional rim while the mask clip is still active.
+ *
+ * Canvas centres a stroke on its path. Doubling the requested width and
+ * drawing after `applyMask` makes the visible half exactly `widthPx`:
+ * the outside half, including any glow, is discarded by the active clip.
+ * This is what lets a bright edge coexist with the invariant that the
+ * outer frame pixels are backdrop, not picture treatment.
+ */
+function drawMaskStroke(
+  ctx: CanvasRenderingContext2D,
+  clip: Clip,
+  box: ClipBox,
+  offsetMs: number
+): void {
+  const m = resolvedMask(clip, offsetMs);
+  const stroke = m.stroke;
+  if (!m.enabled || !stroke || stroke.widthPx <= 0) return;
+
+  ctx.save();
+  traceMaskPath(ctx, m, box);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = stroke.color;
+  ctx.lineWidth = stroke.widthPx * 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  if (stroke.glowPx > 0) {
+    const tf = ctx.getTransform();
+    const deviceScale = Math.hypot(tf.a, tf.b) || 1;
+    ctx.shadowColor = stroke.color;
+    ctx.shadowBlur = stroke.glowPx * deviceScale;
+  }
+
+  ctx.stroke();
+  ctx.restore();
+}
+
 /* ── Text rendering ─────────────────────────────────────────────── */
 
 function fontString(style: ClipTextStyle): string {
@@ -1946,6 +1984,10 @@ function renderClipPass(
 
   // `post` hooks composite on top of the drawn layer, still in clip space.
   runEffectHooks(ctx, clip, box, offsetMs, 'post');
+
+  // Last, so the picture and its effects cannot paint over the rim. The
+  // active mask keeps the whole treatment inside the picture boundary.
+  drawMaskStroke(ctx, clip, box, offsetMs);
 
   ctx.restore();
 

@@ -90,6 +90,9 @@ CREATE TABLE IF NOT EXISTS skills (
   price_currency TEXT NOT NULL DEFAULT 'TZS',
   poster_url     TEXT,
   preview_url    TEXT,
+  -- Included skills may publish their manifest publicly because the
+  -- app already ships them. Paid skill manifests remain entitlement-gated.
+  included       INTEGER NOT NULL DEFAULT 0,
   status         TEXT NOT NULL DEFAULT 'draft',  -- draft|published|delisted
   -- No skill publishes without a verification run that passed against a
   -- fresh project (§6). This is that run's record, and `status` cannot
@@ -115,6 +118,9 @@ CREATE TABLE IF NOT EXISTS skill_versions (
   size_bytes   INTEGER NOT NULL,
   sha256       TEXT NOT NULL,
   tool_api     INTEGER NOT NULL,
+  -- The independently updateable settings/recipe layer. Package bytes
+  -- remain in R2; this JSON can update without replacing the app.
+  manifest_json TEXT,
   released_at  INTEGER NOT NULL,
   PRIMARY KEY (skill_id, version)
 );

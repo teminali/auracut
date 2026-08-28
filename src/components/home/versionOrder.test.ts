@@ -7,7 +7,7 @@
   sideload would happily install it.
 */
 import { describe, it, expect } from 'vitest';
-import { compare } from './VersionFooter';
+import { compareVersions as compare } from '../../utils/version';
 
 describe('comparing versions', () => {
   it('orders by number, not by string', () => {

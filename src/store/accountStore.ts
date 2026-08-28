@@ -19,6 +19,7 @@ import {
 } from '../services/storeClient';
 import { verifyLicence, type LicencePayload } from '../services/licenceKey';
 import { loadSession, saveSession, dropSession } from '../services/session';
+import { SUPPORTED_SKILL_TOOL_API } from '../services/bundledSkills';
 
 export type AuthStatus = 'unknown' | 'signed_out' | 'signed_in';
 
@@ -69,6 +70,7 @@ interface AccountState {
   refreshEntitlements: () => Promise<void>;
   claimFree: (skillId: string) => Promise<{ ok: boolean; message: string }>;
   buy: (skillId: string, msisdn: string, provider?: string) => Promise<void>;
+  installManifestUpdate: (skillId: string, version: string) => Promise<{ ok: boolean; message: string }>;
   resetPurchase: () => void;
   ownsSkill: (skillId: string, majorVersion: number) => boolean;
 }
@@ -310,6 +312,40 @@ export const useAccountStore = create<AccountState>((set, get) => ({
           + 'If your PIN was accepted, the skill will appear here shortly.',
       },
     });
+  },
+
+  installManifestUpdate: async (skillId, version) => {
+    const bridge = window.electronAPI?.userSkills;
+    if (!bridge) return { ok: false, message: 'Skill updates need the desktop app.' };
+
+    const downloaded = await get().client.getSkillManifest(skillId, version);
+    if (!downloaded.ok) {
+      return { ok: false, message: downloaded.detail ?? downloaded.error };
+    }
+
+    const manifest = downloaded.data.manifest as {
+      id?: unknown; version?: unknown; toolApi?: unknown;
+    };
+    if (manifest.id !== skillId || manifest.version !== version) {
+      return { ok: false, message: 'The downloaded manifest does not match the requested skill release.' };
+    }
+    if (typeof manifest.toolApi !== 'number' || manifest.toolApi > SUPPORTED_SKILL_TOOL_API) {
+      return {
+        ok: false,
+        message: `This manifest needs tool API ${String(manifest.toolApi)}; this Kerf build supports ${SUPPORTED_SKILL_TOOL_API}.`,
+      };
+    }
+
+    const written = await bridge.write(downloaded.data.manifest);
+    if (!written.ok) {
+      return { ok: false, message: written.problems.join(' ') };
+    }
+
+    window.dispatchEvent(new Event('kerf:skills-changed'));
+    return {
+      ok: true,
+      message: `Skill settings and guidance updated to ${version}. Tool behaviour still comes from this Kerf build.`,
+    };
   },
 
   resetPurchase: () => set({ purchase: { phase: 'idle' } }),

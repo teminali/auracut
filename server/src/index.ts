@@ -14,6 +14,7 @@
 
        GET    /v1/skills
        GET    /v1/skills/:id
+       GET    /v1/skills/:id/manifest?version=
        GET    /v1/skills/:id/download?version=
        POST   /v1/skills/:id/claim          free skills only
 
@@ -28,7 +29,7 @@
 import type { Env } from './lib/env';
 import { json, fail, cors } from './lib/http';
 import { deviceStart, devicePoll, me, signOut } from './routes/auth';
-import { listSkills, getSkill } from './routes/catalogue';
+import { listSkills, getSkill, getSkillManifest } from './routes/catalogue';
 import { listEntitlements, claimFree } from './routes/entitlements';
 import { createOrder, getOrder } from './routes/orders';
 import { downloadSkill } from './routes/download';
@@ -75,6 +76,7 @@ export default {
       if (method === 'GET' && path === '/v1/skills') return listSkills(req, env);
       if (seg[0] === 'v1' && seg[1] === 'skills' && seg[2]) {
         if (method === 'GET' && seg.length === 3) return getSkill(req, env, seg[2]);
+        if (method === 'GET' && seg[3] === 'manifest') return getSkillManifest(req, env, seg[2]);
         if (method === 'GET' && seg[3] === 'download') return downloadSkill(req, env, seg[2]);
         if (method === 'POST' && seg[3] === 'claim') return claimFree(req, env, seg[2]);
       }

@@ -29,6 +29,8 @@ export interface StoreSkill {
   toolApi: number;
   price: { amount: number; currency: string };
   free: boolean;
+  /** Ships with Kerf, so its manifest updates are public. */
+  included: boolean;
   /**
    * How many times this may be run before it is bought, set by the
    * publisher. 0 or absent means no trial: a paid skill with no trial
@@ -144,6 +146,12 @@ export class StoreClient {
   listSkills() { return this.call<{ skills: StoreSkill[]; signedIn: boolean }>('GET', '/v1/skills'); }
   getSkill(id: string) {
     return this.call<{ skill: StoreSkill; versions: unknown[] }>('GET', `/v1/skills/${encodeURIComponent(id)}`);
+  }
+  getSkillManifest(id: string, version?: string) {
+    const query = version ? `?version=${encodeURIComponent(version)}` : '';
+    return this.call<{ manifest: Record<string, unknown> }>(
+      'GET', `/v1/skills/${encodeURIComponent(id)}/manifest${query}`
+    );
   }
 
   /* ── owning ── */

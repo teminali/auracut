@@ -1633,6 +1633,11 @@ assembly genuinely has no fade. The rebuild is skipped under
   reference does not settle.
 * **The 3D tilt is not reproducible** and is in the gap log, with the
   mesh gradient and with the "not cut to music" finding.
+* **The optional inner frame edge was deliberately ADDED later.** The
+  reference has no rim or glow. Kerf offers `clean` and three restrained
+  neon treatments as an authored departure, defaults the slot to `none`,
+  and clips the whole treatment inside the measured inset so it cannot
+  rewrite the reference-derived backdrop geometry.
 
 `leadMs` is the one number in `CUT_SHAPE` carried over unexamined, and
 deliberately: the reference has no input events in it, so it says

@@ -125,14 +125,24 @@ and every one of these was invisible there:
 On the real take, before: `introductionMs 0`. After: **24.0s**, camera
 takes the frame, two zooms dropped from under it.
 
-### THE NEXT JOB — a cinematic frame, skills that update themselves, and the banner
+### DONE — the cinematic frame, manifest updates, and the banner
 
-Three asks, handed over deliberately rather than started. The second one
-is not what it looks like; read that part before planning.
+Completed 2026-08-28. The distinction below remains important: manifests
+now update independently; compiled skill behaviour still waits for the
+runner and is not claimed by the UI.
 
 ---
 
-#### 1. The mockup border: an advanced cinematic frame, neon optional, clean
+#### 1. DONE — the mockup border: an advanced cinematic frame, neon optional, clean
+
+`ClipMask.stroke` is the new capability: colour, visible inner width and
+glow. It is retraced after the content while the mask clip is still
+active, so the outer half of the doubled stroke and all outward glow are
+discarded. The Tutorial skill exposes `edge` as `none | clean |
+neon-cyan | neon-violet | neon-coral`, defaults to `none`, and is now
+manifest version 1.1.0. The selected neon treatment is measured on pixels
+by `skills/tutorial/verify.py`; the same check proves zero cyan pixels
+reach the outermost 6px.
 
 **Where it lives.** `applyScreenLook` in `src/engine/cinematicLook.ts`,
 driven by `LookOptions`. Today the entire frame treatment is: a rounded
@@ -177,7 +187,21 @@ the checks deliberately and say why.
 
 ---
 
-#### 2. Skills that update without updating the app — and the wall in front of it
+#### 2. DONE for manifests — behaviour still needs the runner
+
+The store Worker is the source of truth, rather than per-skill GitHub
+releases. `skill_versions.manifest_json` holds the independently
+updateable layer; included skills may fetch it signed out, while paid
+skills cross the existing entitlement boundary. The client refuses a
+manifest for a newer tool API, writes accepted updates to
+`userData/skills/<id>/`, and a runtime manifest wins over the inlined copy
+only when its numeric version is newer. Equal and stale copies lose.
+
+The agent-facing `list_skills` result now exposes the effective slot
+definitions, recipe and guide, so downloading a manifest changes the
+settings and instructions that are actually read. It does not change
+compiled tools. Package assets and the executable recipe runner remain
+open, exactly as the original warning below says.
 
 **The wall.** A bundled skill's LOGIC is application code. The Tutorial
 skill runs through `build_tutorial_from_recording`, a tool compiled into
@@ -222,7 +246,13 @@ answer decides the whole shape.
 
 ---
 
-#### 3. The banner should promote skill updates too
+#### 3. DONE — the banner promotes skill updates too
+
+`UpdateBanner` now takes `kind: app | skill` and both paths feed the same
+`Card`. App and skill announcements may coexist. Skill announcements are
+serialised one per card; dismissing one reveals the next, keyed by
+`id@version`. Its copy says “settings and guidance” and explicitly says
+compiled behaviour still comes from the installed Kerf build.
 
 `src/components/home/UpdateBanner.tsx` is the card, and it deliberately
 reuses the unsaved-work card's shape. **Generalise it, do not fork it:**
@@ -236,6 +266,11 @@ the behaviour a per-skill banner needs too.
 `iconography.test.ts` asserts the invariant that every screen the app
 can open on offers a route to a waiting update. If skills get an
 announcement, that check is where it belongs as well.
+
+Verification after all three jobs: root unit tests 348/348, focused
+Tutorial/skill-builder/home checks 72/72, Store checks 39/39 against a
+fresh local D1 database, and the full application gate 19/19 suites,
+601/601 checks.
 
 ---
 

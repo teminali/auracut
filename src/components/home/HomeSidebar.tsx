@@ -170,7 +170,8 @@ export const HomeSidebar: React.FC<Props> = ({
             notice uses, because it is the same kind of message: something
             happened while you were away, and here is the one thing to do
             about it. It renders nothing when there is no update. */}
-        <UpdateBanner />
+        <UpdateBanner kind="app" />
+        <UpdateBanner kind="skill" onOpenSkills={() => onView('skills')} />
 
         <VersionFooter />
       </div>

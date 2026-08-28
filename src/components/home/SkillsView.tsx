@@ -34,7 +34,7 @@ import { useAccountStore } from '../../store/accountStore';
 import { useUiStore } from '../../store/uiStore';
 import { formatPrice, type StoreSkill } from '../../services/storeClient';
 import { trialStatus } from '../../services/skillTrials';
-import { BUNDLED_SKILLS } from '../../services/bundledSkills';
+import { useBundledSkills } from '../../hooks/useBundledSkills';
 import type { TrialStatus } from '../../types/electron';
 import { SignInDialog } from './SignInDialog';
 import { BuySheet } from './BuySheet';
@@ -58,6 +58,7 @@ const SCOPES: { id: Scope; label: string }[] = [
 const PLATE = 'block aspect-[16/10] rounded-squircle-lg relative overflow-hidden flex items-center justify-center shadow-[inset_0_0_0_1px_var(--edge)]';
 
 export const SkillsView: React.FC = () => {
+  const { skills: bundledSkills } = useBundledSkills();
   const status = useAccountStore((s) => s.status);
   const skills = useAccountStore((s) => s.skills);
   const loaded = useAccountStore((s) => s.catalogueLoaded);
@@ -114,7 +115,7 @@ export const SkillsView: React.FC = () => {
   const hit = (name: string, summary: string) =>
     !q || name.toLowerCase().includes(q) || summary.toLowerCase().includes(q);
 
-  const bundled = BUNDLED_SKILLS.filter((s) => hit(s.name, s.summary));
+  const bundled = bundledSkills.filter((s) => hit(s.name, s.summary));
   const store = skills.filter((s) => hit(s.name, s.summary));
 
   const showBundled = scope !== 'store';
@@ -195,7 +196,7 @@ export const SkillsView: React.FC = () => {
           style={{ maskImage: 'linear-gradient(90deg,transparent 0%,#000 34%,#000 100%)',
                    WebkitMaskImage: 'linear-gradient(90deg,transparent 0%,#000 34%,#000 100%)' }}
         >
-          {BUNDLED_SKILLS.slice(0, 3).map((skill, i) => (
+          {bundledSkills.slice(0, 3).map((skill, i) => (
             <span
               key={skill.id}
               className="w-[84px] h-[112px] rounded-squircle-md flex flex-col items-center justify-center gap-2 px-2
@@ -427,14 +428,14 @@ export const SkillsView: React.FC = () => {
         )}
       </div>
 
-      {/* Installing the package itself is the next stage and is not
-          claimed here: owning a skill and having its bytes on disk are
+      {/* Manifest updates are real; package assets are still a separate
+          install. Owning a skill and having all of its bytes on disk are
           different facts, and the UI says only the one that is true. */}
       {owned.length > 0 && (
         <p className="text-micro text-spectrum-textFaint mt-8 leading-snug">
-          {owned.length} skill{owned.length > 1 ? 's' : ''} on this account. Downloading and
-          installing the package is not wired up yet. The entitlement is real, the install is
-          the next piece.
+          {owned.length} skill{owned.length > 1 ? 's' : ''} on this account. Settings and guidance
+          can update independently. Downloading package assets and executable recipe support are
+          still separate work; the entitlement is real, but Kerf does not claim those parts yet.
         </p>
       )}
 

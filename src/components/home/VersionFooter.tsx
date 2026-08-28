@@ -33,6 +33,7 @@
 import React from 'react';
 import { useUpdater } from '../../hooks/useUpdater';
 import type { ReleaseOption } from '../../types/electron';
+import { compareVersions } from '../../utils/version';
 import { RefreshCw, Check, ChevronDown, Download, RotateCcw, AlertTriangle } from '../ui/icons';
 
 /** How long "Up to date" stays up before the row reads normally again. */
@@ -111,7 +112,7 @@ export const VersionFooter: React.FC = () => {
      anything NEWER than it: going forward is an update, and it has its
      own action rather than being buried among the old versions. */
   const older = (options ?? [])
-    .filter((r) => !r.current && compare(r.version, currentVersion) < 0)
+    .filter((r) => !r.current && compareVersions(r.version, currentVersion) < 0)
     .slice(0, ROLLBACK_CHOICES);
 
   return (
@@ -261,20 +262,3 @@ const MenuItem: React.FC<{
     <span className="truncate">{label}</span>
   </button>
 );
-
-/**
- * Compare two dotted versions numerically.
- *
- * String comparison gets this wrong the moment a number reaches double
- * figures: "1.10.0" sorts BEFORE "1.9.0", which would offer somebody on
- * 1.10 a "rollback" to a version that is actually newer.
- */
-export function compare(a: string, b: string): number {
-  const pa = a.split('.').map((n) => parseInt(n, 10) || 0);
-  const pb = b.split('.').map((n) => parseInt(n, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
-    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (diff !== 0) return diff < 0 ? -1 : 1;
-  }
-  return 0;
-}

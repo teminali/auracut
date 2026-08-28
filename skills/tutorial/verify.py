@@ -255,7 +255,7 @@ def main():
     directory = tempfile.mkdtemp(prefix='kerf-tutorial-')
     build_take(directory)
 
-    args = {'folder': directory, 'captions': False}
+    args = {'folder': directory, 'captions': False, 'edge': 'neon-cyan'}
     if SELFTEST:
         # The control: every feature off. Each `control` check must go red.
         args['raw'] = True
@@ -310,8 +310,35 @@ def main():
         check('the picture is inset, so the backdrop shows at the edges',
               edge_is_screen < 0.2,
               f'{edge_is_screen * 100:.0f}% of the left and right edges are the recording')
+
+        # The rim is deliberately restrained and therefore anti-aliases
+        # with the red picture rather than producing pure #67e8f9 pixels.
+        # Identify its cyan direction, then count it only in a narrow band
+        # along the known red plate's top and left edges. The blue camera
+        # occupies the bottom-right and cannot satisfy this by accident.
+        rr, gg, bb = rest[:, :, 0], rest[:, :, 1], rest[:, :, 2]
+        cyan = (gg > rr + 30) & (bb > rr + 40) & (bb > 160)
+        red = mask_for(rest, 'red')
+        ys, xs = np.nonzero(red)
+        edge_band = np.zeros(cyan.shape, dtype=bool)
+        if len(xs) > 0:
+            x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
+            edge_band[max(0, y0 - 10):min(rest.shape[0], y0 + 5),
+                      max(0, x0 - 10):min(rest.shape[1], x1 + 11)] = True
+            edge_band[max(0, y0 - 10):min(rest.shape[0], y1 + 11),
+                      max(0, x0 - 10):min(rest.shape[1], x0 + 5)] = True
+        edge_cyan = int((cyan & edge_band).sum())
+        outer_cyan = np.concatenate([cyan[:, :6], cyan[:, -6:]], axis=1)
+        check('the selected cinematic edge renders on the picture',
+              edge_cyan > 500,
+              f'{edge_cyan} cyan-directed pixels along the picture rim')
+        check('and its glow stays inside the inset',
+              int(outer_cyan.sum()) == 0,
+              f'{int(outer_cyan.sum())} cyan pixels reached the outermost 6px')
     else:
         check('the picture is inset, so the backdrop shows at the edges', False, 'no frame')
+        check('the selected cinematic edge renders on the picture', False, 'no frame')
+        check('and its glow stays inside the inset', False, 'no frame')
 
     # ── 4. The camera takes the frame during the pause ───────────────
     before = share(frame(1100), 'blue')

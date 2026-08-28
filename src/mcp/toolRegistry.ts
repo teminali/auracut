@@ -54,7 +54,7 @@ import {
   LOOK_PRESETS, getLookPreset, lookPresetIds, applyLookToClips,
 } from '../engine/lookPresets';
 import { selectClips, runBatchApply } from '../engine/batchApply';
-import { BUNDLED_SKILLS } from '../services/bundledSkills';
+import { BUNDLED_SKILLS, mergeBundledSkills } from '../services/bundledSkills';
 import {
   PIP_CORNERS, PIP_FIT_MODE, computePipGeometry, buildPipPatch,
 } from '../engine/pictureInPicture';
@@ -4300,6 +4300,9 @@ defineTool({
     backdrop: z.string().optional().describe(
       'The light set (daylight, linen, blossom, lagoon, dusk), the dark set '
       + '(graphite, midnight, clay), or none. Default daylight.'),
+    edge: z.string().optional().describe(
+      'Optional inner frame edge: none, clean, neon-cyan, neon-violet, or neon-coral. '
+      + 'Default none. Neon glow stays inside the picture boundary.'),
     cameraOnPauses: z.boolean().optional().describe('Let the camera fill the frame during pauses; default true'),
     language: z.string().optional().describe(
       'Spoken language as a two-letter code, or `auto` to detect it. Default auto. This picks '
@@ -4478,6 +4481,9 @@ defineTool({
     const backdrop = args.backdrop
       ? oneOf(args.backdrop, ['daylight', 'linen', 'blossom', 'lagoon', 'dusk', 'graphite', 'midnight', 'clay', 'none'], 'backdrop')
       : undefined;
+    const edge = args.edge
+      ? oneOf(args.edge, ['none', 'clean', 'neon-cyan', 'neon-violet', 'neon-coral'], 'edge')
+      : undefined;
 
     const outcome = await applyTutorialSkill(take, {
       transcribe: args.captions ?? true,
@@ -4490,7 +4496,9 @@ defineTool({
         thing from the one it names.
       */
       ...(args.zoomStrength ? { zoomShape: { ...TUTORIAL_ZOOM_SHAPE, factor: args.zoomStrength } } : {}),
-      ...(backdrop ? { look: { ...DEFAULT_LOOK_OPTIONS, backdrop } } : {}),
+      ...(backdrop || edge
+        ? { look: { ...DEFAULT_LOOK_OPTIONS, ...(backdrop ? { backdrop } : {}), ...(edge ? { edge } : {}) } }
+        : {}),
       ...(args.cameraOnPauses !== undefined ? { cameraOnPauses: args.cameraOnPauses } : {}),
       ...(args.cameraOnIntro !== undefined ? { cameraOnIntro: args.cameraOnIntro } : {}),
       ...(args.language ? { language: args.language } : {}),
@@ -5814,11 +5822,23 @@ defineTool({
   handler: async () => {
     const api = (window as any).electronAPI;
     const mine = api?.userSkills ? await api.userSkills.list() : [];
+    const effective = mergeBundledSkills(BUNDLED_SKILLS, mine);
     return {
-      bundled: BUNDLED_SKILLS.map((s) => ({
-        id: s.id, name: s.name, summary: s.summary, slots: s.slots.length, verified: s.verified,
+      bundled: effective.map((s) => ({
+        id: s.id,
+        name: s.name,
+        version: s.version,
+        summary: s.summary,
+        slots: s.slots.length,
+        slotDefinitions: s.slots,
+        recipe: s.recipe,
+        ...(s.guide ? { guide: s.guide } : {}),
+        verified: s.verified,
       })),
-      built: mine.map((s: { manifest: Record<string, unknown>; assetsMissing: string[]; dir: string }) => ({
+      built: mine
+        .filter((s: { manifest: Record<string, unknown> }) =>
+          !BUNDLED_SKILLS.some((b) => b.id === s.manifest.id))
+        .map((s: { manifest: Record<string, unknown>; assetsMissing: string[]; dir: string }) => ({
         id: s.manifest.id,
         name: s.manifest.name,
         summary: s.manifest.summary,
@@ -5826,7 +5846,7 @@ defineTool({
         steps: (s.manifest.recipe as unknown[]).length,
         assetsMissing: s.assetsMissing,
         folder: s.dir,
-      })),
+        })),
       note:
         'Kerf has no skill RUNNER yet: `recipe` is a specification, not something the app '
         + 'executes. Carry the steps out with the tools they name.',
