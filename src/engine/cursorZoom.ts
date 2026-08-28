@@ -466,21 +466,50 @@ export interface QuietOptions {
 
 export const DEFAULT_QUIET: QuietOptions = {
   /*
-    Five seconds of the pointer parked, and it is a deliberate raise from
-    2600.
+    A FLOOR, not a judgement, and the difference matters.
 
-    2600 was "a pause". This is a different claim: that somebody has
-    stopped working and started EXPLAINING. Two and a half seconds of
-    stillness happens constantly while you are working — reading a label,
-    deciding where to click next — and cutting to a face for it makes the
-    edit twitch. Five seconds of a pointer that has not moved, with a
-    voice over it, is a person talking rather than pointing.
+    This was 5000 for a while, on the theory that five seconds of a
+    parked pointer means somebody has stopped working and started
+    explaining. It is a bad theory: stillness is not the thing worth
+    cutting to, TALKING is, and the two do not have a fixed exchange
+    rate. Three and a half seconds of wall-to-wall explanation over a
+    frozen screen is worth a cut; twelve seconds of silence while
+    somebody reads is not, and a fixed threshold on stillness gets both
+    of them the wrong way round.
+
+    So this is only "is there room for a shot at all" — the camera takes
+    620ms to arrive and wants something left after that — and the actual
+    decision is made in `alignToSpeech`, against how much of the stretch
+    is spoken over.
   */
-  minQuietMs: 5000,
+  minQuietMs: 2400,
   leadInMs: 550,
   leadOutMs: 800,
   maxStretches: 8,
 };
+
+/**
+ * The instants the pointer was actually travelling.
+ *
+ * Exported because two different questions need the same answer and they
+ * used to disagree: `findQuietStretches` counted pointer travel as
+ * activity while `detectIntroduction` looked only at clicks, so an
+ * introduction could run straight through somebody moving the mouse
+ * around a dashboard pointing at things. Measured on a 54s take: the
+ * opening was called 38.5s long and swallowed a 14.6s stretch that
+ * should have been its own camera cut.
+ */
+export function pointerTravelTimes(cursor: CursorSample[], moveSpeed: number): number[] {
+  const track = cursor.filter(inFrame).sort((a, b) => a.tMs - b.tMs);
+  const out: number[] = [];
+  for (let i = 1; i < track.length; i++) {
+    const dt = (track[i].tMs - track[i - 1].tMs) / 1000;
+    if (dt <= 0) continue;
+    const speed = Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y) / dt;
+    if (speed > moveSpeed) out.push(track[i].tMs);
+  }
+  return out;
+}
 
 /**
  * The stretches where nothing is happening on screen.
@@ -526,14 +555,7 @@ export function findQuietStretches(
   */
   const activity: number[] = [];
   for (const event of input.events) activity.push(event.tMs);
-
-  const track = input.cursor.filter(inFrame).sort((a, b) => a.tMs - b.tMs);
-  for (let i = 1; i < track.length; i++) {
-    const dt = (track[i].tMs - track[i - 1].tMs) / 1000;
-    if (dt <= 0) continue;
-    const speed = Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y) / dt;
-    if (speed > o.moveSpeed) activity.push(track[i].tMs);
-  }
+  activity.push(...pointerTravelTimes(input.cursor, o.moveSpeed));
 
   /* A mark is the user saying "look here", which is the opposite of
      quiet — the screen has to be on when it lands. */

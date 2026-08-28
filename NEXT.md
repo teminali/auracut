@@ -125,25 +125,28 @@ and every one of these was invisible there:
 On the real take, before: `introductionMs 0`. After: **24.0s**, camera
 takes the frame, two zooms dropped from under it.
 
-### THE NEXT JOB — `get_frame_context` lies when the editor is not mounted
+### THE NEXT JOB — the language has to be pickable from the UI
 
-Not the camera. The camera is fine; see HANDOVER §7f for the retraction.
+The skill reads `language`, and nothing in the app can set it. A take
+recorded through the recorder gets whatever `auto` gives, and on Swahili
+narration `auto` still returns `(speaking in foreign language)` for the
+opening even with the multilingual weights: forcing `-l sw` transcribes
+the same audio cleanly. So today the feature only works from an MCP call
+that passes the code by hand.
 
-`get_frame_context` called while the app is on the HOME SCREEN returns a
-frame that is not a composite of the timeline, **and reports
-`mediaPending: 0` while doing it**. That flag is the one guard every
-suite in `tools/` waits on so it never measures an undecoded frame, and
-it reads clean here. Nothing has caught it because every suite drives an
-instance that is already in the editor.
+It wants to be a sticky recorder setting beside the microphone, defaulted
+to the system language, and a `language` slot on `skill.json`.
 
-Measured: the same project at the same timecodes reads
-`[0.2, 0.2, 0.2]` and `[25, 24.9, 31.5]` from the home screen, and
-`[131.4, 105.2, 109.9]` and `[206.4, 204.5, 211.9]` from the editor.
+### And then, `get_frame_context` lies when the editor is not mounted
 
-The fix is in the frame envelope: say the editor is not mounted, the way
-`debug/capture` learned to say `stale`. `unavailableReason` already
-exists and is the obvious place. A suite that then asks for a frame from
-the home screen gets a refusal instead of a plausible picture.
+It returns a frame that is not a composite of the timeline, **and reports
+`mediaPending: 0` while doing it** — the guard every suite waits on.
+Measured: the same project at the same timecodes reads `[0.2,0.2,0.2]`
+and `[25,24.9,31.5]` from the home screen against `[131.4,105.2,109.9]`
+and `[206.4,204.5,211.9]` from the editor. Nothing has caught it because
+every suite drives an instance already in the editor. `unavailableReason`
+is the obvious place to say so. This one cost a long wrong investigation;
+see HANDOVER §7f.
 
 ### Then
 

@@ -396,6 +396,46 @@ function teardown(session: Session): void {
 export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null): void {
   getMainWindow = mainWindowGetter;
 
+  /*
+    A hidden editor window must never outlive the take that hid it.
+
+    `hideWindow` hides the main window for the duration of a recording,
+    and `teardown` shows it again on both exit paths. Neither runs if the
+    RENDERER goes away mid-take: the session id lives in the renderer, so
+    a reload, an HMR update or a crash means `recorder:finish` and
+    `recorder:cancel` are never called, the session is orphaned, and the
+    window stays hidden for the life of the process.
+
+    What that looks like from outside is the part that costs the time.
+    The floating bar is `skipTaskbar` and content-protected, so with the
+    editor hidden macOS reports the app as having NO windows and being
+    background-only: no Dock icon, nothing in the app switcher, and
+    AppleScript cannot unhide it because it is hidden at the window
+    level rather than the app level. The app is running perfectly and
+    answering its RPC, and there is no way to get back to it. Reported
+    as "I do not see the electron icon on my bottom mac tabbar".
+
+    So the renderer loading is treated as proof that no take can still be
+    running in it: orphaned sessions are torn down and the window comes
+    back. A reload during a take has already killed the capture — the
+    MediaRecorder lives in the renderer — so there is nothing left to
+    protect by staying hidden.
+  */
+  const reconcileOnLoad = () => {
+    const win = getMainWindow();
+    if (!win || win.isDestroyed()) return;
+    win.webContents.on('did-finish-load', () => {
+      for (const session of [...sessions.values()]) {
+        teardown(session);
+        void closeStreams(session);
+      }
+      const live = getMainWindow();
+      if (live && !live.isDestroyed() && !live.isVisible()) { live.show(); live.focus(); }
+    });
+  };
+  if (getMainWindow()) reconcileOnLoad();
+  else app.whenReady().then(() => setTimeout(reconcileOnLoad, 0));
+
   ipcMain.handle('recorder:sources', async (_e, p: { thumbWidth?: number }) => {
     const width = p?.thumbWidth ?? 480;
     let sources: Electron.DesktopCapturerSource[] = [];

@@ -59,9 +59,10 @@ import {
 import { getClipBaseSize } from './geometry';
 import { computePipGeometry, buildPipPatch, PIP_FIT_MODE } from './pictureInPicture';
 import { Take } from './screenCapture';
+import type { CursorSample } from '../types/electron';
 import {
-  detectMoments, findQuietStretches, keepClearOfZooms, zoomKeyframes,
-  ZoomMoment, ZoomShape, QuietStretch, DEFAULT_SHAPE, CUT_SHAPE,
+  detectMoments, findQuietStretches, keepClearOfZooms, zoomKeyframes, pointerTravelTimes,
+  ZoomMoment, ZoomShape, QuietStretch, DEFAULT_SHAPE, CUT_SHAPE, DEFAULT_DETECT,
 } from './cursorZoom';
 import {
   LookOptions, DEFAULT_LOOK, addBackdrop, applyScreenLook, addFades,
@@ -303,20 +304,40 @@ export function canvasFor(width: number, height: number): {
 const MIN_TAKEOVER_MS = 1600;
 
 /**
- * Move a quiet stretch off the words.
+ * How much actual TALKING a stretch needs before the camera takes it.
+ *
+ * This is the number that decides whether somebody is explaining, and it
+ * is deliberately about speech rather than about stillness. A fixed
+ * stillness threshold cannot tell three seconds of continuous
+ * explanation from twelve seconds of reading in silence, and those want
+ * opposite answers.
+ */
+const MIN_SPOKEN_MS = 3000;
+
+/** And it has to be most of the stretch, or it is dead air with a remark in it. */
+const MIN_SPOKEN_SHARE = 0.5;
+
+/**
+ * Put the camera on the EXPLAINING, not on the gap that contains it.
  *
  * The pointer says when nothing is happening on screen. It says nothing
- * at all about whether somebody is mid-sentence, and cutting to a face
- * halfway through a word is the one edit everybody notices. So when a
- * transcript exists the stretch is trimmed inward to the nearest gap
- * BETWEEN cues, and dropped entirely if there is no room left.
+ * about whether anybody is talking, and the two are different questions:
  *
- * There is a second, less obvious rule here, and it is why the camera
- * does not simply appear whenever the screen is idle: a stretch with no
- * speech in it is dead air, and a static face over dead air is worse
- * than a static screen. The camera takes over when somebody is TALKING
- * and not doing — which is exactly the moment a face is the most
- * interesting thing available.
+ *   · A stretch with no speech in it is dead air, and a static face over
+ *     dead air is worse than a static screen. The camera takes over when
+ *     somebody is TALKING and not doing, which is exactly the moment a
+ *     face is the most interesting thing available.
+ *   · A stretch with speech in the MIDDLE of it is an explanation
+ *     wrapped in idling. This used to fail such a stretch on coverage
+ *     and lose the explanation with it. It is tightened onto the speech
+ *     instead, so a forty-second gap with twelve seconds of talking in
+ *     it becomes a twelve-second camera cut in the right place rather
+ *     than nothing at all.
+ *
+ * The one rule kept from the first version: a cue that STRADDLES the
+ * start is picked up mid-word, so the cut begins after it rather than
+ * on it. Cutting to a face halfway through a word is the one edit
+ * everybody notices.
  */
 export function alignToSpeech(
   stretch: QuietStretch,
@@ -324,24 +345,29 @@ export function alignToSpeech(
 ): QuietStretch | null {
   if (speech.length === 0) return stretch;
 
-  const covering = speech.filter((cue) => cue.endMs > stretch.startMs && cue.startMs < stretch.endMs);
+  const covering = speech
+    .filter((cue) => cue.endMs > stretch.startMs && cue.startMs < stretch.endMs)
+    .sort((a, b) => a.startMs - b.startMs);
   if (covering.length === 0) return null;
 
-  /* Start after whichever cue was already running, end before whichever
-     one has begun by the far edge. Both are no-ops when the stretch
-     already sits in a gap. */
   const first = covering[0];
   const last = covering[covering.length - 1];
-  const startMs = first.startMs < stretch.startMs ? Math.max(stretch.startMs, first.endMs) : stretch.startMs;
-  const endMs = last.endMs > stretch.endMs ? Math.min(stretch.endMs, last.startMs) : stretch.endMs;
+
+  /* Start on the first whole sentence, and never mid-word. */
+  const startMs = first.startMs < stretch.startMs
+    ? Math.max(stretch.startMs, first.endMs)
+    : Math.max(stretch.startMs, first.startMs);
+  /* End where the talking ends, or where the stretch does. */
+  const endMs = Math.min(stretch.endMs, last.endMs > stretch.endMs ? last.startMs : last.endMs);
 
   if (endMs - startMs < MIN_TAKEOVER_MS) return null;
 
-  /* And require the stretch to actually contain speech. */
   const spoken = speech
     .filter((cue) => cue.endMs > startMs && cue.startMs < endMs)
     .reduce((sum, cue) => sum + (Math.min(cue.endMs, endMs) - Math.max(cue.startMs, startMs)), 0);
-  if (spoken < (endMs - startMs) * 0.45) return null;
+
+  if (spoken < MIN_SPOKEN_MS) return null;
+  if (spoken < (endMs - startMs) * MIN_SPOKEN_SHARE) return null;
 
   return { startMs, endMs };
 }
@@ -486,6 +512,12 @@ export interface IntroductionVerdict {
 export function detectIntroduction(
   speech: SpeechCue[],
   events: { tMs: number; kind: string }[],
+  /**
+   * The pointer track. Moving the mouse is WORK even when nothing is
+   * clicked, and leaving it out let an introduction run straight through
+   * somebody pointing at things on screen.
+   */
+  cursor: CursorSample[] = [],
   options: Partial<IntroDetectOptions> = {}
 ): IntroductionVerdict {
   const o = { ...DEFAULT_INTRO, ...options };
@@ -504,10 +536,12 @@ export function detectIntroduction(
 
   /* 1 — behaviour. WORK ends any opening, and work is sustained input
          rather than a single event: see `workBurstMs`. */
-  const acted = events
-    .filter((e) => e.kind === 'click' || e.kind === 'rightclick' || e.kind === 'scroll' || e.kind === 'key')
-    .map((e) => e.tMs)
-    .sort((a, b) => a - b);
+  const acted = [
+    ...events
+      .filter((e) => e.kind === 'click' || e.kind === 'rightclick' || e.kind === 'scroll' || e.kind === 'key')
+      .map((e) => e.tMs),
+    ...pointerTravelTimes(cursor, DEFAULT_DETECT.moveSpeed),
+  ].sort((a, b) => a - b);
   let firstWork = Infinity;
   for (let i = 0; i < acted.length - 1; i++) {
     if (acted[i + 1] - acted[i] <= o.workBurstMs) { firstWork = acted[i]; break; }
@@ -664,7 +698,7 @@ export async function assembleRecording(
     flight, of which there are none at t=0.
   */
   const intro = o.cameraOnIntro && take.camera && cameraFill.ok
-    ? detectIntroduction(o.speech, take.events)
+    ? detectIntroduction(o.speech, take.events, take.cursor)
     : null;
 
   if (o.cameraOnIntro && take.camera && cameraFill.ok && intro && !intro.intro && o.speech.length > 0) {

@@ -2001,6 +2001,49 @@ video file that was fine.
 
 ---
 
+## 7g. Cutting to the face while somebody explains
+
+`cameraOnPauses` has always meant to do this and never fired on a real
+take. Three things were in the way, and the third is the interesting one.
+
+**The pointer was not counted as work by the introduction.** §7f fixed
+that for `findQuietStretches` and left `detectIntroduction` looking only
+at clicks, so the two disagreed. On a 54s take the opening was called
+**38.5s long** and swallowed a 14.6s stretch that should have been its
+own camera cut. `pointerTravelTimes` is exported now and both use it.
+
+**A fixed stillness threshold was the wrong instrument.** It was 2600ms,
+then 5000ms on a request for "more than 5 seconds", and both are
+guesses at the wrong quantity. Stillness is not what makes a cut to a
+face worth it — TALKING is, and the two have no fixed exchange rate:
+
+  · three and a half seconds of wall-to-wall explanation over a frozen
+    screen is worth a cut;
+  · twelve seconds of silence while somebody reads is not.
+
+A threshold on stillness gets both of those the wrong way round. So
+`minQuietMs` is 2400 and is only a FLOOR — "is there room for a shot at
+all", given the camera takes 620ms to arrive — and the decision moved
+into `alignToSpeech`, which asks how much of the stretch is actually
+spoken: at least **3 seconds of words**, and at least **half** the
+stretch. Neither number is a duration of silence.
+
+**And a stretch is now tightened onto the speech inside it.** It used to
+trim only a cue that straddled an edge, so a forty-second gap with
+twelve seconds of talking in the middle failed on coverage and took the
+explanation down with it. It becomes a twelve-second camera cut in the
+right place instead. The one rule kept: a cue straddling the START was
+already being spoken when the screen went quiet, so the cut begins after
+it. Cutting to a face halfway through a word is the edit everybody
+notices.
+
+On the 54s take: `cameraTakeovers` 0 -> **2**. Full frame 0-16.2s (the
+introduction), inset 16.9-23.7s (working), full frame again
+**24.3-30.0s** (explaining), inset after. Read off the camera clip's own
+`scaleX` keyframes and confirmed in rendered frames.
+
+---
+
 ## 8. Product hardening — mostly not started
 
 The roadmap in §5 is about capability. This is about being software

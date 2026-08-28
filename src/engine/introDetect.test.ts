@@ -12,7 +12,7 @@
   and every one of them is a take somebody would plausibly record.
 */
 import { describe, it, expect } from 'vitest';
-import { detectIntroduction, SpeechCue } from './recordingProject';
+import { detectIntroduction, alignToSpeech, SpeechCue } from './recordingProject';
 
 /** Cues laid end to end from `startMs`, each `perMs` long with a small gap. */
 const say = (startMs: number, lines: string[], perMs = 1800, gapMs = 120): SpeechCue[] =>
@@ -225,5 +225,72 @@ describe('hearing an introduction', () => {
     const no = detectIntroduction(say(0, ["The build is green."]), []);
     expect(yes.reason.length).toBeGreaterThan(20);
     expect(no.reason.length).toBeGreaterThan(20);
+  });
+});
+
+/* ── Cutting to the face mid-video ──────────────────────────────── */
+
+describe('deciding a stretch is somebody explaining', () => {
+  /*
+    The rule is about TALKING, not about stillness, and that is the whole
+    point of it. A fixed "the pointer has been still for N seconds"
+    cannot tell three seconds of continuous explanation from twelve
+    seconds of reading in silence, and those two want opposite answers.
+  */
+  const cue = (startMs: number, endMs: number, text = 'explaining something') =>
+    ({ startMs, endMs, text }) as SpeechCue;
+
+  it('takes a short stretch that is talked over wall to wall', () => {
+    const out = alignToSpeech({ startMs: 10000, endMs: 14000 },
+      [cue(10000, 13800)]);
+    expect(out).not.toBeNull();
+    expect(out!.endMs - out!.startMs).toBeGreaterThan(3000);
+  });
+
+  it('refuses a long stretch that is mostly silence', () => {
+    /* Twelve seconds of a parked pointer with two seconds of speech in
+       it is somebody reading. A static face over dead air is worse than
+       a static screen. */
+    expect(alignToSpeech({ startMs: 10000, endMs: 22000 },
+      [cue(15000, 17000)])).toBeNull();
+  });
+
+  it('tightens onto the speech instead of losing the stretch to it', () => {
+    /*
+      A forty-second gap with twelve seconds of talking in the middle used
+      to fail on coverage and take the explanation down with it. It is a
+      twelve-second camera cut in the right place now.
+    */
+    const out = alignToSpeech({ startMs: 0, endMs: 40000 },
+      [cue(14000, 20000), cue(20200, 26000)]);
+    expect(out).not.toBeNull();
+    expect(out!.startMs).toBe(14000);
+    expect(out!.endMs).toBe(26000);
+  });
+
+  it('never cuts in halfway through a word', () => {
+    /* A cue straddling the start was already being spoken when the
+       screen went quiet, so the cut waits for the next one. */
+    const out = alignToSpeech({ startMs: 10000, endMs: 20000 },
+      [cue(8000, 11000), cue(11500, 19000)]);
+    expect(out).not.toBeNull();
+    expect(out!.startMs).toBe(11000);
+  });
+
+  it('refuses a stretch with no speech in it at all', () => {
+    expect(alignToSpeech({ startMs: 10000, endMs: 20000 },
+      [cue(30000, 35000)])).toBeNull();
+  });
+
+  it('refuses a stretch too short to be a shot, however densely spoken', () => {
+    expect(alignToSpeech({ startMs: 10000, endMs: 11200 },
+      [cue(10000, 11200)])).toBeNull();
+  });
+
+  it('passes the stretch straight through when there is no transcript', () => {
+    /* No words is not evidence against; it is no evidence. The pointer
+       track is then all there is. */
+    const out = alignToSpeech({ startMs: 10000, endMs: 20000 }, []);
+    expect(out).toEqual({ startMs: 10000, endMs: 20000 });
   });
 });
