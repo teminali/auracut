@@ -133,7 +133,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
       </div>
 
       {filtered.length === 0 ? (
-        <div className="py-20 flex flex-col items-center text-center">
+        <div className="py-14 flex flex-col items-center text-center">
           <span className="w-14 h-14 rounded-squircle-lg surface-card flex items-center justify-center">
             <Clapperboard className="w-6 h-6 text-spectrum-textFaint" />
           </span>
@@ -146,7 +146,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           </p>
         </div>
       ) : mode === 'grid' ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(212px,1fr))] gap-x-4 gap-y-6 mt-5">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-3.5 gap-y-5 mt-4">
           {filtered.map((entry) => (
             <div key={entry.id} data-home="project-tile" className="group relative">
               <button onClick={() => onOpen(entry)} className="block w-full text-left">

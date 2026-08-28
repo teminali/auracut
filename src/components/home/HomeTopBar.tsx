@@ -4,8 +4,18 @@
    CapCut ends this bar with a row of icon controls and the account
    avatar, and the templates page ends it with "Sign in" and "Sign up".
    Kerf has one account and one agent, so it is the same row with the
-   things Kerf actually has: the agent, shortcuts, settings, and the
-   account at the end.
+   things Kerf actually has: the agent, shortcuts, and the account at
+   the end.
+
+   Three controls, not five. The gear opened the agent picker — the
+   same sheet the chip beside it opens — so the bar carried two buttons
+   for one destination, and the chip lost the reading "this is the
+   thing you press" by having a mute twin next to it. The update
+   indicator was the other twin: the rail's bottom card announces the
+   same update in the same instant, and an app that tells you twice
+   about one release is telling you it does not know which of its own
+   surfaces is in charge. The indicator stays in the EDITOR's header,
+   where the rail is not on screen.
 
    It no longer reserves the macOS traffic-light gutter. The rail owns
    the window's top-left corner now, so the lights sit over the rail's
@@ -24,19 +34,19 @@ import { useClaudeAgentStore } from '../../store/claudeAgentStore';
 import { useAccountStore } from '../../store/accountStore';
 import { useUiStore } from '../../store/uiStore';
 import { SignInDialog } from './SignInDialog';
-import { UpdateIndicator } from '../header/UpdateIndicator';
-import { Keyboard, Settings, LogOut } from '../ui/icons';
+import { Keyboard } from '../ui/icons';
 
 interface Props {
   onOpenAgentPicker: () => void;
+  /** The avatar is the way in to the account view. */
+  onOpenAccount: () => void;
 }
 
-export const HomeTopBar: React.FC<Props> = ({ onOpenAgentPicker }) => {
+export const HomeTopBar: React.FC<Props> = ({ onOpenAgentPicker, onOpenAccount }) => {
   const status = useClaudeAgentStore((s) => s.status);
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
   const authStatus = useAccountStore((s) => s.status);
   const user = useAccountStore((s) => s.user);
-  const signOut = useAccountStore((s) => s.signOut);
   const [signInOpen, setSignInOpen] = React.useState(false);
 
   const state: 'unknown' | 'ready' | 'absent' =
@@ -56,27 +66,14 @@ export const HomeTopBar: React.FC<Props> = ({ onOpenAgentPicker }) => {
     state === 'unknown'
       ? 'Looking for an agent CLI'
       : state === 'ready'
-        ? `${label} is connected, click to change`
+        ? `${label} is connected. Click for the agent and API keys`
         : 'No agent CLI found, the editor still works. Click to set one up';
 
   return (
-    <header className="titlebar-drag h-12 flex-shrink-0 flex items-center px-8">
+    <header className="hp-topbar titlebar-drag h-12 flex-shrink-0 flex items-center px-8">
       <div className="flex-1" />
 
       <div className="flex items-center gap-1.5">
-        {/*
-          Here as well as in the editor's HeaderBar, and it was missing.
-
-          `UpdateIndicator` was mounted only in `HeaderBar`, which is the
-          EDITOR's header. Kerf opens on the home screen and somebody
-          between projects sits here, so a build that had detected an
-          update and could install it showed nothing at all: measured on
-          a real 1.5.0 install that had already logged
-          `{"state":"manual-only","version":"1.6.0","canSideload":true}`
-          and offered the user no way to act on it anywhere on screen.
-        */}
-        <UpdateIndicator />
-
         <button
           onClick={onOpenAgentPicker}
           className="pro-btn h-[28px] pl-2 pr-2.5 gap-1.5 text-ui-sm rounded-full"
@@ -96,15 +93,6 @@ export const HomeTopBar: React.FC<Props> = ({ onOpenAgentPicker }) => {
           <Keyboard className="w-4 h-4" />
         </button>
 
-        <button
-          onClick={onOpenAgentPicker}
-          className="pro-btn w-[28px] h-[28px] rounded-full"
-          title="Settings, agent and API keys"
-          aria-label="Settings"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
-
         {/* ── The account ──────────────────────────────────────────
             Three states again, and for the same reason: `unknown`
             means the 0600 session file has not been read yet, and a
@@ -120,34 +108,36 @@ export const HomeTopBar: React.FC<Props> = ({ onOpenAgentPicker }) => {
           </button>
         )}
 
+        {/*
+          Identity, and only identity. The sign-out button that used to
+          sit beside this is in the Account view now: a destructive
+          action one pixel from an avatar, with no confirmation and no
+          context, was the worst place in the app for it. The avatar is
+          the way there.
+        */}
         {authStatus === 'signed_in' && (
-          <span className="flex items-center gap-1 ml-1">
+          <button
+            onClick={onOpenAccount}
+            className="ml-1 rounded-full"
+            title={`Account · ${user?.email ?? 'signed in'}`}
+            aria-label="Open your account"
+          >
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt=""
                 className="w-7 h-7 rounded-full object-cover ring-1 ring-inset ring-white/12"
-                title={user.email ?? 'Signed in'}
               />
             ) : (
               <span
                 className="w-7 h-7 rounded-full flex items-center justify-center text-ui-sm font-semibold
                            text-white/90 ring-1 ring-inset ring-white/12"
-                style={{ background: 'linear-gradient(148deg,#efa78e,#c4603f)' }}
-                title={user?.email ?? 'Signed in'}
+                style={{ background: 'linear-gradient(148deg,#f0a78e,#d0714d)' }}
               >
                 {(user?.name ?? user?.email ?? '?').slice(0, 1).toUpperCase()}
               </span>
             )}
-            <button
-              onClick={() => void signOut()}
-              className="pro-btn w-[28px] h-[28px] rounded-full"
-              title={`Sign out of ${user?.email ?? 'this account'}`}
-              aria-label="Sign out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </span>
+          </button>
         )}
       </div>
 

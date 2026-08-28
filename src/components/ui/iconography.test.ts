@@ -101,13 +101,19 @@ describe('reachability', () => {
   */
   /*
     Every screen the app can OPEN on has to offer a route to an update
-    that is waiting, and the home screen offers two on purpose: the
-    banner announces one without being asked, and the version row is the
-    deliberate route to checking, updating and rolling back.
+    that is waiting. ONE route per screen.
+
+    The editor's is the indicator in its header. Home's is the rail: the
+    banner announces an update without being asked, and the version row
+    under it is the deliberate route to checking, updating and rolling
+    back. Both of those are permanently on screen at home, so mounting
+    `UpdateIndicator` in `HomeTopBar` as well — which it did — put the
+    same release in front of the user twice, in two different visual
+    languages, in the same instant. The requirement was "an update must
+    be reachable from home", and it is: from the rail.
   */
   const MOUNTS: { file: string; needs: string[] }[] = [
     { file: 'src/components/header/HeaderBar.tsx', needs: ['<UpdateIndicator'] },
-    { file: 'src/components/home/HomeTopBar.tsx', needs: ['<UpdateIndicator'] },
     { file: 'src/components/home/HomeSidebar.tsx', needs: ['kind="app"', 'kind="skill"', '<VersionFooter'] },
   ];
 
@@ -117,6 +123,11 @@ describe('reachability', () => {
       return needs.filter((n) => !code.includes(n)).map((n) => `${file} is missing ${n}`);
     });
     expect(missing).toEqual([]);
+  });
+
+  it('does not announce the same update twice on the home screen', () => {
+    const topBar = readFileSync('src/components/home/HomeTopBar.tsx', 'utf8');
+    expect(topBar.includes('<UpdateIndicator')).toBe(false);
   });
 });
 

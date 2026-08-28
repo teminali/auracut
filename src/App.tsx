@@ -27,7 +27,7 @@ import { ShortcutsOverlay } from './components/ui/ShortcutsOverlay';
 import { Toasts } from './components/ui/Toasts';
 import { useLayoutStore } from './store/layoutStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { startAutosave, serializeProject } from './engine/projectIO';
+import { startAutosave, clearAutosave, serializeProject } from './engine/projectIO';
 import { captureCurrentFrame } from './engine/contextProtocol';
 import { posterFromSnapshot } from './engine/posterCapture';
 import { useProjectStore } from './store/projectStore';
@@ -60,7 +60,17 @@ export const App: React.FC = () => {
 
   useKeyboardShortcuts();
 
-  useEffect(() => startAutosave(), []);
+  /*
+    Autosave runs in the EDITOR and nowhere else.
+
+    It used to run for the life of the process, so it kept rewriting the
+    slot while you sat on home with nothing open — which is why home
+    could offer to "recover" work that was already on the recents wall,
+    to everybody, permanently. Paired with the clear in `goHome` below,
+    a surviving autosave now means one thing: this app did not get to
+    say goodbye.
+  */
+  useEffect(() => (showHome ? undefined : startAutosave()), [showHome]);
 
   /*
     Tell main which screen is showing, so the window's close button can
@@ -118,6 +128,15 @@ export const App: React.FC = () => {
     } catch {
       /* Never let bookkeeping stop someone leaving the editor. */
     }
+
+    /*
+      The snapshot above IS the save. Leaving it in the autosave slot as
+      well would mean home offering to recover the project it is showing
+      you a poster of, which is the state the old "Unsaved work" card
+      was permanently stuck in. Cleared unconditionally: an empty
+      timeline wrote no entry and has nothing worth recovering either.
+    */
+    clearAutosave();
     setShowHome(true);
   }, [setShowHome]);
 

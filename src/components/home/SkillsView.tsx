@@ -8,9 +8,9 @@
    scope control beside the search, the tab bar under it, and a wall of
    cards whose type sits below the plate rather than inside a box.
 
-   The gradient is Kerf's three hues at low strength over a dark plane,
-   which is what a pastel IS on a dark ground: the reference tints
-   white, this tints black.
+   The gradient follows the supplied kit's blue, lilac and blush
+   banner. It is intentionally lighter than the editor because this is
+   a browse-and-choose surface, not a colour-critical canvas.
 
    The scope is ONE state with two affordances. CapCut's page has the
    same redundancy, a dropdown beside the search and a tab bar under
@@ -38,6 +38,7 @@ import { useBundledSkills } from '../../hooks/useBundledSkills';
 import type { TrialStatus } from '../../types/electron';
 import { SignInDialog } from './SignInDialog';
 import { BuySheet } from './BuySheet';
+import { skillArtwork } from './skillArtwork';
 import {
   Blocks, BadgeCheck, Check, Loader2, WifiOff, ShieldAlert, Download, Timer, Sparkle,
   Search, X, ChevronDown,
@@ -55,10 +56,13 @@ const SCOPES: { id: Scope; label: string }[] = [
    plate carries the mark and the badges rather than a picture of
    nothing: the reference puts the duration and the use count on its
    thumbnail, and these are the two facts that belong in that slot. */
-const PLATE = 'block aspect-[16/10] rounded-squircle-lg relative overflow-hidden flex items-center justify-center shadow-[inset_0_0_0_1px_var(--edge)]';
+const PLATE = 'block aspect-[4/5] rounded-[8px] relative overflow-hidden flex items-center justify-center';
 
 export const SkillsView: React.FC = () => {
-  const { skills: bundledSkills } = useBundledSkills();
+  const { skills: allBundledSkills } = useBundledSkills();
+  /* Skill Builder remains bundled for internal authoring and
+     verification, but it is a developer tool—not a public product. */
+  const bundledSkills = allBundledSkills.filter((skill) => skill.id !== 'skill-builder');
   const status = useAccountStore((s) => s.status);
   const skills = useAccountStore((s) => s.skills);
   const loaded = useAccountStore((s) => s.catalogueLoaded);
@@ -202,14 +206,21 @@ export const SkillsView: React.FC = () => {
               className="w-[84px] h-[112px] rounded-squircle-md flex flex-col items-center justify-center gap-2 px-2
                          shadow-[inset_0_0_0_1px_rgba(255,255,255,0.09)]"
               style={{
+                /* Three depths of the accent, not three different hues.
+                   These were teal, violet and mauve — the fanned cards
+                   in the banner were a third palette on a screen that
+                   now has one. The raised centre card is the brightest,
+                   which is the only ranking the fan needs. */
                 background: i === 1
-                  ? 'linear-gradient(150deg,rgba(160,129,245,0.30),rgba(74,144,255,0.16))'
-                  : 'linear-gradient(150deg,rgba(217,119,87,0.30),rgba(217,119,87,0.10))',
+                  ? 'linear-gradient(150deg,#4d2c1e,#2b1e19)'
+                  : i === 2
+                    ? 'linear-gradient(150deg,#2f1d16,#211a17)'
+                    : 'linear-gradient(150deg,#3d2419,#261c18)',
                 transform: `rotate(${(i - 1) * 6}deg) translateY(${i === 1 ? -10 : 0}px)`,
               }}
             >
               <Sparkle className="w-4 h-4 text-white/70" weight="fill" />
-              <span className="text-micro text-white/70 text-center leading-tight">{skill.name}</span>
+              <span className="text-micro text-white/70 font-semibold text-center leading-tight">{skill.name}</span>
             </span>
           ))}
         </div>
@@ -249,14 +260,14 @@ export const SkillsView: React.FC = () => {
                 None of the bundled skills match “{query.trim()}”.
               </p>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] gap-x-4 gap-y-7 mt-5">
-                {bundled.map((skill) => (
-                  <div key={skill.id} className="group">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(184px,184px))] gap-4 mt-5">
+                {bundled.map((skill) => {
+                  const artwork = skillArtwork(skill.id);
+                  return (
+                  <div key={skill.id} className="hp-catalog-card group">
                     <span className={`${PLATE} hp-plate-warm`}>
-                      <span className="w-11 h-11 rounded-[13px] bg-white/[0.10] flex items-center justify-center
-                                       shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
-                        <Sparkle className="w-[22px] h-[22px] text-spectrum-accent" weight="fill" />
-                      </span>
+                      {artwork && <img src={artwork} alt="" className="absolute inset-0 w-full h-full object-cover" />}
+                      <span className="hp-skill-thumb-shade" aria-hidden="true" />
 
                       {skill.verified && (
                         <span
@@ -264,7 +275,7 @@ export const SkillsView: React.FC = () => {
                                      flex items-center gap-1 !font-sans !text-spectrum-green"
                           title="Ships with its own verification test, which is what makes it a skill rather than a prompt pack"
                         >
-                          <BadgeCheck className="w-2.5 h-2.5" /> verified
+                          <BadgeCheck className="w-2.5 h-2.5" weight="fill" /> verified
                         </span>
                       )}
                       <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center">
@@ -287,7 +298,8 @@ export const SkillsView: React.FC = () => {
                       </span>
                     </p>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -336,17 +348,17 @@ export const SkillsView: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] gap-x-4 gap-y-7 mt-5">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(184px,184px))] gap-4 mt-5">
                 {store.map((skill) => {
                   const mine = ownedFor(skill);
                   const isOwned = Boolean(mine);
                   const trial = trials[skill.id];
                   return (
-                    <div key={skill.id} className="group">
+                    <div key={skill.id} className="hp-catalog-card group">
                       <span className={`${PLATE} hp-plate-cool`}>
                         <span className="w-11 h-11 rounded-[13px] bg-white/[0.10] flex items-center justify-center
                                          shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
-                          <Blocks className="w-[22px] h-[22px] text-spectrum-purple" />
+                          <Blocks className="w-[22px] h-[22px] text-spectrum-accent" weight="duotone" />
                         </span>
 
                         {skill.verifiedAt && (
@@ -355,7 +367,7 @@ export const SkillsView: React.FC = () => {
                                        flex items-center gap-1 !font-sans !text-spectrum-green"
                             title={`Verified against a fresh project, ${skill.verifiedBuild ?? 'build not recorded'}`}
                           >
-                            <BadgeCheck className="w-2.5 h-2.5" /> verified
+                            <BadgeCheck className="w-2.5 h-2.5" weight="fill" /> verified
                           </span>
                         )}
                         <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center">

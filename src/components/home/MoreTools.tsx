@@ -16,6 +16,18 @@
    The AI badge is on the two panels that genuinely run a model:
    captions (Whisper transcription) and the AI tool recipes. Badging
    the other six would be the decoration this codebase keeps deleting.
+
+   It is the accent, not blue. Blue is not one of Kerf's colours — it
+   arrived with the supplied reference along with the cyan tile and the
+   lilac one — and a label the user is meant to read as "this is ours"
+   should be wearing the one hue that is.
+
+   `accentHover`, not `accent`, and the difference is not taste. The
+   badge sets 8.5px, which is small text, so it owes 4.5:1 and gets no
+   large-text exemption. Measured in the running app over the flattened
+   badge fill, `accent` came out at 4.40:1 — a fail you would never
+   catch by eye, on the smallest type on the screen. The lighter step of
+   the same ramp measures 5.78:1.
    ═══════════════════════════════════════════════════════════════════ */
 
 import React from 'react';
@@ -50,7 +62,7 @@ export const MoreTools: React.FC<{ onOpenPanel: (tab: SidebarTab) => void }> = (
       <span className="section-note hidden sm:block">Opens the editor with that panel selected</span>
     </div>
 
-    <div className="grid grid-cols-8 gap-3 mt-4">
+    <div className="grid grid-cols-8 gap-2.5 mt-3.5">
       {TOOLS.map((tool) => {
         const Icon = tool.icon;
         return (
@@ -61,13 +73,16 @@ export const MoreTools: React.FC<{ onOpenPanel: (tab: SidebarTab) => void }> = (
             onClick={() => onOpenPanel(tool.id)}
             title={`Open the ${tool.label} panel`}
             aria-label={`Open the ${tool.label} panel`}
-            className="hp-tile hp-tile-plain group rounded-squircle-lg h-[92px]
-                       flex flex-col items-center justify-center gap-2.5 px-2"
+            className="hp-tile hp-tile-plain group rounded-squircle-lg h-[80px]
+                       flex flex-col items-center justify-center gap-2 px-2"
           >
-            <Icon
-              className="w-[22px] h-[22px] text-spectrum-textMuted flex-shrink-0
-                         transition-colors duration-fast group-hover:text-spectrum-text"
-            />
+            <span className="hp-tool-icon">
+              <Icon
+                className="w-[20px] h-[20px] text-spectrum-textMuted flex-shrink-0
+                           transition-colors duration-fast group-hover:text-spectrum-text"
+                weight="duotone"
+              />
+            </span>
 
             <span className="text-ui font-medium text-spectrum-textDim text-center leading-tight truncate max-w-full
                              transition-colors duration-fast group-hover:text-spectrum-text">
@@ -77,7 +92,7 @@ export const MoreTools: React.FC<{ onOpenPanel: (tab: SidebarTab) => void }> = (
             {tool.ai && (
               <span
                 className="absolute top-2 right-2 h-[15px] px-[5px] rounded-[4px]
-                           bg-spectrum-blue/[0.14] text-spectrum-blue text-[8.5px] font-bold
+                           bg-spectrum-accent/[0.16] text-spectrum-accentHover text-[8.5px] font-bold
                            tracking-[0.06em] flex items-center"
                 aria-hidden="true"
               >

@@ -172,7 +172,6 @@
        value `--on-accent` already holds; the cool one is its opposite
        number for the violet tile and was measured the same way. */
     --ink-warm: #2b1108;
-    --ink-cool: #14102b;
   }
 
   /* ── The stage ────────────────────────────────────────────────
@@ -280,7 +279,7 @@
       background-color var(--t-base) var(--ease);
   }
 
-  .hp-tile-warm {
+  .hp-tile-primary {
     color: var(--ink-warm);
     background:
       radial-gradient(88% 130% at 12% -30%, rgba(255, 240, 230, 0.45) 0%, transparent 52%),
@@ -293,8 +292,8 @@
   /* Grain on the saturated pair only. A large area of one colour is
      where banding actually shows; over a near-black card it does
      nothing but dull the glyph sitting under it. */
-  .hp-tile-warm::after,
-  .hp-tile-cool::after {
+  .hp-tile-primary::after,
+  .hp-tile-primary-deep::after {
     content: '';
     position: absolute;
     inset: 0;
@@ -303,28 +302,31 @@
     pointer-events: none;
   }
 
-  .hp-tile-warm:hover {
+  .hp-tile-primary:hover {
     transform: translateY(-3px);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.5),
       0 24px 48px -22px rgba(196, 96, 63, 0.8);
   }
 
-  .hp-tile-cool {
-    color: var(--ink-cool);
+  /* The accent again, lit from the opposite corner and a step deeper.
+     It was blue into violet, which made the launch row a two-hue
+     object in a product with one accent. */
+  .hp-tile-primary-deep {
+    color: var(--ink-warm);
     background:
-      radial-gradient(88% 130% at 12% -30%, rgba(238, 242, 255, 0.45) 0%, transparent 52%),
-      linear-gradient(138deg, #8fbcff 0%, #9d9df5 48%, #a081f5 100%);
+      radial-gradient(88% 130% at 12% -30%, rgba(255, 236, 226, 0.34) 0%, transparent 52%),
+      linear-gradient(318deg, #e8927a 0%, #cd6f4c 48%, #b85736 100%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.42),
-      0 14px 34px -20px rgba(96, 110, 220, 0.55);
+      inset 0 1px 0 rgba(255, 255, 255, 0.34),
+      0 14px 34px -20px rgba(160, 74, 46, 0.6);
   }
 
-  .hp-tile-cool:hover {
+  .hp-tile-primary-deep:hover {
     transform: translateY(-3px);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.5),
-      0 24px 48px -22px rgba(96, 110, 220, 0.75);
+      inset 0 1px 0 rgba(255, 255, 255, 0.42),
+      0 24px 48px -22px rgba(160, 74, 46, 0.78);
   }
 
   /* The reference's white cards. Ours are the surface ramp, and they
@@ -436,11 +438,11 @@
   }
 
   .hp-plate-cool {
-    background-color: #15161f;
+    background-color: #1a1316;
     background-image:
       repeating-linear-gradient(90deg,
         rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 24px),
-      linear-gradient(152deg, rgba(160, 129, 245, 0.30) 0%, rgba(74, 144, 255, 0.09) 58%, transparent 100%);
+      linear-gradient(332deg, rgba(184, 87, 54, 0.34) 0%, rgba(217, 119, 87, 0.08) 58%, transparent 100%);
   }
 
   /* ── Tabs ─────────────────────────────────────────────────────
@@ -561,6 +563,707 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOME — LIGHT PRODUCT SHELL
+
+   Kerf's editor stays dark because that is where footage is judged.
+   The launcher is a different job: choosing, browsing and starting.
+   It follows the supplied CapCut reference's white canvas, cool grey
+   rail, cyan priority action and pastel catalogue surfaces.
+   ═══════════════════════════════════════════════════════════════ */
+@layer components {
+  .home-stage {
+    --edge: rgba(22, 31, 43, 0.085);
+    --edge-hover: rgba(22, 31, 43, 0.16);
+    --edge-faint: rgba(22, 31, 43, 0.05);
+    /* Warm ink is the value `--on-accent` already holds: it is the ink
+       for type on the terracotta. There is no second ink any more: both
+       launch tiles are the accent, so both take the accent's ink. */
+    --ink-warm: #2b1108;
+    color: #17191d;
+    background: #ffffff;
+  }
+
+  .home-stage::before {
+    background-image: none;
+    opacity: 0;
+  }
+
+  /* The page wash. It was a pale cyan glow over a cyan-tinted white,
+     which tinted every neutral on the screen towards the reference's
+     palette even where no component used it. Same weight, our hue. */
+  .hp-main {
+    padding-top: 22px;
+    background:
+      radial-gradient(78% 380px at 25% 0%, rgba(240, 167, 142, 0.16), transparent 68%),
+      linear-gradient(180deg, #fffbf9 0, #ffffff 310px);
+  }
+
+  .hp-topbar {
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: inset 0 -1px 0 rgba(22, 31, 43, 0.07);
+  }
+
+  .hp-rail {
+    background: #f3f6f8;
+    box-shadow: inset -1px 0 0 rgba(22, 31, 43, 0.08);
+  }
+
+  /* Spectrum utilities are intentionally fixed for the dark editor.
+     Scoped overrides let the home shell use dark ink without changing
+     a single timeline or inspector control. */
+  .home-stage .text-spectrum-text { color: #17191d !important; }
+  .home-stage .text-spectrum-textMuted { color: #4f5865 !important; }
+  .home-stage .text-spectrum-textDim { color: #737d8b !important; }
+  .home-stage .text-spectrum-textFaint { color: #9aa3ae !important; }
+
+  .hp-rail-label {
+    color: #929ba6 !important;
+  }
+
+  /*
+    The accent, not the reference's mint. The note at the top of HOME
+    says this in as many words — "the mint Create new button and its
+    tile -> the terracotta" — and it is the rule that keeps this screen
+    from having two identities. The light theme had drifted back to
+    CapCut's cyan; the shape of the light treatment is kept and only the
+    hue is Kerf's.
+  */
+  .hp-create {
+    color: var(--ink-warm);
+    background: linear-gradient(135deg, #f0a78e 0%, #d0714d 100%);
+    box-shadow: 0 6px 18px -11px rgba(196, 96, 63, 0.7), inset 0 1px rgba(255, 255, 255, 0.5);
+  }
+
+  .hp-create:hover {
+    box-shadow: 0 11px 24px -12px rgba(196, 96, 63, 0.75), inset 0 1px rgba(255, 255, 255, 0.62);
+  }
+
+  .hp-nav { color: #59626e !important; }
+  .hp-nav:hover {
+    color: #17191d !important;
+    background: rgba(22, 31, 43, 0.055);
+  }
+  .hp-nav-on {
+    color: #17191d !important;
+    background: #e4e9ed;
+  }
+
+  .hp-beta {
+    margin-left: auto;
+    padding: 1px 5px;
+    border-radius: 5px;
+    color: #7c3c09;
+    background: #ffe1a9;
+    font-size: 8px;
+    line-height: 14px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+  }
+
+  /* Both tiles are the terracotta, the same ramp the dark themes use
+     and the same one `.hp-create` and `.btn-primary` wear. The second
+     is lit from the opposite corner and sits a step deeper, which is
+     the whole of the difference between them. */
+  .hp-tile-primary {
+    color: var(--ink-warm);
+    background:
+      radial-gradient(90% 120% at 10% -20%, rgba(255,255,255,0.74), transparent 55%),
+      linear-gradient(135deg, #f4b49d 0%, #dd8560 58%, #d0714d 100%);
+    box-shadow: 0 14px 30px -22px rgba(196, 96, 63, 0.72), inset 0 1px rgba(255,255,255,0.62);
+  }
+
+  .hp-tile-primary:hover {
+    box-shadow: 0 22px 36px -20px rgba(196, 96, 63, 0.62), inset 0 1px rgba(255,255,255,0.72);
+  }
+
+  .hp-tile-primary-deep {
+    color: var(--ink-warm);
+    background:
+      radial-gradient(88% 130% at 12% -30%, rgba(255,255,255,0.66), transparent 54%),
+      linear-gradient(315deg, #e8927a 0%, #cd6f4c 58%, #ba5b3c 100%);
+    box-shadow: 0 14px 30px -22px rgba(160, 74, 46, 0.66), inset 0 1px rgba(255,255,255,0.6);
+  }
+
+  .hp-tile-primary-deep:hover {
+    box-shadow: 0 22px 36px -20px rgba(160, 74, 46, 0.6), inset 0 1px rgba(255,255,255,0.7);
+  }
+
+  .hp-tile-primary::after,
+  .hp-tile-primary-deep::after { opacity: 0.018; }
+
+  .hp-tile-plain {
+    background-color: #ffffff;
+    background-image: none;
+    box-shadow: inset 0 0 0 1px rgba(22,31,43,0.085), 0 8px 20px -18px rgba(22,31,43,0.45);
+  }
+
+  .hp-tile-plain:hover {
+    background-color: #fbfdfe;
+    box-shadow: inset 0 0 0 1px rgba(22,31,43,0.16), 0 16px 30px -21px rgba(22,31,43,0.42);
+  }
+
+  .hp-tile-mark {
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 3px 9px -4px rgba(22,31,43,0.35);
+  }
+
+  .hp-mark-accent { background: rgba(217, 119, 87, 0.11); }
+
+  .surface-card {
+    background-color: #ffffff;
+    background-image: none;
+    box-shadow: inset 0 0 0 1px rgba(22,31,43,0.09), 0 8px 22px -20px rgba(22,31,43,0.45);
+  }
+  .surface-card-hover:hover {
+    background-color: #fbfdfe;
+    box-shadow: inset 0 0 0 1px rgba(22,31,43,0.16), 0 18px 32px -24px rgba(22,31,43,0.4);
+  }
+
+  .hp-banner {
+    background:
+      radial-gradient(75% 180% at 8% 0%, rgba(126, 202, 255, 0.52), transparent 70%),
+      radial-gradient(70% 180% at 52% 110%, rgba(184, 166, 255, 0.45), transparent 65%),
+      radial-gradient(70% 170% at 98% 5%, rgba(247, 202, 237, 0.6), transparent 68%),
+      linear-gradient(115deg, #cbe8ff 0%, #ddd9ff 54%, #f6e0f2 100%);
+    box-shadow: inset 0 0 0 1px rgba(22,31,43,0.055);
+  }
+
+  .hp-banner::after { opacity: 0.018; }
+
+  .hp-plate-warm {
+    background-color: #fbeee8;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(122,58,34,0.045) 0 1px, transparent 1px 24px),
+      linear-gradient(152deg, rgba(240,167,142,0.62), rgba(252,228,217,0.55));
+  }
+  .hp-plate-cool {
+    background-color: #f7e6de;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(122,58,34,0.045) 0 1px, transparent 1px 24px),
+      linear-gradient(332deg, rgba(217,119,87,0.5), rgba(246,206,190,0.6));
+  }
+
+  .hp-tab { color: #7d8793 !important; }
+  .hp-tab:hover { color: #414a56 !important; }
+  .hp-tab-on { color: #17191d !important; }
+  .hp-tab-on::after { background: var(--accent); }
+
+  .hp-media {
+    background-color: #edf1f4;
+    box-shadow: inset 0 0 0 1px rgba(22,31,43,0.09);
+  }
+  .group:hover .hp-media {
+    box-shadow: inset 0 0 0 1px rgba(22,31,43,0.15), 0 18px 34px -25px rgba(22,31,43,0.5);
+  }
+
+  .poster-empty {
+    background-image:
+      repeating-linear-gradient(90deg, rgba(22,31,43,0.045) 0 1px, transparent 1px 26px),
+      linear-gradient(158deg, #dfe9ef 0%, #cdd9e0 100%);
+  }
+
+  .home-stage .pro-btn {
+    color: #65707d;
+  }
+  .home-stage .pro-btn:hover:not(:disabled) {
+    color: #17191d;
+    background: rgba(22,31,43,0.065);
+  }
+  .home-stage .pro-btn-filled,
+  .home-stage .squircle-btn {
+    color: #56606d;
+    background: #eef2f5;
+  }
+  .home-stage .pro-btn-filled:hover:not(:disabled),
+  .home-stage .squircle-btn:hover:not(:disabled) {
+    color: #17191d;
+    background: #e4e9ed;
+  }
+  /* The primary button on the light home screen. It had the
+     reference's cyan, which made every confirm on this screen a
+     different colour from every confirm everywhere else in Kerf. */
+  .home-stage .btn-primary {
+    color: var(--ink-warm);
+    background: linear-gradient(180deg, #f0a78e, #d0714d);
+    border-color: rgba(196, 96, 63, 0.22);
+    box-shadow: inset 0 1px rgba(255,255,255,0.55), 0 5px 14px -9px rgba(196, 96, 63, 0.8);
+  }
+  .home-stage .pro-input,
+  .home-stage .squircle-input {
+    color: #17191d;
+    background: #ffffff;
+    border-color: rgba(22,31,43,0.12);
+    box-shadow: 0 1px 2px rgba(22,31,43,0.04);
+  }
+  .home-stage .pro-input:focus,
+  .home-stage .pro-input:focus-within,
+  .home-stage .squircle-input:focus,
+  .home-stage .squircle-input:focus-within {
+    border-color: #00b9c5;
+    box-shadow: 0 0 0 2px rgba(0,199,210,0.16);
+  }
+  .home-stage .chip {
+    color: #67717d;
+    background: #e8edf1;
+  }
+  .home-stage select option {
+    color: #17191d;
+    background: #ffffff;
+  }
+
+  .hp-view-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: #606a76;
+    font-size: 12px;
+    font-weight: 500;
+    transition: color var(--t-fast) ease;
+  }
+  .hp-view-more:hover { color: #111418; }
+
+  .hp-skill-poster {
+    position: relative;
+    display: flex;
+    min-height: 220px;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    border-radius: 12px;
+    padding: 16px;
+    color: #102025;
+    box-shadow: inset 0 0 0 1px rgba(22,31,43,0.07), 0 12px 28px -23px rgba(22,31,43,0.5);
+    transition: transform var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+  }
+  .group:hover .hp-skill-poster {
+    transform: translateY(-3px);
+    box-shadow: inset 0 0 0 1px rgba(22,31,43,0.1), 0 22px 36px -23px rgba(22,31,43,0.48);
+  }
+  /*
+    Three posters, three ramps, all from Kerf's own palette: the
+    terracotta, the blue and the violet. `cyan` kept its class name and
+    lost its hue — renaming it would touch every skill's artwork
+    mapping, and the name is internal while the colour is the thing
+    anybody sees.
+  */
+  .hp-skill-cyan { background: linear-gradient(155deg, #bcd8ff 0%, #8fbcff 58%, #5f7fe0 100%); }
+  .hp-skill-violet { background: linear-gradient(155deg, #ded4ff 0%, #a081f5 56%, #7a63d8 100%); }
+  .hp-skill-coral { background: linear-gradient(155deg, #ffd9c4 0%, #f0a78e 56%, #d0714d 100%); }
+  .hp-skill-grid {
+    position: absolute;
+    inset: 0;
+    opacity: 0.24;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(to bottom, #000, transparent 80%);
+  }
+  .hp-skill-kicker {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    opacity: 0.72;
+  }
+  .hp-skill-icon {
+    position: absolute;
+    top: 54px;
+    left: 16px;
+    display: flex;
+    width: 58px;
+    height: 58px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 17px;
+    color: rgba(18,30,35,0.78);
+    background: rgba(255,255,255,0.66);
+    box-shadow: inset 0 1px rgba(255,255,255,0.7), 0 8px 20px -14px rgba(22,31,43,0.55);
+  }
+  .hp-skill-title {
+    position: relative;
+    display: block;
+    max-width: 90%;
+    font-size: 23px;
+    line-height: 1.05;
+    font-weight: 750;
+    letter-spacing: -0.03em;
+  }
+  .hp-skill-meta {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    font-size: 10px;
+    font-weight: 650;
+    opacity: 0.75;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HOME — GRAPHITE DESKTOP EDITION
+
+   Same proportions and hierarchy as the supplied product UI, rebuilt
+   as a native dark workspace. Surfaces separate with one-pixel edges
+   and tone, not floating shadows. Cyan and lilac remain the two
+   priority launch signals; everything else stays neutral.
+   ═══════════════════════════════════════════════════════════════ */
+@layer components {
+  .home-stage {
+    --edge: rgba(255, 255, 255, 0.075);
+    --edge-hover: rgba(255, 255, 255, 0.14);
+    --edge-faint: rgba(255, 255, 255, 0.04);
+    /* Was #071d21, a dark TEAL ink, because the lead tile was teal.
+       The tile is the accent now and so is its ink. */
+    --ink-warm: #2b1108;
+    color: #f3f5f7;
+    background: #0c0e12;
+  }
+
+  .hp-main {
+    padding-top: 28px;
+    background:
+      radial-gradient(900px 320px at 17% -10%, rgba(217, 119, 87, 0.055), transparent 70%),
+      #111318;
+  }
+
+  .hp-topbar {
+    background: #0e1014;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.065);
+  }
+
+  .hp-rail {
+    background: #0d0f13;
+    box-shadow: inset -1px 0 0 rgba(255,255,255,0.065);
+  }
+
+  .home-stage .text-spectrum-text { color: #f2f4f6 !important; }
+  .home-stage .text-spectrum-textMuted { color: #b1b7c0 !important; }
+  .home-stage .text-spectrum-textDim { color: #858d99 !important; }
+  .home-stage .text-spectrum-textFaint { color: #626a76 !important; }
+
+  .hp-brand-mark {
+    color: #fff4ef;
+    background: #cf6f4f;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14);
+  }
+
+  .hp-rail-label { color: #616976 !important; }
+
+  .hp-create {
+    color: var(--ink-warm);
+    background: #d97757;
+    border: 1px solid rgba(240, 167, 142, 0.45);
+    box-shadow: none;
+  }
+  .hp-create:hover {
+    filter: brightness(1.07);
+    box-shadow: none;
+  }
+
+  .hp-nav { color: #858d99 !important; }
+  .hp-nav:hover {
+    color: #e7e9ed !important;
+    background: #15181e;
+  }
+  .hp-nav-on {
+    color: #f3f5f7 !important;
+    background: #1b1e25;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.045);
+  }
+
+  .hp-beta {
+    color: #ef9c7f;
+    background: rgba(217, 119, 87, 0.13);
+    box-shadow: inset 0 0 0 1px rgba(217, 119, 87, 0.2);
+  }
+
+  .hp-tile {
+    border: 1px solid transparent;
+    box-shadow: none;
+  }
+  /* ── The two priority tiles ───────────────────────────────────
+     Both are the primary now. They were the supplied reference's cyan
+     and its blue-into-lilac, which is the one thing on this screen that
+     could not be defended: rule 3 at the top of this file says colour is
+     information and the accent means active or selected, and here were
+     two large fields of two hues that mean nothing in Kerf, sitting
+     above a rail mark and a filled button that were already terracotta.
+     The screen had two identities and the loudest object on it was
+     wearing the wrong one.
+
+     Same ramp as `.hp-create` and `.btn-primary`, so every saturated
+     surface in the product is one family. They stay a PAIR rather than
+     a hierarchy: the row's saturated-versus-plain split is what carries
+     priority, not one tile outranking the other. So they take the same
+     ramp lit from opposite corners, 135deg against 315deg, the second a
+     step deeper. That reads as two objects at a glance without spending
+     a second hue to say so.
+
+     Ink is `--ink-warm` on both, measured in the running app rather
+     than guessed: 5.67:1 over the lead tile's midpoint and 5.04:1 over
+     the deep one's, so both clear AA for normal text. Neither ramp goes
+     darker than this. The deep tile's FINAL stop is 3.5:1 and only
+     survives because the label sits over the middle of the tile, never
+     its corner — moving the type or deepening the ramp breaks it. */
+  .hp-tile-primary {
+    color: var(--ink-warm);
+    background: linear-gradient(135deg, #f0a78e 0%, #d97757 54%, #c4603f 100%);
+    border-color: rgba(240, 167, 142, 0.34);
+    box-shadow: none;
+  }
+  .hp-tile-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: none;
+    filter: brightness(1.035);
+  }
+  .hp-tile-primary-deep {
+    color: var(--ink-warm);
+    background: linear-gradient(315deg, #e8927a 0%, #cd6f4c 54%, #b85736 100%);
+    border-color: rgba(232, 146, 122, 0.26);
+    box-shadow: none;
+  }
+  .hp-tile-primary-deep:hover {
+    transform: translateY(-2px);
+    box-shadow: none;
+    filter: brightness(1.035);
+  }
+  .hp-tile-primary::after,
+  .hp-tile-primary-deep::after { display: none; }
+
+  .hp-tile-plain {
+    background: #181b21;
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: none;
+  }
+  .hp-tile-plain:hover {
+    transform: translateY(-2px);
+    background: #1c2027;
+    border-color: rgba(255,255,255,0.15);
+    box-shadow: none;
+  }
+
+  .hp-launch-icon {
+    border: 1px solid rgba(255,255,255,0.11);
+    box-shadow: none;
+  }
+  .hp-tile-mark {
+    background: rgba(255,255,255,0.88);
+    box-shadow: none;
+  }
+  /* One chip for both plain tiles, in the accent.
+
+     They were a violet chip with a violet glyph and a blue chip with a
+     blue glyph — two more hues that meant nothing, on the row that had
+     just stopped being cyan and lilac. The plain pair still outranks
+     the eight panel tiles below, which is what the chip is for; it does
+     not need a hue of its own to say so, only a tint of the one hue
+     this product has. */
+  .hp-mark-accent {
+    background: rgba(217, 119, 87, 0.14);
+  }
+
+  .hp-tool-icon {
+    display: flex;
+    width: 34px;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    color: #aab2bd;
+    background: #20242c;
+    border: 1px solid rgba(255,255,255,0.075);
+  }
+
+  .surface-card {
+    background: #171a20;
+    border: 1px solid rgba(255,255,255,0.075);
+    box-shadow: none;
+  }
+  .surface-card-hover:hover {
+    background: #1b1f26;
+    border-color: rgba(255,255,255,0.13);
+    box-shadow: none;
+  }
+
+  .hp-banner {
+    background:
+      radial-gradient(80% 190% at 0% 0%, rgba(217, 119, 87, 0.22), transparent 66%),
+      radial-gradient(65% 170% at 52% 120%, rgba(176, 82, 47, 0.20), transparent 65%),
+      radial-gradient(70% 180% at 100% 0%, rgba(240, 167, 142, 0.13), transparent 70%),
+      #171a21;
+    border: 1px solid rgba(255,255,255,0.085);
+    box-shadow: none;
+  }
+  .hp-banner::after { display: none; }
+
+  .hp-tab { color: #7e8793 !important; }
+  .hp-tab:hover { color: #c5cad1 !important; }
+  .hp-tab-on { color: #f1f3f5 !important; }
+  .hp-tab-on::after { background: #d97757; }
+
+  .hp-media {
+    background: #0b0d10;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: none;
+  }
+  .group:hover .hp-media {
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,0.16);
+    box-shadow: none;
+  }
+  .poster-empty {
+    background-image:
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 26px),
+      linear-gradient(158deg, #1a2028 0%, #0d1015 100%);
+  }
+
+  .home-stage .pro-btn { color: #8a939f; }
+  .home-stage .pro-btn:hover:not(:disabled) {
+    color: #f0f2f4;
+    background: #1b1f25;
+  }
+  .home-stage .pro-btn-filled,
+  .home-stage .squircle-btn {
+    color: #b2b9c2;
+    background: #1c2026;
+    border: 1px solid rgba(255,255,255,0.075);
+  }
+  .home-stage .pro-btn-filled:hover:not(:disabled),
+  .home-stage .squircle-btn:hover:not(:disabled) {
+    color: #f2f4f6;
+    background: #242932;
+  }
+  /* The same button as the editor's, and it was not.
+
+     `.btn-primary` outside `.home-stage` is the accent ramp. This
+     override made every primary confirm on the launcher flat cyan, so
+     the SAME control changed colour depending on which screen you were
+     looking at — the one thing a primary action must never do. Flat is
+     kept, because this block draws with tone and edges rather than
+     gradients; only the hue is Kerf's now. Ink at 5.67:1. */
+  .home-stage .btn-primary {
+    color: var(--ink-warm);
+    background: #d97757;
+    border: 1px solid rgba(240, 167, 142, 0.38);
+    box-shadow: none;
+  }
+  .home-stage .pro-input,
+  .home-stage .squircle-input {
+    color: #e9ebee;
+    background: #101217;
+    border-color: rgba(255,255,255,0.10);
+    box-shadow: none;
+  }
+  .home-stage .pro-input:focus,
+  .home-stage .pro-input:focus-within,
+  .home-stage .squircle-input:focus,
+  .home-stage .squircle-input:focus-within {
+    border-color: rgba(37,203,212,0.74);
+    box-shadow: 0 0 0 2px rgba(37,203,212,0.11);
+  }
+  .home-stage .chip {
+    color: #858e9a;
+    background: #20242b;
+  }
+  .home-stage select option {
+    color: #e9ebee;
+    background: #171a20;
+  }
+
+  .hp-view-more { color: #89929e; }
+  .hp-view-more:hover { color: #f2f4f6; }
+
+  .hp-skill-card {
+    display: block;
+    padding: 7px;
+    border-radius: 11px;
+    background: #171a20;
+    border: 1px solid rgba(255,255,255,0.075);
+    transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease,
+      transform var(--t-base) var(--ease);
+  }
+  .hp-skill-card:hover {
+    transform: translateY(-2px);
+    background: #1a1e25;
+    border-color: rgba(255,255,255,0.15);
+  }
+  .hp-skill-thumb {
+    position: relative;
+    display: block;
+    aspect-ratio: 4 / 5;
+    overflow: hidden;
+    border-radius: 7px;
+    background: #090b0e;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .hp-skill-thumb img {
+    transform: scale(1.01);
+    transition: transform 0.55s var(--ease);
+  }
+  .hp-skill-card:hover .hp-skill-thumb img { transform: scale(1.045); }
+  .hp-skill-card .clamp-2,
+  .hp-catalog-card .clamp-2 {
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .hp-skill-thumb-shade {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(5,7,10,0.74) 0, rgba(5,7,10,0.06) 42%, transparent 68%);
+    pointer-events: none;
+  }
+  .hp-skill-state,
+  .hp-skill-version {
+    position: absolute;
+    bottom: 8px;
+    z-index: 1;
+    display: inline-flex;
+    height: 20px;
+    align-items: center;
+    gap: 4px;
+    padding: 0 7px;
+    border-radius: 5px;
+    color: rgba(255,255,255,0.88);
+    background: rgba(8,10,13,0.72);
+    border: 1px solid rgba(255,255,255,0.10);
+    backdrop-filter: blur(8px);
+    font-size: 9px;
+    font-weight: 650;
+  }
+  .hp-skill-state { left: 8px; }
+  .hp-skill-version { right: 8px; }
+
+  .hp-catalog-card {
+    min-width: 0;
+    padding: 8px;
+    border-radius: 11px;
+    background: #16191f;
+    border: 1px solid rgba(255,255,255,0.07);
+    transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease;
+  }
+  .hp-catalog-card:hover {
+    background: #1a1e24;
+    border-color: rgba(255,255,255,0.14);
+  }
+  .hp-plate-warm,
+  .hp-plate-cool {
+    background-color: #0d0f13;
+    background-image: none;
+    border: 1px solid rgba(255,255,255,0.065);
+    box-shadow: none;
   }
 }
 
@@ -1220,4 +1923,341 @@ input[type='number']::-webkit-outer-spin-button {
 .dragging-move,
 .dragging-move * {
   cursor: grabbing !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   EXPORT
+   The one screen a user WAITS at. Everything here is in service of
+   making a long render legible: how fast, how much longer, and — when
+   the work is split across windows — what each one is doing.
+
+   No `@keyframes` runs on its own timer that could disagree with the
+   data. The bars are driven by width, which is a fact; the only
+   decorative motion is the sheen, and the global reduced-motion rule
+   at the top of this file already stops it.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* The headline percentage. Big, tabular, and light enough not to shout. */
+.export-figure {
+  font-size: 54px;
+  line-height: 1;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.export-figure-unit {
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--text-dim);
+  margin-left: 2px;
+}
+
+/* The main bar. Taller than the old 6px, with a lit leading edge so the
+   eye can find the front of a slow render. */
+.export-track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--sunken);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.export-track-fill {
+  position: relative;
+  height: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  background: linear-gradient(90deg, rgba(217, 119, 87, 0.55), var(--accent));
+  box-shadow: 0 0 10px rgba(217, 119, 87, 0.35);
+  /* Follows the reading, and slowly enough that a 12-per-second update
+     reads as a glide rather than a stutter. */
+  transition: width 220ms var(--ease);
+}
+
+.export-track-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  transform: translateX(-100%);
+  animation: shimmer 1.9s infinite;
+}
+
+/* One per render window. Deliberately quieter than the main bar: these
+   are detail, and four competing accent bars would out-shout the total. */
+.export-lane {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--sunken);
+  overflow: hidden;
+}
+
+.export-lane-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: rgba(217, 119, 87, 0.62);
+  transition: width 220ms var(--ease);
+}
+
+/* Where the render is in its own life. */
+.export-phase {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 18px;
+  padding: 0 7px 0 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  background: var(--sunken);
+}
+
+.export-phase-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.export-phase-live {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.export-phase-live .export-phase-dot {
+  opacity: 1;
+  animation: pulse-ring 2.2s ease-out infinite;
+}
+
+.export-phase-done {
+  color: var(--text-dim);
+}
+
+.export-phase-done .export-phase-dot {
+  opacity: 1;
+  background: #33c98d;
+}
+
+/* The finish. One ring, one tick, arriving with a little weight. */
+.export-tick {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(51, 201, 141, 0.15);
+  border: 1px solid rgba(51, 201, 141, 0.3);
+  animation: export-tick-in 320ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+@keyframes export-tick-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THE PROMOTION BAR
+   One strip at the top of the home screen carrying at most two
+   things: a version to install, and a feature just arrived.
+
+   Built on the accent, not on a fourth colour. A promotion is the
+   loudest thing on the home screen by position alone, and giving it
+   its own hue would make it the loudest thing by colour as well.
+
+   Every value here is a token, so the bar follows the theme rather
+   than pinning a dark palette into a screen that has a light one.
+   ═══════════════════════════════════════════════════════════════ */
+
+.promo-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background:
+    linear-gradient(100deg, var(--accent-soft), transparent 62%),
+    var(--surface);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  overflow: hidden;
+}
+
+.promo-slide {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: 1;
+  min-width: 0;
+  /* Keyed on the slide id in the component, so this runs on every
+     change. The global reduced-motion rule already flattens it. */
+  animation: promo-in 260ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@keyframes promo-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.promo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.promo-kicker {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.promo-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+  margin-top: 1px;
+}
+
+.promo-body {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-dim);
+  margin-top: 1px;
+  /* Two lines at most: this is a strip, and a paragraph in it pushes
+     the launcher below the fold. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.promo-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--on-accent);
+  background: var(--accent);
+  transition: background var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+}
+
+.promo-action:hover:not(:disabled) {
+  background: var(--accent-hover, var(--accent));
+  transform: translateY(-1px);
+}
+
+.promo-action:disabled {
+  opacity: 0.6;
+}
+
+/* Arrows and dots exist only when there are two slides — the component
+   does not render them otherwise, so there is no disabled state here to
+   design. */
+.promo-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  color: var(--text-dim);
+  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+
+.promo-arrow:hover {
+  color: var(--text);
+  background: var(--edge-hover, rgba(255, 255, 255, 0.085));
+}
+
+.promo-dots {
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+}
+
+.promo-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--text-faint);
+  opacity: 0.5;
+  transition: opacity var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+}
+
+.promo-dot-on {
+  background: var(--accent);
+  opacity: 1;
+}
+
+.promo-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  border-radius: 999px;
+  color: var(--text-faint);
+  transition: color var(--t-fast) var(--ease);
+}
+
+.promo-close:hover {
+  color: var(--text);
+}
+
+/* ── The changelog sheet ── */
+
+.changelog-entry + .changelog-entry {
+  padding-top: 18px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.changelog-version {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.changelog-current {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-soft);
 }
