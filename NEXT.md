@@ -125,33 +125,25 @@ and every one of these was invisible there:
 On the real take, before: `introductionMs 0`. After: **24.0s**, camera
 takes the frame, two zooms dropped from under it.
 
-### THE NEXT JOB — the camera renders black in the preview
+### THE NEXT JOB — `get_frame_context` lies when the editor is not mounted
 
-**Not caused by any of the above, and not fixed.** On the real take the
-camera clip composites as the placeholder gradient rather than as video,
-both full frame and as the inset. What is known:
+Not the camera. The camera is fine; see HANDOVER §7f for the retraction.
 
-* The file is fine. ffmpeg extracts a normal frame from it, and a
-  `<video>` element in the same renderer loads it (`readyState 4`,
-  `videoWidth 1920`) and `drawImage` paints it at 109/255 **when it is
-  not the first video painted in the page**.
-* Ruled out by measurement: colour tagging (three re-encodes with
-  consistent bt709, unspecified and smpte170m all behave the same), the
-  audio stream, the resolution (a synthetic 1920x1080 paints, and the
-  same camera downscaled to 640x360 paints), timestamps, VFR, and
-  decoder exhaustion (a fresh app with one build still shows it).
-* `ERROR:ffmpeg_common.cc(970)] Unsupported pixel format: -1` appears in
-  the app log, which is the same string `referenceAnalysis.ts` records
-  against a fixture it could never make decode.
-* `getVideoFrame` returns the element only at `readyState >= 2`, and the
-  compositor paints its placeholder otherwise, so the symptom is
-  consistent with the element never reaching that state under the
-  compositor's own seek pattern even though it does outside it.
+`get_frame_context` called while the app is on the HOME SCREEN returns a
+frame that is not a composite of the timeline, **and reports
+`mediaPending: 0` while doing it**. That flag is the one guard every
+suite in `tools/` waits on so it never measures an undecoded frame, and
+it reads clean here. Nothing has caught it because every suite drives an
+instance that is already in the editor.
 
-The next step is to instrument `videoEngine.ts` rather than the file:
-log `readyState`, `seeking` and `error` for the camera URL on every
-composite and find out what state it is actually in. `videos` is also a
-map keyed by URL that never evicts, which is worth fixing regardless.
+Measured: the same project at the same timecodes reads
+`[0.2, 0.2, 0.2]` and `[25, 24.9, 31.5]` from the home screen, and
+`[131.4, 105.2, 109.9]` and `[206.4, 204.5, 211.9]` from the editor.
+
+The fix is in the frame envelope: say the editor is not mounted, the way
+`debug/capture` learned to say `stale`. `unavailableReason` already
+exists and is the obvious place. A suite that then asks for a frame from
+the home screen gets a refusal instead of a plausible picture.
 
 ### Then
 

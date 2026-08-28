@@ -1956,13 +1956,48 @@ Before: `introductionMs 0`, camera an inset throughout. After: **24.0s**
 of introduction, the camera taking the frame for it, and the two zooms
 that would have played underneath it dropped.
 
-### Still broken, and it is not any of the above
+### And a wrong conclusion, retracted, with the trap that caused it
 
-**The camera clip composites black.** See NEXT.md for what has been ruled
-out by measurement; the short version is that the file decodes and paints
-fine in the same renderer when driven by hand, and renders as the
-placeholder gradient when driven by the compositor. It is not the colour
-tags, the audio, the resolution, the timestamps, or decoder exhaustion.
+I reported in the first version of this section that the camera clip
+"composites black" and wrote it into NEXT.md as the next job. **It does
+not, and it never did.** The user said so, and they were right.
+
+Every measurement behind that claim was taken through
+`get_frame_context` while the app was sitting on the HOME SCREEN, with
+the editor and its preview unmounted. What comes back then is not a
+composite of the timeline, and — this is the part that made it
+convincing — **it comes back with `mediaPending: 0`**, which is the flag
+this whole repo's suites wait on precisely so they never measure a
+frame that has not decoded.
+
+Two readings were wrong in the same direction:
+
+* The camera measured `mean rgb [0.2, 0.2, 0.2]`, which I called the
+  placeholder gradient. The placeholder is `#14161c` to `#1d222b`, so a
+  frame of it means about **25**, not 0.2. 0.2 is nothing being drawn at
+  all.
+* The screen clip measured `[25, 24.9, 31.5]` in the same captures and I
+  called it "renders fine, so the camera is the odd one out". 25 IS the
+  placeholder. Both clips were undrawn; only one of them was undrawn in
+  a colour I recognised.
+
+With the editor mounted, the same project at the same timecodes:
+`[131.4, 105.2, 109.9]` at 2s, 12s and 22s — skin tones, full frame —
+and `[206.4, 204.5, 211.9]` at 40s, the screen on the light backdrop.
+
+**So: `get_frame_context` is only meaningful with the editor mounted, and
+it does not say so.** That is the same family as §3c's "`debug/capture`
+was showing the wrong frame, silently", and it is worse, because
+`mediaPending` is the specific guard that exists to stop this and it
+reads clean. Every suite in `tools/` happens to run against an instance
+that is in the editor, so nothing has ever caught it. It is in the gap
+log; the fix is for the frame envelope to report that the editor is not
+mounted rather than returning a frame that means nothing.
+
+The lesson for the next person is cheaper than the bug: **a number that
+disagrees with what the user can see on their own screen is a broken
+instrument until proven otherwise.** I spent a long time re-encoding a
+video file that was fine.
 
 ---
 
