@@ -57,11 +57,12 @@ import { runSkill, trialStatus } from '../services/skillTrials';
 import { TrialStatus } from '../types/electron';
 import {
   assembleRecording, AssembleOptions, AssembleReport, SpeechCue,
-  TUTORIAL_ASSEMBLE, RAW_ASSEMBLE, CAPTION_STYLE,
+  TUTORIAL_ASSEMBLE, RAW_ASSEMBLE, CAPTION_STYLE, CAPTION_MAX_CHARS,
 } from './recordingProject';
 import {
   auditCaptions, repairCaptions, buildCleanupRequest, parseCleanupReply, CaptionAudit,
 } from './captionQuality';
+import { balanceLines } from './captions';
 
 /* ── Who this skill is, for the trial gate ──────────────────────── */
 
@@ -335,6 +336,13 @@ export async function applyTutorialSkill(
   */
   if (outcome.result.transcribedInBackground) {
     captionInBackground(take, options, outcome.result.screenClipId);
+  } else if (options.cleanCaptions !== false && outcome.result.captionLines > 0) {
+    /*
+      The captions are on the timeline and the editor is usable. The
+      spell-check happens against them, from here, so that the thing the
+      user is waiting on is only ever the edit.
+    */
+    cleanCaptionsInBackground(outcome.result.screenClipId, options);
   }
 
   return { ok: true, report: outcome.result, status: outcome.status };
@@ -396,7 +404,18 @@ async function build(
     if (status?.fast) {
       onProgress({ phase: 'transcribing', percent: 10, note: 'Listening to the narration' });
       const result = await transcribe(take, o, (percent, note) => {
-        onProgress({ phase: 'transcribing', percent: 10 + Math.round(percent * 0.3), note });
+        /*
+          `transcribe` ends by reporting 100 and the word "Done", which
+          is true of transcription and reads as a lie about the build:
+          the studio showed "Done" beside a bar a third of the way
+          along. What is done here is the listening, and the next thing
+          is the edit.
+        */
+        onProgress({
+          phase: 'transcribing',
+          percent: 10 + Math.round(percent * 0.3),
+          note: percent >= 100 ? 'Heard it, building the edit' : note,
+        });
       });
       speech = result.cues;
       notes.push(...result.notes);
@@ -409,9 +428,17 @@ async function build(
     ── Read the words before putting them on screen ────────────────
 
     Everything above this point trusts the transcriber. This is where
-    that stops. `reviewCaptions` never fails the build and never blocks
-    on anything optional: at worst it returns the cues it was given and
-    a note saying what it found and could not fix.
+    that stops. Deterministic only: an audit and the deletions that
+    follow from it, which cost nothing and need nothing installed.
+
+    The MODEL pass is deliberately not here. It used to be, and that was
+    a straightforward mistake against the rule at the top of this file:
+    the edit lands first and the words catch up. `api.captions.clean`
+    spawns an agent CLI and can take a minute or more, and it reported
+    no progress, so the studio sat at 40% showing the last thing
+    transcription had said — the word "Done" — while a language model
+    turned over. Done, then nothing, for a minute. See
+    `cleanCaptionsInBackground`.
 
     It runs on the supplied-transcript path as well as the transcribed
     one, on purpose. A `transcript.json` beside a take is usually a
@@ -420,7 +447,7 @@ async function build(
     duplicated paragraph is a real thing.
   */
   if (speech.length > 0) {
-    const reviewed = await reviewCaptions(speech, o);
+    const reviewed = auditAndRepairCaptions(speech);
     speech = reviewed.cues;
     notes.push(...reviewed.notes);
   }
@@ -472,15 +499,20 @@ export interface CaptionReview {
  * a refused reply, a timeout: the captions come out at least as good as
  * they went in, and the report says what happened.
  */
-export async function reviewCaptions(
-  cues: SpeechCue[],
-  options: TutorialOptions
-): Promise<CaptionReview> {
+/**
+ * The half that costs nothing: audit, then delete what was never said.
+ *
+ * Synchronous on purpose. Everything here is arithmetic over strings,
+ * it needs no model and no network, and it runs on every build whatever
+ * else is switched off, because its absence is the bug the whole module
+ * exists for.
+ */
+export function auditAndRepairCaptions(cues: SpeechCue[]): CaptionReview {
   const notes: string[] = [];
   const audit = auditCaptions(cues);
 
   /*
-    Said whatever else happens, including when nothing is wrong — a
+    Said whatever else happens, including when nothing is wrong: a
     report that only speaks up on failure cannot be told apart from one
     that is not running.
   */
@@ -488,14 +520,12 @@ export async function reviewCaptions(
 
   const repair = repairCaptions(cues, audit);
   notes.push(...repair.notes);
-  let out = repair.cues;
 
   if (!audit.usable) {
     /*
       Past this much loss the surviving lines are not a transcript, they
       are the fragments around the edges of one, and captioning a film
-      with them implies the rest was silence. Said as loudly as a note
-      can say it, with the thing that actually fixes it.
+      with them implies the rest was silence.
     */
     notes.push(
       `The transcriber lost ${Math.round(audit.loopedShare * 100)}% of this take to a repetition `
@@ -505,43 +535,146 @@ export async function reviewCaptions(
     );
   }
 
-  if (options.cleanCaptions === false || out.length === 0) return { cues: out, notes, audit };
+  return { cues: repair.cues, notes, audit };
+}
 
+/* ── The model pass, after the edit is on screen ────────────────── */
+
+const CLEAN_TOAST = 'tutorial-caption-clean';
+
+/**
+ * Spell-check the captions that are already on the timeline.
+ *
+ * NOT awaited by the build, and that is the whole point of it being
+ * here rather than inline. It spawns an agent CLI, which takes as long
+ * as it takes, and a minute of an unmoving progress bar is a worse
+ * experience than captions that improve a moment after the editor
+ * opens. The same reasoning, and the same shape, as
+ * `captionInBackground`.
+ *
+ * It reads the text off the CLIPS rather than being handed the cues, so
+ * it is correcting exactly what is on screen, including the line breaks
+ * `balanceLines` put there. Those breaks are removed before the model
+ * sees them and recomputed afterwards, because a corrected line is a
+ * different length and would otherwise keep a break in the wrong place.
+ */
+export function cleanCaptionsInBackground(
+  anchorClipId: string,
+  options: Partial<TutorialOptions> = {}
+): void {
   const api = window.electronAPI;
-  if (!api?.captions) return { cues: out, notes, audit };
+  if (!api?.captions) return;
 
-  const request = buildCleanupRequest(out, options.language);
-  const reply = await api.captions.clean(request.prompt);
+  const captionClips = () => useTimelineStore.getState().tracks
+    .filter((track) => track.type === 'text')
+    .flatMap((track) => track.clips)
+    .filter((clip) => clip.textStyle?.text)
+    .sort((a, b) => a.startTimeMs - b.startTimeMs);
 
-  if (!reply.ok || !reply.text) {
-    /*
-      A note rather than an error. Nobody recorded a tutorial in order
-      to run a language model over it, and captions the transcriber
-      wrote are what this shipped before any of this existed.
-    */
-    notes.push(`Captions were not spell-checked: ${reply.error ?? 'the agent returned nothing.'}`);
-    return { cues: out, notes, audit };
-  }
+  const stillThere = () => useTimelineStore
+    .getState()
+    .tracks.some((track) => track.clips.some((clip) => clip.id === anchorClipId));
 
-  const outcome = parseCleanupReply(reply.text, out);
-  if (outcome.refused) {
-    notes.push(`The caption corrections were refused and none were applied: ${outcome.refused}`);
-    return { cues: out, notes, audit };
-  }
+  const clips = captionClips();
+  if (clips.length === 0 || !stillThere()) return;
 
-  out = outcome.cues;
-  if (outcome.applied > 0) {
-    notes.push(
-      `Spell-checked the captions with ${reply.backend}: ${outcome.applied} of ${request.indices.length} `
-      + `lines corrected`
-      + (outcome.rejected.length > 0
-        ? `, and ${outcome.rejected.length} proposed change${outcome.rejected.length === 1 ? '' : 's'} `
-          + 'rejected for changing the line rather than correcting it.'
-        : '.')
-    );
-  }
+  const ui = useUiStore.getState();
+  ui.pushToast({
+    id: CLEAN_TOAST,
+    kind: 'progress',
+    title: 'Checking the captions',
+    detail: 'Spelling and word breaks, in the language you spoke. The edit is ready to work on.',
+    progress: 0,
+    ttl: 0,
+  });
 
-  return { cues: out, notes, audit };
+  void (async () => {
+    try {
+      /* Unwrapped: the model is correcting words, not line breaks. */
+      const cues: SpeechCue[] = clips.map((clip) => ({
+        startMs: clip.startTimeMs,
+        endMs: clip.startTimeMs + clip.durationMs,
+        text: (clip.textStyle!.text as string).replace(/\s*\n\s*/g, ' ').trim(),
+      }));
+
+      const request = buildCleanupRequest(cues, options.language);
+      const reply = await api.captions.clean(request.prompt);
+      const ui2 = useUiStore.getState();
+      ui2.dismissToast(CLEAN_TOAST);
+
+      if (!reply.ok || !reply.text) {
+        /*
+          Quiet, and deliberately so. Nobody recorded a tutorial in order
+          to run a language model over it, and the captions on screen are
+          what this shipped before any of it existed. An error toast here
+          would report a failure of something the user never asked for.
+        */
+        return;
+      }
+
+      const outcome = parseCleanupReply(reply.text, cues);
+      if (outcome.refused || outcome.applied === 0) return;
+
+      /* The project has to still be the one this was started for. */
+      if (!stillThere()) return;
+      const current = captionClips();
+      if (current.length !== clips.length) return;
+
+      const store = useTimelineStore.getState();
+      store.beginTransaction();
+
+      /*
+        `textStyle.text`, as a PROPERTY PATH.
+
+        `patchClip` addresses properties by dotted path; handed a nested
+        object it answers `Unknown property path "textStyle"`. It says so
+        in a returned `errors` array rather than by throwing, which is
+        how the first version of this wrote nothing at all while
+        reporting success: the toast appeared, the model was called, six
+        good corrections came back, every one was silently dropped, and
+        the only symptom was captions that never changed.
+
+        So the errors are READ. A write API that reports failure in its
+        return value and is called without looking at it is a write that
+        may as well not have happened.
+      */
+      let written = 0;
+      const failures: string[] = [];
+      outcome.cues.forEach((cue, i) => {
+        if (cue.text === cues[i].text) return;
+        const clip = current[i];
+        if (!clip) return;
+        const result = store.patchClip(clip.id, {
+          'textStyle.text': balanceLines(cue.text, CAPTION_MAX_CHARS),
+        });
+        if (result.errors.length > 0) failures.push(...result.errors);
+        else written += 1;
+      });
+      store.commitTransaction(`Spell-check ${written} captions`);
+
+      if (written === 0) {
+        /* Nothing reached the timeline. Silence here would be the same
+           bug again, one layer up. */
+        ui2.pushToast({
+          kind: 'error',
+          title: 'The caption corrections could not be applied',
+          detail: failures[0] ?? 'The caption clips were not where they were expected.',
+          ttl: 10000,
+        });
+        return;
+      }
+
+      ui2.pushToast({
+        kind: 'success',
+        title: `${written} caption${written === 1 ? '' : 's'} corrected`,
+        detail: `Spelling and word breaks, checked with ${reply.backend}. `
+          + 'Undo puts them back in one step.',
+        ttl: 7000,
+      });
+    } catch {
+      useUiStore.getState().dismissToast(CLEAN_TOAST);
+    }
+  })();
 }
 
 /* ── The words, afterwards ──────────────────────────────────────── */
@@ -634,7 +767,7 @@ export function captionInBackground(
         the other would mean the captions most at risk are the ones
         nobody checks.
       */
-      const reviewed = await reviewCaptions(result.cues, { ...DEFAULT_TUTORIAL, ...options });
+      const reviewed = auditAndRepairCaptions(result.cues);
       if (reviewed.cues.length === 0) {
         ui2.pushToast({
           kind: 'info',
@@ -651,10 +784,15 @@ export function captionInBackground(
         title: `${added} caption${added === 1 ? '' : 's'} added`,
         detail: reviewed.audit.usable
           ? 'On their own track, in Inter Bold. Undo removes them in one step.'
-          : reviewed.notes.find((n) => n.includes('repetition loop'))
+          : reviewed.notes.find((n: string) => n.includes('repetition loop'))
             ?? 'Some of the narration was not transcribed.',
         ttl: reviewed.audit.usable ? 6000 : 14000,
       });
+
+      /* And then the model pass, on the captions that just landed. */
+      if (options.cleanCaptions !== false) {
+        cleanCaptionsInBackground(anchorClipId, options);
+      }
     } catch (err) {
       const ui2 = useUiStore.getState();
       ui2.dismissToast(CAPTION_TOAST);
