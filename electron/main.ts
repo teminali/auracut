@@ -20,6 +20,7 @@ import { startRpcServer } from './rpcServer';
 import { initScreenRecorder, shutdownScreenRecorder } from './screenRecorder';
 import { initUserSkills } from './userSkills';
 import { initCaptionCleanup } from './captionCleanup';
+import { initStreamer, setStreamWindow } from './streamer';
 import { initSkillTrials } from './skillTrials';
 import { initCrashLog, logEvent, crashLogPath } from './crashLog';
 import {
@@ -160,6 +161,7 @@ function createWindow() {
 
   initAutoUpdater(mainWindow);
   setBridgeWindow(mainWindow);
+  setStreamWindow(mainWindow);
 
   /*
     Closing the editor returns to home rather than quitting. Only home
@@ -176,6 +178,7 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     setBridgeWindow(null);
+    setStreamWindow(null);
     mainWindow = null;
   });
 }
@@ -536,6 +539,7 @@ app.whenReady().then(() => {
   initScreenRecorder(() => mainWindow);
   initUserSkills();
   initCaptionCleanup();
+  initStreamer();
   initSkillTrials();
   // Only once the port is actually ours — see rpcServer's listen callback.
   startRpcServer(() => writeMcpConfig());

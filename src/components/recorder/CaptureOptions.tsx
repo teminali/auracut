@@ -47,6 +47,7 @@ const SPOKEN_LANGUAGES: { code: string; label: string }[] = [
 ];
 import {
   Camera, Mic, MicOff, VideoOff, Monitor, CursorClick, AlertTriangle, Sparkle, Waves,
+  Broadcast,
 } from '../ui/icons';
 
 interface Props {
@@ -331,6 +332,58 @@ export const CaptureOptions: React.FC<Props> = ({
         onChange={(v) => onChange('detachNarration', v)}
         hint="So cutting the camera does not cut your voice"
       />
+    </Group>
+
+    {/*
+      Going live is LAST, under the settings that decide what a stream
+      would look like, because it is a render of them. It is also the
+      only group here that reaches the outside world, which is a reason
+      not to have it sitting at the top under somebody's thumb.
+    */}
+    <Group title="Go live" icon={Broadcast}>
+      <ToggleRow
+        label="Stream while recording"
+        checked={settings.streamEnabled}
+        onChange={(v) => onChange('streamEnabled', v)}
+        hint="The same picture the editor would build, pushed to an RTMP ingest"
+      />
+
+      {settings.streamEnabled && (
+        <>
+          <input
+            type="password"
+            value={settings.streamUrl}
+            onChange={(e) => onChange('streamUrl', e.target.value)}
+            placeholder="rtmp://a.rtmp.youtube.com/live2/your-key"
+            spellCheck={false}
+            autoComplete="off"
+            className="w-full h-8 px-2 rounded bg-spectrum-panel border border-line
+                       text-ui-sm text-spectrum-text placeholder:text-spectrum-textDim
+                       focus:outline-none focus:border-accent"
+            aria-label="RTMP ingest address"
+          />
+          {/*
+            A password field, because the stream key is IN the address.
+            Anyone who reads it over your shoulder can broadcast to your
+            channel until you reset it, and a recorder is a thing people
+            run while sharing their screen.
+          */}
+          <p className="text-ui-xs text-spectrum-textDim leading-relaxed">
+            The address ends with your stream key, so it is hidden as you type. The
+            recording is unaffected either way: it is written from the same capture
+            at full quality, and the stream is the copy that gets dropped if this
+            machine cannot keep up.
+          </p>
+
+          <Row label="Send at">
+            <SegmentedControl
+              value={String(settings.streamHeight)}
+              options={[{ value: '720', label: '720p' }, { value: '1080', label: '1080p' }]}
+              onChange={(v) => onChange('streamHeight', Number(v) as 720 | 1080)}
+            />
+          </Row>
+        </>
+      )}
     </Group>
   </div>
 );

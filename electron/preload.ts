@@ -87,6 +87,16 @@ export interface ElectronAPI {
     respond: (payload: { id: string; ok: boolean; data?: unknown; error?: string }) => void;
   };
 
+  /** Pushing a composited live stream to an RTMP ingest. */
+  stream: {
+    start: (o: unknown) => Promise<{ ok: boolean; error?: string }>;
+    stop: () => Promise<{ ok: boolean }>;
+    getState: () => Promise<unknown>;
+    recommendedBitrate: (height: number, fps: number) => Promise<number>;
+    chunk: (data: Uint8Array) => void;
+    onState: (cb: (s: unknown) => void) => () => void;
+  };
+
   /**
    * One plain-text turn to the configured agent CLI, for correcting a
    * transcript. No tools and no project access: a model fixing spelling
@@ -306,6 +316,22 @@ const api: ElectronAPI = {
 
   captions: {
     clean: (prompt: string) => ipcRenderer.invoke('captions:clean', { prompt }),
+  },
+
+  stream: {
+    start: (o: unknown) => ipcRenderer.invoke('stream:start', o),
+    stop: () => ipcRenderer.invoke('stream:stop'),
+    getState: () => ipcRenderer.invoke('stream:state'),
+    recommendedBitrate: (height: number, fps: number) =>
+      ipcRenderer.invoke('stream:bitrate', { height, fps }),
+    /* `send`, not `invoke`: a chunk is fire-and-forget and an IPC round
+       trip per chunk would sit inside the capture loop. */
+    chunk: (data: Uint8Array) => ipcRenderer.send('stream:chunk', data),
+    onState: (cb: (s: unknown) => void) => {
+      const handler = (_e: unknown, s: unknown) => cb(s);
+      ipcRenderer.on('stream:state', handler);
+      return () => ipcRenderer.removeListener('stream:state', handler);
+    },
   },
 
   stt: {

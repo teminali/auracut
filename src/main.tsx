@@ -58,7 +58,8 @@ function mountEditor(): void {
       import('./store/claudeAgentStore'),
       import('./store/layoutStore'),
       import('./store/recorderStore'),
-    ]).then(([timeline, project, chat, ui, mcp, agent, layout, recorder]) => {
+      import('./engine/liveStream'),
+    ]).then(([timeline, project, chat, ui, mcp, agent, layout, recorder, live]) => {
       (window as any).__kerf = {
         timeline: timeline.useTimelineStore,
         project: project.useProjectStore,
@@ -79,6 +80,18 @@ function mountEditor(): void {
         /* The recorder, so `verify_home` can prove the New project
            chooser opens it without a real capture device. */
         recorder: recorder.useRecorderStore,
+        /*
+          Live streaming, so `verify_stream` can run one end to end
+          against a real RTMP ingest with SYNTHETIC colour sources.
+
+          It is here rather than behind a tool because the thing that
+          has to be controlled is the SOURCES: a stream fed from the
+          real screen is a stream whose output nobody can assert
+          anything about. Given a green screen and a blue camera, every
+          claim the look makes becomes a measurement on the received
+          picture.
+        */
+        liveStream: live,
       };
     });
   }

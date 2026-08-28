@@ -203,6 +203,7 @@ export { SpeakerHigh as Volume2 } from '@phosphor-icons/react';
 export { SpeakerSlash as VolumeX } from '@phosphor-icons/react';
 export { Waves } from '@phosphor-icons/react';
 export { WifiSlash as WifiOff } from '@phosphor-icons/react';
+export { Broadcast } from '@phosphor-icons/react';
 export { Wind } from '@phosphor-icons/react';
 export { Wrench } from '@phosphor-icons/react';
 export { X } from '@phosphor-icons/react';

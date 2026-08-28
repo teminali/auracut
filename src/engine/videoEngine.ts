@@ -38,6 +38,18 @@ interface VideoEntry {
   /** The element could not decode this URL at all. */
   failed: boolean;
   seekWaiters: Array<() => void>;
+  /**
+   * A live capture rather than a file.
+   *
+   * The element is fed by `srcObject` from a MediaStream, which has no
+   * duration, no seekable range and exactly one position: now. Every
+   * timing operation in this module is therefore wrong for it — seeking
+   * throws, `currentTime` is a stopwatch rather than an address, and
+   * pausing it drops frames that will never come back. So they are
+   * skipped by `syncVideo` and by `seekVideosForFrame` instead of being
+   * special-cased at each call site.
+   */
+  live: boolean;
 }
 
 const videos = new Map<string, VideoEntry>();
@@ -95,7 +107,7 @@ function acquire(url: string): VideoEntry {
   // a decode-ahead buffer for playback it will never do.
   el.disableRemotePlayback = true;
 
-  const entry: VideoEntry = { el, loaded: false, failed: false, seekWaiters: [] };
+  const entry: VideoEntry = { el, loaded: false, failed: false, seekWaiters: [], live: false };
 
   el.onloadeddata = () => {
     entry.loaded = true;
@@ -115,6 +127,60 @@ function acquire(url: string): VideoEntry {
   el.src = url;
   videos.set(url, entry);
   return entry;
+}
+
+/**
+ * Put a LIVE capture into the cache under a URL of your choosing.
+ *
+ * This is what lets a live stream be composited by exactly the same code
+ * as the editor rather than by a second renderer written to match it.
+ * Register the screen and the camera here, build an ordinary project out
+ * of ordinary clips pointing at those URLs, and `renderTimelineFrame`
+ * draws the backdrop, the inset, the rounded corners, the grade and the
+ * camera the one way they are drawn anywhere. A parallel implementation
+ * would be correct on the day it was written and wrong by the next time
+ * somebody changed the look.
+ *
+ * The URL is a handle and never fetched: use something that cannot
+ * collide with a file, e.g. `live://screen`.
+ */
+export function registerLiveSource(url: string, stream: MediaStream): HTMLVideoElement {
+  releaseLiveSource(url);
+
+  const el = document.createElement('video');
+  el.muted = true;
+  el.defaultMuted = true;
+  el.volume = 0;
+  el.playsInline = true;
+  el.disableRemotePlayback = true;
+  el.srcObject = stream;
+
+  const entry: VideoEntry = { el, loaded: false, failed: false, seekWaiters: [], live: true };
+  el.onloadeddata = () => { entry.loaded = true; generation++; };
+  el.onerror = () => { entry.failed = true; generation++; };
+
+  videos.set(url, entry);
+  /* A live element must be PLAYING to produce frames; there is no seek
+     that would otherwise pull one out of it. */
+  void el.play().catch(() => { entry.failed = true; });
+  return el;
+}
+
+/** Drop a live source and stop its element decoding. */
+export function releaseLiveSource(url: string): void {
+  const entry = videos.get(url);
+  if (!entry) return;
+  try {
+    entry.el.pause();
+    entry.el.srcObject = null;
+  } catch { /* already gone */ }
+  videos.delete(url);
+  generation++;
+}
+
+/** True when this URL is a live capture rather than a file. */
+export function isLiveSource(url: string): boolean {
+  return videos.get(url)?.live === true;
 }
 
 /** Start decoding this URL, without waiting for it. */
@@ -202,6 +268,10 @@ export function syncVideo(tracks: Track[], playheadMs: number, isPlaying: boolea
     if (entry.failed) continue;
     live.add(url);
 
+    /* A live capture has one position and it is now. Seeking it throws,
+       pausing it loses frames for good. Leave it running. */
+    if (entry.live) continue;
+
     const sourceSeconds = sourceSecondsFor(clip, offsetMs);
     if (!Number.isFinite(sourceSeconds)) continue;
 
@@ -230,6 +300,9 @@ export function syncVideo(tracks: Track[], playheadMs: number, isPlaying: boolea
   // Anything no longer under the playhead stops decoding immediately.
   for (const [url, entry] of videos) {
     if (live.has(url)) continue;
+    /* Except a live capture, which is not "under the playhead" in any
+       sense and cannot be resumed from where it was paused. */
+    if (entry.live) continue;
     if (!entry.el.paused) entry.el.pause();
   }
 }
@@ -277,6 +350,9 @@ export async function seekVideosForFrame(tracks: Track[], playheadMs: number): P
 
   for (const { clip, offsetMs } of visibleVideoClips(tracks, playheadMs)) {
     const entry = acquire(clip.mediaUrl!);
+    /* A live capture has nothing to seek to and pausing it would end the
+       stream's picture. It is already showing the only frame it has. */
+    if (entry.live) continue;
     if (!entry.el.paused) entry.el.pause();
 
     const seconds = sourceSecondsFor(clip, offsetMs);

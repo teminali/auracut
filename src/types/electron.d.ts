@@ -187,6 +187,24 @@ export interface KerfElectronAPI {
     respond: (payload: { id: string; ok: boolean; data?: unknown; error?: string }) => void;
   };
 
+  /**
+   * Pushing a composited live stream to an RTMP ingest.
+   *
+   * `chunk` is one encoded blob from the renderer's MediaRecorder. It is
+   * a send rather than an invoke: the capture loop must not wait on main.
+   */
+  stream: {
+    start: (o: {
+      url: string; width: number; height: number; fps: number;
+      videoKbps?: number; audioKbps?: number; software?: boolean;
+    }) => Promise<{ ok: boolean; error?: string }>;
+    stop: () => Promise<{ ok: boolean }>;
+    getState: () => Promise<StreamState>;
+    recommendedBitrate: (height: number, fps: number) => Promise<number>;
+    chunk: (data: Uint8Array) => void;
+    onState: (cb: (s: StreamState) => void) => () => void;
+  };
+
   captions: {
     /**
      * One plain-text turn to whichever agent CLI is configured, for

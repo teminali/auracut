@@ -300,6 +300,28 @@ function mixAudio(tracks: MediaStreamTrack[]): { track: MediaStreamTrack; contex
   return { track: destination.stream.getAudioTracks()[0], context };
 }
 
+/**
+ * The live captures of the take that is recording, as MediaStreams.
+ *
+ * Null when nothing is recording. The tracks are the recorders' OWN
+ * tracks rather than copies: a MediaStreamTrack can feed any number of
+ * consumers, so a stream composited from these takes nothing away from
+ * the files being written, which is the property the whole
+ * stream-alongside-record design rests on.
+ */
+export function liveCaptureStreams(): {
+  screen: MediaStream; camera: MediaStream | null; audio: MediaStream | null;
+} | null {
+  if (!session) return null;
+  const { screen, camera, audio } = session.live;
+  if (!screen) return null;
+  return {
+    screen: new MediaStream([screen]),
+    camera: camera ? new MediaStream([camera]) : null,
+    audio: audio ? new MediaStream([audio]) : null,
+  };
+}
+
 /* ── The session ────────────────────────────────────────────────── */
 
 type Phase = 'idle' | 'recording' | 'paused' | 'finishing';
@@ -325,6 +347,22 @@ interface Session {
   fps: 30 | 60;
   recorders: Recorder[];
   tracks: MediaStreamTrack[];
+  /**
+   * The same captures, named, for a SECOND consumer.
+   *
+   * `tracks` is the bag everything opened goes into so it can all be
+   * stopped together, and it cannot say which track is the camera. A
+   * live stream needs to know, because it composites them. Holding the
+   * references costs nothing: the recorders already have them, and a
+   * track can feed any number of consumers at once, which is exactly
+   * what lets a stream exist without the recording being touched.
+   */
+  live: {
+    screen: MediaStreamTrack | null;
+    camera: MediaStreamTrack | null;
+    /** The mixed programme audio the camera recorder is already given. */
+    audio: MediaStreamTrack | null;
+  };
   audioContext: AudioContext | null;
   cursorTracked: boolean;
   input: InputCaptureStatus;
@@ -574,6 +612,7 @@ export async function startCapture(
       fps: settings.fps,
       recorders: built,
       tracks: openedTracks,
+      live: { screen: screen.video, camera: cameraVideo, audio: mic },
       audioContext,
       cursorTracked: begun.cursorTracked,
       input: begun.input,

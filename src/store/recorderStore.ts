@@ -20,7 +20,9 @@ import { RecorderSource, RecorderPermissions } from '../types/electron';
 import {
   CaptureSettings, DeviceOption, Take,
   startCapture, stopCapture, pauseCapture, cancelCapture, listDevices, isRecording,
+  liveCaptureStreams,
 } from '../engine/screenCapture';
+import { startLiveStream, stopLiveStream } from '../engine/liveStream';
 import {
   AssembleOptions, TUTORIAL_ASSEMBLE, CAPTION_STYLE,
 } from '../engine/recordingProject';
@@ -53,6 +55,16 @@ export interface StickySettings {
   detachNarration: boolean;
   cameraSizePct: number;
   cameraCorner: AssembleOptions['cameraCorner'];
+
+  /* ── Going live ──────────────────────────────────────────────────
+     An RTMP ingest to push the SAME composition to while the take is
+     recording. Empty means record only, which is the default and stays
+     the default: streaming is something you turn on, never something
+     that happens because a field was left filled in from last time. */
+  streamUrl: string;
+  /** Off unless explicitly switched on, whatever `streamUrl` holds. */
+  streamEnabled: boolean;
+  streamHeight: 720 | 1080;
 
   /* ── The Tutorial skill ──────────────────────────────────────────
      What "Open with the Tutorial skill" does. Every one of these is a
@@ -99,6 +111,14 @@ const DEFAULT_STICKY: StickySettings = {
   detachNarration: true,
   cameraSizePct: TUTORIAL_ASSEMBLE.cameraSizePct,
   cameraCorner: TUTORIAL_ASSEMBLE.cameraCorner,
+  /*
+    Off, and the URL is remembered while the switch is not. Somebody who
+    streamed once and then records a private walkthrough must not
+    discover they were live because a field persisted.
+  */
+  streamUrl: '',
+  streamEnabled: false,
+  streamHeight: 1080,
   cinematic: true,
   backdrop: DEFAULT_LOOK.backdrop,
   insetPct: DEFAULT_LOOK.insetPct,
@@ -139,6 +159,8 @@ function persistSticky(settings: StickySettings): void {
 interface RecorderState {
   isOpen: boolean;
   phase: RecorderPhase;
+  /** True while a live stream is going out alongside the take. */
+  streaming: boolean;
 
   sources: RecorderSource[];
   sourcesLoading: boolean;
@@ -216,6 +238,7 @@ function publish(state: {
 export const useRecorderStore = create<RecorderState>((set, get) => ({
   isOpen: false,
   phase: 'setup',
+  streaming: false,
 
   sources: [],
   sourcesLoading: false,
@@ -438,6 +461,47 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     publish({ phase: 'recording', elapsedMs: 0, markCount: 0 });
 
     /*
+      ── And, if asked, the same composition pushed live ──
+
+      Started AFTER the recorders, deliberately and in that order. The
+      recording is the asset and the stream is disposable, so nothing
+      about going live is allowed to delay or fail the take: this is not
+      awaited into the start path, and if it throws the recording
+      carries on and a toast says the stream did not.
+    */
+    if (state.settings.streamEnabled && state.settings.streamUrl.trim()) {
+      void (async () => {
+        try {
+          const captures = liveCaptureStreams();
+          if (!captures) throw new Error('The capture had no live tracks to stream.');
+          await startLiveStream({
+            url: state.settings.streamUrl.trim(),
+            screen: captures.screen,
+            camera: captures.camera,
+            audio: captures.audio,
+            height: state.settings.streamHeight,
+            fps: state.settings.fps,
+            look: {
+              backdrop: state.settings.backdrop,
+              insetPct: state.settings.insetPct,
+            },
+            cameraCorner: state.settings.cameraCorner,
+            cameraSizePct: state.settings.cameraSizePct,
+          });
+          set({ streaming: true });
+        } catch (err) {
+          set({ streaming: false });
+          useUiStore.getState().pushToast({
+            kind: 'error',
+            title: 'The stream did not start',
+            detail: `${(err as Error).message} The take is still recording.`,
+            ttl: 12000,
+          });
+        }
+      })();
+    }
+
+    /*
       A wall clock rather than a counter of ticks. `setInterval` drifts,
       and a timer that reads 9:58 on a ten-minute take is the kind of
       small lie that makes everything beside it suspect.
@@ -476,6 +540,13 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     set({ phase: 'processing', isOpen: true });
     publish({ phase: 'processing', elapsedMs: get().elapsedMs, markCount: get().markCount });
 
+    /* Before the capture is torn down: the stream is composited from
+       these tracks and stopping them first leaves it encoding nothing. */
+    if (get().streaming) {
+      await stopLiveStream().catch(() => { /* the take matters more */ });
+      set({ streaming: false });
+    }
+
     const result = await stopCapture();
     if (!result.ok) {
       set({ phase: 'error', error: result.error });
@@ -503,6 +574,10 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
   */
   discard: async () => {
     if (ticker !== null) { window.clearInterval(ticker); ticker = null; }
+    if (get().streaming) {
+      await stopLiveStream().catch(() => { /* nothing to salvage on a cancel */ });
+      set({ streaming: false });
+    }
     if (isRecording()) await cancelCapture(true);
     set({ phase: 'setup', take: null, elapsedMs: 0, markCount: 0, error: null, warnings: [], fault: null });
   },

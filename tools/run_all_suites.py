@@ -137,6 +137,12 @@ SUITES = [
     # than only calling tools, and it restores the launch state on the
     # way out.
     'verify_home',
+    # The live stream, end to end against a REAL RTMP ingest: ffmpeg can
+    # listen as well as publish, so the suite stands one up on localhost,
+    # streams synthetic colours to it and measures the picture that comes
+    # back. After `verify_home` because it, too, drives the renderer
+    # directly, and because it holds a port for its ingest.
+    'verify_stream',
     # A skill's own verification is a suite like any other, and is
     # registered here so it cannot quietly rot. It synthesises its own
     # take with ffmpeg and measures the result in pixels.
@@ -154,6 +160,10 @@ NEEDS_FFMPEG = {'verify_audio', 'verify_ffmpeg_bridge',
                 'verify_playback_audio', 'verify_frame_context',
                 'verify_montage', 'verify_reference_analysis',
                 'verify_hardening', 'verify_tracks', 'verify_clip_ops',
+                # The stream suite needs ffmpeg twice over: once as the
+                # encoder Kerf pushes through, and once as the RTMP
+                # SERVER it pushes to.
+                'verify_stream',
                 'skills/tutorial/verify'}
 
 SUMMARY_RE = re.compile(r'^\s*(\d+)\s*/\s*(\d+)\s')

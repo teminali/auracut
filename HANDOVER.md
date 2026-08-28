@@ -2537,6 +2537,121 @@ feed.
 
 ---
 
+## 7o. Streaming the edit, live
+
+Asked for: live streaming where the stream is held to the same standard
+as the editable video, implemented the way the large platforms do it,
+and tested before release rather than after.
+
+### The collision, and the way through it
+
+§7a's central claim is that a recording arrives as an EDIT and not as a
+render, and it rests on never compositing during capture. Streaming
+*requires* compositing during capture. Both are true at once only if the
+composite is a SECOND CONSUMER: the two MediaRecorders still write
+screen and camera to disk untouched, the cursor track is still logged,
+and the take that lands afterwards is the take that would have landed
+with no stream at all. A MediaStreamTrack feeds any number of consumers,
+so this costs the recording nothing.
+
+Which settles the priority when the machine cannot keep up: the frames
+that get dropped are the STREAM's. The recording is the asset; the
+stream is the copy.
+
+### There is no second compositor, and that is the whole design
+
+The stream is not "a stream that looks like the edit". It is the edit.
+`registerLiveSource` in `videoEngine.ts` puts a MediaStream into the
+media cache under a URL (`live://screen`), and from that point every
+drawing path in the app cannot tell it from a file. `liveStream.ts` then
+builds an ORDINARY project — backdrop track, screen track, camera track,
+`addBackdrop`, `applyScreenLook`, `computePipGeometry` — and
+`renderTimelineFrame` draws it, the same function that draws the
+editor's preview and the export.
+
+A parallel live renderer would have been correct the day it was written
+and wrong the next time anybody touched `cinematicLook`, with nobody
+noticing until a viewer saw something the editor had never shown.
+
+Three consequences of using the real store, all of them wanted: the
+compositor needs no live-specific path; the person streaming can open
+the editor and SEE what is going out; and the look is adjustable while
+live with every normal control.
+
+### The encoder settings are the platforms' own
+
+Taken from YouTube's published live encoder requirements rather than
+chosen: H.264 High, **CBR** (stated as a requirement, so `-maxrate` and
+`-bufsize` accompany `-b:v`, with bufsize at one second rather than
+ffmpeg's default two, because a large buffer is how a "constant" bitrate
+bursts), a **keyframe every 2 seconds** (`-g` is in FRAMES, so 2 x fps,
+with `-keyint_min` equal to it so a scene change cannot shorten a
+segment), no B-frames, AAC-LC 128k at 44.1kHz stereo, and YouTube's
+own bitrate ladder by height and frame rate.
+
+VideoToolbox by default. Encoding 1080p in software while the same
+machine captures its own screen, composites every frame and runs two
+recorders is how a stream starts dropping frames.
+
+### Tested against a real ingest, not against a mock
+
+`ffmpeg -rtmp_listen 1` is an RTMP SERVER, so `tools/verify_stream.py`
+stands one up on a free port, streams to it, and measures what came out
+the far end. The sources are SYNTHETIC — a green canvas for the display,
+a blue one for the camera — because a stream fed from the real screen is
+a stream nobody can assert anything about. That turns every claim the
+look makes into arithmetic on the received picture:
+
+* the backdrop is visible, because the outermost 6px are neither green
+  nor blue (0.0% and 0.0%);
+* the picture is inset, because green is 100% of the centre third and
+  0% at the edge;
+* the camera is in the corner it was put in, because blue is 35% of the
+  bottom-right and 0.0% of the bottom-left;
+* and keyframes arrive at 2.0s, 2.0s, 2.0s, which nothing else in the
+  app would ever have noticed being wrong.
+
+12 checks, in the gate. **19 suites, 599 checks.**
+
+### What the suite found that reading would not have
+
+**A stream with no microphone went out with no audio track at all.**
+Ingests do not expect that: players stall waiting for a track that never
+arrives and the failure reads as "your stream is broken" rather than
+"you had no microphone". A silent source is generated when there is
+nothing else, so the stream is always well-formed however the machine is
+set up.
+
+### What is NOT live, said rather than approximated
+
+Two parts of the tutorial grammar need to know the future:
+
+* **the camera taking the frame over a pause** — a pause is a stretch
+  with no input in it, and you cannot know one has ended until it has;
+* **the closing pull-back**, which is defined against the end of the
+  film, and a live stream has no end until it has ended.
+
+A delay buffer of a few seconds would buy both and is the obvious next
+piece; there is none yet. Zooms on real clicks ARE live, because
+`uiohook` reports a click synchronously, and everything about the look is
+a property of the present frame and therefore exact.
+
+Live captions are also not built. `whisper-stream` is installed and is
+the route: a small model live, then the good model plus the spell-check
+pass for the edit, which is the "imperfect live, high quality after"
+shape that was asked for.
+
+### The address is a password field
+
+The stream key is IN the RTMP address, anyone who reads it can broadcast
+to that channel until it is reset, and a screen recorder is a thing
+people run while sharing their screen. `streamEnabled` also defaults OFF
+and is remembered separately from the URL: somebody who streamed once
+and then records a private walkthrough must not discover they were live
+because a field persisted.
+
+---
+
 ## 8. Product hardening — mostly not started
 
 The roadmap in §5 is about capability. This is about being software
