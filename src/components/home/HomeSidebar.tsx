@@ -1,27 +1,37 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Home's left rail.
+   Home's left rail, laid out after CapCut's.
 
-   Shaped after CapCut's: an identity card, a labelled nav group, and a
-   card pinned to the bottom. What sits in those slots is Kerf's, and
-   only things that exist — there is no account, no Pro tier and no
-   cloud workspace here, so the account card is the AGENT (the one
-   connection Kerf actually has) and the bottom card is the unsaved
-   work waiting to be recovered.
+   Top to bottom it is the reference exactly: the mark, ONE filled
+   primary button, an unlabelled nav group, a labelled second group,
+   and a card pinned to the bottom.
+
+   What sits in those slots is Kerf's, and only things that exist.
+   CapCut's second group is "Spaces" and holds a cloud workspace; there
+   is no cloud here, so ours is "Library" and holds the two other ways
+   a project starts on this machine. CapCut's bottom card advertises a
+   feature; §7 rule 3 says never, so ours is the unsaved work that is
+   genuinely waiting for you, and otherwise it says how saving works.
+
+   The rail is its own plane now rather than a transparent strip of the
+   stage, because the reference reads as two columns and a column that
+   shares its background with the page is not one. It also owns the
+   first 48px of the window: on macOS that is where the traffic lights
+   are, so nothing may be drawn there and it must be draggable.
    ═══════════════════════════════════════════════════════════════════ */
 
 import React from 'react';
 import { KerfMark } from '../ui/KerfMark';
-import { useClaudeAgentStore } from '../../store/claudeAgentStore';
 import { useAccountStore } from '../../store/accountStore';
-import { SignInDialog } from './SignInDialog';
-import { Scissors, Blocks, FolderOpen, RotateCcw, X, LogOut } from '../ui/icons';
+import { Scissors, Blocks, FolderOpen, Record, RotateCcw, X, Plus } from '../ui/icons';
 
 export type HomeView = 'home' | 'skills';
 
 interface Props {
   view: HomeView;
   onView: (view: HomeView) => void;
+  onNewProject: () => void;
   onOpenFile: () => void;
+  onRecord: () => void;
   recoverable: boolean;
   onRecover: () => void;
   onDiscardRecovery: () => void;
@@ -32,88 +42,50 @@ const NAV: { id: HomeView; label: string; icon: React.ElementType }[] = [
   { id: 'skills', label: 'Skills', icon: Blocks },
 ];
 
-export const HomeSidebar: React.FC<Props> = ({
-  view, onView, onOpenFile, recoverable, onRecover, onDiscardRecovery,
-}) => {
-  const status = useClaudeAgentStore((s) => s.status);
-  const authStatus = useAccountStore((s) => s.status);
-  const user = useAccountStore((s) => s.user);
-  const signOut = useAccountStore((s) => s.signOut);
-  const [signInOpen, setSignInOpen] = React.useState(false);
+/* One row shape for both groups, so a nav item and an action item in
+   the rail cannot drift apart. The reference draws them identically
+   and so does this. */
+const ROW = 'hp-nav h-[36px] px-3 rounded-squircle-md flex items-center gap-3 text-ui-lg w-full text-left';
 
-  const agentLine =
-    status === null
-      ? 'looking for an agent…'
-      : status.installed
-        ? `${status.label ?? 'Claude Code'} connected`
-        : 'no agent CLI found';
+export const HomeSidebar: React.FC<Props> = ({
+  view, onView, onNewProject, onOpenFile, onRecord,
+  recoverable, onRecover, onDiscardRecovery,
+}) => {
+  const owned = useAccountStore((s) => s.owned);
 
   return (
-    <aside className="w-[252px] flex-shrink-0 flex flex-col px-5 pb-5 min-h-0 rise-in rise-1">
+    <aside className="hp-rail w-[248px] flex-shrink-0 flex flex-col min-h-0 rise-in rise-1">
 
-      {/* ── Identity. This is CapCut's account card, and it finally has
-             an account in it: skills are bought against one. Signed out
-             it reads "Sign in" and does exactly that, which is the same
-             affordance CapCut's has. There is still no Pro tier and no
-             upsell — §7 rule 3. ── */}
-      <div className="pt-1">
-        <button
-          onClick={() => { if (authStatus === 'signed_out') setSignInOpen(true); }}
-          disabled={authStatus !== 'signed_out'}
-          className="group/card flex items-center gap-2.5 w-full text-left disabled:cursor-default"
-        >
-          {user?.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt=""
-              className="w-8 h-8 rounded-full flex-shrink-0 object-cover ring-1 ring-inset ring-white/12"
-            />
-          ) : (
-            <span
-              className="w-8 h-8 rounded-[10px] flex items-center justify-center flex-shrink-0
-                         shadow-[inset_0_1px_0_rgba(255,255,255,0.28),0_2px_8px_-2px_rgba(196,96,63,0.5)]"
-              style={{ background: 'linear-gradient(148deg,#efa78e,#c4603f)' }}
-            >
-              <KerfMark className="w-[18px] h-[18px]" />
-            </span>
-          )}
-          <span className="min-w-0 flex-1">
-            <span className="block text-ui-lg font-semibold text-spectrum-text tracking-[-0.012em] leading-tight truncate">
-              {/* Three states, not two: `unknown` means the session file
-                  has not been read yet, and a "Sign in" shown during
-                  that window is a claim the app cannot support. */}
-              {authStatus === 'unknown' ? 'Kerf'
-                : authStatus === 'signed_in' ? (user?.name ?? user?.email ?? 'Signed in')
-                : 'Sign in'}
-            </span>
-            <span className="block text-micro text-spectrum-textDim truncate">
-              {authStatus === 'signed_in' ? (user?.email ?? agentLine) : agentLine}
-            </span>
+      {/* The traffic-light strip. Empty on purpose, and draggable. */}
+      <div className="titlebar-drag h-12 flex-shrink-0" />
+
+      {/* ── The mark ── */}
+      <div className="px-4">
+        <div className="flex items-center gap-2.5">
+          <span
+            className="w-7 h-7 rounded-[9px] flex items-center justify-center flex-shrink-0
+                       shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_2px_8px_-2px_rgba(196,96,63,0.5)]"
+            style={{ background: 'linear-gradient(148deg,#efa78e,#c4603f)' }}
+          >
+            <KerfMark className="w-4 h-4" />
           </span>
-          {authStatus === 'signed_in' && (
-            <span
-              onClick={(e) => { e.stopPropagation(); void signOut(); }}
-              className="pro-btn w-6 h-6 flex-shrink-0 rounded-full opacity-0 group-hover/card:opacity-100
-                         focus-visible:opacity-100 transition-opacity"
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              <LogOut className="w-3 h-3" />
-            </span>
-          )}
-        </button>
+          <span className="text-[17px] font-semibold text-spectrum-text tracking-[-0.022em]">Kerf</span>
+        </div>
 
-        <button onClick={onOpenFile} className="pro-btn-filled w-full h-[32px] mt-4 gap-1.5 text-ui-sm">
-          <FolderOpen className="w-3.5 h-3.5" /> Open project…
+        {/* The rail's one saturated element, in the reference's slot and
+            doing the reference's job. Dark ink on it, not white. */}
+        <button
+          onClick={onNewProject}
+          className="hp-create w-full h-[38px] mt-4 rounded-squircle-md
+                     flex items-center justify-center gap-2 text-ui-lg font-semibold"
+        >
+          <Plus className="w-4 h-4" weight="bold" />
+          New project
         </button>
       </div>
 
-      {/* ── Nav ── */}
-      {/* Sentence case, like CapCut's. `panel-title` is the editor's
-          uppercase tracking, which belongs on a tool panel, not here. */}
-      <p className="text-ui-sm font-medium text-spectrum-textDim mt-8 mb-3 px-1">Video editing</p>
-
-      <nav className="flex flex-col gap-0.5">
+      {/* ── Views ── */}
+      <nav className="px-2.5 mt-6 flex flex-col gap-0.5">
         {NAV.map((item) => {
           const Icon = item.icon;
           const active = view === item.id;
@@ -123,68 +95,59 @@ export const HomeSidebar: React.FC<Props> = ({
               data-home={`nav-${item.id}`}
               onClick={() => onView(item.id)}
               aria-current={active ? 'page' : undefined}
-              /* ONE signal for one state. This had three — an edge bar,
-                 a raised gradient pill and an inset ring — which is how
-                 a nav with two items ends up looking like a control
-                 panel. A quiet fill plus the accent on the icon is
-                 enough, and the icon is what the eye reads first anyway.
-
-                 Set at the launcher's type size, not the editor's. 13px
-                 is what a tool panel dense with controls needs; a rail
-                 with two items in it beside a 30px hero just looks
-                 timid at that size. */
-              className={`h-[40px] px-3 rounded-squircle-md flex items-center gap-3 text-ui-xl
-                          transition-colors duration-fast ${
-                active
-                  ? 'text-spectrum-text font-medium bg-white/[0.055]'
-                  : 'text-spectrum-textMuted hover:bg-white/[0.035] hover:text-spectrum-text'
-              }`}
+              className={`${ROW} ${active ? 'hp-nav-on' : ''}`}
             >
               <Icon
                 className={`w-[18px] h-[18px] flex-shrink-0 ${active ? 'text-spectrum-accent' : ''}`}
                 weight={active ? 'fill' : 'regular'}
               />
               {item.label}
+              {item.id === 'skills' && owned.length > 0 && (
+                <span className="ml-auto chip tabular">{owned.length}</span>
+              )}
             </button>
           );
         })}
       </nav>
 
+      {/* ── The other two ways in ── */}
+      <p className="hp-rail-label px-4 mt-7 mb-2">Library</p>
+
+      <div className="px-2.5 flex flex-col gap-0.5">
+        <button onClick={onOpenFile} className={ROW}>
+          <FolderOpen className="w-[18px] h-[18px] flex-shrink-0" />
+          Open project…
+        </button>
+        <button onClick={onRecord} className={ROW}>
+          <Record className="w-[18px] h-[18px] flex-shrink-0" />
+          Record the screen
+        </button>
+      </div>
+
       <div className="flex-1" />
 
-      {/* ── Bottom card. CapCut runs advertisements here; §7 rule 3 says
-             never, so it holds the one thing that is genuinely waiting
-             for you — and otherwise says how saving works. ── */}
-      <div className="pt-4">
-        {/* A floor for the rail. Without it the bottom card hangs in
-            the corner with nothing under it, and a notice that is
-            already competing with the hero for attention should at
-            least be visibly parked rather than floating. */}
-        <div aria-hidden="true" className="section-rule mb-4" />
+      {/* ── The bottom card ── */}
+      <div className="px-4 pb-4">
         {recoverable ? (
-          /* A notice, not a card. A tinted, bordered, shadowed box in
-             the corner of a launcher competes with the primary action
-             for exactly the wrong reason — it is important, but it is
-             not what you came here to do. */
-          <div className="px-1">
-            <div className="flex items-start gap-2">
-              <RotateCcw className="w-3.5 h-3.5 text-spectrum-amber flex-shrink-0 mt-px" />
+          <div className="surface-card rounded-squircle-lg p-3">
+            <div className="flex items-start gap-2.5">
+              <RotateCcw className="w-4 h-4 text-spectrum-amber flex-shrink-0 mt-px" />
               <div className="min-w-0 flex-1">
-                <p className="text-ui-sm font-medium text-spectrum-text">Unsaved work</p>
-                <p className="text-micro text-spectrum-textDim leading-snug mt-0.5">
+                <p className="text-ui-lg font-medium text-spectrum-text leading-tight">Unsaved work</p>
+                <p className="text-ui-sm text-spectrum-textDim leading-snug mt-1">
                   From your last session.
                 </p>
               </div>
               <button
                 onClick={onDiscardRecovery}
-                className="pro-btn w-5 h-5 flex-shrink-0 -mt-0.5"
+                className="pro-btn w-5 h-5 flex-shrink-0 -mt-0.5 -mr-0.5"
                 title="Discard it"
                 aria-label="Discard the unsaved work"
               >
                 <X className="w-3 h-3" />
               </button>
             </div>
-            <button onClick={onRecover} className="pro-btn-filled w-full h-[28px] mt-2.5 text-ui-sm">
+            <button onClick={onRecover} className="pro-btn-filled w-full h-[30px] mt-3 text-ui-sm">
               Recover
             </button>
           </div>
@@ -194,8 +157,6 @@ export const HomeSidebar: React.FC<Props> = ({
           </p>
         )}
       </div>
-
-      {signInOpen && <SignInDialog onClose={() => setSignInOpen(false)} />}
     </aside>
   );
 };

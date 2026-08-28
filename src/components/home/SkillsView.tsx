@@ -1,20 +1,30 @@
 /* ═══════════════════════════════════════════════════════════════════
-   The skills store.
+   The skills store, laid out after CapCut's templates page.
 
-   This used to be a panel that said "not built yet", and it said so
-   because an empty store dressed as a full one is the theatre this
-   codebase keeps deleting. It is a real store now: the catalogue comes
-   from the server, ownership comes from a signed entitlement this
-   machine verified itself, and a price is a price somebody can pay.
+   That page is the right reference for this screen and not a
+   coincidence: both are a titled catalogue you browse and filter, and
+   both open with a wide banner carrying the title, one paragraph of
+   what the thing is, and the search. So this has the banner, the
+   scope control beside the search, the tab bar under it, and a wall of
+   cards whose type sits below the plate rather than inside a box.
 
-   Two things it still refuses to pretend about:
+   The gradient is Kerf's three hues at low strength over a dark plane,
+   which is what a pastel IS on a dark ground: the reference tints
+   white, this tints black.
+
+   The scope is ONE state with two affordances. CapCut's page has the
+   same redundancy, a dropdown beside the search and a tab bar under
+   it, and it is only a problem when the two disagree, so they do not:
+   both read and write `scope`.
+
+   Two things this screen still refuses to pretend about:
 
      · a skill's "verified" badge is the record of a verification RUN
        that passed against a fresh project (§6). A skill with no
        `verifiedAt` cannot be published, so the badge is a fact rather
        than a marketing claim.
      · `licenceState` is shown when it is not `valid`. A licence that
-       did not verify is not quietly treated as ownership — most often
+       did not verify is not quietly treated as ownership. Most often
        it means the build is carrying a signing key the server does not
        have, and hiding that would strand a paying customer.
    ═══════════════════════════════════════════════════════════════════ */
@@ -30,7 +40,22 @@ import { SignInDialog } from './SignInDialog';
 import { BuySheet } from './BuySheet';
 import {
   Blocks, BadgeCheck, Check, Loader2, WifiOff, ShieldAlert, Download, Timer, Sparkle,
+  Search, X, ChevronDown,
 } from '../ui/icons';
+
+type Scope = 'all' | 'bundled' | 'store';
+
+const SCOPES: { id: Scope; label: string }[] = [
+  { id: 'all', label: 'All skills' },
+  { id: 'bundled', label: 'Included with Kerf' },
+  { id: 'store', label: 'From the store' },
+];
+
+/* The plate at the top of a card. A skill has no poster frame, so the
+   plate carries the mark and the badges rather than a picture of
+   nothing: the reference puts the duration and the use count on its
+   thumbnail, and these are the two facts that belong in that slot. */
+const PLATE = 'block aspect-[16/10] rounded-squircle-lg relative overflow-hidden flex items-center justify-center shadow-[inset_0_0_0_1px_var(--edge)]';
 
 export const SkillsView: React.FC = () => {
   const status = useAccountStore((s) => s.status);
@@ -45,6 +70,8 @@ export const SkillsView: React.FC = () => {
   const [signInOpen, setSignInOpen] = React.useState(false);
   const [buying, setBuying] = React.useState<StoreSkill | null>(null);
   const [claiming, setClaiming] = React.useState<string | null>(null);
+  const [scope, setScope] = React.useState<Scope>('all');
+  const [query, setQuery] = React.useState('');
 
   const ownedFor = (s: StoreSkill) =>
     owned.find((o) => o.skillId === s.id && o.majorVersion === s.majorVersion);
@@ -83,222 +110,328 @@ export const SkillsView: React.FC = () => {
     setBuying(skill);
   };
 
+  const q = query.trim().toLowerCase();
+  const hit = (name: string, summary: string) =>
+    !q || name.toLowerCase().includes(q) || summary.toLowerCase().includes(q);
+
+  const bundled = BUNDLED_SKILLS.filter((s) => hit(s.name, s.summary));
+  const store = skills.filter((s) => hit(s.name, s.summary));
+
+  const showBundled = scope !== 'store';
+  const showStore = scope !== 'bundled';
+
   return (
-    <section className="max-w-[860px]">
-      <div className="flex items-center gap-3">
-        <h2 className="section-head flex-1">Skills</h2>
+    <section>
+      {/* ── The banner ─────────────────────────────────────────── */}
+      <div className="hp-banner rounded-squircle-lg px-8 py-7 rise-in rise-1">
+        <div className="relative z-[1] max-w-[600px]">
+          <h2 className="text-[26px] leading-[1.1] font-semibold text-spectrum-text tracking-[-0.024em]">
+            Skills
+          </h2>
 
-        {status === 'unknown' && (
-          <span className="flex items-center gap-1.5 text-ui-sm text-spectrum-textDim">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" /> checking…
-          </span>
-        )}
-        {status === 'signed_out' && (
-          <button onClick={() => setSignInOpen(true)} className="pro-btn-filled h-7 px-3 text-ui-sm">
-            Sign in
-          </button>
-        )}
-      </div>
+          <p className="text-ui-xl text-spectrum-textMuted leading-relaxed mt-2.5">
+            A skill is a template project, the assets it needs, the tools that fill it in, and a
+            verification test that has to pass before it can be sold. Buy it once for a major
+            version; new projects are cloned from it and stay yours to edit by hand.
+          </p>
 
-      <p className="text-ui-lg text-spectrum-textMuted leading-relaxed mt-2 max-w-[620px]">
-        A skill is a template project, the assets it needs, the tools that fill it in, and a
-        verification test that has to pass before it can be sold. Buy it once for a major
-        version; new projects are cloned from it and stay yours to edit by hand.
-      </p>
+          <div className="flex items-center gap-2 mt-5">
+            <div className="relative flex-shrink-0">
+              <select
+                value={scope}
+                onChange={(e) => setScope(e.target.value as Scope)}
+                className="pro-input appearance-none h-[34px] text-ui-sm pl-3 pr-7 cursor-pointer"
+                title="Which skills to show"
+                aria-label="Which skills to show"
+              >
+                {SCOPES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+              </select>
+              <ChevronDown
+                className="w-3 h-3 text-spectrum-textDim absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                aria-hidden="true"
+              />
+            </div>
 
-      {/* ── What is already installed ────────────────────────────────
-          Above the catalogue, because it is the part that is true right
-          now. A screen called Skills that lists none of the skills you
-          have is telling you something untrue about your own install,
-          and the Tutorial skill is offered by name after every take. */}
-      <div className="mt-5">
-        <div className="flex items-center gap-2">
-          <h3 className="text-ui-lg font-semibold text-spectrum-text">Included with Kerf</h3>
-          <span className="chip">{BUNDLED_SKILLS.length}</span>
+            <div className="pro-input h-[34px] flex items-center gap-2 px-3 flex-1 max-w-[320px]">
+              <Search className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Escape') setQuery(''); }}
+                placeholder="Search skills…"
+                aria-label="Search skills"
+                className="flex-1 bg-transparent outline-none text-ui-sm text-spectrum-text
+                           placeholder:text-spectrum-textFaint min-w-0"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} className="pro-btn w-4 h-4 flex-shrink-0"
+                        title="Clear" aria-label="Clear the search">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            {status === 'unknown' && (
+              <span className="flex items-center gap-1.5 text-ui-sm text-spectrum-textDim">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> checking…
+              </span>
+            )}
+            {status === 'signed_out' && (
+              <button onClick={() => setSignInOpen(true)} className="btn-primary h-[34px] px-4 text-ui-sm">
+                Sign in
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mt-3">
-          {BUNDLED_SKILLS.map((skill) => (
-            <div key={skill.id} className="rounded-squircle-lg bg-spectrum-panel p-4 flex flex-col">
-              <div className="flex items-start gap-2">
-                <span className="w-7 h-7 rounded-[9px] bg-spectrum-accent/15 flex items-center
-                                 justify-center flex-shrink-0">
-                  <Sparkle className="w-3.5 h-3.5 text-spectrum-accent" />
-                </span>
-                <h4 className="text-ui-xl font-semibold text-spectrum-text flex-1 min-w-0">
-                  {skill.name}
-                </h4>
-                {skill.verified && (
-                  <span
-                    className="flex items-center gap-1 h-[18px] px-1.5 rounded-full
-                               bg-spectrum-green/12 text-spectrum-green flex-shrink-0"
-                    title="Ships with its own verification test, which is what makes it a skill
-                           rather than a prompt pack"
-                  >
-                    <BadgeCheck className="w-3 h-3" />
-                    <span className="text-micro font-medium">verified</span>
-                  </span>
-                )}
-              </div>
-
-              <p className="text-ui-sm text-spectrum-textMuted leading-snug mt-2 flex-1">
-                {skill.summary}
-              </p>
-
-              <p className="text-micro text-spectrum-textFaint mt-2">
-                v{skill.version}
-                {skill.provenance?.author ? ` · ${skill.provenance.author}` : ''}
-                {skill.slots.length > 0
-                  ? ` · ${skill.slots.length} setting${skill.slots.length === 1 ? '' : 's'}`
-                  : ''}
-              </p>
-
-              <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-line">
-                <span className="text-ui-sm text-spectrum-textDim">
-                  {/* Bundled skills declare `trial.uses: 0`, which means not
-                      gated. Counting runs of something that ships inside the
-                      app would be gating somebody out of what they have. */}
-                  {skill.trialUses > 0 ? `${skill.trialUses} trial runs` : 'No limit'}
-                </span>
-                <span className="flex items-center gap-1.5 text-ui-sm text-spectrum-green">
-                  <Check className="w-3.5 h-3.5" /> installed
-                </span>
-              </div>
-            </div>
+        {/* The reference fills the right end of its banner with a
+            collage of the templates it is selling. This is the same
+            slot with the same job, holding the skills that are
+            actually installed rather than a picture of some. */}
+        <div
+          aria-hidden="true"
+          className="absolute right-0 top-0 bottom-0 w-[300px] hidden xl:flex items-center justify-center gap-3
+                     pointer-events-none opacity-90"
+          style={{ maskImage: 'linear-gradient(90deg,transparent 0%,#000 34%,#000 100%)',
+                   WebkitMaskImage: 'linear-gradient(90deg,transparent 0%,#000 34%,#000 100%)' }}
+        >
+          {BUNDLED_SKILLS.slice(0, 3).map((skill, i) => (
+            <span
+              key={skill.id}
+              className="w-[84px] h-[112px] rounded-squircle-md flex flex-col items-center justify-center gap-2 px-2
+                         shadow-[inset_0_0_0_1px_rgba(255,255,255,0.09)]"
+              style={{
+                background: i === 1
+                  ? 'linear-gradient(150deg,rgba(160,129,245,0.30),rgba(74,144,255,0.16))'
+                  : 'linear-gradient(150deg,rgba(217,119,87,0.30),rgba(217,119,87,0.10))',
+                transform: `rotate(${(i - 1) * 6}deg) translateY(${i === 1 ? -10 : 0}px)`,
+              }}
+            >
+              <Sparkle className="w-4 h-4 text-white/70" weight="fill" />
+              <span className="text-micro text-white/70 text-center leading-tight">{skill.name}</span>
+            </span>
           ))}
         </div>
       </div>
 
-      <h3 className="text-ui-lg font-semibold text-spectrum-text mt-8">From the store</h3>
+      {/* ── Tabs ───────────────────────────────────────────────── */}
+      <div className="flex items-center gap-6 mt-7 mb-6 rise-in rise-2">
+        {SCOPES.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setScope(s.id)}
+            aria-current={scope === s.id ? 'true' : undefined}
+            className={`hp-tab text-ui-xl pb-2.5 ${scope === s.id ? 'hp-tab-on' : ''}`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
 
-      {reachable === false && (
-        <div className="flex items-start gap-2.5 rounded-squircle-md bg-spectrum-panel p-3 mt-4">
-          <WifiOff className="w-4 h-4 text-spectrum-textDim flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-ui-lg text-spectrum-text">The store is not reachable.</p>
-            <p className="text-ui-sm text-spectrum-textDim leading-snug mt-0.5">
-              Skills you already own keep working. Their licences are checked on this machine,
-              not on the network.
-            </p>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-col gap-11 rise-in rise-3">
 
-      {!loaded ? (
-        <div className="flex items-center gap-2 py-16 justify-center text-spectrum-textDim">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-ui-lg">Loading the catalogue…</span>
-        </div>
-      ) : skills.length === 0 ? (
-        <div className="rounded-squircle-lg bg-spectrum-panel p-5 mt-4">
-          <div className="flex items-center gap-2">
-            <Blocks className="w-4 h-4 text-spectrum-textDim" />
-            <p className="text-ui-lg text-spectrum-text font-medium">Nothing published yet.</p>
-          </div>
-          <p className="text-ui-lg text-spectrum-textDim leading-relaxed mt-2">
-            The store is running and the catalogue is empty, which is the honest state of it.
-            A skill appears here once it has a verification run that passed. The skills above
-            ship inside Kerf and do not come from here.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 mt-5">
-          {skills.map((skill) => {
-            const mine = ownedFor(skill);
-            const isOwned = Boolean(mine);
-            return (
-              <div
-                key={skill.id}
-                className="rounded-squircle-lg bg-spectrum-panel p-4 flex flex-col"
-              >
-                <div className="flex items-start gap-2">
-                  <h3 className="text-ui-xl font-semibold text-spectrum-text flex-1 min-w-0">
-                    {skill.name}
-                  </h3>
-                  {skill.verifiedAt && (
-                    <span
-                      className="flex items-center gap-1 h-[18px] px-1.5 rounded-full
-                                 bg-spectrum-green/12 text-spectrum-green text-micro font-medium flex-shrink-0"
-                      title={`Verified against a fresh project, ${skill.verifiedBuild ?? 'build not recorded'}`}
-                    >
-                      <BadgeCheck className="w-3 h-3" /> verified
+        {/* ── What is already installed ────────────────────────────
+            Above the catalogue, because it is the part that is true
+            right now. A screen called Skills that lists none of the
+            skills you have is telling you something untrue about your
+            own install, and the Tutorial skill is offered by name
+            after every take. */}
+        {showBundled && (
+          <section>
+            <div className="flex items-center gap-2.5 h-[30px]">
+              <h3 className="text-ui-lg font-semibold text-spectrum-textMuted">Included with Kerf</h3>
+              <span className="chip tabular">{bundled.length}</span>
+            </div>
+
+            {bundled.length === 0 ? (
+              <p className="text-ui-lg text-spectrum-textDim mt-4">
+                None of the bundled skills match “{query.trim()}”.
+              </p>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] gap-x-4 gap-y-7 mt-5">
+                {bundled.map((skill) => (
+                  <div key={skill.id} className="group">
+                    <span className={`${PLATE} hp-plate-warm`}>
+                      <span className="w-11 h-11 rounded-[13px] bg-white/[0.10] flex items-center justify-center
+                                       shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
+                        <Sparkle className="w-[22px] h-[22px] text-spectrum-accent" weight="fill" />
+                      </span>
+
+                      {skill.verified && (
+                        <span
+                          className="media-pill absolute bottom-2 left-2 h-[18px] px-1.5 rounded-[5px]
+                                     flex items-center gap-1 !font-sans !text-spectrum-green"
+                          title="Ships with its own verification test, which is what makes it a skill rather than a prompt pack"
+                        >
+                          <BadgeCheck className="w-2.5 h-2.5" /> verified
+                        </span>
+                      )}
+                      <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center">
+                        v{skill.version}
+                      </span>
                     </span>
-                  )}
-                </div>
 
-                <p className="text-ui-sm text-spectrum-textMuted leading-snug mt-1.5 flex-1">
-                  {skill.summary}
-                </p>
+                    <p className="text-ui-lg font-medium text-spectrum-text truncate mt-2.5">{skill.name}</p>
+                    <p className="text-ui-sm text-spectrum-textDim leading-snug mt-1 clamp-2">{skill.summary}</p>
 
-                <p className="text-micro text-spectrum-textFaint mt-2">
-                  {skill.author} · v{skill.latestVersion} · tool API {skill.toolApi}
-                </p>
-
-                {!isOwned && trials[skill.id] && trials[skill.id].reason !== 'not-gated' && (
-                  <div
-                    className={`flex items-start gap-1.5 mt-2 ${
-                      trials[skill.id].canRun ? 'text-spectrum-textDim' : 'text-spectrum-amber'
-                    }`}
-                  >
-                    <Timer className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
-                    <span className="text-micro leading-snug">
-                      {trials[skill.id].message}
-                      {/* Said plainly, because the alternative is implying a
-                          guarantee that does not exist: the count is on this
-                          machine and deleting it resets it. A publisher
-                          reading "3 runs" should know what kind of 3 it is. */}
-                      {trials[skill.id].trialsAreLocal && trials[skill.id].canRun
-                        ? ' Counted on this computer.'
-                        : ''}
-                    </span>
+                    <p className="flex items-center gap-1.5 text-ui-sm text-spectrum-green mt-2">
+                      <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                      installed
+                      <span className="text-spectrum-textFaint">
+                        {/* Bundled skills declare `trial.uses: 0`, which
+                            means not gated. Counting runs of something
+                            that ships inside the app would be gating
+                            somebody out of what they already have. */}
+                        · {skill.trialUses > 0 ? `${skill.trialUses} trial runs` : 'no limit'}
+                      </span>
+                    </p>
                   </div>
-                )}
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
-                {mine && mine.licenceState !== 'valid' && (
-                  <div className="flex items-start gap-1.5 mt-2 text-spectrum-amber">
-                    <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
-                    <span className="text-micro leading-snug">
-                      {mine.licenceState === 'expired'
-                        ? 'Licence needs refreshing, connect once to renew it.'
-                        : 'This licence did not verify on this machine.'}
-                    </span>
-                  </div>
-                )}
+        {/* ── The catalogue ──────────────────────────────────────── */}
+        {showStore && (
+          <section>
+            <div className="flex items-center gap-2.5 h-[30px]">
+              <h3 className="text-ui-lg font-semibold text-spectrum-textMuted">From the store</h3>
+              {loaded && store.length > 0 && <span className="chip tabular">{store.length}</span>}
+            </div>
 
-                <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-line">
-                  <span className="text-ui-lg font-semibold text-spectrum-text tabular">
-                    {isOwned ? 'Owned' : formatPrice(skill.price.amount, skill.price.currency)}
-                  </span>
-
-                  {isOwned ? (
-                    <span className="flex items-center gap-1.5 text-ui-sm text-spectrum-green">
-                      <Check className="w-3.5 h-3.5" /> in your skills
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => void act(skill)}
-                      disabled={claiming === skill.id}
-                      className={`h-7 px-3 gap-1.5 text-ui-sm ${skill.free ? 'pro-btn-filled' : 'btn-primary'}`}
-                    >
-                      {claiming === skill.id
-                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        : skill.free
-                          ? <><Download className="w-3.5 h-3.5" /> Get</>
-                          : <>Buy</>}
-                    </button>
-                  )}
+            {reachable === false && (
+              <div className="flex items-start gap-2.5 surface-card rounded-squircle-md p-3.5 mt-4">
+                <WifiOff className="w-4 h-4 text-spectrum-textDim flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-ui-lg text-spectrum-text">The store is not reachable.</p>
+                  <p className="text-ui-sm text-spectrum-textDim leading-snug mt-0.5">
+                    Skills you already own keep working. Their licences are checked on this machine,
+                    not on the network.
+                  </p>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+
+            {!loaded ? (
+              <div className="flex items-center gap-2 py-16 justify-center text-spectrum-textDim">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-ui-lg">Loading the catalogue…</span>
+              </div>
+            ) : store.length === 0 ? (
+              <div className="surface-card rounded-squircle-lg p-5 mt-4">
+                <div className="flex items-center gap-2">
+                  <Blocks className="w-4 h-4 text-spectrum-textDim" />
+                  <p className="text-ui-lg text-spectrum-text font-medium">
+                    {q ? `Nothing in the store matches “${query.trim()}”.` : 'Nothing published yet.'}
+                  </p>
+                </div>
+                {!q && (
+                  <p className="text-ui-lg text-spectrum-textDim leading-relaxed mt-2">
+                    The store is running and the catalogue is empty, which is the honest state of it.
+                    A skill appears here once it has a verification run that passed. The skills above
+                    ship inside Kerf and do not come from here.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(196px,1fr))] gap-x-4 gap-y-7 mt-5">
+                {store.map((skill) => {
+                  const mine = ownedFor(skill);
+                  const isOwned = Boolean(mine);
+                  const trial = trials[skill.id];
+                  return (
+                    <div key={skill.id} className="group">
+                      <span className={`${PLATE} hp-plate-cool`}>
+                        <span className="w-11 h-11 rounded-[13px] bg-white/[0.10] flex items-center justify-center
+                                         shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
+                          <Blocks className="w-[22px] h-[22px] text-spectrum-purple" />
+                        </span>
+
+                        {skill.verifiedAt && (
+                          <span
+                            className="media-pill absolute bottom-2 left-2 h-[18px] px-1.5 rounded-[5px]
+                                       flex items-center gap-1 !font-sans !text-spectrum-green"
+                            title={`Verified against a fresh project, ${skill.verifiedBuild ?? 'build not recorded'}`}
+                          >
+                            <BadgeCheck className="w-2.5 h-2.5" /> verified
+                          </span>
+                        )}
+                        <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center">
+                          v{skill.latestVersion}
+                        </span>
+                      </span>
+
+                      <p className="text-ui-lg font-medium text-spectrum-text truncate mt-2.5">{skill.name}</p>
+                      <p className="text-ui-sm text-spectrum-textDim leading-snug mt-1 clamp-2">{skill.summary}</p>
+                      <p className="text-micro text-spectrum-textFaint truncate mt-1.5">
+                        {skill.author} · tool API {skill.toolApi}
+                      </p>
+
+                      {!isOwned && trial && trial.reason !== 'not-gated' && (
+                        <p className={`flex items-start gap-1.5 mt-2 ${
+                          trial.canRun ? 'text-spectrum-textDim' : 'text-spectrum-amber'}`}>
+                          <Timer className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
+                          <span className="text-micro leading-snug">
+                            {trial.message}
+                            {/* Said plainly, because the alternative is
+                                implying a guarantee that does not exist:
+                                the count is on this machine and deleting
+                                it resets it. */}
+                            {trial.trialsAreLocal && trial.canRun ? ' Counted on this computer.' : ''}
+                          </span>
+                        </p>
+                      )}
+
+                      {mine && mine.licenceState !== 'valid' && (
+                        <p className="flex items-start gap-1.5 mt-2 text-spectrum-amber">
+                          <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
+                          <span className="text-micro leading-snug">
+                            {mine.licenceState === 'expired'
+                              ? 'Licence needs refreshing, connect once to renew it.'
+                              : 'This licence did not verify on this machine.'}
+                          </span>
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-between gap-2 mt-3">
+                        <span className="text-ui-lg font-semibold text-spectrum-text tabular">
+                          {isOwned ? 'Owned' : formatPrice(skill.price.amount, skill.price.currency)}
+                        </span>
+
+                        {isOwned ? (
+                          <span className="flex items-center gap-1.5 text-ui-sm text-spectrum-green">
+                            <Check className="w-3.5 h-3.5" /> in your skills
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => void act(skill)}
+                            disabled={claiming === skill.id}
+                            className={`h-7 px-3 gap-1.5 text-ui-sm ${skill.free ? 'pro-btn-filled' : 'btn-primary'}`}
+                            aria-label={skill.free ? `Get ${skill.name}` : `Buy ${skill.name}`}
+                          >
+                            {claiming === skill.id
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : skill.free
+                                ? <><Download className="w-3.5 h-3.5" /> Get</>
+                                : <>Buy</>}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+      </div>
 
       {/* Installing the package itself is the next stage and is not
           claimed here: owning a skill and having its bytes on disk are
           different facts, and the UI says only the one that is true. */}
       {owned.length > 0 && (
-        <p className="text-micro text-spectrum-textFaint mt-5 leading-snug">
+        <p className="text-micro text-spectrum-textFaint mt-8 leading-snug">
           {owned.length} skill{owned.length > 1 ? 's' : ''} on this account. Downloading and
           installing the package is not wired up yet. The entitlement is real, the install is
           the next piece.

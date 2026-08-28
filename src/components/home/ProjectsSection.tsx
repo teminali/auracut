@@ -1,20 +1,27 @@
 /* ═══════════════════════════════════════════════════════════════════
-   The projects wall.
+   The projects wall, drawn as CapCut draws its template wall.
+
+   The card is the thing worth copying and it is barely a card: a
+   rounded frame, two badges sitting ON the frame, and then the title
+   and one line of meta UNDER it, on the page. No fill behind the type,
+   no border around the pair. The frame is the content and everything
+   else is a caption, which is exactly what it is.
+
+   What is NOT copied is the shape. CapCut's wall is 9:16 because a
+   template is a vertical video; Kerf projects are whatever the user
+   set, mostly 16:9, and cropping a 16:9 frame into a portrait card to
+   match a reference would throw away the middle of every poster to win
+   a resemblance. The card is the reference's; the aspect is the
+   project's.
 
    CapCut's header controls are search, a view-mode select and a cloud
-   "Project sync" button. Kerf has no cloud, so it has the first two —
-   both of which do the thing they say — and not the third.
+   "Project sync" button. Kerf has no cloud, so it has the first two,
+   both of which do the thing they say, and not the third.
 
-   Every tile carries a frame rendered from that project on the way out
-   of the editor. That is the reason this screen exists rather than a
-   file dialog, and it is the one thing not to trade away for density.
-
-   The view-mode control is still a real `<select>`. It is drawn as one
-   of ours — `appearance: none` and our own caret — because the native
-   macOS popup renders a blue-tinted chrome control with its own idea
-   of a corner radius, and one OS widget in a screen of drawn ones is
-   more obviously foreign than eight of them would be. What it is NOT
-   is a div pretending: a select gets keyboard, type-ahead and the
+   The select is a real `<select>` drawn as one of ours: `appearance:
+   none` and our own caret, because one OS widget in a screen of drawn
+   ones is more obviously foreign than eight would be. What it is NOT
+   is a div pretending. A select gets keyboard, type-ahead and the
    platform popup for free, and every hand-rolled replacement in this
    repo's history lost at least one of the three.
    ═══════════════════════════════════════════════════════════════════ */
@@ -29,14 +36,14 @@ interface Props {
   onOpen: (entry: RecentProject) => void;
   onForget: (id: string) => void;
   /**
-   * The entry already featured in the rail above.
+   * The entry already featured above the tab bar.
    *
-   * Shown once, not twice. The rail IS the most recent project, so
-   * repeating it as the first tile below made a wall of one project
-   * look like a wall of two and put the same name on screen twice.
-   * A search still reaches it — filtering is a different intent from
-   * browsing, and hiding a result somebody typed the name of would be
-   * the wrong kind of clever.
+   * Shown once, not twice. The "pick up where you left off" block IS
+   * the most recent project, so repeating it as the first tile here
+   * made a wall of one project look like a wall of two and put the
+   * same name on screen twice. A search still reaches it: filtering is
+   * a different intent from browsing, and hiding a result somebody
+   * typed the name of would be the wrong kind of clever.
    */
   featuredId?: string;
 }
@@ -54,9 +61,9 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
     if (q) return recents.filter((r) => r.name.toLowerCase().includes(q));
     /*
       Only worth hiding when there is something left. With a single
-      project, dropping it because the rail already shows it leaves an
-      empty section under a heading — which reads as "you have no
-      projects" directly beneath a tile of the project you have.
+      project, dropping it because the block above already shows it
+      leaves an empty section under a heading, which reads as "you have
+      no projects" directly beneath a tile of the project you have.
     */
     if (featuredId && recents.length > 1) return recents.filter((r) => r.id !== featuredId);
     return recents;
@@ -66,21 +73,14 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
     `${formatDuration(entry.durationMs)} · ${entry.aspectRatio} · ${entry.clipCount} clips`;
 
   return (
-    <section className="rise-in rise-4">
-      <div className="section-rule" aria-hidden="true" />
-
-      {/* The controls sit ON the heading's line, not above or below it.
-          A header row whose left half is 21px display type and whose
-          right half is 30px controls has no shared baseline to hang
-          from, so the two ends are centred against each other instead
-          and the row is given the control's height. */}
-      <div className="flex items-center gap-3 mt-7 h-[30px]">
-        <h2 className="section-head">Projects</h2>
-        {filtered.length > 1 && (
-          <span className="section-note tabular">
-            {filtered.length}
-          </span>
-        )}
+    <section id="hp-projects" className="scroll-mt-4">
+      {/* The category row: a small label on the left and the controls
+          on the right, sharing one line. The reference's is "Business"
+          with "View more" opposite it; ours is the wall's name with
+          the two controls that are real. */}
+      <div className="flex items-center gap-2.5 h-[30px]">
+        <h2 className="text-ui-lg font-semibold text-spectrum-textMuted">Projects</h2>
+        {filtered.length > 1 && <span className="chip tabular">{filtered.length}</span>}
         <span className="flex-1" />
 
         {searching || query ? (
@@ -97,7 +97,8 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
                          placeholder:text-spectrum-textFaint min-w-0"
             />
             {query && (
-              <button onClick={() => setQuery('')} className="pro-btn w-4 h-4 flex-shrink-0" title="Clear" aria-label="Clear the search">
+              <button onClick={() => setQuery('')} className="pro-btn w-4 h-4 flex-shrink-0"
+                      title="Clear" aria-label="Clear the search">
                 <X className="w-3 h-3" />
               </button>
             )}
@@ -132,7 +133,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
       </div>
 
       {filtered.length === 0 ? (
-        <div className="py-24 flex flex-col items-center text-center">
+        <div className="py-20 flex flex-col items-center text-center">
           <span className="w-14 h-14 rounded-squircle-lg surface-card flex items-center justify-center">
             <Clapperboard className="w-6 h-6 text-spectrum-textFaint" />
           </span>
@@ -145,14 +146,11 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           </p>
         </div>
       ) : mode === 'grid' ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(236px,1fr))] gap-4 mt-6">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(212px,1fr))] gap-x-4 gap-y-6 mt-5">
           {filtered.map((entry) => (
             <div key={entry.id} data-home="project-tile" className="group relative">
-              <button
-                onClick={() => onOpen(entry)}
-                className="surface-card surface-card-hover w-full text-left rounded-squircle-lg overflow-hidden"
-              >
-                <span className="block aspect-video bg-spectrum-sunken overflow-hidden relative">
+              <button onClick={() => onOpen(entry)} className="block w-full text-left">
+                <span className="hp-media block aspect-video rounded-squircle-lg overflow-hidden relative">
                   {entry.posterUrl ? (
                     <img src={entry.posterUrl} alt="" className="poster-zoom w-full h-full object-cover" />
                   ) : (
@@ -160,27 +158,26 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
                       <Film className="w-5 h-5 text-white/[0.10]" />
                     </span>
                   )}
-                  {/* Grounds the poster against the card body below it;
-                      a hard cut between image and chrome is what makes a
-                      thumbnail look pasted on. */}
+
+                  {/* Grounds the badges against a bright frame. */}
                   <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
                         style={{ background: 'linear-gradient(to top,rgba(6,8,12,0.6),transparent)' }} />
-                  {/* And a hairline along the bottom of the frame, so
-                      the image has a cut edge rather than dissolving
-                      into the card it sits in. */}
-                  <span aria-hidden="true"
-                        className="absolute inset-x-0 bottom-0 h-px bg-white/[0.05] pointer-events-none" />
-                  <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center">
+
+                  <span className="media-pill absolute bottom-2 left-2 h-[18px] px-1.5 rounded-[5px] flex items-center">
                     {formatDuration(entry.durationMs)}
                   </span>
+                  <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center gap-1">
+                    <Film className="w-2.5 h-2.5" />
+                    {entry.clipCount}
+                  </span>
                 </span>
-                <span className="block px-3.5 py-3">
-                  <span className="block text-ui-lg font-medium text-spectrum-text truncate tracking-[-0.006em]">
-                    {entry.name}
-                  </span>
-                  <span className="block text-micro font-mono text-spectrum-textFaint tabular mt-1 truncate">
-                    {entry.aspectRatio} · {entry.clipCount} clips
-                  </span>
+
+                <span className="block text-ui-lg font-medium text-spectrum-text truncate mt-2.5
+                                 tracking-[-0.006em]">
+                  {entry.name}
+                </span>
+                <span className="block text-ui-sm text-spectrum-textDim truncate mt-0.5">
+                  {entry.starter ? 'Starter project' : 'Recent'} · {entry.aspectRatio}
                 </span>
               </button>
 
@@ -200,18 +197,17 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           ))}
         </div>
       ) : (
-        /* One hairline between rows, none above the first and none
-           below the last. A list that closes itself top and bottom is
-           a table, and a table has a header and columns this does not
-           have. */
-        <div className="mt-5 flex flex-col divide-y divide-line-soft">
+        <div className="mt-4 flex flex-col">
           {filtered.map((entry) => (
             <div key={entry.id} data-home="project-tile"
-                 className="group flex items-center gap-3.5 py-2.5 px-2.5 rounded-squircle-md
+                 /* The padding bleeds OUTWARD, so a row starts on the
+                    same vertical as the heading above it and as every
+                    grid tile in the other view. */
+                 className="group flex items-center gap-3.5 py-2.5 -mx-3 px-3 rounded-squircle-md
                             hover:bg-white/[0.035] transition-colors duration-fast">
               <button onClick={() => onOpen(entry)} className="flex items-center gap-3.5 flex-1 min-w-0 text-left">
-                <span className="w-[68px] h-[38px] rounded-[6px] bg-spectrum-sunken overflow-hidden flex-shrink-0
-                                 flex items-center justify-center shadow-[inset_0_0_0_1px_rgba(255,255,255,0.045)]">
+                <span className="hp-media w-[68px] h-[38px] rounded-[6px] overflow-hidden flex-shrink-0
+                                 flex items-center justify-center">
                   {entry.posterUrl
                     ? <img src={entry.posterUrl} alt="" className="poster-zoom w-full h-full object-cover" />
                     : <span className="poster-empty w-full h-full flex items-center justify-center">
@@ -220,7 +216,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-ui-lg font-medium text-spectrum-text truncate">{entry.name}</span>
-                  <span className="block text-micro font-mono text-spectrum-textFaint tabular mt-0.5">{meta(entry)}</span>
+                  <span className="block text-ui-sm text-spectrum-textDim truncate mt-0.5">{meta(entry)}</span>
                 </span>
               </button>
               {!entry.starter && (

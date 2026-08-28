@@ -130,59 +130,65 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   HOME SURFACE
-   The launcher is the one screen in the app that is looked AT rather
-   than worked THROUGH, so it gets a material system the tool panels
-   deliberately do not: a lit stage, one edge per plane, and grain.
+   HOME
+   Laid out after CapCut's launcher and its templates page, and this
+   time closely: a full-height left rail with the mark, one filled
+   primary button and two labelled nav groups; a row of four launch
+   tiles of which two are saturated and two are plain; a "pick up where
+   you left off" block; a tab bar; and a wall of media cards whose type
+   sits UNDER the frame on the page rather than inside a card.
 
-   The screen is composed like a FRAME, not like a document. Four
-   things do that work, and only one of them is colour:
+   What is copied is the composition. What is not copied is the
+   palette: the reference is a white product with mint and lilac
+   gradients, and pouring those into a dark editor would give it two
+   identities. So every surface, gradient and ink here is Kerf's.
 
-     1. A KEY AND A FILL. One warm source above the hero, one cold
-        bounce from the far corner. Two temperatures, so the stage has
-        a direction instead of an even wash.
-     2. A VIGNETTE. The corners of a lit frame are always darker than
-        its centre. Without one, a dark UI is a uniformly grey
-        rectangle and every card floats at the same depth.
-     3. ONE EDGE. A plane gets a single hairline, not a border AND a
-        shadow AND a highlight. Three edges is what makes a surface
-        read as drawn; one is what makes it read as cut.
-     4. GRAIN. Perfectly smooth gradients band on an OLED panel and
-        read as vector art. A few percent of noise is what makes a
-        dark surface look like a material instead of a fill.
+     · the mint "Create new" button and its tile   -> the terracotta
+     · the lilac "Create new image" tile           -> blue into violet
+     · the pastel templates banner                 -> all three, weak,
+                                                      over a dark plane
+     · white cards on a grey page                  -> the surface ramp
+
+   The one rule taken WHOLE from the reference is the ink: on a
+   saturated tile the label is DARK, not white. It is what CapCut does
+   and it is also the only thing that passes AA here, which is the same
+   finding `--on-accent` already records. White on this terracotta is
+   3.1:1. The dark ink on the lighter end of the tile gradient is 7.4:1
+   and on the darker end 5.2:1.
    ═══════════════════════════════════════════════════════════════ */
 @layer components {
   :root {
     /* feTurbulence, inlined. ~700 bytes and no network. */
     --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
 
-    /* The one hairline the launcher uses, at three strengths. Named
-       here because six components have to agree on it: an edge that
-       drifts between 0.03 and 0.06 across a screen reads as six
-       different materials rather than one. */
+    /* One hairline, three strengths. Named because eight components
+       have to agree on it: an edge that drifts between 0.03 and 0.06
+       across a screen reads as eight materials rather than one. */
     --edge: rgba(255, 255, 255, 0.045);
     --edge-hover: rgba(255, 255, 255, 0.085);
     --edge-faint: rgba(255, 255, 255, 0.028);
+
+    /* Ink for type that sits ON a saturated tile. Warm ink is the same
+       value `--on-accent` already holds; the cool one is its opposite
+       number for the violet tile and was measured the same way. */
+    --ink-warm: #2b1108;
+    --ink-cool: #14102b;
   }
 
   /* ── The stage ────────────────────────────────────────────────
-     Lit, then vignetted. The key is anchored over the hero rather
+     Lit, then vignetted. The key is anchored over the tile row rather
      than centred on the window: light that lands where the brightest
      object is makes that object part of the scene, and a centred wash
-     makes it a sticker on a backdrop.
-
-     Layer order is the physical one, top first: the sources sit over
-     the vignette, so the corners fall away without also killing the
-     key light that reaches the top of the frame. */
+     makes it a sticker on a backdrop. */
   .home-stage {
     position: relative;
     background:
-      radial-gradient(88% 56% at 27% -16%,
-        rgba(217, 119, 87, 0.14) 0%, rgba(217, 119, 87, 0.04) 44%, transparent 74%),
-      radial-gradient(64% 58% at 106% 4%,
-        rgba(104, 140, 200, 0.075) 0%, transparent 62%),
-      radial-gradient(128% 100% at 50% 32%,
-        transparent 34%, rgba(0, 0, 0, 0.34) 76%, rgba(0, 0, 0, 0.6) 100%),
+      radial-gradient(84% 52% at 30% -14%,
+        rgba(217, 119, 87, 0.13) 0%, rgba(217, 119, 87, 0.035) 44%, transparent 74%),
+      radial-gradient(60% 54% at 104% 2%,
+        rgba(104, 140, 200, 0.07) 0%, transparent 62%),
+      radial-gradient(126% 100% at 50% 30%,
+        transparent 36%, rgba(0, 0, 0, 0.32) 78%, rgba(0, 0, 0, 0.58) 100%),
       var(--stage);
   }
 
@@ -201,26 +207,159 @@
     z-index: 1;
   }
 
-  /* ── The plane ────────────────────────────────────────────────
-     A FILL with ONE edge. This started as a bordered, shadowed,
-     inner-highlighted surface on the theory that a light source is
-     what separates a considered UI from a flat one, and that was
-     three edges where the eye only ever wanted one. It then went the
-     other way, to a flat fill with no edge at all, which is calm but
-     leaves a card and the page it sits on meeting at a seam you
-     cannot quite find.
+  /* ── The rail ─────────────────────────────────────────────────
+     Its own plane now, not a transparent strip of the stage. The
+     reference separates the two by about four RGB points and one
+     hairline, and that is exactly enough to say "this column does not
+     scroll and that one does" without drawing a wall. */
+  .hp-rail {
+    background: #0c0e13;
+    box-shadow: inset -1px 0 0 var(--edge);
+  }
 
-     One hairline is the answer to both. It costs nothing at a glance
-     and it CUTS the card out of the stage instead of tinting a
-     rectangle on it. The vertical gradient in the fill is the other
-     half: a plane under a key light is not one colour top to bottom,
-     and two RGB points of ramp is the difference between a lit
-     surface and a swatch.
+  .hp-rail-label {
+    @apply text-micro font-semibold text-spectrum-textFaint uppercase;
+    letter-spacing: 0.08em;
+  }
 
-     Depth still stays off resting cards. A launcher is a flat grid of
-     tiles that never overlap, so a cast shadow is answering a
-     question nobody asked. It arrives on hover, where there IS a
-     question: which one is under the cursor. */
+  /* ── The one filled button ────────────────────────────────────
+     CapCut's rail has exactly one saturated element and it is the
+     create button. Ours is the same shape and the same job, in the
+     same place, wearing the accent. Dark ink, per the block header. */
+  .hp-create {
+    color: var(--ink-warm);
+    background: linear-gradient(180deg, #f0a78e 0%, #d0714d 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.36),
+      0 6px 18px -10px rgba(196, 96, 63, 0.75);
+    transition: filter var(--t-fast) ease, box-shadow var(--t-base) var(--ease),
+      transform var(--t-fast) var(--ease);
+  }
+
+  .hp-create:hover {
+    filter: brightness(1.06);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.44),
+      0 10px 26px -10px rgba(196, 96, 63, 0.9);
+  }
+
+  .hp-create:active {
+    transform: translateY(1px);
+    filter: brightness(0.95);
+  }
+
+  /* ── Rail navigation ──────────────────────────────────────────
+     ONE signal for one state, which is the rule the previous rail
+     already had and the reference happens to keep: a quiet fill, and
+     the accent on the icon. No edge bar, no ring, no gradient. */
+  .hp-nav {
+    @apply text-spectrum-textMuted;
+    transition: background-color var(--t-fast) ease, color var(--t-fast) ease;
+  }
+
+  .hp-nav:hover {
+    @apply text-spectrum-text;
+    background-color: rgba(255, 255, 255, 0.038);
+  }
+
+  .hp-nav-on {
+    @apply text-spectrum-text font-medium;
+    background-color: rgba(255, 255, 255, 0.062);
+  }
+
+  /* ── Launch tiles ─────────────────────────────────────────────
+     Four across, two saturated and two plain, exactly as the
+     reference orders them: the two things you most often want are
+     coloured and the two you sometimes want are not. Colour is
+     carrying priority here, which is the one job this codebase lets
+     colour have. */
+  .hp-tile {
+    position: relative;
+    overflow: hidden;
+    transition: transform var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease),
+      background-color var(--t-base) var(--ease);
+  }
+
+  .hp-tile-warm {
+    color: var(--ink-warm);
+    background:
+      radial-gradient(88% 130% at 12% -30%, rgba(255, 240, 230, 0.45) 0%, transparent 52%),
+      linear-gradient(138deg, #f0a78e 0%, #dd8560 46%, #d0714d 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.42),
+      0 14px 34px -20px rgba(196, 96, 63, 0.6);
+  }
+
+  /* Grain on the saturated pair only. A large area of one colour is
+     where banding actually shows; over a near-black card it does
+     nothing but dull the glyph sitting under it. */
+  .hp-tile-warm::after,
+  .hp-tile-cool::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--grain);
+    opacity: 0.05;
+    pointer-events: none;
+  }
+
+  .hp-tile-warm:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      0 24px 48px -22px rgba(196, 96, 63, 0.8);
+  }
+
+  .hp-tile-cool {
+    color: var(--ink-cool);
+    background:
+      radial-gradient(88% 130% at 12% -30%, rgba(238, 242, 255, 0.45) 0%, transparent 52%),
+      linear-gradient(138deg, #8fbcff 0%, #9d9df5 48%, #a081f5 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.42),
+      0 14px 34px -20px rgba(96, 110, 220, 0.55);
+  }
+
+  .hp-tile-cool:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.5),
+      0 24px 48px -22px rgba(96, 110, 220, 0.75);
+  }
+
+  /* The reference's white cards. Ours are the surface ramp, and they
+     keep the single hairline every other plane on this screen has. */
+  .hp-tile-plain {
+    background-color: #171b22;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0%, transparent 62%);
+    box-shadow: inset 0 0 0 1px var(--edge);
+  }
+
+  .hp-tile-plain:hover {
+    transform: translateY(-3px);
+    background-color: #1d222b;
+    box-shadow: inset 0 0 0 1px var(--edge-hover), 0 20px 40px -26px rgba(0, 0, 0, 0.95);
+  }
+
+  .hp-tile:active {
+    transform: translateY(0);
+    transition-duration: var(--t-fast);
+  }
+
+  /* The glyph holder inside a tile. Glass on the saturated pair so it
+     reads as lit rather than as a hole punched through; a tinted chip
+     on the plain pair, which is what the reference does too. */
+  /* Solid, not translucent. At 50% white over a saturated field this
+     came out a muddy pink square: a plate that is supposed to read as
+     WHITE has to be white, and letting the tile show through it makes
+     it read as a smudge on the tile rather than an object on it. */
+  .hp-tile-mark {
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 2px 8px -3px rgba(0, 0, 0, 0.35);
+  }
+
+  /* ── Cards and planes ─────────────────────────────────────────
+     The single-edge plane, used by every card that is not a tile. */
   .surface-card {
     background-color: #171b22;
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0%, transparent 62%);
@@ -245,165 +384,135 @@
     transition-duration: var(--t-fast);
   }
 
-  /* ── The primary tile ─────────────────────────────────────────
-     A mesh of three radial gradients, not a linear ramp. A single
-     two-stop gradient across 900px bands visibly on a dark panel;
-     overlapping radials at different angles never do, and they give
-     the slab a shape instead of a direction. */
-  .hero-tile {
+  /* ── The banner ───────────────────────────────────────────────
+     The templates page opens with a wide pastel slab carrying the
+     page title, one paragraph and the search. Skills opens with the
+     same slab. The pastel is three of our hues at low strength over a
+     dark plane, which is what a pastel IS on a dark ground: the
+     reference tints white, this tints black. */
+  .hp-banner {
     position: relative;
     overflow: hidden;
-    /*
-      DEEP, not pale. Two passes at a light cyan slab both read as a
-      washed-out rectangle sitting on top of the interface rather than
-      part of it — which is the exact quality being designed out. A
-      dark UI wants its one saturated element to be SATURATED: the
-      colour carries the hierarchy, a specular sheen across the top
-      carries the light, and white type sits on it the way it does on
-      every other surface in the app.
-
-      Four layers, and each does one job:
-        · a tight specular sheen from above the top-left corner
-        · a deep shadow pooling into the bottom-right
-        · a soft floor shadow, so the slab has a bottom as well as a top
-        · the body gradient, which never gets lighter than #1e9fc0
-    */
     background:
-      radial-gradient(105% 150% at 6% -35%, rgba(255, 233, 220, 0.30) 0%, transparent 44%),
-      /* Pushed further off the corner and eased back. At 0.82 over a
-         60% falloff the shadow reached a third of the way across and
-         turned the right side brown rather than deep amber — a muddy
-         end to a gradient reads as a badly exported JPEG. */
-      radial-gradient(70% 110% at 108% 150%, rgba(46, 15, 6, 0.62) 0%, transparent 62%),
-      linear-gradient(0deg, rgba(38, 12, 5, 0.28) 0%, transparent 34%),
-      linear-gradient(102deg, #b35a37 0%, #dd8560 44%, #a85332 100%);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.28),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.09),
-      0 16px 44px -22px rgba(196, 96, 63, 0.55);
-    transition: transform var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease);
+      radial-gradient(72% 150% at 6% 0%, rgba(217, 119, 87, 0.42) 0%, rgba(217, 119, 87, 0.10) 40%, transparent 66%),
+      radial-gradient(64% 150% at 46% 120%, rgba(160, 129, 245, 0.34) 0%, transparent 62%),
+      radial-gradient(78% 165% at 98% 6%, rgba(74, 144, 255, 0.32) 0%, transparent 64%),
+      linear-gradient(120deg, #1b2029 0%, #14181f 100%);
+    box-shadow: inset 0 0 0 1px var(--edge);
   }
 
-  .hero-tile::after {
+  .hp-banner::after {
     content: '';
     position: absolute;
     inset: 0;
     background-image: var(--grain);
-    /* Heavier here than on the page: a large saturated area is where
-       banding actually shows. */
-    opacity: 0.05;
+    opacity: 0.04;
     pointer-events: none;
   }
 
-  /* A specular sweep, once, on arrival. This is the one piece of
-     motion on the screen that exists purely to say a surface is
-     glossy — which is a claim about MATERIAL, and the hero is the
-     only thing here made of anything. Everything else moves because
-     something happened. */
-  .hero-tile::before {
+  /* ── Card plates ──────────────────────────────────────────────
+     A skill has no poster frame. The reference's card opens with a
+     thumbnail and this slot has to hold SOMETHING, so it holds the
+     mark, the two facts that matter, and a texture, rather than a
+     large flat rectangle pretending to be an image.
+
+     The texture is the same perforation the empty-poster state uses,
+     which is the point: on this screen "a frame that does not exist"
+     already has a look, and a skill plate is the same claim. */
+  .hp-plate-warm,
+  .hp-plate-cool {
+    background-image:
+      repeating-linear-gradient(90deg,
+        rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 24px),
+      radial-gradient(120% 110% at 22% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 56%);
+  }
+
+  .hp-plate-warm {
+    background-color: #1a1418;
+    background-image:
+      repeating-linear-gradient(90deg,
+        rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 24px),
+      linear-gradient(152deg, rgba(217, 119, 87, 0.30) 0%, rgba(217, 119, 87, 0.06) 58%, transparent 100%);
+  }
+
+  .hp-plate-cool {
+    background-color: #15161f;
+    background-image:
+      repeating-linear-gradient(90deg,
+        rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 24px),
+      linear-gradient(152deg, rgba(160, 129, 245, 0.30) 0%, rgba(74, 144, 255, 0.09) 58%, transparent 100%);
+  }
+
+  /* ── Tabs ─────────────────────────────────────────────────────
+     The reference marks the active tab with weight and a short rule
+     directly under the word, not a pill and not a box. Two pixels of
+     accent under the label is the whole control. */
+  .hp-tab {
+    position: relative;
+    @apply text-spectrum-textDim font-medium;
+    transition: color var(--t-fast) ease;
+  }
+
+  .hp-tab:hover {
+    @apply text-spectrum-textMuted;
+  }
+
+  .hp-tab-on {
+    @apply text-spectrum-text font-semibold;
+  }
+
+  .hp-tab-on::after {
     content: '';
     position: absolute;
-    top: -20%;
-    bottom: -20%;
-    left: -40%;
-    width: 26%;
-    transform: skewX(-16deg);
-    background: linear-gradient(90deg,
-      transparent 0%, rgba(255, 255, 255, 0.17) 50%, transparent 100%);
-    opacity: 0;
-    pointer-events: none;
-    z-index: 1;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
   }
 
-  .hero-tile:hover::before {
-    animation: hero-sweep 0.72s var(--ease);
+  /* ── Media cards ──────────────────────────────────────────────
+     The wall's type sits UNDER the frame, on the page, with no card
+     around either. That is the reference's card and it is also the
+     honest one: the frame is the content and a fill behind the title
+     is chrome wrapped around content that did not ask for it. */
+  .hp-media {
+    background-color: var(--sunken);
+    box-shadow: inset 0 0 0 1px var(--edge);
+    transition: box-shadow var(--t-base) var(--ease), transform var(--t-base) var(--ease);
   }
 
-  @keyframes hero-sweep {
-    from { opacity: 0.9; left: -40%; }
-    to   { opacity: 0; left: 116%; }
-  }
-
-  .hero-tile:hover {
+  .group:hover .hp-media {
     transform: translateY(-2px);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.36),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-      0 26px 60px -24px rgba(196, 96, 63, 0.7);
+    box-shadow: inset 0 0 0 1px var(--edge-hover), 0 18px 34px -24px rgba(0, 0, 0, 0.95);
   }
 
-  .hero-tile:active {
-    transform: translateY(0) scale(0.997);
-    transition-duration: var(--t-fast);
+  .poster-zoom {
+    transition: transform 0.55s var(--ease);
   }
 
-  /* ── Frame ticks ──────────────────────────────────────────────
-     A ruler, not a texture. Kerf's whole subject is a strip of frames
-     with a scale under it, and the hero is the way into one, so the
-     empty half of the slab holds the thing the product is about
-     rather than a gradient nobody chose.
-
-     Masked at both ends so it never collides with the type on its
-     left or the arrow on its right, and every fourth tick is taller
-     the way a real ruler marks a second. */
-  .frame-ticks,
-  .frame-ticks-tall,
-  .frame-baseline {
-    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 17%, #000 83%, transparent 100%);
-    mask-image: linear-gradient(90deg, transparent 0%, #000 17%, #000 83%, transparent 100%);
+  .group:hover .poster-zoom {
+    transform: scale(1.05);
   }
 
-  .frame-ticks {
+  /* Timecodes and counts over an image. Blur, not opacity, so the
+     digits stay legible over a bright frame. */
+  .media-pill {
+    @apply text-micro font-mono tabular text-white/90;
+    background: rgba(6, 8, 12, 0.66);
+    backdrop-filter: blur(10px) saturate(1.3);
+  }
+
+  /* A frame with no poster yet. Perforations and a frame line rather
+     than one centred glyph on a void: it has to read as "no frame
+     captured", which is a state, and not as a broken image, which is
+     a fault. */
+  .poster-empty {
     background-image:
       repeating-linear-gradient(90deg,
-        rgba(255, 255, 255, 0.34) 0 1px, transparent 1px 16px);
-  }
-
-  .frame-ticks-tall {
-    background-image:
-      repeating-linear-gradient(90deg,
-        rgba(255, 255, 255, 0.44) 0 1px, transparent 1px 64px);
-  }
-
-  /* The line the marks stand on. Without it they are dashes floating
-     at a height, which is texture; with it they are a scale, which is
-     a picture of the thing the button opens. */
-  .frame-baseline {
-    background: rgba(255, 255, 255, 0.26);
-  }
-
-  /* ── Tool tiles ───────────────────────────────────────────────
-     The cell IS the tile. Eight 64px squares centred in eight 130px
-     columns is eight objects floating in a row with 66px of nothing
-     between each of them and its neighbour, and the row stops reading
-     as one control surface. Filling the column instead means the
-     hover target, the fill and the label all share one rectangle, and
-     eight of those in a row read as a band.
-
-     Almost nothing at rest, on purpose. This is chrome: a launcher
-     for a panel, not content. It gets the faintest of the three
-     hairlines and 1.8% of white, which on the stage is a shape you
-     can find and not one you have to look past. */
-  .tool-tile {
-    background-color: rgba(255, 255, 255, 0.018);
-    box-shadow: inset 0 0 0 1px var(--edge-faint);
-    transition:
-      transform var(--t-base) var(--ease),
-      background-color var(--t-base) var(--ease),
-      box-shadow var(--t-base) var(--ease);
-  }
-
-  .tool-tile:hover {
-    transform: translateY(-2px);
-    background-color: rgba(255, 255, 255, 0.052);
-    box-shadow:
-      inset 0 0 0 1px var(--edge-hover),
-      0 14px 30px -22px rgba(0, 0, 0, 0.9);
-  }
-
-  .tool-tile:active {
-    transform: translateY(0);
-    transition-duration: var(--t-fast);
+        rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 26px),
+      linear-gradient(158deg, #1b2330 0%, #0c1015 100%);
   }
 
   /* ── Entrance ─────────────────────────────────────────────────
@@ -425,10 +534,11 @@
   .rise-4 { animation-delay: 0.17s; }
   .rise-5 { animation-delay: 0.22s; }
 
-  /* ── Section headings ─────────────────────────────────────────
-     Display size, tight tracking, and an optical nudge left so the
-     cap-height aligns with the card edges beneath it rather than the
-     glyph's own side bearing. */
+  /* ── Headings ─────────────────────────────────────────────────
+     Two only. The page title on the banner, and the category header
+     that sits above every wall. The reference's category header is
+     deliberately SMALL: it is a label on a group, not a title, and
+     making it big is what turns a launcher into a magazine. */
   .section-head {
     @apply font-semibold text-spectrum-text;
     font-size: 21px;
@@ -437,77 +547,20 @@
     margin-left: -0.5px;
   }
 
-  /* A count or hint sitting on the heading's baseline. */
   .section-note {
     @apply text-ui-sm text-spectrum-textDim;
     letter-spacing: 0.002em;
   }
 
-  /* ── Section rule ─────────────────────────────────────────────
-     One hairline above each section, running the full width of the
-     content column and fading out to the right.
-
-     This is the only piece of pure structure on the screen and it
-     earns its place: three stacked sections separated by nothing but
-     56px of black have no registration, so the eye cannot tell
-     whether the projects wall is a new thought or the bottom of the
-     tool row. A line it all starts from is what makes the spacing
-     read as composed rather than as leftover. It fades because a rule
-     that reaches the far edge closes a box, and nothing here is a box. */
-  .section-rule {
-    height: 1px;
-    background: linear-gradient(90deg,
-      rgba(255, 255, 255, 0.085) 0%,
-      rgba(255, 255, 255, 0.045) 38%,
-      rgba(255, 255, 255, 0.012) 78%,
-      transparent 100%);
-  }
-
-  /* ── The seam ─────────────────────────────────────────────────
-     One hairline between the rail and the stage, faded out at both
-     ends so it never closes the window into a box.
-
-     The rail and the content column were separated by 56px of black
-     and nothing else, which is enough to keep them apart and not
-     enough to say they are different KINDS of thing: one is a fixed
-     frame of navigation, the other scrolls. A single edge says that,
-     and it is the same edge every card on this screen uses. */
-  .rail-seam {
-    background: linear-gradient(180deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.055) 14%,
-      rgba(255, 255, 255, 0.055) 74%,
-      transparent 100%);
-  }
-
-  /* ── Media ────────────────────────────────────────────────────
-     A poster is the content; the frame around it should be almost
-     nothing, and what moves on hover should be the image. */
-  .poster-zoom {
-    transition: transform 0.55s var(--ease);
-  }
-
-  .group:hover .poster-zoom {
-    transform: scale(1.045);
-  }
-
-  /* Timecodes and counts over an image. Blur, not opacity, so the
-     digits stay legible over a bright frame. */
-  .media-pill {
-    @apply text-micro font-mono tabular text-white/90;
-    background: rgba(6, 8, 12, 0.66);
-    backdrop-filter: blur(10px) saturate(1.3);
-  }
-
-  /* A frame with no poster yet. Perforations and a frame line rather
-     than one centred glyph on a void: it has to read as "no frame
-     captured", which is a state, and not as a broken image, which is
-     a fault. */
-  .poster-empty {
-    background-image:
-      repeating-linear-gradient(90deg,
-        rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 26px),
-      linear-gradient(158deg, #1b2330 0%, #0c1015 100%);
+  /* Two lines of summary and then a cut. Written out rather than left
+     to a plugin: a wall of cards whose heights follow their prose is
+     not a wall, and the clamp has to hold whatever the publisher
+     wrote. */
+  .clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 }
 

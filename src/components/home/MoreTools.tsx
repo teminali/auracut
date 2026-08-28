@@ -1,29 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════════
-   CapCut's "More tools" row: eight tiles that launch a feature.
+   The eight editor panels, as tiles.
 
-   Kerf's eight are its eight editor panels, which is what the row is
-   for — a way into a capability without going through a menu. Each
-   tile opens the editor with that panel already selected, so a tile
-   that looks like it does something does exactly that and no more.
+   In CapCut this row does not exist as a row: its tools ARE the four
+   cards at the top of the page. Kerf has eight panels and four entry
+   points, so the four keep the reference's saturated-then-plain row
+   and the eight sit below it wearing the reference's PLAIN card, which
+   is the right relationship. These are launchers for a panel, not ways
+   to start work, and they should not compete with the four above.
 
-   The generic version of this row — an outlined square with a
-   centred icon, repeated eight times — is the single most recognisable
-   AI-generated layout there is, and giving each square a border and a
-   shadow makes it worse rather than better.
-
-   The fix is not to shrink the container, which is what was tried
-   first: a 64px box centred in a 130px column leaves 66px of dead
-   space between every tile and its neighbour, the eight boxes stop
-   touching the grid they are laid out on, and the row reads as eight
-   objects scattered across a band rather than as one band. THE CELL IS
-   THE TILE now. The hover target, the fill and the label share one
-   rectangle, the rectangles are the grid columns, and the row lines up
-   with the hero above it and the projects wall below it because all
-   three are measured from the same edges.
-
-   What keeps it quiet is weight, not size: 1.8% of white and the
-   faintest of the three hairlines. This is chrome, so it stays behind
-   the hero until the cursor arrives.
+   The cell is the tile. A 64px box centred in a 130px column leaves
+   66px of dead space between every icon and its neighbour, the eight
+   boxes stop touching the grid they are laid out on, and the row reads
+   as eight objects scattered across a band rather than as one band.
 
    The AI badge is on the two panels that genuinely run a model:
    captions (Whisper transcription) and the AI tool recipes. Badging
@@ -55,11 +43,14 @@ const TOOLS: Tool[] = [
 ];
 
 export const MoreTools: React.FC<{ onOpenPanel: (tab: SidebarTab) => void }> = ({ onOpenPanel }) => (
-  <section className="rise-in rise-3">
-    <div className="section-rule" aria-hidden="true" />
-    <h2 className="section-head mt-7">More tools</h2>
+  <section id="hp-tools" className="scroll-mt-4">
+    <div className="flex items-center gap-3">
+      <h3 className="text-ui-lg font-semibold text-spectrum-textMuted">Panels</h3>
+      <span className="flex-1" />
+      <span className="section-note hidden sm:block">Opens the editor with that panel selected</span>
+    </div>
 
-    <div className="grid grid-cols-8 gap-3 mt-5">
+    <div className="grid grid-cols-8 gap-3 mt-4">
       {TOOLS.map((tool) => {
         const Icon = tool.icon;
         return (
@@ -70,8 +61,8 @@ export const MoreTools: React.FC<{ onOpenPanel: (tab: SidebarTab) => void }> = (
             onClick={() => onOpenPanel(tool.id)}
             title={`Open the ${tool.label} panel`}
             aria-label={`Open the ${tool.label} panel`}
-            className="tool-tile group relative rounded-squircle-lg h-[92px]
-                       flex flex-col items-center justify-center gap-3 px-2"
+            className="hp-tile hp-tile-plain group rounded-squircle-lg h-[92px]
+                       flex flex-col items-center justify-center gap-2.5 px-2"
           >
             <Icon
               className="w-[22px] h-[22px] text-spectrum-textMuted flex-shrink-0
