@@ -9,7 +9,7 @@ export type UpdateStatus =
   | { state: 'downloading'; version: string; percent: number; bytesPerSecond: number }
   | { state: 'ready'; version: string }
   | { state: 'up-to-date'; version: string }
-  | { state: 'manual-only'; version: string; url: string }
+  | { state: 'manual-only'; version: string; url: string; canSideload: boolean }
   | { state: 'error'; message: string };
 
 /** One selectable agent CLI, as main sees it. */
@@ -383,6 +383,9 @@ export interface KerfElectronAPI {
     check: () => Promise<UpdateStatus>;
     install: () => Promise<boolean>;
     openReleases: () => Promise<void>;
+    /** Update without Squirrel on an unsigned macOS build. See preload. */
+    sideload: () => Promise<{ ok: boolean; message: string; version?: string }>;
+    relaunch: () => Promise<boolean>;
     onStatus: (cb: (status: UpdateStatus) => void) => () => void;
   };
 }

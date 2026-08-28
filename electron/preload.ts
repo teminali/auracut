@@ -11,6 +11,22 @@ export type UpdateStatus =
   | { state: 'manual-only'; version: string; url: string }
   | { state: 'error'; message: string };
 
+/** One skill the user built, as main reads it back off disk. */
+export interface UserSkillRecord {
+  manifest: {
+    id: string; name: string; version: string; summary: string;
+    slots: { id: string; kind: string; required?: boolean; default?: unknown; options?: string[]; description?: string }[];
+    requiresTools: string[];
+    recipe: { tool: string; args: Record<string, unknown> }[];
+    assets: { id: string; file: string; kind: string; description?: string }[];
+    provenance?: { author?: string; builtWith?: string; builtAt?: string };
+    guide?: string;
+  };
+  dir: string;
+  assetsPresent: string[];
+  assetsMissing: string[];
+}
+
 export interface ClaudeStatus {
   installed: boolean;
   path: string | null;
@@ -220,6 +236,16 @@ export interface ElectronAPI {
     onEvent: (cb: (event: Record<string, unknown>) => void) => () => void;
   };
 
+  /** Skills the user built, stored under userData and read at runtime. */
+  userSkills: {
+    list: () => Promise<UserSkillRecord[]>;
+    write: (manifest: unknown) => Promise<
+      { ok: true; dir: string; manifest: Record<string, unknown> } | { ok: false; problems: string[] }>;
+    remove: (id: string) => Promise<{ ok: boolean; error?: string }>;
+    addAsset: (id: string, source: string, as?: string) => Promise<
+      { ok: true; file: string; bytes: number } | { ok: false; error: string }>;
+  };
+
   updater: {
     /** Current state, for the first render before any event arrives. */
     getStatus: () => Promise<UpdateStatus>;
@@ -230,6 +256,18 @@ export interface ElectronAPI {
     install: () => Promise<boolean>;
     /** Fallback for builds that cannot self-update. */
     openReleases: () => Promise<void>;
+    /**
+     * Do the update WITHOUT Squirrel, on an unsigned macOS build.
+     *
+     * Downloads the published zip, checks it against the SHA-512 in the
+     * feed, swaps the bundle, and clears the screen-recording and
+     * accessibility grants — which an unsigned update always invalidates
+     * whether or not anybody clears them. Does not relaunch; that is
+     * `relaunch`, so the caller can save first.
+     */
+    sideload: () => Promise<{ ok: boolean; message: string; version?: string }>;
+    /** Quit and come straight back up. */
+    relaunch: () => Promise<boolean>;
     /** Subscribe to state changes; returns an unsubscribe function. */
     onStatus: (cb: (status: UpdateStatus) => void) => () => void;
   };
@@ -372,12 +410,22 @@ const api: ElectronAPI = {
     },
   },
 
+  userSkills: {
+    list: () => ipcRenderer.invoke('userSkills:list'),
+    write: (manifest: unknown) => ipcRenderer.invoke('userSkills:write', manifest),
+    remove: (id: string) => ipcRenderer.invoke('userSkills:delete', { id }),
+    addAsset: (id: string, source: string, as?: string) =>
+      ipcRenderer.invoke('userSkills:addAsset', { id, source, as }),
+  },
+
   updater: {
     getStatus: () => ipcRenderer.invoke('updater:status'),
     getCurrentVersion: () => ipcRenderer.invoke('updater:currentVersion'),
     check: () => ipcRenderer.invoke('updater:check'),
     install: () => ipcRenderer.invoke('updater:install'),
     openReleases: () => ipcRenderer.invoke('updater:openReleases'),
+    sideload: () => ipcRenderer.invoke('updater:sideload'),
+    relaunch: () => ipcRenderer.invoke('updater:relaunch'),
     onStatus: (cb) => {
       const handler = (_e: unknown, status: UpdateStatus) => cb(status);
       ipcRenderer.on('updater:status', handler);

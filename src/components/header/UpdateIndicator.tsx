@@ -13,7 +13,53 @@ import { useUpdater } from '../../hooks/useUpdater';
 import { Download, RefreshCw, ExternalLink, AlertTriangle } from '../ui/icons';
 
 export const UpdateIndicator: React.FC = () => {
-  const { status, install, openReleases } = useUpdater();
+  const { status, install, openReleases, sideload, relaunch } = useUpdater();
+  const [busy, setBusy] = React.useState(false);
+  const [done, setDone] = React.useState<string | null>(null);
+  const [failed, setFailed] = React.useState<string | null>(null);
+
+  const doSideload = React.useCallback(async () => {
+    setBusy(true);
+    setFailed(null);
+    const result = await sideload();
+    setBusy(false);
+    if (result.ok) setDone(result.message);
+    else setFailed(result.message);
+  }, [sideload]);
+
+  /*
+    The update is on disk and the restart is the user's to take. Shown
+    ahead of the switch because it outlives the status it came from:
+    `sideloadUpdate` publishes `ready`, and a user who keeps working
+    should still be able to find the button when they are done.
+  */
+  if (done) {
+    return (
+      <button
+        onClick={relaunch}
+        className="btn-primary h-[26px] px-2.5 gap-1.5 text-ui-xs"
+        title={done}
+        aria-label={done}
+      >
+        <RefreshCw className="w-3 h-3" />
+        Restart to finish
+      </button>
+    );
+  }
+
+  if (failed) {
+    return (
+      <button
+        onClick={openReleases}
+        className="h-[26px] px-2.5 rounded-squircle-xs border border-spectrum-amber/40 text-spectrum-amber text-ui-xs font-medium flex items-center gap-1.5"
+        title={`${failed} Click to open the download page instead.`}
+        aria-label={`Update failed: ${failed}`}
+      >
+        <AlertTriangle className="w-3 h-3" />
+        Update failed
+      </button>
+    );
+  }
 
   switch (status.state) {
     /* Nothing to say. Say nothing. */
@@ -53,14 +99,41 @@ export const UpdateIndicator: React.FC = () => {
         </button>
       );
 
-    /* An update exists, but this build cannot install it itself. */
+    /*
+      An update exists and Squirrel will not install it.
+
+      Kerf can still do the swap itself — see `sideloadUpdate` in
+      `electron/updater.ts` for what that verifies and, more importantly,
+      what it does not. When the bundle is somewhere Kerf cannot write,
+      `canSideload` is false and this falls back to the download page,
+      which is what this branch always used to do.
+    */
     case 'manual-only':
-      return (
+      return status.canSideload ? (
+        <button
+          onClick={() => void doSideload()}
+          disabled={busy}
+          className="h-[26px] px-2.5 rounded-squircle-xs border border-spectrum-accentLine bg-spectrum-accentSoft text-spectrum-accent text-ui-xs font-medium flex items-center gap-1.5 disabled:opacity-60"
+          title={
+            `Download Kerf ${status.version} and replace this copy. This build is not `
+            + 'code-signed, so the download is checked against the checksum the release '
+            + 'publishes rather than against a signature, and macOS will ask for screen '
+            + 'recording again afterwards because an unsigned update always invalidates it.'
+          }
+          aria-label={`Update to Kerf ${status.version}`}
+        >
+          <Download className="w-3 h-3" />
+          {busy ? 'Updating…' : `Update to ${status.version}`}
+        </button>
+      ) : (
         <button
           onClick={openReleases}
           className="h-[26px] px-2.5 rounded-squircle-xs border border-spectrum-accentLine bg-spectrum-accentSoft text-spectrum-accent text-ui-xs font-medium flex items-center gap-1.5"
-          title={`Kerf ${status.version} is available. This build is not code-signed, so it cannot update itself. Open the download page.`}
-            aria-label={`Kerf ${status.version} is available. This build is not code-signed, so it cannot update itself. Open the download page.`}
+          title={
+            `Kerf ${status.version} is available, and this copy is not somewhere Kerf can `
+            + 'replace it. Open the download page.'
+          }
+          aria-label={`Kerf ${status.version} is available. Open the download page.`}
         >
           <ExternalLink className="w-3 h-3" />
           Get {status.version}

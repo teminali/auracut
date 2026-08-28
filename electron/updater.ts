@@ -19,6 +19,11 @@
 import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import electronUpdater from 'electron-updater';
 import log from 'electron-log';
+import { execFile } from 'child_process';
+import crypto from 'crypto';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 /*
   `electronUpdater.autoUpdater` is a LAZY GETTER: touching it constructs a
@@ -42,8 +47,13 @@ export type UpdateStatus =
   | { state: 'downloading'; version: string; percent: number; bytesPerSecond: number }
   | { state: 'ready'; version: string }
   | { state: 'up-to-date'; version: string }
-  /** An update exists but this build cannot install it — see the macOS note. */
-  | { state: 'manual-only'; version: string; url: string }
+  /**
+   * An update exists but Squirrel cannot install it.
+   *
+   * `canSideload` says whether Kerf can nevertheless do the swap itself.
+   * See `sideloadUpdate` for what that means and what it does not.
+   */
+  | { state: 'manual-only'; version: string; url: string; canSideload: boolean }
   | { state: 'error'; message: string };
 
 let status: UpdateStatus = { state: 'idle' };
@@ -73,6 +83,243 @@ function canSelfUpdate(): boolean {
   return process.env.KERF_SIGNED === '1';
 }
 
+/* ── Sideloading, for the build that cannot sign itself ─────────────
+
+   `canSelfUpdate` is false on every unsigned macOS build, and that used
+   to be the end of it: the user got a link to the releases page and did
+   the download, the drag and the relaunch by hand.
+
+   Squirrel refuses because it cannot VALIDATE a signature. Replacing an
+   app bundle does not actually require one — it is a directory swap, and
+   the app can do it. So it does.
+
+   ── What this is not ────────────────────────────────────────────────
+
+   **It is not a substitute for code signing and must not be described as
+   one.** Squirrel's check exists so that somebody who can serve you bytes
+   cannot replace your app. What is verified here is the SHA-512 the feed
+   publishes, over HTTPS, against the bytes that arrive: that catches a
+   corrupted or tampered DOWNLOAD and does nothing at all about a tampered
+   RELEASE. Anyone who can publish to the repo can publish anything —
+   exactly as they can today for the manual download this replaces. No
+   worse than doing it by hand, and not as good as a signature.
+
+   ── The consequence nobody expects, handled here ────────────────────
+
+   Every sideload changes the binary's cdhash, and TCC binds an unsigned
+   app's permissions to the cdhash. A successful update therefore SILENTLY
+   revokes screen recording and accessibility while leaving both switches
+   ON in System Settings, and macOS never re-asks because a row already
+   exists. That is the failure `recorder:resetScreenPermission` was written
+   for, and shipping an update button without handling it would hand the
+   user a button that quietly breaks the recorder every time they press it.
+
+   So the grants are cleared as PART of the update, before the relaunch.
+   The user is asked once, which is honest and actionable. A signed build
+   never reaches this path.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/** The app bundle root, or null when this is not a packaged macOS app. */
+function bundlePath(): string | null {
+  if (process.platform !== 'darwin' || !app.isPackaged) return null;
+  /* …/Kerf.app/Contents/MacOS/Kerf -> …/Kerf.app */
+  const exe = app.getPath('exe');
+  const marker = `${path.sep}Contents${path.sep}MacOS${path.sep}`;
+  const at = exe.lastIndexOf(marker);
+  return at === -1 ? null : exe.slice(0, at);
+}
+
+/**
+ * Can Kerf replace its own bundle in place?
+ *
+ * Writability is checked on the PARENT rather than on the bundle: the
+ * swap is a rename plus a copy in that directory, so a read-only
+ * `/Applications` fails even when the bundle itself is writable. An app
+ * still running from a mounted .dmg fails this too, which is correct.
+ */
+function canSideload(): boolean {
+  const bundle = bundlePath();
+  if (!bundle) return false;
+  try {
+    fs.accessSync(path.dirname(bundle), fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function run(cmd: string, args: string[], timeoutMs = 10 * 60_000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { timeout: timeoutMs, maxBuffer: 1 << 22 }, (err, _o, stderr) => {
+      if (err) reject(new Error((stderr || '').trim() || err.message));
+      else resolve();
+    });
+  });
+}
+
+async function fetchText(url: string): Promise<string> {
+  const res = await fetch(url, { redirect: 'follow' });
+  if (!res.ok) throw new Error(`${url} answered ${res.status}`);
+  return res.text();
+}
+
+/**
+ * The macOS entry from the published feed: the zip's name and its
+ * SHA-512, straight out of `latest-mac.yml`.
+ *
+ * Read with a regex rather than a YAML dependency, because the shape is
+ * fixed by electron-builder and one more parser in the main process is
+ * one more thing that can fail at launch. If the shape ever changes this
+ * throws naming what it could not read, rather than half-matching.
+ */
+function parseFeed(yaml: string, arch: string): { name: string; sha512: string; version: string } {
+  const version = /^version:\s*(.+)$/m.exec(yaml)?.[1]?.trim();
+  if (!version) throw new Error('latest-mac.yml has no version line.');
+
+  const entries = [...yaml.matchAll(/-\s+url:\s*(\S+)[\s\S]*?sha512:\s*(\S+)/g)]
+    .map((m) => ({ name: decodeURIComponent(m[1]), sha512: m[2] }));
+  if (entries.length === 0) throw new Error('latest-mac.yml lists no files.');
+
+  /* A zip, for this architecture: it is the artifact that can be
+     extracted without mounting anything. electron-builder names the
+     Intel one without an arch and the Apple Silicon one with it. */
+  const zips = entries.filter((e) => e.name.endsWith('.zip'));
+  const wanted = arch === 'arm64'
+    ? zips.find((e) => e.name.includes('arm64'))
+    : zips.find((e) => !e.name.includes('arm64'));
+  if (!wanted) {
+    throw new Error(`latest-mac.yml has no ${arch} zip; saw ${zips.map((z) => z.name).join(', ') || 'none'}`);
+  }
+  return { ...wanted, version };
+}
+
+async function download(url: string, to: string, onPercent: (p: number) => void): Promise<void> {
+  const res = await fetch(url, { redirect: 'follow' });
+  if (!res.ok || !res.body) throw new Error(`${url} answered ${res.status}`);
+  const total = Number(res.headers.get('content-length') ?? 0);
+  let seen = 0;
+  const out = fs.createWriteStream(to);
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    seen += value.byteLength;
+    out.write(Buffer.from(value));
+    if (total > 0) onPercent(Math.min(99, Math.round((seen / total) * 100)));
+  }
+  await new Promise<void>((resolve, reject) => out.end((e?: Error) => (e ? reject(e) : resolve())));
+}
+
+function sha512Of(file: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha512');
+    fs.createReadStream(file)
+      .on('data', (c) => hash.update(c as Buffer))
+      .on('error', reject)
+      .on('end', () => resolve(hash.digest('base64')));
+  });
+}
+
+/**
+ * Clear the permissions this update is about to invalidate.
+ *
+ * Best effort on purpose: `tccutil` failing is not a reason to abandon an
+ * update that is already downloaded, verified and swapped in. The
+ * recorder detects and reports a stale grant on its own, so the worst
+ * case here is the state the user is in today.
+ */
+async function resetStaleGrants(): Promise<string[]> {
+  const cleared: string[] = [];
+  for (const service of ['ScreenCapture', 'Accessibility', 'ListenEvent']) {
+    try {
+      await run('tccutil', ['reset', service, 'com.kerf.editor'], 20_000);
+      cleared.push(service);
+    } catch { /* an absent row is not a failure */ }
+  }
+  return cleared;
+}
+
+export interface SideloadResult { ok: boolean; message: string; version?: string }
+
+/**
+ * Download the published zip, verify it, and swap this bundle for it.
+ *
+ * The old bundle is MOVED aside rather than deleted, and moved back if
+ * anything after that point fails. A half-replaced `/Applications/Kerf.app`
+ * is the one outcome worth extra code to avoid: it leaves the user with
+ * no working app and no obvious way back.
+ */
+async function sideloadUpdate(): Promise<SideloadResult> {
+  const bundle = bundlePath();
+  if (!bundle) return { ok: false, message: 'This is not a packaged macOS build, so there is nothing to replace.' };
+  if (!canSideload()) {
+    return { ok: false, message: `${path.dirname(bundle)} is not writable, so Kerf cannot replace itself there.` };
+  }
+
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'kerf-update-'));
+  const aside = `${bundle}.old-${Date.now()}`;
+  const cleanup = () => { try { fs.rmSync(work, { recursive: true, force: true }); } catch { /* temp */ } };
+
+  try {
+    const base = 'https://github.com/teminali/kerf/releases/latest/download';
+    const want = parseFeed(await fetchText(`${base}/latest-mac.yml`), process.arch);
+    publish({ state: 'downloading', version: want.version, percent: 0, bytesPerSecond: 0 });
+
+    const zip = path.join(work, want.name);
+    await download(`${base}/${encodeURIComponent(want.name)}`, zip,
+      (percent) => publish({ state: 'downloading', version: want.version, percent, bytesPerSecond: 0 }));
+
+    if (await sha512Of(zip) !== want.sha512) {
+      cleanup();
+      return { ok: false, message: 'The download did not match the checksum the release publishes, so it was thrown away.' };
+    }
+
+    /* `ditto -xk` rather than `unzip`: it is what preserves the bundle's
+       symlinks, extended attributes and executable bits. An app expanded
+       with `unzip` does not launch. */
+    const staged = path.join(work, 'staged');
+    fs.mkdirSync(staged);
+    await run('/usr/bin/ditto', ['-xk', zip, staged]);
+
+    const found = fs.readdirSync(staged).find((n) => n.endsWith('.app'));
+    if (!found) { cleanup(); return { ok: false, message: 'The download held no .app bundle.' }; }
+    const fresh = path.join(staged, found);
+    if (!fs.existsSync(path.join(fresh, 'Contents', 'MacOS'))) {
+      cleanup();
+      return { ok: false, message: 'The downloaded bundle is not shaped like an app.' };
+    }
+
+    fs.renameSync(bundle, aside);
+    try {
+      await run('/bin/cp', ['-R', fresh, bundle]);
+    } catch (err) {
+      try { fs.rmSync(bundle, { recursive: true, force: true }); } catch { /* nothing there */ }
+      fs.renameSync(aside, bundle);
+      cleanup();
+      return { ok: false, message: `The swap failed and the old version was put back. ${(err as Error).message}` };
+    }
+
+    fs.rmSync(aside, { recursive: true, force: true });
+    cleanup();
+
+    const cleared = await resetStaleGrants();
+    log.info('[updater] sideloaded', want.version, 'cleared:', cleared.join(', ') || 'none');
+    publish({ state: 'ready', version: want.version });
+
+    return {
+      ok: true,
+      version: want.version,
+      message:
+        `Kerf ${want.version} is installed. Screen recording and accessibility were cleared, `
+        + 'because an unsigned update always invalidates them, so macOS will ask again once Kerf restarts.',
+    };
+  } catch (err) {
+    try { if (fs.existsSync(aside) && !fs.existsSync(bundle)) fs.renameSync(aside, bundle); } catch { /* best effort */ }
+    cleanup();
+    return { ok: false, message: (err as Error).message };
+  }
+}
+
 let initialised = false;
 
 export function initAutoUpdater(window: BrowserWindow) {
@@ -100,7 +347,12 @@ export function initAutoUpdater(window: BrowserWindow) {
 
   autoUpdater.on('update-available', (info) => {
     if (!canSelfUpdate()) {
-      publish({ state: 'manual-only', version: info.version, url: RELEASES_URL });
+      publish({
+        state: 'manual-only',
+        version: info.version,
+        url: RELEASES_URL,
+        canSideload: canSideload(),
+      });
       return;
     }
     publish({ state: 'available', version: info.version, notes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined });
@@ -168,6 +420,29 @@ export function initAutoUpdater(window: BrowserWindow) {
   });
 
   ipcMain.handle('updater:openReleases', () => shell.openExternal(RELEASES_URL));
+
+  /**
+   * Do the update ourselves, on a build Squirrel will not update.
+   *
+   * Relaunching is the caller's move, not this one's: the renderer knows
+   * whether there is unsaved work and this does not, and applying an
+   * update under somebody's hands is the failure the whole flow is built
+   * to avoid.
+   */
+  ipcMain.handle('updater:sideload', async (): Promise<SideloadResult> => {
+    if (canSelfUpdate()) {
+      return { ok: false, message: 'This build can update itself; use Restart to update.' };
+    }
+    const result = await sideloadUpdate();
+    if (!result.ok) publish({ state: 'error', message: result.message });
+    return result;
+  });
+
+  ipcMain.handle('updater:relaunch', () => {
+    app.relaunch();
+    app.exit(0);
+    return true;
+  });
 
   /*
     Check shortly after launch rather than immediately: the first seconds

@@ -17,6 +17,12 @@ export interface Updater {
   check: () => void;
   install: () => void;
   openReleases: () => void;
+  /**
+   * Update in place on a build Squirrel refuses. Resolves once the new
+   * version is on disk; it does NOT relaunch.
+   */
+  sideload: () => Promise<{ ok: boolean; message: string; version?: string }>;
+  relaunch: () => void;
 }
 
 export function useUpdater(): Updater {
@@ -41,5 +47,23 @@ export function useUpdater(): Updater {
   const install = useCallback(() => { void api?.updater.install(); }, [api]);
   const openReleases = useCallback(() => { void api?.updater.openReleases(); }, [api]);
 
-  return { status, currentVersion, isDesktop: Boolean(api), check, install, openReleases };
+  /*
+    Sideload, then hand the restart back to the user.
+
+    Two steps rather than one, and the split is deliberate: the update is
+    already on disk once this resolves, so a user who is mid-edit can
+    finish and restart in their own time. Relaunching for them is the one
+    thing the whole update flow is written to avoid.
+  */
+  const sideload = useCallback(async () => {
+    if (!api) return { ok: false, message: 'Updating in place needs the desktop app.' };
+    return api.updater.sideload();
+  }, [api]);
+
+  const relaunch = useCallback(() => { void api?.updater.relaunch(); }, [api]);
+
+  return {
+    status, currentVersion, isDesktop: Boolean(api),
+    check, install, openReleases, sideload, relaunch,
+  };
 }
