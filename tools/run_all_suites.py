@@ -141,6 +141,10 @@ SUITES = [
     # registered here so it cannot quietly rot. It synthesises its own
     # take with ffmpeg and measures the result in pixels.
     'skills/tutorial/verify',
+    # The skill BUILDER's own verification. It writes a probe skill into
+    # userData, reads it back off disk and removes it, so it leaves
+    # nothing behind and needs no ffmpeg.
+    'skills/skill-builder/verify',
 ]
 
 # Suites that shell out to ffmpeg/ffprobe themselves. Named so that a

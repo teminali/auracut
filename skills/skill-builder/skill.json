@@ -1,0 +1,129 @@
+{
+  "_comment": [
+    "The third skill, and the odd one out: it does not build a video, it",
+    "builds a SKILL. Point it at a project you are happy with and it",
+    "interrogates you until that project has become something that can",
+    "make a different video.",
+    "",
+    "It is deliberately not a store skill. Nothing it produces is",
+    "uploaded, and what it produces lives under the user's own data",
+    "rather than inside the app bundle."
+  ],
+
+  "id": "skill-builder",
+  "name": "Skill builder",
+  "version": "1.0.0",
+  "summary": "Turns the open project into a reusable skill by working out what in it is structure and what is content, then asking for the material the skill needs to build something new.",
+
+  "toolApi": 1,
+
+  "requiresTools": [
+    "inspect_project_for_skill",
+    "create_skill",
+    "add_skill_asset",
+    "list_skills",
+    "describe_timeline"
+  ],
+
+  "_theOneIdea": [
+    "A skill is not a saved project, and every failed attempt at one",
+    "fails in the same direction: it rebuilds the video it was made",
+    "from. The difference is not the file format, it is whether the",
+    "CONTENT has been separated from the STRUCTURE.",
+    "",
+    "Structure is the thing worth keeping: the track stack, the cut",
+    "rhythm, the grade, where the captions sit, how the camera behaves.",
+    "Content is this footage, these words, this piece of music. A skill",
+    "keeps the structure and takes the content as an argument.",
+    "",
+    "So the builder's real job is an interrogation, not a conversion.",
+    "`inspect_project_for_skill` lists what is in the project and marks",
+    "what looks like content; the agent has to turn each of those into",
+    "either a SLOT the user fills in, or an ASSET the skill ships with,",
+    "and it has to ask, because only the author knows which."
+  ],
+
+  "trial": { "uses": 0 },
+  "_trial": [
+    "Not gated, and it never should be. Charging somebody to make their",
+    "own skill out of their own project would be charging them for the",
+    "app they already bought."
+  ],
+
+  "assets": [],
+  "_assets": [
+    "None. This skill's material is its method, which lives in GUIDE.md",
+    "and is read by the agent rather than placed on a timeline."
+  ],
+
+  "slots": [
+    {
+      "id": "purpose",
+      "kind": "string",
+      "required": true,
+      "description": "What the NEW skill should make, in one line, for somebody who has not seen this project. 'A 30-second product demo from a screen recording' is a purpose; 'like this video' is not."
+    },
+    {
+      "id": "skillId",
+      "kind": "string",
+      "required": false,
+      "description": "Folder name for the new skill: lowercase letters, digits and hyphens. Derived from the name when left blank."
+    },
+    {
+      "id": "keepAssets",
+      "kind": "boolean",
+      "required": false,
+      "default": true,
+      "description": "Copy the project's recurring material (music beds, logos, LUTs) into the skill so it carries them. Turn off when every asset should be supplied per run."
+    }
+  ],
+
+  "recipe": [
+    { "tool": "inspect_project_for_skill", "args": {} },
+    {
+      "tool": "create_skill",
+      "args": {
+        "summary": "{slot:purpose}",
+        "id": "{slot:skillId}"
+      }
+    }
+  ],
+  "_recipe": [
+    "Two steps and a conversation between them, and the conversation is",
+    "the part that matters. The recipe cannot express 'now ask the user",
+    "which of these eleven assets are the subject', so GUIDE.md does,",
+    "and the agent is expected to read it. A recipe that ran straight",
+    "through without asking would produce exactly the thing this skill",
+    "exists to prevent."
+  ],
+
+  "verify": "verify.py",
+  "_verify": [
+    "It checks the one property that makes the output a skill rather",
+    "than a saved project: that a manifest with no slots is REFUSED,",
+    "that a manifest with slots is written to disk where the app can",
+    "read it back, and that a declared asset which is not on disk is",
+    "reported as missing rather than passing quietly.",
+    "",
+    "It cannot check that the slots are the RIGHT ones. Nothing can;",
+    "that is the author's judgement and the reason this skill is an",
+    "interrogation instead of a converter."
+  ],
+
+  "provenance": {
+    "author": "kerf",
+    "builtWith": "Kerf 1.4.3",
+    "builtAt": "2026-08-28",
+    "verifiedOn": "macOS arm64"
+  },
+
+  "_notInHereYet": [
+    "There is no skill RUNNER. `recipe` is a specification and nothing",
+    "in Kerf executes it — the Tutorial skill runs through its own tool,",
+    "not through its recipe. So a skill built here is a specification",
+    "plus its material, which an agent reads and carries out step by",
+    "step with the tools the recipe names. Building the runner is the",
+    "next piece, and faking it would have produced skills that look",
+    "finished and do nothing."
+  ]
+}

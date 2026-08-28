@@ -54,6 +54,7 @@ import {
   LOOK_PRESETS, getLookPreset, lookPresetIds, applyLookToClips,
 } from '../engine/lookPresets';
 import { selectClips, runBatchApply } from '../engine/batchApply';
+import { BUNDLED_SKILLS } from '../services/bundledSkills';
 import {
   PIP_CORNERS, PIP_FIT_MODE, computePipGeometry, buildPipPatch,
 } from '../engine/pictureInPicture';
@@ -5507,6 +5508,225 @@ defineTool({
         'ducking, the render sidechains per sample; the preview measures the key bus once ' +
         'per frame. Same threshold and ratio, coarser envelope',
       ],
+    };
+  },
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   BUILDING A SKILL OUT OF A PROJECT
+
+   The gap these close, stated plainly because it is the reason they
+   exist: an agent can read a project in detail and could not turn one
+   into anything reusable. There was no tool that wrote a skill, and the
+   skills that ship are inlined at BUILD time, so anything written while
+   the app is running would have been invisible to it anyway.
+
+   What is still missing after these, and is deliberately not faked: a
+   RUNNER. `recipe` is declarative and nothing executes it; the one
+   bundled skill is invoked through its own tool. So a skill built here
+   is a specification plus its material, which an agent can read and
+   carry out step by step. Pretending otherwise would produce skills
+   that look finished and do nothing.
+   ═══════════════════════════════════════════════════════════════════ */
+
+defineTool({
+  name: 'inspect_project_for_skill',
+  category: 'ai',
+  description:
+    'Read the open project the way a skill AUTHOR needs to see it: what is structure and what is '
+    + 'content. Returns the tracks and their roles, every media asset with where it is used, the '
+    + 'text actually written on screen, the effects and looks in play, and the project settings. '
+    + 'Use this FIRST when turning a project into a skill. It is the input to deciding which '
+    + 'parts must become slots, because anything listed here as content is something the next '
+    + 'person will need to replace.',
+  schema: z.object({}),
+  handler: () => {
+    const state = timeline();
+    const settings = project().project;
+
+    const assets = state.mediaPool.map((asset) => {
+      const usedBy = state.tracks.flatMap((t) =>
+        t.clips.filter((c) => c.mediaUrl === asset.url).map((c) => ({ track: t.name, clip: c.name }))
+      );
+      return {
+        id: asset.id,
+        name: asset.name,
+        type: asset.type,
+        durationMs: asset.durationMs,
+        dimensions: asset.width && asset.height ? `${asset.width}x${asset.height}` : null,
+        usedBy,
+        /* The judgement the author has to make, surfaced rather than
+           left implicit: an asset used once is usually the SUBJECT and
+           has to become a slot; one used throughout is usually part of
+           the look and can stay. */
+        likelyRole: usedBy.length === 0 ? 'unused'
+          : usedBy.length === 1 ? 'subject, probably a slot'
+            : 'recurring, probably part of the look',
+      };
+    });
+
+    const text = state.tracks.flatMap((t) =>
+      t.clips
+        .filter((c) => c.type === 'text' && c.textStyle?.text)
+        .map((c) => ({ track: t.name, clip: c.name, text: c.textStyle!.text, atMs: c.startTimeMs }))
+    );
+
+    const effects = [...new Set(state.tracks.flatMap((t) =>
+      t.clips.flatMap((c) => (c.effects ?? []).map((e) => e.type))
+    ))];
+
+    return {
+      project: {
+        name: settings.name,
+        aspectRatio: settings.aspectRatio,
+        size: `${settings.width}x${settings.height}`,
+        fps: settings.fps,
+        durationMs: settings.durationMs,
+      },
+      tracks: state.tracks.map((t) => ({
+        name: t.name,
+        type: t.type,
+        clips: t.clips.length,
+        keyframes: t.clips.reduce((n, c) => n + (c.keyframes?.length ?? 0), 0),
+      })),
+      assets,
+      onScreenText: text,
+      effects,
+      markers: state.markers?.length ?? 0,
+      /*
+        Said in the payload rather than only in the docs, because this is
+        the mistake the whole feature exists to prevent and the agent
+        reads this before it reads anything else.
+      */
+      authoringNote:
+        'A skill is not a saved project. Everything above that is CONTENT: this footage, these '
+        + 'words, this music. It has to become a slot or a shipped asset, or the skill will only '
+        + 'ever rebuild this one video. Ask the user for the material the skill needs to build '
+        + 'something ELSE before writing the manifest.',
+    };
+  },
+});
+
+defineTool({
+  name: 'create_skill',
+  category: 'ai',
+  description:
+    'Write a new skill to disk from a manifest you compose. The skill is stored under the user\'s '
+    + 'own data, listed on the Skills screen, and never uploaded anywhere. It is REFUSED unless it '
+    + 'has slots, because a skill with no slots can only rebuild the project it came from. Call '
+    + 'inspect_project_for_skill first, then ask the user for the assets and choices the skill '
+    + 'needs to make something new, then call this.',
+  schema: z.object({
+    id: z.string().describe('Lowercase letters, digits and hyphens. Becomes the folder name.'),
+    name: z.string(),
+    summary: z.string().describe('One line: what this skill MAKES, not what it is made of.'),
+    version: z.string().optional(),
+    slots: z.array(z.object({
+      id: z.string(),
+      kind: z.string().describe('folder, file, string, number, boolean, colour or enum'),
+      required: z.boolean().optional(),
+      default: z.unknown().optional(),
+      options: z.array(z.string()).optional().describe('Required when kind is enum, or it is a free text field that fails on the fifth character.'),
+      description: z.string(),
+    })).describe('The inputs that must change for this skill to build something else.'),
+    recipe: z.array(z.object({
+      tool: z.string(),
+      args: z.record(z.unknown()),
+    })).describe('The steps, in the only order that can work. Reference a slot as {slot:id}.'),
+    requiresTools: z.array(z.string()).optional(),
+    assets: z.array(z.object({
+      id: z.string(),
+      file: z.string().describe('Path inside the skill folder, e.g. assets/bed.mp3'),
+      kind: z.string(),
+      description: z.string().optional(),
+    })).optional().describe('Material the skill ships with. Add the files with add_skill_asset.'),
+    guide: z.string().optional().describe('Markdown the agent reads before running it: what good output looks like, and what to refuse.'),
+  }),
+  handler: async (args) => {
+    const api = (window as any).electronAPI;
+    if (!api?.userSkills) throw new Error('Building a skill needs the desktop app.');
+    const result = await api.userSkills.write(args);
+    if (!result.ok) {
+      throw new Error(
+        `That manifest is not a skill yet:\n- ${result.problems.join('\n- ')}`
+      );
+    }
+    return {
+      created: result.manifest.id,
+      folder: result.dir,
+      slots: result.manifest.slots.length,
+      steps: result.manifest.recipe.length,
+      assetsDeclared: result.manifest.assets.length,
+      next: result.manifest.assets.length > 0
+        ? 'Declared assets are not on disk yet. Call add_skill_asset for each one.'
+        : 'No assets declared. If the skill needs material of its own, add it now.',
+    };
+  },
+});
+
+defineTool({
+  name: 'add_skill_asset',
+  category: 'ai',
+  description:
+    'Copy a file into a skill\'s own folder so the skill carries its material. Copied rather than '
+    + 'referenced on purpose: a skill that points at a file on the Desktop stops working the first '
+    + 'time that file moves, and it stops working silently at run time.',
+  schema: z.object({
+    skillId: z.string(),
+    source: z.string().describe('Absolute path or file:// URL of the file to copy in.'),
+    as: z.string().optional().describe('Name to store it under. Defaults to the source file name.'),
+  }),
+  handler: async ({ skillId, source, as }) => {
+    const api = (window as any).electronAPI;
+    if (!api?.userSkills) throw new Error('Building a skill needs the desktop app.');
+    const result = await api.userSkills.addAsset(skillId, source, as);
+    if (!result.ok) throw new Error(result.error);
+    return { skillId, file: result.file, bytes: result.bytes };
+  },
+});
+
+defineTool({
+  name: 'delete_skill',
+  category: 'ai',
+  description:
+    'Remove a skill built on this machine, and everything in its folder. Only reaches skills the '
+    + 'user built; the ones bundled with Kerf are part of the app and cannot be deleted.',
+  schema: z.object({ id: z.string() }),
+  handler: async ({ id }) => {
+    const api = (window as any).electronAPI;
+    if (!api?.userSkills) throw new Error('Managing skills needs the desktop app.');
+    const result = await api.userSkills.remove(id);
+    if (!result.ok) throw new Error(result.error ?? 'Could not remove it.');
+    return { removed: id };
+  },
+});
+
+defineTool({
+  name: 'list_skills',
+  category: 'discovery',
+  description:
+    'Every skill available here: the ones bundled with Kerf and the ones built on this machine, '
+    + 'with their slots and whether their assets are actually on disk.',
+  schema: z.object({}),
+  handler: async () => {
+    const api = (window as any).electronAPI;
+    const mine = api?.userSkills ? await api.userSkills.list() : [];
+    return {
+      bundled: BUNDLED_SKILLS.map((s) => ({
+        id: s.id, name: s.name, summary: s.summary, slots: s.slots.length, verified: s.verified,
+      })),
+      built: mine.map((s: { manifest: Record<string, unknown>; assetsMissing: string[]; dir: string }) => ({
+        id: s.manifest.id,
+        name: s.manifest.name,
+        summary: s.manifest.summary,
+        slots: (s.manifest.slots as unknown[]).length,
+        steps: (s.manifest.recipe as unknown[]).length,
+        assetsMissing: s.assetsMissing,
+        folder: s.dir,
+      })),
+      note:
+        'Kerf has no skill RUNNER yet: `recipe` is a specification, not something the app '
+        + 'executes. Carry the steps out with the tools they name.',
     };
   },
 });

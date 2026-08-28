@@ -18,6 +18,7 @@ import { ffmpegSource } from './mediaPath';
 import { execFile } from 'child_process';
 import { startRpcServer } from './rpcServer';
 import { initScreenRecorder, shutdownScreenRecorder } from './screenRecorder';
+import { initUserSkills } from './userSkills';
 import { initSkillTrials } from './skillTrials';
 import { initCrashLog, logEvent, crashLogPath } from './crashLog';
 import {
@@ -532,6 +533,7 @@ app.whenReady().then(() => {
     session — and the recorder would hide a window nobody is looking at.
   */
   initScreenRecorder(() => mainWindow);
+  initUserSkills();
   initSkillTrials();
   // Only once the port is actually ours — see rpcServer's listen callback.
   startRpcServer(() => writeMcpConfig());
