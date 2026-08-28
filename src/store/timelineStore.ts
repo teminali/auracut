@@ -458,6 +458,15 @@ export interface ImportCaptionOptions {
   offsetMs?: number;
   style?: Partial<ClipTextStyle>;
   replaceExisting?: boolean;
+  /**
+   * Vertical offset from the centre of the canvas, in canvas pixels.
+   *
+   * Defaults to 380, which is what this always used. It is a constant
+   * and the canvas is not: 380 is 73% of the way down a 1662-tall
+   * sequence and 91% of the way down an 800-tall one, so a caller that
+   * knows the frame height should compute it. The tutorial skill does.
+   */
+  y?: number;
 }
 
 export type MotionPresetId =
@@ -2705,7 +2714,10 @@ export const useTimelineStore = create<TimelineStore>()(
               startTimeMs: start,
               durationMs: duration,
               sourceDurationMs: duration,
-              transform: { y: 380, x: cue.align ? alignToTransformX[cue.align] : 0 },
+              transform: {
+                y: options.y ?? 380,
+                x: cue.align ? alignToTransformX[cue.align] : 0,
+              },
               textStyle: {
                 ...options.style,
                 text: cue.text,

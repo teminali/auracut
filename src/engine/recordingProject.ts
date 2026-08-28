@@ -69,6 +69,7 @@ import {
   addCameraMotion, cameraCanFillFrame, CAMERA_TAKEOVER_MS,
 } from './cinematicLook';
 import { prepareSoundKit, placeSoundDesign, SoundOptions, DEFAULT_SOUND } from './recordingSound';
+import { reflowCues, balanceLines } from './captions';
 import { formatFileSize } from '../utils/time';
 
 /* ── Speech ─────────────────────────────────────────────────────── */
@@ -129,33 +130,132 @@ export interface AssembleOptions {
 }
 
 /**
- * Captions in Inter Bold, on a chip.
+ * Captions on a chip, sized and weighted to be read rather than noticed.
  *
  * A stroke is what Kerf's default caption style uses and it is the right
  * choice over footage. Over a SCREEN it is not: screen content is mostly
  * flat light greys with thin dark type, and an outlined white caption
  * sitting on it competes with the text underneath. A solid chip
  * separates the two planes, which is what every tutorial that is
- * readable does.
+ * readable does. That part has not changed.
+ *
+ * ── What did change, and why ──────────────────────────────────────
+ *
+ * The first version was Inter BOLD at 46 on a near-opaque black slab
+ * with a 12px radius, and every one of those numbers was slightly too
+ * much. Looked at on a real build rather than in the source, it read as
+ * a social-video caption pasted over a screen recording: heavier than
+ * the interface it sits on, and louder than the narration it is
+ * transcribing.
+ *
+ *   · **600, not 700.** Semibold holds up against light screen content
+ *     at this size and stops the caption out-weighing the UI underneath,
+ *     which bold did.
+ *   · **42, not 46.** Subtitles are read in a glance and then ignored;
+ *     the size that achieves that is the smallest one that is
+ *     comfortable, not the largest one that fits.
+ *   · **0.72 opacity, not 0.82.** Enough separation to read against
+ *     anything, little enough that the picture still shows through.
+ *   · **A 30px radius against 46 of padding.** The old 12 was visually
+ *     square at this canvas size, which is the detail that made it look
+ *     stuck on rather than part of the film.
+ *   · **A soft shadow.** Nothing dramatic: it lifts the chip off the
+ *     picture so the edge is not doing all the work.
+ *   · **Positive tracking and more leading.** -0.2 tightened a face
+ *     that is already tight; two-line captions need the room.
+ *
+ * The single biggest change is not in here at all: captions are WRAPPED
+ * now. See `balanceLines`.
  */
 export const CAPTION_STYLE: Partial<ClipTextStyle> = {
   fontFamily: 'Inter',
-  fontWeight: 700,
-  fontSize: 46,
-  color: '#ffffff',
+  fontWeight: 600,
+  fontSize: 42,
+  /* Off-white rather than #fff. Pure white against a dark chip is the
+     highest-contrast pairing there is and it buzzes at the edges; a
+     couple of percent down reads as clean instead of harsh. */
+  color: '#F5F6F8',
   strokeWidth: 0,
-  shadowBlur: 0,
-  shadowOffsetY: 0,
-  shadowColor: 'rgba(0,0,0,0)',
-  background: 'rgba(8,10,14,0.82)',
-  backgroundPadding: 22,
-  backgroundRadius: 12,
+  shadowColor: 'rgba(0,0,0,0.38)',
+  shadowBlur: 24,
+  shadowOffsetY: 3,
+  background: 'rgba(11,13,17,0.72)',
+  backgroundPadding: 46,
+  backgroundRadius: 30,
   align: 'center',
-  letterSpacing: -0.2,
-  lineHeight: 1.25,
+  letterSpacing: 0.1,
+  lineHeight: 1.38,
   uppercase: false,
   kineticAnimation: 'none',
 };
+
+/**
+ * How long a caption line may get before it is broken in two.
+ *
+ * Broadcast practice is about 42. This is a little under, because the
+ * chip's padding is generous and the line has to fit inside a picture
+ * that is itself inset in the frame.
+ */
+export const CAPTION_MAX_CHARS = 38;
+
+/**
+ * Where the caption sits, as a fraction of frame height.
+ *
+ * A FRACTION, because the canvas is cut to the recorded display's own
+ * aspect ratio and is therefore a different height on every take.
+ * `importCaptions` defaults to a flat `y: 380`, which is 73% of the way
+ * down a 1662-tall canvas and 91% of the way down an 800-tall one: the
+ * same constant is a reasonable subtitle position on one machine and
+ * hanging off the bottom edge on another.
+ *
+ * 0.82 keeps it inside the inset picture, below the content and clear
+ * of the frame edge, which is where a subtitle is looked for. Measured
+ * rather than chosen: a two-line chip is about 6.3% of frame height, so
+ * 0.845 put its lower edge 1.2% from the picture's own bottom edge,
+ * which reads as falling out of the frame. 0.82 leaves about 3.7%.
+ */
+export const CAPTION_BASELINE = 0.82;
+
+/**
+ * The frame height `CAPTION_STYLE`'s numbers were chosen against.
+ *
+ * They are canvas PIXELS, and the canvas is cut to the recorded
+ * display's aspect ratio, so they only mean what they were meant to
+ * mean at one height. Measured on a 2560x1662 build; on an 800-tall
+ * sequence the very same style is a two-line chip 26% of the frame
+ * high, which is a caption that has eaten the picture.
+ *
+ * Caught by `verify.py`, not by looking: the camera-takeover check
+ * measures how much of the frame is the camera and went from 92% to
+ * 88% when captions were made two-line, because the chip was covering
+ * the face. The threshold was not the problem.
+ */
+export const CAPTION_REFERENCE_HEIGHT = 1662;
+
+/**
+ * `CAPTION_STYLE`, scaled to the frame it will actually be drawn in.
+ *
+ * Everything that is a length scales together — type size, the chip's
+ * padding and corner radius, the shadow — because scaling only the type
+ * is what produces a small caption swimming in a large chip.
+ */
+export function captionStyleFor(
+  frameHeight: number,
+  base: Partial<ClipTextStyle> = CAPTION_STYLE
+): Partial<ClipTextStyle> {
+  const k = Math.max(0.35, frameHeight / CAPTION_REFERENCE_HEIGHT);
+  const scale = (n: number | undefined, min: number) =>
+    n === undefined ? undefined : Math.max(min, Math.round(n * k));
+
+  return {
+    ...base,
+    fontSize: scale(base.fontSize, 12)!,
+    backgroundPadding: scale(base.backgroundPadding, 6)!,
+    backgroundRadius: scale(base.backgroundRadius, 4)!,
+    shadowBlur: scale(base.shadowBlur, 0)!,
+    shadowOffsetY: scale(base.shadowOffsetY, 0)!,
+  };
+}
 
 /** Lay the take down and stop. */
 export const RAW_ASSEMBLE: AssembleOptions = {
@@ -1078,15 +1178,36 @@ export async function assembleRecording(
 
   let captionLines = 0;
   if (captionTrack) {
-    captionLines = store().importCaptions(
+    /*
+      Wrapped before they are placed, which nothing did before.
+
+      Whisper is asked for segments of up to 70 characters, and 70
+      characters at this size is a line the width of the whole frame:
+      the eye has to travel the picture to read it and loses the shot.
+      `reflowCues` first, so anything that cannot fit two lines becomes
+      consecutive cues rather than a wall of text; then `balanceLines`,
+      so what remains breaks into two lines of similar length instead of
+      a long one with two words under it.
+    */
+    const wrapped = reflowCues(
       o.speech.map((cue, index) => ({
         index: index + 1,
         startMs: cue.startMs,
         endMs: cue.endMs,
         text: cue.text,
       })),
-      { trackId: captionTrack, style: o.captionStyle, replaceExisting: true }
-    );
+      CAPTION_MAX_CHARS * 2
+    ).map((cue) => ({ ...cue, text: balanceLines(cue.text, CAPTION_MAX_CHARS) }));
+
+    captionLines = store().importCaptions(wrapped, {
+      trackId: captionTrack,
+      /* Scaled to THIS canvas. See captionStyleFor: the style's numbers
+         are pixels, and the canvas height comes out of the take. */
+      style: captionStyleFor(settings.height, o.captionStyle),
+      replaceExisting: true,
+      /* From the frame height, not a constant. See CAPTION_BASELINE. */
+      y: Math.round(settings.height * (CAPTION_BASELINE - 0.5)),
+    });
   }
 
   /* ── 9. Opening and closing ─────────────────────────────────────── */

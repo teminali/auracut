@@ -431,6 +431,46 @@ export function reflowCues(cues: CaptionCue[], maxChars = 42): CaptionCue[] {
   return out.map((c, i) => ({ ...c, index: i + 1 }));
 }
 
+/**
+ * Break one caption into at most two balanced lines.
+ *
+ * Subtitles are read in a glance, and the thing that ruins that is line
+ * length: a caption running the width of the frame makes the eye
+ * traverse the whole picture and lose the shot. Broadcast practice is
+ * roughly 42 characters a line and never more than two lines, and it is
+ * practice for a reason.
+ *
+ * BALANCED rather than greedy. Filling the first line to the limit and
+ * dropping the remainder onto the second produces the shape everybody
+ * recognises as amateur: a long line with two words under it. Splitting
+ * at the word boundary closest to the middle gives two lines of similar
+ * length, which is what reads as typeset rather than wrapped.
+ *
+ * Longer than two lines is not wrapped here: `reflowCues` splits it into
+ * consecutive cues first, because four lines on screen is a wall of
+ * text however it is broken.
+ */
+export function balanceLines(text: string, maxChars = 40): string {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  if (flat.length <= maxChars) return flat;
+
+  const words = flat.split(' ');
+  if (words.length < 2) return flat;
+
+  /* The break that leaves the two halves closest in length. Measured on
+     the joined strings rather than on word counts, because one long word
+     is worth several short ones to the eye. */
+  let bestAt = 1;
+  let bestCost = Infinity;
+  for (let at = 1; at < words.length; at += 1) {
+    const first = words.slice(0, at).join(' ').length;
+    const second = words.slice(at).join(' ').length;
+    const cost = Math.abs(first - second);
+    if (cost < bestCost) { bestCost = cost; bestAt = at; }
+  }
+  return `${words.slice(0, bestAt).join(' ')}\n${words.slice(bestAt).join(' ')}`;
+}
+
 /** Shift every cue by `offsetMs` (sync fix for out-of-step subtitle files). */
 export function shiftCues(cues: CaptionCue[], offsetMs: number): CaptionCue[] {
   return cues.map((c) => ({
