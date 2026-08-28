@@ -24,6 +24,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { parseFeed } from '../src/services/updateFeed';
 
 /*
   `electronUpdater.autoUpdater` is a LAZY GETTER: touching it constructs a
@@ -172,27 +173,6 @@ async function fetchText(url: string): Promise<string> {
  * one more thing that can fail at launch. If the shape ever changes this
  * throws naming what it could not read, rather than half-matching.
  */
-function parseFeed(yaml: string, arch: string): { name: string; sha512: string; version: string } {
-  const version = /^version:\s*(.+)$/m.exec(yaml)?.[1]?.trim();
-  if (!version) throw new Error('latest-mac.yml has no version line.');
-
-  const entries = [...yaml.matchAll(/-\s+url:\s*(\S+)[\s\S]*?sha512:\s*(\S+)/g)]
-    .map((m) => ({ name: decodeURIComponent(m[1]), sha512: m[2] }));
-  if (entries.length === 0) throw new Error('latest-mac.yml lists no files.');
-
-  /* A zip, for this architecture: it is the artifact that can be
-     extracted without mounting anything. electron-builder names the
-     Intel one without an arch and the Apple Silicon one with it. */
-  const zips = entries.filter((e) => e.name.endsWith('.zip'));
-  const wanted = arch === 'arm64'
-    ? zips.find((e) => e.name.includes('arm64'))
-    : zips.find((e) => !e.name.includes('arm64'));
-  if (!wanted) {
-    throw new Error(`latest-mac.yml has no ${arch} zip; saw ${zips.map((z) => z.name).join(', ') || 'none'}`);
-  }
-  return { ...wanted, version };
-}
-
 async function download(url: string, to: string, onPercent: (p: number) => void): Promise<void> {
   const res = await fetch(url, { redirect: 'follow' });
   if (!res.ok || !res.body) throw new Error(`${url} answered ${res.status}`);
@@ -228,6 +208,27 @@ function sha512Of(file: string): Promise<string> {
  * recorder detects and reports a stale grant on its own, so the worst
  * case here is the state the user is in today.
  */
+/**
+ * Remove a tree that may contain an asar archive.
+ *
+ * `fs.rmSync(…, { recursive: true })` cannot do it inside Electron. The
+ * asar integration makes `app.asar` stat as a directory so that reads
+ * inside it resolve, which means a recursive walk descends into it and
+ * then calls `rmdir` on what is really a file: `ENOTDIR`. `noAsar` is
+ * the documented way to ask for the unpatched behaviour, and it is
+ * restored afterwards rather than set once, because leaving it on would
+ * break every later read of the app's own resources.
+ */
+function rmTree(target: string): void {
+  const patched = process.noAsar;
+  process.noAsar = true;
+  try {
+    fs.rmSync(target, { recursive: true, force: true });
+  } finally {
+    process.noAsar = patched;
+  }
+}
+
 async function resetStaleGrants(): Promise<string[]> {
   const cleared: string[] = [];
   for (const service of ['ScreenCapture', 'Accessibility', 'ListenEvent']) {
@@ -258,7 +259,7 @@ async function sideloadUpdate(): Promise<SideloadResult> {
 
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'kerf-update-'));
   const aside = `${bundle}.old-${Date.now()}`;
-  const cleanup = () => { try { fs.rmSync(work, { recursive: true, force: true }); } catch { /* temp */ } };
+  const cleanup = () => { try { rmTree(work); } catch { /* temp */ } };
 
   try {
     const base = 'https://github.com/teminali/kerf/releases/latest/download';
@@ -293,13 +294,43 @@ async function sideloadUpdate(): Promise<SideloadResult> {
     try {
       await run('/bin/cp', ['-R', fresh, bundle]);
     } catch (err) {
-      try { fs.rmSync(bundle, { recursive: true, force: true }); } catch { /* nothing there */ }
+      try { rmTree(bundle); } catch { /* nothing there */ }
       fs.renameSync(aside, bundle);
       cleanup();
       return { ok: false, message: `The swap failed and the old version was put back. ${(err as Error).message}` };
     }
 
-    fs.rmSync(aside, { recursive: true, force: true });
+    /*
+      The new bundle is IN PLACE from here on, so nothing below may
+      fail the update.
+
+      This line used to be a plain `fs.rmSync(aside, {recursive:true})`
+      and it threw every single time:
+
+          ENOTDIR: not a directory, rmdir
+          '/Applications/Kerf.app.old-…/Contents/Resources/app.asar'
+
+      Electron patches `fs` so an asar archive reads as a DIRECTORY —
+      that is what makes `require` work inside it — so a recursive
+      remove walks into `app.asar` and then `rmdir`s a file. `rmTree`
+      turns the patch off for the duration.
+
+      The throw landed in the outer catch, which correctly declined to
+      roll back (the new bundle exists) and then returned ok: false. So
+      a completely successful update reported failure, and the two lines
+      below never ran: the user was told to try again while already on
+      the new version, and `resetStaleGrants` — the entire reason this
+      function is safe to offer — was skipped, leaving screen recording
+      and accessibility silently revoked with both switches still ON.
+
+      Found by running it. It cannot be caught any other way: it needs a
+      real packaged build replacing a real packaged build.
+    */
+    try {
+      rmTree(aside);
+    } catch (err) {
+      log.warn('[updater] the old bundle could not be removed:', (err as Error).message);
+    }
     cleanup();
 
     const cleared = await resetStaleGrants();

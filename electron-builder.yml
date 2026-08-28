@@ -105,6 +105,30 @@ mac:
       arch: [arm64, x64]
     - target: zip
       arch: [arm64, x64]
+  #
+  # Every artifact says which platform AND which architecture it is.
+  #
+  # The default naming was `Kerf-1.5.0-arm64-mac.zip` for Apple Silicon
+  # and `Kerf-1.5.0-mac.zip` for INTEL, so the Intel build was the one
+  # that read as "the Mac one" and was the one an Apple Silicon user
+  # would reach for. Verified with `lipo -archs` on the binaries rather
+  # than trusted from the filenames, because the filenames were the
+  # thing that was wrong.
+  #
+  # The arch token is `${arch}` and stays a literal `arm64` / `x64` on
+  # purpose, rather than reading `AppleSilicon` / `Intel`:
+  # `parseFeed` in electron/updater.ts picks the zip to sideload by
+  # looking for the substring `arm64`, and that code is BAKED INTO
+  # EVERY COPY ALREADY INSTALLED. Fixing the parser here only helps
+  # future releases. Ship zips without an `arm64` token and every
+  # installed Intel client takes "the zip that is not arm64", which
+  # would now be the Apple Silicon one, and installs the wrong
+  # architecture without saying anything.
+  #
+  # The plain-English mapping lives on the release page instead, which
+  # is where somebody actually chooses a download. See the `prepare`
+  # job in .github/workflows/release.yml.
+  artifactName: ${productName}-${version}-macOS-${arch}.${ext}
   darkModeSupport: true
   hardenedRuntime: true
   # macOS refuses a camera or microphone to a hardened-runtime app whose
@@ -137,7 +161,14 @@ mac:
   # signature when it does not — which is enough to run locally.
 
 dmg:
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  artifactName: ${productName}-${version}-macOS-${arch}.${ext}
+  # The MOUNTED VOLUME says the architecture too. The default title is
+  # `${productName} ${version}`, which electron-builder suffixes with the
+  # arch only for arm64 — so the Intel disk mounted as plain "Kerf 1.6.0"
+  # and read as the ordinary one, which is the same asymmetry the file
+  # names had. With both mounted at once they were "Kerf 1.6.0-arm64" and
+  # "Kerf 1.6.0".
+  title: ${productName} ${version} ${arch}
   # No `contents:` override. A `type: file` entry with no `path` makes
   # electron-builder try to stage the project directory itself and fail
   # with "not a file"; the default layout is already app-left,
@@ -148,7 +179,11 @@ win:
   target:
     - target: nsis
       arch: [x64]
-  artifactName: ${productName}-Setup-${version}.${ext}
+  # Windows has one target today. The architecture is in the name anyway,
+  # because "no arch means x64" is a convention that stops being true the
+  # day an arm64 target is added, and renaming artifacts later is the
+  # thing that breaks updaters.
+  artifactName: ${productName}-Setup-${version}-Windows-${arch}.${ext}
 
 nsis:
   # A per-user install needs no elevation, which is also what lets the
@@ -166,4 +201,8 @@ linux:
     - target: AppImage
       arch: [x64]
   category: AudioVideo
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  # `${arch}` renders `x86_64` here rather than `x64`, which is what
+  # AppImage itself uses and what a Linux user expects to see. The
+  # inconsistency with the Windows name is deliberate: each platform is
+  # spelled the way that platform spells it.
+  artifactName: ${productName}-${version}-Linux-${arch}.${ext}

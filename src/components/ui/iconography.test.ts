@@ -81,6 +81,37 @@ function stripComments(t: string): string {
     .replace(/^[ \t]*\/\/.*$/gm, '');
 }
 
+describe('reachability', () => {
+  /*
+    The update affordance has to exist on every screen the app can OPEN
+    on, and it did not.
+
+    `UpdateIndicator` was mounted only in `HeaderBar`, which belongs to
+    the editor. Kerf opens on the home screen. So a real 1.5.0 install
+    that had already detected 1.6.0 and logged
+    `{"state":"manual-only","canSideload":true}` presented nothing
+    anywhere on screen: the user had to open a project to find out an
+    update existed. Found by shipping 1.6.0 and looking at what the
+    installed copy actually showed.
+
+    A source-level check rather than a rendered one on purpose: the
+    component renders null unless an update is pending, so a test that
+    drove the UI would need an update to exist to see anything, and this
+    is the invariant that broke.
+  */
+  const TOP_LEVEL_HEADERS = [
+    'src/components/header/HeaderBar.tsx',
+    'src/components/home/HomeTopBar.tsx',
+  ];
+
+  it('offers the update indicator from both the editor and the home screen', () => {
+    const missing = TOP_LEVEL_HEADERS.filter(
+      (f) => !readFileSync(f, 'utf8').includes('<UpdateIndicator')
+    );
+    expect(missing).toEqual([]);
+  });
+});
+
 describe('copy', () => {
   it('uses no em dashes in anything the user or the agent reads', () => {
     /*

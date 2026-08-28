@@ -54,6 +54,45 @@ jobs:
             gh release create "$tag" --title "${tag#v}" --generate-notes
           fi
 
+          # ── Say which download is which, in words ──────────────────
+          #
+          # The artifact NAMES carry `arm64` / `x64` and deliberately do
+          # not spell out "Apple Silicon" and "Intel": `parseFeed` in
+          # electron/updater.ts selects the zip to sideload by matching
+          # an architecture token, and that code is already baked into
+          # every installed copy, so the tokens cannot change without
+          # mis-targeting clients that exist today. See the comment
+          # beside `artifactName` in electron-builder.yml.
+          #
+          # A person choosing a download reads this page, not the raw
+          # filename, so the plain-English mapping lives here. Prepended
+          # to the generated notes rather than replacing them.
+          version="${tag#v}"
+          guide=$(cat <<EOF
+          ### Which download?
+
+          | You have | Download |
+          |---|---|
+          | A Mac with Apple silicon (M1 and later) | \`Kerf-${version}-macOS-arm64.dmg\` |
+          | A Mac with an Intel processor | \`Kerf-${version}-macOS-x64.dmg\` |
+          | Windows | \`Kerf-Setup-${version}-Windows-x64.exe\` |
+          | Linux | \`Kerf-${version}-Linux-x86_64.AppImage\` |
+
+          Not sure which Mac you have: Apple menu -> About This Mac. The
+          \`-mac.zip\` files are what the in-app updater downloads; you do
+          not need them.
+
+          ---
+
+          EOF
+          )
+          # `sed` strips the heredoc's indentation, which is only there to
+          # keep this readable inside the YAML block.
+          guide=$(printf '%s\n' "$guide" | sed 's/^          //')
+          body=$(gh release view "$tag" --json body -q .body)
+          printf '%s\n%s\n' "$guide" "$body" > /tmp/notes.md
+          gh release edit "$tag" --notes-file /tmp/notes.md
+
   build:
     needs: prepare
     strategy:

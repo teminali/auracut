@@ -24,6 +24,7 @@ import { useClaudeAgentStore } from '../../store/claudeAgentStore';
 import { useAccountStore } from '../../store/accountStore';
 import { useUiStore } from '../../store/uiStore';
 import { SignInDialog } from './SignInDialog';
+import { UpdateIndicator } from '../header/UpdateIndicator';
 import { Keyboard, Settings, LogOut } from '../ui/icons';
 
 interface Props {
@@ -63,6 +64,19 @@ export const HomeTopBar: React.FC<Props> = ({ onOpenAgentPicker }) => {
       <div className="flex-1" />
 
       <div className="flex items-center gap-1.5">
+        {/*
+          Here as well as in the editor's HeaderBar, and it was missing.
+
+          `UpdateIndicator` was mounted only in `HeaderBar`, which is the
+          EDITOR's header. Kerf opens on the home screen and somebody
+          between projects sits here, so a build that had detected an
+          update and could install it showed nothing at all: measured on
+          a real 1.5.0 install that had already logged
+          `{"state":"manual-only","version":"1.6.0","canSideload":true}`
+          and offered the user no way to act on it anywhere on screen.
+        */}
+        <UpdateIndicator />
+
         <button
           onClick={onOpenAgentPicker}
           className="pro-btn h-[28px] pl-2 pr-2.5 gap-1.5 text-ui-sm rounded-full"
