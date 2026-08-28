@@ -125,6 +125,136 @@ and every one of these was invisible there:
 On the real take, before: `introductionMs 0`. After: **24.0s**, camera
 takes the frame, two zooms dropped from under it.
 
+### THE NEXT JOB — a cinematic frame, skills that update themselves, and the banner
+
+Three asks, handed over deliberately rather than started. The second one
+is not what it looks like; read that part before planning.
+
+---
+
+#### 1. The mockup border: an advanced cinematic frame, neon optional, clean
+
+**Where it lives.** `applyScreenLook` in `src/engine/cinematicLook.ts`,
+driven by `LookOptions`. Today the entire frame treatment is: a rounded
+rectangle mask (`roundness` = `cornerPct` % of canvas height), a
+vignette on the clip's filter stack, and a soft shadow cast by the
+mask's own outline. That is all of it.
+
+**The blocker, and it is a real one.** `ClipMask` in `src/types/edl.ts`
+carries `roundness`, `featherPx` and `shadow`, and **no stroke**. There
+is no border on a mask to colour, widen or make glow. So a neon edge is
+a NEW CAPABILITY, not a parameter you can reach from the skill.
+
+Two routes, and the obvious one is probably wrong:
+
+* **Extend `ClipMask` with a stroke** — `{ color, widthPx, glowPx }`,
+  drawn by the same path in `compositor.ts` that already draws the mask
+  shadow. That path knows the rounded outline, which is exactly what has
+  to be lit. Most control, and it composes with every existing mask
+  type, not just the tutorial's rectangle.
+* **The `glow` effect** already in `effectsRegistry.ts` is a clip-wide
+  bloom. It will light the CONTENT and not the EDGE, which is a
+  different picture from the one being asked for. Check it before
+  assuming, but expect to want the first route.
+
+**Two things to decide before writing any of it.**
+
+* **This is a DEPARTURE from the reference, not a correction.** HANDOVER
+  §7c measured the reference video and the whole look came from it: a
+  plain rounded inset on a light backdrop, no edge treatment. Somebody
+  who finds a neon border later and checks it against §7c will "fix" it
+  back unless the divergence is written down where they will look.
+* **It has to be a slot with a vocabulary, defaulting to off or
+  barely-there.** `kind: enum` with `options`, the way `backdrop` is. A
+  neon frame is a strong opinion and the skill's other opinions are all
+  measured ones; make it choosable rather than imposed.
+
+**What it must not break.** `skills/tutorial/verify.py` asserts the
+backdrop is visible at the frame edges, and `tools/verify_stream.py`
+asserts the outermost 6px are backdrop. A glow that bleeds outward will
+trip both, correctly. Either keep the light inside the inset or update
+the checks deliberately and say why.
+
+---
+
+#### 2. Skills that update without updating the app — and the wall in front of it
+
+**The wall.** A bundled skill's LOGIC is application code. The Tutorial
+skill runs through `build_tutorial_from_recording`, a tool compiled into
+the renderer; `skills/tutorial/skill.json` describes slots, defaults and
+prose. Ship a new manifest and you change what the skill ASKS FOR and
+nothing about what it DOES.
+
+So the ask splits in two, and they are not the same size:
+
+* **(a) Manifest updates, independently — achievable now.**
+  `src/services/bundledSkills.ts` inlines every `skills/*/skill.json` at
+  BUILD time through `import.meta.glob`, for the reason written at the
+  top of that file: `files:` in electron-builder.yml ships `dist`,
+  `dist-electron` and package.json, so a manifest that exists only in a
+  checkout is one the shipped app has never seen. The fix is an OVERRIDE
+  LAYER: `electron/userSkills.ts` already reads manifests from
+  `userData/skills/<id>/` at runtime, so a downloaded newer version of a
+  bundled skill can win over the inlined copy by id and `version`.
+* **(b) Behaviour updates — needs THE RUNNER**, which is still item 1 of
+  the list below. Until `recipe` can be executed, a skill cannot change
+  what it does without an app release. Building (a) and calling it
+  "skills update themselves" would be the same shape of overclaim as a
+  fake runner: it looks finished and does a quarter of the job.
+
+**Recommendation: decide which one is being promised before building
+either.** If it is (a), the UI has to say a skill update can change
+settings and not behaviour, or the first time somebody updates a skill
+expecting a fix they will file a bug against the wrong thing.
+
+**Groundwork that already exists.** `version` and `toolApi` are in both
+shipped manifests and round-trip through `create_skill` since §7j;
+`list_skills` already merges bundled and built; the skill-builder suite
+is 20 checks over the validator. Version ordering is solved —
+`compare()` in `src/components/home/VersionFooter.tsx`, with tests —
+and should be lifted into a shared module rather than written twice.
+
+**Open decision: where do skill updates come from?** The store Worker in
+`server/` (HANDOVER §13) already has the tables and an account model,
+which is the only place entitlements could ever live. A per-skill GitHub
+release is less work and cannot express who bought what. Pick one; the
+answer decides the whole shape.
+
+---
+
+#### 3. The banner should promote skill updates too
+
+`src/components/home/UpdateBanner.tsx` is the card, and it deliberately
+reuses the unsaved-work card's shape. **Generalise it, do not fork it:**
+give it a kind (`app` | `skill`) rather than copying the component,
+because two cards that are meant to look identical stop being identical
+about a month after the second one is written.
+
+It already keys its dismissal on the version it is announcing, which is
+the behaviour a per-skill banner needs too.
+
+`iconography.test.ts` asserts the invariant that every screen the app
+can open on offers a route to a waiting update. If skills get an
+announcement, that check is where it belongs as well.
+
+---
+
+### Also still open, from the streaming work
+
+Both were named rather than approximated, and both need the same thing:
+
+* **A delay buffer of a few seconds.** It buys the two parts of the
+  tutorial grammar that cannot be live because they need to know the
+  future: the camera taking the frame over a PAUSE (a pause is not a
+  pause until it ends) and the closing pull-back (defined against the
+  end of the film).
+* **Live captions.** `whisper-stream` is installed and is the route: a
+  small model live, the good model plus the spell-check pass for the
+  edit. That is the "imperfect live, high quality afterwards" shape the
+  streaming work was asked for and did not finish.
+
+---
+
 ### DONE — the Tutorial skill through the skill builder
 
 The record is HANDOVER **§7j** (what the builder got wrong) and **§7l**
