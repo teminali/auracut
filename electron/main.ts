@@ -31,6 +31,11 @@ import {
   installBackend, signInCommand, BackendId, setStoredKey, clearReadinessCache,
   modelsFor, setModel,
 } from './agentBackends';
+import {
+  permissionResetStateFile,
+  preparePermissionsForBuild,
+  resetTccService,
+} from '../src/services/permissionReset';
 
 /*
   This file is bundled to CommonJS (`main.cjs`), so `__dirname` is native
@@ -519,7 +524,45 @@ function registerCrashIpc(): void {
   ipcMain.handle('crash:logPath', () => crashLogPath());
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  /*
+    An ad-hoc signature gives every release a different TCC identity even
+    though the bundle id stays put. Do this before screen-recorder setup,
+    and do it on EVERY changed build rather than in the updater process:
+    a manual reopen, a reboot and a rollback are all equally valid ways
+    to arrive here. The durable state advances only when all resets work.
+
+    This specifically avoids Electron's `app.relaunch()` ancestry. macOS
+    rejected v1.8.0's reset because the relaunched updater process still
+    carried a responsible audit token for a process that no longer
+    existed. A fresh LaunchServices/Finder launch has a valid chain.
+  */
+  const permissionReset = process.platform === 'darwin' && app.isPackaged
+    ? await preparePermissionsForBuild({
+      file: permissionResetStateFile(app.getPath('userData')),
+      version: app.getVersion(),
+      bundleId: 'com.kerf.editor',
+      reset: resetTccService,
+    })
+    : null;
+
+  if (permissionReset?.needed) {
+    if (permissionReset.ok) {
+      logEvent(
+        'main',
+        'info',
+        `prepared ${app.getVersion()}: ${permissionReset.cleared.join(', ')}`
+      );
+    } else {
+      logEvent(
+        'main',
+        'error',
+        `reset remains pending for ${app.getVersion()}`,
+        permissionReset.failures
+      );
+    }
+  }
+
   /*
     Land on a backend that can answer. Defaulting blindly to Claude meant
     a user without it — or with it unauthenticated — got an error on
@@ -544,6 +587,25 @@ app.whenReady().then(() => {
   // Only once the port is actually ours — see rpcServer's listen callback.
   startRpcServer(() => writeMcpConfig());
   createWindow();
+
+  if (permissionReset && !permissionReset.ok && mainWindow) {
+    const failures = permissionReset.failures
+      .map(({ service, message }) => `${service}: ${message}`)
+      .join('\n');
+    mainWindow.once('ready-to-show', () => {
+      if (!mainWindow) return;
+      void dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Kerf could not refresh macOS permissions',
+        message: 'Screen recording permissions still need to be refreshed.',
+        detail:
+          `${failures}\n\nKerf will retry automatically on every fresh launch. `
+          + 'You can also run “tccutil reset ScreenCapture com.kerf.editor” in Terminal, '
+          + 'then close and reopen Kerf.',
+        buttons: ['OK'],
+      });
+    });
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

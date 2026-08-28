@@ -13,7 +13,7 @@ import { useUpdater } from '../../hooks/useUpdater';
 import { Download, RefreshCw, ExternalLink, AlertTriangle } from '../ui/icons';
 
 export const UpdateIndicator: React.FC = () => {
-  const { status, install, openReleases, sideload, relaunch } = useUpdater();
+  const { status, install, openReleases, sideload, quitForUpdate } = useUpdater();
   const [busy, setBusy] = React.useState(false);
   const [done, setDone] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
@@ -36,13 +36,13 @@ export const UpdateIndicator: React.FC = () => {
   if (done) {
     return (
       <button
-        onClick={relaunch}
+        onClick={quitForUpdate}
         className="btn-primary h-[26px] px-2.5 gap-1.5 text-ui-xs"
         title={done}
         aria-label={done}
       >
         <RefreshCw className="w-3 h-3" />
-        Restart to finish
+        Quit to finish
       </button>
     );
   }

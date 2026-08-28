@@ -24,7 +24,7 @@ export interface Updater {
   sideload: (version?: string) => Promise<{ ok: boolean; message: string; version?: string }>;
   /** The releases this build could switch to, newest first. */
   releases: (limit?: number) => Promise<ReleaseOption[]>;
-  relaunch: () => void;
+  quitForUpdate: () => void;
 }
 
 export function useUpdater(): Updater {
@@ -68,10 +68,10 @@ export function useUpdater(): Updater {
     return api.updater.sideload(version);
   }, [api]);
 
-  const relaunch = useCallback(() => { void api?.updater.relaunch(); }, [api]);
+  const quitForUpdate = useCallback(() => { void api?.updater.quitForUpdate(); }, [api]);
 
   return {
     status, currentVersion, isDesktop: Boolean(api),
-    check, install, openReleases, sideload, releases, relaunch,
+    check, install, openReleases, sideload, releases, quitForUpdate,
   };
 }

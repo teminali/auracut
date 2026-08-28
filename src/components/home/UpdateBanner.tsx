@@ -30,7 +30,7 @@ export const UpdateBanner: React.FC<{
 );
 
 const AppUpdateBanner: React.FC = () => {
-  const { status, sideload, relaunch, openReleases } = useUpdater();
+  const { status, sideload, quitForUpdate, openReleases } = useUpdater();
   const [busy, setBusy] = React.useState(false);
   const [ready, setReady] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
@@ -57,8 +57,8 @@ const AppUpdateBanner: React.FC = () => {
         icon={RefreshCw}
         title="Update installed"
         body={ready}
-        actionLabel="Restart Kerf"
-        onAction={relaunch}
+        actionLabel="Quit Kerf"
+        onAction={quitForUpdate}
       />
     );
   }

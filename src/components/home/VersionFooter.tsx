@@ -43,7 +43,7 @@ const CONFIRMATION_MS = 4000;
 const ROLLBACK_CHOICES = 3;
 
 export const VersionFooter: React.FC = () => {
-  const { status, currentVersion, isDesktop, check, sideload, releases, relaunch } = useUpdater();
+  const { status, currentVersion, isDesktop, check, sideload, releases, quitForUpdate } = useUpdater();
 
   const [open, setOpen] = React.useState(false);
   const [confirmed, setConfirmed] = React.useState(false);
@@ -193,7 +193,7 @@ export const VersionFooter: React.FC = () => {
               {/*
                 Confirmed in place rather than done on the first click.
                 This replaces the running application with an older one
-                and clears the screen-recording grant on the way, which
+                and schedules the screen-recording grant to be refreshed on next launch, which
                 is not something to do because a menu was misread.
               */}
               {confirming === release.version && (
@@ -224,10 +224,10 @@ export const VersionFooter: React.FC = () => {
                 </p>
                 {result.ok && (
                   <button
-                    onClick={relaunch}
+                    onClick={quitForUpdate}
                     className="pro-btn-filled w-full h-[26px] mt-2 text-ui-xs"
                   >
-                    Restart Kerf
+                    Quit Kerf
                   </button>
                 )}
               </div>

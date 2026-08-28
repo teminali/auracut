@@ -455,7 +455,7 @@ export interface KerfElectronAPI {
     /** The releases this build could switch to, newest first. */
     releases: (limit?: number) => Promise<
       { ok: true; releases: ReleaseOption[] } | { ok: false; error: string }>;
-    relaunch: () => Promise<boolean>;
+    quitForUpdate: () => Promise<boolean>;
     onStatus: (cb: (status: UpdateStatus) => void) => () => void;
   };
 }

@@ -25,6 +25,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { parseFeed } from '../src/services/updateFeed';
+import {
+  markPermissionResetPending,
+  permissionResetStateFile,
+} from '../src/services/permissionReset';
 
 /*
   `electronUpdater.autoUpdater` is a LAZY GETTER: touching it constructs a
@@ -115,9 +119,12 @@ function canSelfUpdate(): boolean {
    for, and shipping an update button without handling it would hand the
    user a button that quietly breaks the recorder every time they press it.
 
-   So the grants are cleared as PART of the update, before the relaunch.
-   The user is asked once, which is honest and actionable. A signed build
-   never reaches this path.
+   So the update records a durable reset obligation BEFORE replacing the
+   bundle. The next packaged launch clears the grants before the recorder
+   starts. That launch may come from the button, Finder, a reboot, or a
+   rollback; correctness no longer depends on Electron successfully
+   relaunching a bundle that changed underneath it. A signed build never
+   reaches this path.
    ═══════════════════════════════════════════════════════════════════ */
 
 /** The app bundle root, or null when this is not a packaged macOS app. */
@@ -201,14 +208,6 @@ function sha512Of(file: string): Promise<string> {
 }
 
 /**
- * Clear the permissions this update is about to invalidate.
- *
- * Best effort on purpose: `tccutil` failing is not a reason to abandon an
- * update that is already downloaded, verified and swapped in. The
- * recorder detects and reports a stale grant on its own, so the worst
- * case here is the state the user is in today.
- */
-/**
  * Remove a tree that may contain an asar archive.
  *
  * `fs.rmSync(…, { recursive: true })` cannot do it inside Electron. The
@@ -227,17 +226,6 @@ function rmTree(target: string): void {
   } finally {
     process.noAsar = patched;
   }
-}
-
-async function resetStaleGrants(): Promise<string[]> {
-  const cleared: string[] = [];
-  for (const service of ['ScreenCapture', 'Accessibility', 'ListenEvent']) {
-    try {
-      await run('tccutil', ['reset', service, 'com.kerf.editor'], 20_000);
-      cleared.push(service);
-    } catch { /* an absent row is not a failure */ }
-  }
-  return cleared;
 }
 
 export interface SideloadResult { ok: boolean; message: string; version?: string }
@@ -355,6 +343,17 @@ async function sideloadUpdate(version?: string): Promise<SideloadResult> {
       return { ok: false, message: 'The downloaded bundle is not shaped like an app.' };
     }
 
+    /*
+      This write is part of the safety boundary, not bookkeeping. If it
+      fails, leave the running bundle alone: replacing an unsigned build
+      without a durable reset obligation recreates the stale-on-switch
+      state this updater exists to prevent.
+    */
+    markPermissionResetPending(
+      permissionResetStateFile(app.getPath('userData')),
+      want.version
+    );
+
     fs.renameSync(bundle, aside);
     try {
       await run('/bin/cp', ['-R', fresh, bundle]);
@@ -384,9 +383,9 @@ async function sideloadUpdate(version?: string): Promise<SideloadResult> {
       roll back (the new bundle exists) and then returned ok: false. So
       a completely successful update reported failure, and the two lines
       below never ran: the user was told to try again while already on
-      the new version, and `resetStaleGrants` — the entire reason this
-      function is safe to offer — was skipped, leaving screen recording
-      and accessibility silently revoked with both switches still ON.
+      the new version. The reset obligation is now persisted BEFORE the
+      swap, so cleanup can no longer skip the one fact the next launch
+      needs in order to repair TCC.
 
       Found by running it. It cannot be caught any other way: it needs a
       real packaged build replacing a real packaged build.
@@ -398,16 +397,15 @@ async function sideloadUpdate(version?: string): Promise<SideloadResult> {
     }
     cleanup();
 
-    const cleared = await resetStaleGrants();
-    log.info('[updater] sideloaded', want.version, 'cleared:', cleared.join(', ') || 'none');
+    log.info('[updater] sideloaded', want.version, 'permission reset pending on next launch');
     publish({ state: 'ready', version: want.version });
 
     return {
       ok: true,
       version: want.version,
       message:
-        `Kerf ${want.version} is installed. Screen recording and accessibility were cleared, `
-        + 'because an unsigned update always invalidates them, so macOS will ask again once Kerf restarts.',
+        `Kerf ${want.version} is installed. Close and reopen Kerf when you are ready; `
+        + 'macOS permissions will be refreshed automatically on that launch.',
     };
   } catch (err) {
     try { if (fs.existsSync(aside) && !fs.existsSync(bundle)) fs.renameSync(aside, bundle); } catch { /* best effort */ }
@@ -548,8 +546,10 @@ export function initAutoUpdater(window: BrowserWindow) {
     }
   });
 
-  ipcMain.handle('updater:relaunch', () => {
-    app.relaunch();
+  ipcMain.handle('updater:quitForUpdate', () => {
+    log.info('[updater] quit requested after sideload; reopen through macOS to finish');
+    // `app.quit()` can be cancelled by the editor's close-to-home guard.
+    // This button explicitly says Quit, so finish the process reliably.
     app.exit(0);
     return true;
   });

@@ -285,17 +285,15 @@ export interface ElectronAPI {
      * Do the update WITHOUT Squirrel, on an unsigned macOS build.
      *
      * Downloads the published zip, checks it against the SHA-512 in the
-     * feed, swaps the bundle, and clears the screen-recording and
-     * accessibility grants — which an unsigned update always invalidates
-     * whether or not anybody clears them. Does not relaunch; that is
-     * `relaunch`, so the caller can save first.
+     * feed, swaps the bundle, and records a durable permission reset for
+     * the next launch. Does not quit; the caller can save first.
      */
     sideload: (version?: string) => Promise<{ ok: boolean; message: string; version?: string }>;
     releases: (limit?: number) => Promise<
       { ok: true; releases: { version: string; tag: string; publishedAt: string; current: boolean }[] }
       | { ok: false; error: string }>;
-    /** Quit and come straight back up. */
-    relaunch: () => Promise<boolean>;
+    /** Quit after an unsigned in-place update. The user reopens normally. */
+    quitForUpdate: () => Promise<boolean>;
     /** Subscribe to state changes; returns an unsubscribe function. */
     onStatus: (cb: (status: UpdateStatus) => void) => () => void;
   };
@@ -475,7 +473,7 @@ const api: ElectronAPI = {
     openReleases: () => ipcRenderer.invoke('updater:openReleases'),
     sideload: (version?: string) => ipcRenderer.invoke('updater:sideload', { version }),
     releases: (limit?: number) => ipcRenderer.invoke('updater:releases', { limit }),
-    relaunch: () => ipcRenderer.invoke('updater:relaunch'),
+    quitForUpdate: () => ipcRenderer.invoke('updater:quitForUpdate'),
     onStatus: (cb) => {
       const handler = (_e: unknown, status: UpdateStatus) => cb(status);
       ipcRenderer.on('updater:status', handler);

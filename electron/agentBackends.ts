@@ -35,6 +35,11 @@ import { app } from 'electron';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import {
+  agentBinDirectories,
+  binaryCandidatePaths,
+  npmGlobalBinDirectory,
+} from '../src/services/agentPlatform';
 
 export type BackendId = 'claude' | 'gemini' | 'codex' | 'cursor';
 
@@ -114,6 +119,8 @@ export interface AgentBackend {
   /** Bare binary name, for the login-shell lookup. */
   bin: string;
   installHint: string;
+  /** npm package used for a shell-free Windows install. */
+  installPackage?: string;
   /**
    * Whether this adapter's streamed output has been verified against a
    * real run. An unverified adapter still works — it just falls back to
@@ -232,16 +239,15 @@ const home = os.homedir();
   paths for FINDING a binary; `agentPath` hands them to the binary once
   found — a different problem with the same cause.
 */
-const BIN_DIRS = [
-  '/opt/homebrew/bin',
-  '/usr/local/bin',
-  path.join(home, '.local', 'bin'),
-  path.join(home, '.bun', 'bin'),
-  path.join(home, '.cargo', 'bin'),
-];
+const BIN_DIRS = agentBinDirectories({ platform: process.platform, home, env: process.env });
+const discoveredBinDirs: string[] = [];
 
 function bins(name: string): string[] {
-  return BIN_DIRS.map((dir) => path.join(dir, name));
+  return binaryCandidatePaths(
+    [...BIN_DIRS, ...discoveredBinDirs],
+    name,
+    process.platform
+  );
 }
 
 let agentPathCache: string | null = null;
@@ -269,19 +275,21 @@ export function agentPath(): string {
 
   const sources: string[] = [];
 
-  try {
-    const shell = process.env.SHELL || '/bin/zsh';
-    const out = execFileSync(shell, ['-lic', 'printf %s "$PATH"'], {
-      encoding: 'utf8',
-      timeout: 8000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    if (out.trim()) sources.push(out.trim());
-  } catch {
-    /* no login shell available — the known directories below still stand */
+  if (process.platform !== 'win32') {
+    try {
+      const shell = process.env.SHELL || '/bin/zsh';
+      const out = execFileSync(shell, ['-lic', 'printf %s "$PATH"'], {
+        encoding: 'utf8',
+        timeout: 8000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      if (out.trim()) sources.push(out.trim());
+    } catch {
+      /* no login shell available — the known directories below still stand */
+    }
   }
 
-  sources.push(BIN_DIRS.join(path.delimiter));
+  sources.push([...BIN_DIRS, ...discoveredBinDirs].join(path.delimiter));
   if (process.env.PATH) sources.push(process.env.PATH);
 
   const seen = new Set<string>();
@@ -324,6 +332,7 @@ const claude: AgentBackend = {
   bin: 'claude',
   candidates: () => [...bins('claude'), path.join(home, '.claude', 'local', 'claude')],
   installHint: 'npm i -g @anthropic-ai/claude-code',
+  installPackage: '@anthropic-ai/claude-code',
   streamVerified: true,
 
   prepare: (mcp, sessionDir) => {
@@ -386,6 +395,7 @@ const gemini: AgentBackend = {
   bin: 'gemini',
   candidates: () => bins('gemini'),
   installHint: 'npm i -g @google/gemini-cli',
+  installPackage: '@google/gemini-cli',
   // The flags are documented by `gemini --help`; the stream-json shape
   // has not been seen on a real run here, so the text fallback carries it.
   streamVerified: false,
@@ -480,6 +490,7 @@ const codex: AgentBackend = {
   bin: 'codex',
   candidates: () => bins('codex'),
   installHint: 'npm i -g @openai/codex',
+  installPackage: '@openai/codex',
   // Confirmed against a real run: it called describe_timeline over MCP
   // and answered from the live project.
   streamVerified: true,
@@ -854,6 +865,41 @@ function pickString(source: Record<string, unknown>, key: string): string | null
 
 /* ── Detection ──────────────────────────────────────────────────── */
 
+function powershellShimRunner(): string {
+  const file = path.join(app.getPath('userData'), 'agent-command-runner.ps1');
+  if (!fs.existsSync(file)) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(
+      file,
+      'param([string]$Target)\n& $Target @args\nexit $LASTEXITCODE\n',
+      'utf8'
+    );
+  }
+  return file;
+}
+
+/**
+ * npm installs `.cmd` shims on Windows. Node cannot execute those files
+ * directly, and routing arbitrary agent prompts through `cmd /c` would turn
+ * shell metacharacters in the prompt into commands. A fixed PowerShell file
+ * receives every argument as an argv value and invokes the shim without
+ * interpolating user text into a command string.
+ */
+function executableInvocation(bin: string, args: string[]): { file: string; args: string[] } {
+  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin)) {
+    return {
+      file: process.env.SystemRoot
+        ? path.join(process.env.SystemRoot, 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+        : 'powershell.exe',
+      args: [
+        '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-File', powershellShimRunner(), bin, ...args,
+      ],
+    };
+  }
+  return { file: bin, args };
+}
+
 function run(
   bin: string,
   args: string[],
@@ -861,7 +907,8 @@ function run(
 ): Promise<{ ok: boolean; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     const env = { ...process.env, PATH: agentPath() } as NodeJS.ProcessEnv;
-    execFile(bin, args, { timeout, maxBuffer: 1024 * 1024, env }, (err, stdout, stderr) => {
+    const invocation = executableInvocation(bin, args);
+    execFile(invocation.file, invocation.args, { timeout, maxBuffer: 1024 * 1024, env }, (err, stdout, stderr) => {
       resolve({ ok: !err, stdout: stdout ?? '', stderr: stderr ?? '' });
     });
   });
@@ -888,7 +935,10 @@ export function findBackendBinary(backend: AgentBackend): string | null {
 
   for (const candidate of backend.candidates()) {
     try {
-      fs.accessSync(candidate, fs.constants.X_OK);
+      fs.accessSync(
+        candidate,
+        process.platform === 'win32' ? fs.constants.F_OK : fs.constants.X_OK
+      );
       pathCache.set(backend.id, candidate);
       return candidate;
     } catch {
@@ -897,12 +947,18 @@ export function findBackendBinary(backend: AgentBackend): string | null {
   }
 
   try {
-    const shell = process.env.SHELL || '/bin/zsh';
-    const found = execFileSync(shell, ['-lic', `command -v ${backend.bin}`], {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim().split('\n').pop();
+    const found = process.platform === 'win32'
+      ? execFileSync('where.exe', [backend.bin], {
+        encoding: 'utf8',
+        timeout: 5000,
+        env: { ...process.env, PATH: agentPath() },
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim().split(/\r?\n/)[0]
+      : execFileSync(process.env.SHELL || '/bin/zsh', ['-lic', `command -v ${backend.bin}`], {
+        encoding: 'utf8',
+        timeout: 5000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim().split('\n').pop();
 
     if (found && fs.existsSync(found)) {
       pathCache.set(backend.id, found);
@@ -1078,7 +1134,39 @@ export async function modelsFor(id: BackendId): Promise<ModelOptions> {
 /** Forget probe results — used after installing or storing a key. */
 export function clearReadinessCache(): void {
   readinessCache.clear();
+  pathCache.clear();
+  versionCache.clear();
   shellEnv = null;
+  agentPathCache = null;
+}
+
+function findNpmExecutable(): string | null {
+  for (const candidate of bins('npm')) {
+    try {
+      fs.accessSync(candidate, fs.constants.F_OK);
+      return candidate;
+    } catch {
+      /* keep looking */
+    }
+  }
+
+  try {
+    if (process.platform === 'win32') {
+      return execFileSync('where.exe', ['npm'], {
+        encoding: 'utf8',
+        timeout: 5000,
+        env: { ...process.env, PATH: agentPath() },
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim().split(/\r?\n/)[0] || null;
+    }
+    return execFileSync(process.env.SHELL || '/bin/zsh', ['-lic', 'command -v npm'], {
+      encoding: 'utf8',
+      timeout: 5000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim().split('\n').pop() || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function installBackend(
@@ -1090,22 +1178,67 @@ export async function installBackend(
 
   onProgress(`Running: ${backend.installHint}`);
 
-  const shell = process.env.SHELL || '/bin/zsh';
+  if (process.platform === 'win32' && !backend.installPackage) {
+    return {
+      ok: false,
+      message: `${backend.label} does not provide an automatic Windows installer here yet. ${backend.installHint}`,
+    };
+  }
+
+  const npm = process.platform === 'win32' ? findNpmExecutable() : null;
+  if (process.platform === 'win32' && !npm) {
+    return {
+      ok: false,
+      message: 'Node.js/npm was not found. Install Node.js, reopen Kerf, then try again.',
+    };
+  }
+
   const result = await new Promise<{ ok: boolean; out: string }>((resolve) => {
+    const invocation = process.platform === 'win32'
+      ? executableInvocation(npm!, ['install', '--global', backend.installPackage!])
+      : {
+        file: process.env.SHELL || (process.platform === 'darwin' ? '/bin/zsh' : '/bin/sh'),
+        args: ['-lic', backend.installHint],
+      };
     const child = execFile(
-      shell,
-      ['-lic', backend.installHint],
-      { timeout: 600_000, maxBuffer: 1024 * 1024 * 8 },
-      (err, stdout, stderr) => resolve({ ok: !err, out: `${stdout}${stderr}` })
+      invocation.file,
+      invocation.args,
+      {
+        timeout: 600_000,
+        maxBuffer: 1024 * 1024 * 8,
+        env: { ...process.env, PATH: agentPath() },
+      },
+      (err, stdout, stderr) => resolve({
+        ok: !err,
+        out: `${stdout ?? ''}${stderr ?? ''}`,
+      })
     );
     child.stdout?.on('data', (chunk: Buffer | string) => onProgress(String(chunk).trim()));
     child.stderr?.on('data', (chunk: Buffer | string) => onProgress(String(chunk).trim()));
   });
 
+  if (!result.ok) {
+    return {
+      ok: false,
+      message:
+        `Could not install ${backend.label}. `
+        + `Last output:\n${result.out.trim().slice(-600) || 'The installer did not start.'}`,
+    };
+  }
+
+  if (npm) {
+    const prefix = await run(npm, ['prefix', '--global'], 8000);
+    if (prefix.ok && prefix.stdout.trim()) {
+      const binDir = npmGlobalBinDirectory(prefix.stdout.trim().split(/\r?\n/).pop()!, process.platform);
+      if (!discoveredBinDirs.includes(binDir)) discoveredBinDirs.push(binDir);
+    }
+  }
+
   // Detection is cached, and the whole point is that it just changed.
   pathCache.delete(id);
   versionCache.delete(id);
   readinessCache.delete(id);
+  agentPathCache = null;
 
   const found = findBackendBinary(backend);
   if (!found) {
