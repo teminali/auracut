@@ -2442,6 +2442,101 @@ the build itself was perfectly fine. 20 minutes now.
 
 ---
 
+## 7m. Shipping 1.6.0, and what updating to it found
+
+The auto-update path had never been exercised against a real release.
+Doing it found three things, in rising order of how badly they read.
+
+**The update worked and reported failure.** Sideloading 1.6.0 onto the
+installed 1.5.0 returned
+
+```
+ENOTDIR: not a directory, rmdir
+'/Applications/Kerf.app.old-…/Contents/Resources/app.asar'
+```
+
+while `/Applications/Kerf.app` was already, correctly, 1.6.0. Electron
+patches `fs` so an asar archive stats as a DIRECTORY — that is what
+makes `require` work inside it — so `fs.rmSync(recursive)` walks into
+`app.asar` and calls `rmdir` on a file. That line runs AFTER the swap,
+so the throw landed in the outer catch, which correctly declined to roll
+back and then returned `ok: false`.
+
+What that costs, worst first: `resetStaleGrants` never ran, so screen
+recording and accessibility were left silently revoked with both
+switches still ON, which is the precise failure §7i exists to prevent;
+the user is told to retry an update they already have; and 38MB is left
+in /Applications. `rmTree` sets `process.noAsar` for the duration, and
+nothing after the swap can fail the update any more.
+
+Reproduced twice, deterministically, on 1.5.0→1.6.0 and 1.6.0→1.6.1.
+**The fix cannot be proven by the release that carries it**, because the
+RUNNING version performs the update: 1.6.1 is the first build whose own
+cleanup is correct, so the proof is the 1.6.1→1.6.2 update.
+
+**The update was invisible where the app opens.** `UpdateIndicator` was
+mounted only in `HeaderBar`, the EDITOR's header. Kerf opens on the home
+screen. A 1.5.0 install that had already logged
+`{"state":"manual-only","version":"1.6.0","canSideload":true}` offered
+nothing anywhere until you opened a project. It is in `HomeTopBar` now,
+with a source check that both headers carry it, verified to go red
+against the previous revision.
+
+**Relaunching straight after quitting is flaky.** Twice, `open -a
+/Applications/Kerf.app` within a second or two of an AppleScript quit
+produced no process and no log line at all — not the §9 environment
+trap, since the same command works on a second attempt. Treated as a
+LaunchServices race with a still-terminating app. If an agent sees a
+launch produce nothing, try it again before investigating anything.
+
+---
+
+## 7n. Artifact names, and why the arch token cannot be a word
+
+Verified with `lipo -archs` on the binaries and on Electron Framework,
+inside both mounted DMGs and both extracted zips, because the file names
+were the thing under suspicion.
+
+electron-builder's defaults gave `Kerf-1.5.0-arm64-mac.zip` for Apple
+Silicon and **`Kerf-1.5.0-mac.zip` for Intel**, so the Intel build was
+the one that read as "the Mac one" and was the one an Apple Silicon user
+would reach for. Windows and Linux carried no architecture at all, which
+is fine while each has one target and wrong the day either gains arm64.
+Now `-macOS-arm64` / `-macOS-x64`, `-Windows-x64`, `-Linux-x86_64`,
+across dmg, zip, exe and AppImage, plus the mounted DMG volume title,
+which had the same asymmetry (`Kerf 1.6.0-arm64` against a plain
+`Kerf 1.6.0`).
+
+**The token stays `arm64` / `x64` and must not become `AppleSilicon` /
+`Intel`, and this is the part to read before renaming anything again.**
+`parseFeed` picks the zip to sideload by matching an architecture
+substring, and that code is baked into every copy already installed.
+Fixing the parser helps future releases only. Ship zips with no `arm64`
+token and every installed Intel client takes "the zip that is not
+arm64" — now the Apple Silicon one — and installs the wrong
+architecture: a real download, a matching checksum, a clean install, and
+an app that cannot launch. Proven the other way before shipping: the OLD
+parser resolves the NEW names correctly for both architectures.
+
+There is no way around it in config. `TargetConfiguration` in
+electron-builder's schema accepts `arch` and `target` and nothing else,
+so per-arch `artifactName` does not exist, and there is no macro for the
+words. Producing them needs either a per-arch mac job — which makes each
+run regenerate `latest-mac.yml` holding only its own files, breaking
+updates for the other architecture — or a post-build rename that
+rewrites the feed by hand. The plain-English mapping is on the release
+page instead, prepended to the generated notes by `prepare`, which is
+where somebody actually chooses a download.
+
+`parseFeed` moved to `src/services/updateFeed.ts` so it can be tested
+without an app, for the reason `trialPolicy.ts` lives there: it is the
+one decision in the updater that does not fail loudly when it is wrong.
+12 tests, including the exact rename that would have caused the silent
+mis-target, and the old spellings a client may still meet in an older
+feed.
+
+---
+
 ## 8. Product hardening — mostly not started
 
 The roadmap in §5 is about capability. This is about being software

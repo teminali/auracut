@@ -78,9 +78,9 @@ jobs:
           | Windows | \`Kerf-Setup-${version}-Windows-x64.exe\` |
           | Linux | \`Kerf-${version}-Linux-x86_64.AppImage\` |
 
-          Not sure which Mac you have: Apple menu -> About This Mac. The
-          \`-mac.zip\` files are what the in-app updater downloads; you do
-          not need them.
+          Not sure which Mac you have: Apple menu -> About This Mac.
+          The \`.zip\` files are what the in-app updater downloads; you
+          do not need them.
 
           ---
 
