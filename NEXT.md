@@ -125,29 +125,49 @@ and every one of these was invisible there:
 On the real take, before: `introductionMs 0`. After: **24.0s**, camera
 takes the frame, two zooms dropped from under it.
 
-### THE NEXT JOB — `get_frame_context` lies when the editor is not mounted
+### THE NEXT JOB — advance the Tutorial skill, using the skill builder
 
-(The language item that was here is done: see HANDOVER §7h. It was one
-flag. `whisper-cli --language` defaults to `en` and Kerf omitted it for
-`auto`, so detection had never run.)
+Shipped in 1.5.0 and not yet used in anger. HANDOVER **§7j** is the
+record; `skills/skill-builder/GUIDE.md` is the method.
 
-It returns a frame that is not a composite of the timeline, **and reports
-`mediaPending: 0` while doing it** — the guard every suite waits on.
-Measured: the same project at the same timecodes reads `[0.2,0.2,0.2]`
-and `[25,24.9,31.5]` from the home screen against `[131.4,105.2,109.9]`
-and `[206.4,204.5,211.9]` from the editor. Nothing has caught it because
-every suite drives an instance already in the editor. `unavailableReason`
-is the obvious place to say so. This one cost a long wrong investigation;
-see HANDOVER §7f.
+The point of the exercise is to find out where the builder is wrong by
+pointing it at the skill that already exists. The Tutorial skill was
+written by hand before any of this, so it is the honest test: run
+`inspect_project_for_skill` over a real tutorial build, work through the
+interrogation in GUIDE.md, and see what the builder makes of a skill
+somebody already got right. Where its answer differs from the hand-built
+manifest, one of the two is wrong and the difference is the finding.
 
-### Then
+Specific things worth pushing on:
 
-1. **Look at the rest of it on real footage** once the camera paints.
-2. **The introduction markers are English-only** and fail closed. The
+* The Tutorial skill has five slots and ships no assets. Is that right,
+  or should the sound kit be assets rather than synthesised every run?
+* `language` was added late and is not in `requiresTools`. What else is
+  declared badly?
+* The builder has no notion of a slot DEPENDING on another
+  (`captions: false` makes `language` meaningless). Real manifests need
+  that and the format cannot say it.
+
+### Then, in rough order
+
+1. **The skill runner.** `recipe` is declarative and nothing executes it.
+   Everything else about skills is shaped around that absence.
+2. **`get_frame_context` lies when the editor is not mounted.** It
+   returns a frame that is not a composite of the timeline AND reports
+   `mediaPending: 0`, the guard every suite waits on. Measured: the same
+   project at the same timecodes reads `[0.2,0.2,0.2]` and
+   `[25,24.9,31.5]` from the home screen against `[131.4,105.2,109.9]`
+   and `[206.4,204.5,211.9]` from the editor. No suite has caught it
+   because they all drive an instance already in the editor.
+   `unavailableReason` is the place to say so. See HANDOVER §7f: this one
+   cost a long and wrong investigation.
+3. **Code signing.** Five secrets and an Apple Developer account flip on
+   signing with no code change, and with it real auto-update and
+   permissions that survive an update. Everything in §7i and §7h exists
+   because they are absent.
+4. **The introduction markers are English-only** and fail closed. The
    long-opening rule covers other languages, but a 4s Swahili
    introduction still will not fire.
-3. **Split `0b20afa`** if the home-screen session is finished.
-4. **Push.** Six commits deep on an unpushed `main`.
 
 ## Getting a working loop (do this first, it has eight traps)
 
