@@ -59,7 +59,7 @@ export async function autoSelectBackend(): Promise<BackendId> {
     return preferred;
   }
 
-  const order: BackendId[] = ['claude', 'codex', 'cursor', 'gemini'];
+  const order: BackendId[] = ['claude', 'antigravity', 'codex', 'cursor', 'gemini'];
 
   for (const id of order) {
     if (surveyed.find((b) => b.id === id)?.ready) {
@@ -305,6 +305,22 @@ export function resetSession(): void {
  * settles when the CLI exits.
  */
 export function startSession(window: BrowserWindow, options: StartOptions): Promise<void> {
+  if (selectedBackendId === 'antigravity') {
+    const { execFile } = require('child_process');
+    if (process.platform === 'darwin') {
+      execFile('open', ['-a', 'Antigravity'], (err: Error | null) => {
+        if (err) execFile('open', ['-a', 'Antigravity IDE']);
+      });
+    }
+    window.webContents.send('claude:event', {
+      type: 'result',
+      result: 'Connected to Antigravity IDE. Switch to Antigravity to chat and edit this timeline live over MCP.',
+      is_error: false,
+    });
+    window.webContents.send('claude:event', { type: 'kerf_done' });
+    return Promise.resolve();
+  }
+
   const chosen = getBackend(selectedBackendId)!;
   const cli = findBackendBinary(chosen);
   if (!cli) {

@@ -31,12 +31,13 @@ import * as Icons from '../ui/icons';
 import { GapLog } from './GapLog';
 import { useGapStore } from '../../store/gapStore';
 import {
-  Sparkle, X, ArrowUp, Cpu, ChevronDown, ChevronRight, Terminal, Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair, Lightbulb, Eye, EyeOff,
+  Sparkle, X, ArrowUp, Cpu, ChevronDown, ChevronRight, Terminal, Trash2, Square, Activity, Check, AlertCircle, Loader2, Crosshair, Lightbulb, Eye, EyeOff, ExternalLink,
 } from '../ui/icons';
 
 /** A keycap, so the hint line reads as keys rather than as punctuation. */
 /** Display names for the selectable backends. */
 const AGENT_LABELS: Record<string, string> = {
+  antigravity: 'Antigravity IDE',
   claude: 'Claude Code',
   gemini: 'Gemini CLI',
   codex: 'Codex CLI',
@@ -124,7 +125,8 @@ export const CopilotDrawer: React.FC = () => {
   const agentChecked = agent.status !== null;
   // Main reports which backend is selected; trust that over local state.
   const reportedLabel = agent.status?.label ?? agentLabel;
-  const agentReady = Boolean(agent.status?.installed);
+  const isAntigravity = agent.status?.backendId === 'antigravity' || reportedLabel === 'Antigravity IDE';
+  const agentReady = Boolean(agent.status?.installed) || isAntigravity;
 
   useEffect(() => {
     void agent.refreshStatus();
@@ -451,7 +453,7 @@ export const CopilotDrawer: React.FC = () => {
         A control that does nothing is worse than no control: it makes a
         user believe they configured something.
       */}
-      {agentChecked && !agentReady && (
+      {agentChecked && !agentReady && !isAntigravity && (
         <div className="px-2.5 py-1.5 border-b border-line flex items-center gap-1.5 flex-shrink-0 bg-spectrum-sunken/40">
           <Cpu className="w-3 h-3 text-spectrum-amber flex-shrink-0" />
           <span className="text-micro text-spectrum-textDim truncate">
@@ -498,8 +500,36 @@ export const CopilotDrawer: React.FC = () => {
       )}
 
       {/* Thread */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[96px]">
-        {agentReady ? (
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[96px] flex flex-col">
+        {isAntigravity ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-4 my-auto animate-fade-in">
+            <div className="w-14 h-14 rounded-2xl bg-spectrum-accent/15 border border-spectrum-accent/30 flex items-center justify-center text-spectrum-accent shadow-glow">
+              <Sparkle className="w-7 h-7" />
+            </div>
+            <div className="space-y-1.5 max-w-sm">
+              <div className="flex items-center justify-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-spectrum-green animate-pulse" />
+                <h3 className="text-ui-lg font-semibold text-spectrum-text">Antigravity IDE Connected</h3>
+              </div>
+              <p className="text-ui-sm text-spectrum-textDim leading-relaxed">
+                Your live timeline is connected over MCP on port 3888. Use Antigravity in your IDE to edit clips, add animations, analyze beats, and grade your footage directly for free.
+              </p>
+            </div>
+
+            <button
+              onClick={() => void window.electronAPI?.agents.openAntigravity()}
+              className="pro-btn-filled px-4 h-9 gap-2 text-ui-sm font-semibold shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Open in Antigravity IDE
+            </button>
+
+            <div className="pt-2 text-micro text-spectrum-textFaint space-y-1">
+              <p>All 58 video editing tools are available live.</p>
+              <p className="font-mono text-micro text-spectrum-accent/80">mcp__kerf__* · 127.0.0.1:3888</p>
+            </div>
+          </div>
+        ) : agentReady ? (
           agent.turns.length === 0 ? (
             <AgentIntro onPick={(text) => { setInput(text); inputRef.current?.focus(); }} />
           ) : (
@@ -577,170 +607,185 @@ export const CopilotDrawer: React.FC = () => {
       )}
 
       {/* Composer */}
-      <div className="p-2 border-t border-line flex-shrink-0 space-y-2 max-h-[52vh] overflow-y-auto">
-        {/*
-          Queued prompts, shown as themselves.
+      {isAntigravity ? (
+        <div className="p-3 border-t border-line bg-spectrum-sunken/30 text-center flex flex-col items-center gap-2 flex-shrink-0">
+          <p className="text-micro text-spectrum-textDim">
+            Chatting is active directly in Antigravity IDE.
+          </p>
+          <button
+            onClick={() => void window.electronAPI?.agents.openAntigravity()}
+            className="pro-btn h-7 px-3 text-micro gap-1.5 border border-line-strong hover:border-spectrum-accent"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Switch to Antigravity IDE
+          </button>
+        </div>
+      ) : (
+        <div className="p-2 border-t border-line flex-shrink-0 space-y-2 max-h-[52vh] overflow-y-auto">
+          {/*
+            Queued prompts, shown as themselves.
 
-          A count alone would repeat the old mistake in a quieter way:
-          the point of queueing is that you can keep thinking out loud
-          while the agent works, and you cannot do that if you cannot
-          see — or take back — what you have already lined up.
-        */}
-        {queue.length > 0 && (
-          <div className="space-y-1">
-            {queue.map((q, i) => (
-              <div
-                key={`${i}-${q.slice(0, 24)}`}
-                className="group flex items-start gap-1.5 rounded-squircle-sm border border-spectrum-accentLine/40
-                           bg-spectrum-accent/[0.07] px-2 py-1"
-              >
-                <span className="mt-[3px] text-micro font-mono text-spectrum-accent tabular-nums">
-                  {i + 1}
-                </span>
-                <span className="flex-1 min-w-0 text-ui-sm text-spectrum-textDim leading-snug break-words">
-                  {q}
-                </span>
+            A count alone would repeat the old mistake in a quieter way:
+            the point of queueing is that you can keep thinking out loud
+            while the agent works, and you cannot do that if you cannot
+            see — or take back — what you have already lined up.
+          */}
+          {queue.length > 0 && (
+            <div className="space-y-1">
+              {queue.map((q, i) => (
+                <div
+                  key={`${i}-${q.slice(0, 24)}`}
+                  className="group flex items-start gap-1.5 rounded-squircle-sm border border-spectrum-accentLine/40
+                             bg-spectrum-accent/[0.07] px-2 py-1"
+                >
+                  <span className="mt-[3px] text-micro font-mono text-spectrum-accent tabular-nums">
+                    {i + 1}
+                  </span>
+                  <span className="flex-1 min-w-0 text-ui-sm text-spectrum-textDim leading-snug break-words">
+                    {q}
+                  </span>
+                  <button
+                    onClick={() => unqueue(i)}
+                    title="Remove from the queue"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded
+                               hover:bg-spectrum-sunken text-spectrum-textFaint hover:text-spectrum-text"
+                    aria-label="Remove from the queue"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              {queue.length > 1 && (
                 <button
-                  onClick={() => unqueue(i)}
-                  title="Remove from the queue"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded
-                             hover:bg-spectrum-sunken text-spectrum-textFaint hover:text-spectrum-text"
-                
-            aria-label="Remove from the queue">
-                  <X className="w-3 h-3" />
+                  onClick={clearQueue}
+                  className="text-micro text-spectrum-textFaint hover:text-spectrum-text px-1"
+                >
+                  Clear all {queue.length}
                 </button>
+              )}
+            </div>
+          )}
+
+          {hasPrompt && !agentReady && (
+            <ContextPreflight
+              report={report}
+              forceOpen={preflightOpen}
+              frame={frame}
+              frameAttached={frameAttached}
+              annotations={annotations}
+              onToggleFrame={frameAttached ? detachFrame : attachFrame}
+              onAnnotate={() => {
+                if (!frameAttached) attachFrame();
+                setAnnotating(true);
+              }}
+              onClearAnnotations={() => setAnnotations([])}
+            />
+          )}
+
+          {/*
+            Suggestions live next to the box, and only when there is nothing
+            to read above them. As a permanent strip they pushed the
+            conversation down the panel forever to save one sentence of
+            typing on the first prompt only.
+          */}
+          {showSuggestions && (
+            <div className="relative">
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-0.5">
+                {QUICK_ACTIONS.map((action) => (
+                  <button
+                    key={action.label}
+                    onClick={() => { setInput(action.prompt); inputRef.current?.focus(); }}
+                    className="h-[24px] px-2 gap-1.5 text-ui-xs whitespace-nowrap flex-shrink-0 flex items-center
+                               rounded-full bg-spectrum-card text-spectrum-textMuted
+                               hover:bg-spectrum-cardHover hover:text-spectrum-text transition-colors"
+                    title={`${action.prompt}, loads into the box so you can check the context first`}
+                    aria-label={`${action.prompt}, loads into the box so you can check the context first`}
+                  >
+                    <QuickIcon name={action.icon} />
+                    {action.label}
+                  </button>
+                ))}
               </div>
-            ))}
-            {queue.length > 1 && (
+              <div className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-l from-spectrum-panel to-transparent" />
+            </div>
+          )}
+
+          <div className="pro-input flex items-end gap-1.5 p-1.5">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => { setInput(e.target.value); if (preflightOpen) setPreflightOpen(false); }}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder={
+                busy
+                  ? 'Working… ⌘⏎ to queue this next'
+                  : agentReady || !agentChecked
+                    ? 'Ask anything, or tell me what to change…'
+                    : 'Tell me what to change…'
+              }
+              className="flex-1 bg-transparent outline-none text-ui text-spectrum-text placeholder:text-spectrum-textFaint resize-none max-h-28 min-w-0 leading-snug py-0.5"
+              onInput={(e) => {
+                const el = e.currentTarget;
+                el.style.height = 'auto';
+                el.style.height = `${Math.min(112, el.scrollHeight)}px`;
+              }}
+            />
+
+            {/* Speak instead of typing. It fills the box rather than
+                sending, for the same reason the quick actions do: an
+                editing instruction is destructive and a transcript is
+                imperfect, so it costs one glance to check. Renders
+                nothing at all when Whisper is not installed. */}
+            <VoiceInput
+              disabled={busy}
+              onTranscript={(text) => {
+                setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+                inputRef.current?.focus();
+              }}
+            />
+
+            {busy ? (
               <button
-                onClick={clearQueue}
-                className="text-micro text-spectrum-textFaint hover:text-spectrum-text px-1"
+                onClick={agent.isRunning ? agent.stop : cancelRun}
+                className="btn-ghost-danger w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center"
+                title="Stop the agent (Esc)"
+                aria-label="Stop the agent (Esc)"
               >
-                Clear all {queue.length}
+                <Square className="w-3 h-3 fill-current" />
+              </button>
+            ) : (
+              <button
+                onClick={submit}
+                disabled={!hasPrompt}
+                className="btn-primary w-7 h-7 rounded-full flex-shrink-0"
+                title={blocked ? 'Fix the context checks and send (Enter)' : 'Send (Enter)'}
+                aria-label={blocked ? 'Fix the context checks and send (Enter)' : 'Send (Enter)'}
+              >
+                <ArrowUp className="w-4 h-4" />
               </button>
             )}
           </div>
-        )}
 
-        {hasPrompt && !agentReady && (
-          <ContextPreflight
-            report={report}
-            forceOpen={preflightOpen}
-            frame={frame}
-            frameAttached={frameAttached}
-            annotations={annotations}
-            onToggleFrame={frameAttached ? detachFrame : attachFrame}
-            onAnnotate={() => {
-              if (!frameAttached) attachFrame();
-              setAnnotating(true);
-            }}
-            onClearAnnotations={() => setAnnotations([])}
-          />
-        )}
-
-        {/*
-          Suggestions live next to the box, and only when there is nothing
-          to read above them. As a permanent strip they pushed the
-          conversation down the panel forever to save one sentence of
-          typing on the first prompt only.
-        */}
-        {showSuggestions && (
-          <div className="relative">
-            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-0.5">
-              {QUICK_ACTIONS.map((action) => (
-                <button
-                  key={action.label}
-                  onClick={() => { setInput(action.prompt); inputRef.current?.focus(); }}
-                  className="h-[24px] px-2 gap-1.5 text-ui-xs whitespace-nowrap flex-shrink-0 flex items-center
-                             rounded-full bg-spectrum-card text-spectrum-textMuted
-                             hover:bg-spectrum-cardHover hover:text-spectrum-text transition-colors"
-                  title={`${action.prompt}, loads into the box so you can check the context first`}
-                
-            aria-label={`${action.prompt}, loads into the box so you can check the context first`}>
-                  <QuickIcon name={action.icon} />
-                  {action.label}
-                </button>
-              ))}
-            </div>
-            <div className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none bg-gradient-to-l from-spectrum-panel to-transparent" />
+          <div className="flex items-center gap-1.5 px-1 text-micro text-spectrum-textFaint leading-snug flex-wrap">
+            {queue.length > 0 ? (
+              <span className="text-spectrum-accent">
+                {queue.length === 1 ? '1 message queued' : `${queue.length} messages queued`}
+                {', they send in order as each turn finishes.'}
+              </span>
+            ) : blocked && !agentReady ? (
+              <span>Send will sort the checks above first, then run this.</span>
+            ) : (
+              <>
+                <Kbd>⏎</Kbd><span>send</span>
+                <Kbd>⇧⏎</Kbd><span>new line</span>
+                <Kbd>↑</Kbd><span>history</span>
+                {busy && (<><Kbd>esc</Kbd><span>stop</span></>)}
+              </>
+            )}
           </div>
-        )}
-
-        <div className="pro-input flex items-end gap-1.5 p-1.5">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => { setInput(e.target.value); if (preflightOpen) setPreflightOpen(false); }}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder={
-              busy
-                ? 'Working… ⌘⏎ to queue this next'
-                : agentReady || !agentChecked
-                  ? 'Ask anything, or tell me what to change…'
-                  : 'Tell me what to change…'
-            }
-            className="flex-1 bg-transparent outline-none text-ui text-spectrum-text placeholder:text-spectrum-textFaint resize-none max-h-28 min-w-0 leading-snug py-0.5"
-            onInput={(e) => {
-              const el = e.currentTarget;
-              el.style.height = 'auto';
-              el.style.height = `${Math.min(112, el.scrollHeight)}px`;
-            }}
-          />
-
-          {/* Speak instead of typing. It fills the box rather than
-              sending, for the same reason the quick actions do: an
-              editing instruction is destructive and a transcript is
-              imperfect, so it costs one glance to check. Renders
-              nothing at all when Whisper is not installed. */}
-          <VoiceInput
-            disabled={busy}
-            onTranscript={(text) => {
-              setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
-              inputRef.current?.focus();
-            }}
-          />
-
-          {busy ? (
-            <button
-              onClick={agent.isRunning ? agent.stop : cancelRun}
-              className="btn-ghost-danger w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center"
-              title="Stop the agent (Esc)"
-            aria-label="Stop the agent (Esc)"
-            >
-              <Square className="w-3 h-3 fill-current" />
-            </button>
-          ) : (
-            <button
-              onClick={submit}
-              disabled={!hasPrompt}
-              className="btn-primary w-7 h-7 rounded-full flex-shrink-0"
-              title={blocked ? 'Fix the context checks and send (Enter)' : 'Send (Enter)'}
-            aria-label={blocked ? 'Fix the context checks and send (Enter)' : 'Send (Enter)'}
-            >
-              <ArrowUp className="w-4 h-4" />
-            </button>
-          )}
         </div>
-
-        <div className="flex items-center gap-1.5 px-1 text-micro text-spectrum-textFaint leading-snug flex-wrap">
-          {queue.length > 0 ? (
-            <span className="text-spectrum-accent">
-              {queue.length === 1 ? '1 message queued' : `${queue.length} messages queued`}
-              {', they send in order as each turn finishes.'}
-            </span>
-          ) : blocked && !agentReady ? (
-            <span>Send will sort the checks above first, then run this.</span>
-          ) : (
-            <>
-              <Kbd>⏎</Kbd><span>send</span>
-              <Kbd>⇧⏎</Kbd><span>new line</span>
-              <Kbd>↑</Kbd><span>history</span>
-              {busy && (<><Kbd>esc</Kbd><span>stop</span></>)}
-            </>
-          )}
-        </div>
-      </div>
+      )}
 
       {pickerOpen && (
         <AgentPicker

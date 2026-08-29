@@ -36,6 +36,18 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.11.4',
+    date: '2026-08-29',
+    headline: 'Antigravity IDE connected view & 1-click launch',
+    detail:
+      'Replaced the Copilot chat drawer with an Antigravity IDE Connected banner when Antigravity is active, with 1-click launch right from Kerf.',
+    items: [
+      'Copilot drawer presents a dedicated Antigravity IDE Connected banner with live status when Antigravity backend is active.',
+      'One-click "Open in Antigravity IDE" button automatically brings Antigravity to the foreground.',
+      'Seamless timeline editing over MCP without running local CLI commands or configuring API keys.',
+    ],
+  },
+  {
     version: '1.11.3',
     date: '2026-08-29',
     headline: 'Direct agent connection & free API key access',

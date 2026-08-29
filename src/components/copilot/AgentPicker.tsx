@@ -247,7 +247,18 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                     </span>
                   </button>
 
-                  {backend.checked && !backend.installed && (
+                  {backend.id === 'antigravity' && (
+                    <button
+                      onClick={() => void window.electronAPI?.agents.openAntigravity()}
+                      className="pro-btn h-[24px] px-2 gap-1 text-micro flex-shrink-0 border border-line-strong hover:border-spectrum-accent"
+                      title="Bring Antigravity IDE to the foreground"
+                      aria-label="Bring Antigravity IDE to the foreground"
+                    >
+                      <ExternalLink className="w-2.5 h-2.5" /> Open IDE
+                    </button>
+                  )}
+
+                  {backend.checked && !backend.installed && backend.id !== 'antigravity' && (
                     <button
                       onClick={() => install(backend)}
                       disabled={working}

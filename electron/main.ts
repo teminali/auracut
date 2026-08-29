@@ -552,6 +552,28 @@ function registerAgentIpc() {
     return { ok: false, message: `Run \`${command}\` in a terminal, then reopen Kerf.` };
   });
 
+  ipcMain.handle('agents:openAntigravity', async () => {
+    const { execFile } = await import('child_process');
+    if (process.platform === 'darwin') {
+      return new Promise<{ ok: boolean; message?: string }>((resolve) => {
+        execFile('open', ['-a', 'Antigravity'], (err) => {
+          if (!err) return resolve({ ok: true, message: 'Opened Antigravity.' });
+          execFile('open', ['-a', 'Antigravity IDE'], (err2) => {
+            if (!err2) return resolve({ ok: true, message: 'Opened Antigravity IDE.' });
+            resolve({ ok: false, message: err2.message });
+          });
+        });
+      });
+    } else if (process.platform === 'win32') {
+      return new Promise<{ ok: boolean; message?: string }>((resolve) => {
+        execFile('cmd.exe', ['/c', 'start', 'antigravity'], (err) => {
+          resolve({ ok: !err, message: err ? err.message : 'Launched Antigravity.' });
+        });
+      });
+    }
+    return { ok: true };
+  });
+
   ipcMain.handle('claude:stop', () => { stopSession(); return true; });
   ipcMain.handle('claude:reset', () => { resetSession(); return true; });
 }

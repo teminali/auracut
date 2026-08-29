@@ -41,7 +41,7 @@ import {
   npmGlobalBinDirectory,
 } from '../src/services/agentPlatform';
 
-export type BackendId = 'claude' | 'gemini' | 'codex' | 'cursor';
+export type BackendId = 'antigravity' | 'claude' | 'gemini' | 'codex' | 'cursor';
 
 /** One line of normalised agent output. Mirrors Claude Code stream-json. */
 export interface AgentEvent {
@@ -642,6 +642,30 @@ function translateCodex(line: string): AgentEvent[] {
   return [];
 }
 
+/* ── Antigravity IDE ─────────────────────────────────────────────── */
+
+const antigravity: AgentBackend = {
+  id: 'antigravity',
+  label: 'Antigravity IDE',
+  vendor: 'Google DeepMind',
+  bin: 'antigravity',
+  candidates: () => [
+    '/Applications/Antigravity.app',
+    '/Applications/Antigravity IDE.app',
+    '/Applications/Google Antigravity.app',
+    path.join(home, 'Applications', 'Antigravity.app'),
+    path.join(home, 'Applications', 'Antigravity IDE.app'),
+  ],
+  installHint: 'Open Antigravity IDE on your computer',
+  streamVerified: true,
+  prepare: () => ({ cwd: home, extraArgs: [], extraEnv: {} }),
+  buildArgs: () => [],
+  translate: () => [],
+  readiness: async () => ({ ready: true }),
+  modelArgs: () => [],
+  discoverModels: async () => ({ models: ['gemini-2.5-pro', 'gemini-2.5-flash'], source: 'suggested' as const }),
+};
+
 /* ── Cursor Agent ───────────────────────────────────────────────── */
 
 const cursor: AgentBackend = {
@@ -914,7 +938,7 @@ function run(
   });
 }
 
-export const BACKENDS: AgentBackend[] = [claude, gemini, codex, cursor];
+export const BACKENDS: AgentBackend[] = [antigravity, claude, gemini, codex, cursor];
 
 export function getBackend(id: BackendId): AgentBackend | undefined {
   return BACKENDS.find((b) => b.id === id);
@@ -937,7 +961,9 @@ export function findBackendBinary(backend: AgentBackend): string | null {
     try {
       fs.accessSync(
         candidate,
-        process.platform === 'win32' ? fs.constants.F_OK : fs.constants.X_OK
+        candidate.endsWith('.app') || process.platform === 'win32'
+          ? fs.constants.F_OK
+          : fs.constants.X_OK
       );
       pathCache.set(backend.id, candidate);
       return candidate;
@@ -1002,6 +1028,11 @@ const versionCache = new Map<BackendId, string | null>();
 async function versionOf(backend: AgentBackend, binPath: string): Promise<string | null> {
   const cached = versionCache.get(backend.id);
   if (cached !== undefined) return cached;
+  if (binPath.endsWith('.app') || backend.id === 'antigravity') {
+    const value = 'IDE (MCP Live)';
+    versionCache.set(backend.id, value);
+    return value;
+  }
   const probe = await run(binPath, ['--version'], 2500);
   const value = probe.ok ? probe.stdout.trim().split('\n')[0] : null;
   versionCache.set(backend.id, value);
