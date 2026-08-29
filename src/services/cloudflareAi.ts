@@ -1,13 +1,21 @@
-const ACCOUNT_ID = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID || "";
-const TOKEN = import.meta.env.VITE_CLOUDFLARE_TOKEN || "";
+function getCredentials() {
+  const accountId = import.meta.env.VITE_CLOUDFLARE_ACCOUNT_ID || localStorage.getItem('auracut_cf_account_id') || "";
+  const token = import.meta.env.VITE_CLOUDFLARE_TOKEN || localStorage.getItem('auracut_cf_token') || "";
+
+  if (!accountId || !token) {
+    throw new Error("Cloudflare Account ID or API Token is missing. Please check your .env.local file.");
+  }
+  return { accountId, token };
+}
 
 export async function generateImage(prompt: string): Promise<string> {
+  const { accountId, token } = getCredentials();
   const model = "@cf/black-forest-labs/flux-1-schnell";
   
-  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai/run/${model}`, {
+  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${TOKEN}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ prompt }),
@@ -45,12 +53,13 @@ export async function removeBackground(imageBase64: string): Promise<string> {
     bytes[i] = binaryString.charCodeAt(i);
   }
 
+  const { accountId, token } = getCredentials();
   const model = "@cf/briaai/rembg";
   
-  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT_ID}/ai/run/${model}`, {
+  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${TOKEN}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ image: [...bytes] }), // Some CF models expect array of bytes for image input.
