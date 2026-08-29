@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export type SidebarTab =
   | 'media' | 'audio' | 'text' | 'captions'
-  | 'transitions' | 'effects' | 'filters' | 'ai';
+  | 'transitions' | 'effects' | 'filters' | 'skills' | 'ai';
 
 interface LayoutState {
   sidebarWidth: number;
@@ -24,6 +24,19 @@ interface LayoutState {
    */
   /** The home screen, shown before a project is being worked on. */
   showHome: boolean;
+  /**
+   * The fullscreen Player, over whichever screen is showing.
+   *
+   * It lives here rather than in either screen's local state because
+   * BOTH open it — Home's Play action and the Editor monitor's
+   * fullscreen button — and it must be the same one. It is also what
+   * tells `PreviewPlayer` to hand over the program loop, so a local
+   * boolean in one component could not have expressed it.
+   *
+   * Deliberately NOT persisted: the app must never start up inside a
+   * player over a project nobody has opened yet.
+   */
+  isPlayerOpen: boolean;
   followAgent: boolean;
   showSafeAreas: boolean;
   showRuleOfThirds: boolean;
@@ -38,6 +51,8 @@ interface LayoutState {
   toggleSidebar: () => void;
   toggleInspector: () => void;
   setShowHome: (show: boolean) => void;
+  openPlayer: () => void;
+  closePlayer: () => void;
   toggleFollowAgent: () => void;
   toggleSafeAreas: () => void;
   toggleRuleOfThirds: () => void;
@@ -48,8 +63,8 @@ interface LayoutState {
 
 const DEFAULTS = {
   sidebarWidth: 272,
-  inspectorWidth: 308,
-  timelineHeight: 320,
+  inspectorWidth: 296,
+  timelineHeight: 291,
   copilotWidth: 360,
 };
 
@@ -62,6 +77,7 @@ export const useLayoutStore = create<LayoutState>()(
       activeTab: 'media',
 
       showHome: true,
+      isPlayerOpen: false,
       followAgent: true,
 
       showSafeAreas: false,
@@ -78,6 +94,8 @@ export const useLayoutStore = create<LayoutState>()(
       toggleSidebar: () => set((s) => ({ isSidebarCollapsed: !s.isSidebarCollapsed })),
       toggleInspector: () => set((s) => ({ isInspectorCollapsed: !s.isInspectorCollapsed })),
       setShowHome: (showHome) => set({ showHome }),
+      openPlayer: () => set({ isPlayerOpen: true }),
+      closePlayer: () => set({ isPlayerOpen: false }),
       toggleFollowAgent: () => set((st) => ({ followAgent: !st.followAgent })),
       toggleSafeAreas: () => set((s) => ({ showSafeAreas: !s.showSafeAreas })),
       toggleRuleOfThirds: () => set((s) => ({ showRuleOfThirds: !s.showRuleOfThirds })),
@@ -88,6 +106,27 @@ export const useLayoutStore = create<LayoutState>()(
     }),
     {
       name: 'kerf.layout',
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<Pick<
+          LayoutState,
+          'sidebarWidth' | 'inspectorWidth' | 'timelineHeight' | 'copilotWidth' | 'activeTab' | 'followAgent'
+        >>;
+        return {
+          sidebarWidth: state.sidebarWidth ?? DEFAULTS.sidebarWidth,
+          // Only move the former factory values. Deliberately preserve
+          // widths and heights a user actually resized themselves.
+          inspectorWidth: version < 2 && state.inspectorWidth === 308
+            ? 296
+            : state.inspectorWidth ?? DEFAULTS.inspectorWidth,
+          timelineHeight: version < 2 && state.timelineHeight === 320
+            ? 291
+            : state.timelineHeight ?? DEFAULTS.timelineHeight,
+          copilotWidth: state.copilotWidth ?? DEFAULTS.copilotWidth,
+          activeTab: state.activeTab ?? 'media',
+          followAgent: state.followAgent ?? true,
+        };
+      },
       // Overlay toggles are per-session; only persist the actual layout.
       partialize: (s) => ({
         sidebarWidth: s.sidebarWidth,

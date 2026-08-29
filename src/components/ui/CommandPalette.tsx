@@ -193,7 +193,13 @@ export const CommandPalette: React.FC = () => {
 
   return (
     <div className="scrim items-start pt-[12vh]" onClick={close}>
-      <div onClick={(e) => e.stopPropagation()} className="modal-shell w-[580px] max-w-[92vw] flex flex-col max-h-[62vh]">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="modal-shell w-[580px] max-w-[92vw] flex flex-col max-h-[62vh]"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+      >
         <div className="flex items-center gap-2 px-3 h-11 border-b border-line flex-shrink-0">
           <Search className="w-4 h-4 text-spectrum-textDim flex-shrink-0" />
           <input

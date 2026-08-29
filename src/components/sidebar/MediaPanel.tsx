@@ -6,6 +6,7 @@ import { formatDuration, formatFileSize } from '../../utils/time';
 import {
   Plus, Video, Music, Image as ImageIcon, Upload, LayoutGrid, List, Search, Trash2, Film,
 } from '../ui/icons';
+import { bundledMediaArtwork } from './bundledMediaArtwork';
 
 type ViewMode = 'grid' | 'list';
 
@@ -139,7 +140,7 @@ export const MediaPanel: React.FC = () => {
             aria-label={viewMode === 'list' ? 'Grid view' : 'List view'}>
             {viewMode === 'list' ? <LayoutGrid className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
           </button>
-          <button onClick={() => fileInputRef.current?.click()} className="btn-primary h-[22px] px-2 gap-1 text-ui-xs">
+          <button onClick={() => fileInputRef.current?.click()} className="editor-library-action h-[26px] px-2.5 gap-1.5 text-ui-xs font-semibold inline-flex items-center rounded-squircle-sm">
             <Upload className="w-3 h-3" /> Import
           </button>
           <input
@@ -154,7 +155,7 @@ export const MediaPanel: React.FC = () => {
       </div>
 
       <div className="px-2 py-2 flex-shrink-0">
-        <div className="pro-input flex items-center gap-1.5 px-2 h-7">
+        <div className="pro-input flex items-center gap-2 px-2.5 h-[30px]">
           <Search className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
           <input
             value={query}
@@ -165,7 +166,7 @@ export const MediaPanel: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto px-2.5 py-2">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center gap-2 px-4">
             <Film className="w-7 h-7 text-spectrum-textFaint" />
@@ -179,7 +180,7 @@ export const MediaPanel: React.FC = () => {
             )}
           </div>
         ) : viewMode === 'list' ? (
-          <div className="space-y-1.5">
+          <div className="space-y-[5px]">
             {filtered.map((asset) => (
               <AssetRow key={asset.id} asset={asset} onPlace={place} onRemove={removeMediaAsset} />
             ))}
@@ -221,20 +222,21 @@ const AssetRow: React.FC<{
   onRemove: (id: string) => void;
 }> = ({ asset, onPlace, onRemove }) => {
   const Icon = typeIcon(asset.type);
+  const displayArtwork = bundledMediaArtwork(asset.id) ?? asset.thumbnailUrl;
 
   return (
     <div
       draggable
       onDragStart={dragPayload(asset)}
       onClick={() => onPlace(asset)}
-      className="card-interactive p-1.5 flex items-center gap-2.5 group"
+      className="card-interactive relative p-[7px] flex items-center gap-2.5 group"
       title="Click to place at the playhead · drag onto a track"
     >
       {/* 16:9, because that is the shape of the thing it represents. A square
           crop of a widescreen frame tells you less about the shot. */}
-      <div className="w-[52px] h-[30px] rounded-[5px] bg-black/60 border border-line overflow-hidden flex-shrink-0 flex items-center justify-center relative">
-        {asset.thumbnailUrl ? (
-          <img src={asset.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
+      <div className="w-[54px] h-[34px] rounded-squircle-xs bg-black overflow-hidden flex-shrink-0 flex items-center justify-center relative">
+        {displayArtwork ? (
+          <img src={displayArtwork} alt="" className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <Icon className="w-4 h-4 text-spectrum-textDim" />
         )}
@@ -246,7 +248,7 @@ const AssetRow: React.FC<{
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-ui-sm font-medium text-spectrum-text truncate">
+        <p className="text-ui-sm text-spectrum-text truncate">
           {asset.name}
         </p>
         <p className="text-micro text-spectrum-textFaint font-mono tabular truncate">
@@ -257,13 +259,17 @@ const AssetRow: React.FC<{
       <div className="flex items-center gap-0.5 flex-shrink-0">
         <button
           onClick={(e) => { e.stopPropagation(); onRemove(asset.id); }}
-          className="btn-ghost-danger w-[22px] h-[22px] opacity-0 group-hover:opacity-100 transition-opacity"
+          /* Out of flow: reserving a column for it stole 22px from the
+             name, which is why the reference's card fits 137px of title
+             where this fitted 115. It still appears on hover, and
+             nothing shifts when it does. */
+          className="btn-ghost-danger w-[22px] h-[22px] absolute top-[5px] right-[5px] z-10 opacity-0 group-hover:opacity-100 transition-opacity"
           title="Remove from pool"
         
             aria-label="Remove from pool">
           <Trash2 className="w-3 h-3" />
         </button>
-        <span className="w-[22px] h-[22px] rounded-full bg-spectrum-sunken border border-line group-hover:bg-spectrum-accent group-hover:border-spectrum-accent text-spectrum-textDim group-hover:text-white flex items-center justify-center transition-colors">
+        <span className="w-[22px] h-[22px] rounded-squircle-sm bg-[#3a3a3a] group-hover:bg-spectrum-accent text-spectrum-text group-hover:text-spectrum-onAccent flex items-center justify-center transition-colors">
           <Plus className="w-3 h-3" />
         </span>
       </div>
@@ -273,6 +279,7 @@ const AssetRow: React.FC<{
 
 const AssetCard: React.FC<{ asset: MediaAsset; onPlace: (a: MediaAsset) => void }> = ({ asset, onPlace }) => {
   const Icon = typeIcon(asset.type);
+  const displayArtwork = bundledMediaArtwork(asset.id) ?? asset.thumbnailUrl;
 
   return (
     <div
@@ -282,12 +289,12 @@ const AssetCard: React.FC<{ asset: MediaAsset; onPlace: (a: MediaAsset) => void 
       className="card-interactive overflow-hidden group"
     >
       <div className="aspect-video bg-black/60 relative overflow-hidden flex items-center justify-center">
-        {asset.thumbnailUrl ? (
-          <img src={asset.thumbnailUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" loading="lazy" />
+        {displayArtwork ? (
+          <img src={displayArtwork} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" loading="lazy" />
         ) : (
           <Icon className="w-5 h-5 text-spectrum-textDim" />
         )}
-        <span className="absolute bottom-1 right-1 px-1 rounded-[3px] bg-black/80 text-micro font-mono text-white/85 tabular leading-[14px]">
+        <span className="absolute bottom-1 right-1 px-1 rounded-squircle-2xs bg-black/80 text-micro font-mono text-white/85 tabular leading-[14px]">
           {formatDuration(asset.durationMs)}
         </span>
       </div>

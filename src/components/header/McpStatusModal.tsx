@@ -33,7 +33,13 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
 
   return (
     <div className="scrim" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="modal-shell w-[640px] max-w-[92vw] max-h-[80vh] flex flex-col">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="modal-shell w-[640px] max-w-[92vw] max-h-[80vh] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Model Context Protocol"
+      >
         <div className="panel-header">
           <div className="flex items-center gap-2">
             <Server className="w-3.5 h-3.5 text-spectrum-accent" />

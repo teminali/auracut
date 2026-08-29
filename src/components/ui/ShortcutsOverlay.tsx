@@ -67,7 +67,13 @@ export const ShortcutsOverlay: React.FC = () => {
 
   return (
     <div className="scrim" onClick={() => setOpen(false)}>
-      <div onClick={(e) => e.stopPropagation()} className="modal-shell w-[720px] max-w-[92vw] max-h-[82vh] flex flex-col">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="modal-shell w-[720px] max-w-[92vw] max-h-[82vh] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Keyboard shortcuts"
+      >
         <div className="panel-header">
           <div className="flex items-center gap-2">
             <Keyboard className="w-3.5 h-3.5 text-spectrum-accent" />

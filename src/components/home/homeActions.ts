@@ -8,7 +8,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { useCallback, useMemo } from 'react';
-import { useLayoutStore, SidebarTab } from '../../store/layoutStore';
+import { useLayoutStore } from '../../store/layoutStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
@@ -24,10 +24,10 @@ export interface HomeActions {
   /** Open the recorder. The project is built from the take, not from here. */
   startRecording: () => void;
   /** Enter the editor with one of its eight panels already open. */
-  openPanel: (tab: SidebarTab) => void;
   /** Enter the editor with the Copilot drawer open. */
   openCopilot: () => void;
   openRecent: (entry: RecentProject) => void;
+  playRecent: (entry: RecentProject) => void;
   openFile: (file: File) => Promise<void>;
   recover: () => void;
 }
@@ -35,6 +35,7 @@ export interface HomeActions {
 export function useHomeActions(onEnterEditor: () => void): HomeActions {
   const pushToast = useUiStore((s) => s.pushToast);
   const setActiveTab = useLayoutStore((s) => s.setActiveTab);
+  const openPlayer = useLayoutStore((s) => s.openPlayer);
   const setCopilotOpen = useProjectStore((s) => s.setCopilotOpen);
 
   const newProject = useCallback(() => {
@@ -70,31 +71,33 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
     useRecorderStore.getState().open();
   }, []);
 
-  const openPanel = useCallback(
-    (tab: SidebarTab) => {
-      setActiveTab(tab);
-      onEnterEditor();
-    },
-    [onEnterEditor, setActiveTab]
-  );
-
   const openCopilot = useCallback(() => {
     setCopilotOpen(true);
     onEnterEditor();
   }, [onEnterEditor, setCopilotOpen]);
 
-  const openRecent = useCallback(
-    (entry: RecentProject) => {
+  /*
+    Loading is separated from where you land, because there are two
+    destinations now and only one correct way to load.
+
+    `loadRecent` puts the project into the real stores and reports
+    whether it got there. `openRecent` then enters the editor, exactly
+    as it always did. `playRecent` opens the Player and STAYS ON HOME,
+    which is what keeps watching from being editing: autosave only runs
+    in the editor, so a project that was only played never writes a
+    slot, never captures a poster and never touches the recents wall.
+  */
+  const loadRecent = useCallback(
+    (entry: RecentProject): boolean => {
       // The starter is rebuilt from code, not reloaded from a snapshot.
       if (entry.starter) {
         buildStarterProject();
-        onEnterEditor();
         pushToast({
           kind: 'info',
           title: 'Opened the starter project',
           detail: 'Kerf’s own brand film, 11.5s, thirteen cuts on detected beats. Edit it freely.',
         });
-        return;
+        return true;
       }
 
       if (!entry.snapshot) {
@@ -103,7 +106,7 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
           title: 'This one is not stored locally',
           detail: entry.filePath ? `Open ${entry.filePath} from the editor.` : 'Reopen it from a file.',
         });
-        return;
+        return false;
       }
 
       // deserializeProject applies straight to the stores; it returns only
@@ -111,7 +114,7 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
       const result = deserializeProject(entry.snapshot);
       if (!result.ok) {
         pushToast({ kind: 'error', title: 'Could not open', detail: result.error });
-        return;
+        return false;
       }
       if (result.migratedFrom !== undefined) {
         pushToast({
@@ -128,9 +131,25 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
           detail: 'Their original paths are gone. Re-import them from the Media panel.',
         });
       }
-      onEnterEditor();
+      return true;
     },
-    [onEnterEditor, pushToast]
+    [pushToast]
+  );
+
+  const openRecent = useCallback(
+    (entry: RecentProject) => {
+      if (loadRecent(entry)) onEnterEditor();
+    },
+    [loadRecent, onEnterEditor]
+  );
+
+  /* Decision 8: playing a project from home opens the Player, not the
+     editor. It is the same Player the editor's monitor opens. */
+  const playRecent = useCallback(
+    (entry: RecentProject) => {
+      if (loadRecent(entry)) openPlayer();
+    },
+    [loadRecent, openPlayer]
   );
 
   const openFile = useCallback(
@@ -161,7 +180,7 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
   }, [onEnterEditor, pushToast]);
 
   return useMemo(
-    () => ({ newProject, startRecording, openPanel, openCopilot, openRecent, openFile, recover }),
-    [newProject, startRecording, openPanel, openCopilot, openRecent, openFile, recover]
+    () => ({ newProject, startRecording, openCopilot, openRecent, playRecent, openFile, recover }),
+    [newProject, startRecording, openCopilot, openRecent, playRecent, openFile, recover]
   );
 }

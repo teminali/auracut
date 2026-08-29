@@ -138,7 +138,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
           <>
             <button
               onClick={onAnnotate}
-              className="relative w-14 h-8 rounded-[3px] overflow-hidden border border-line-strong flex-shrink-0 group"
+              className="relative w-14 h-8 rounded-squircle-2xs overflow-hidden border border-line-strong flex-shrink-0 group"
               title="Draw on this frame"
             aria-label="Draw on this frame"
             >

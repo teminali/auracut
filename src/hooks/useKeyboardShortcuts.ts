@@ -21,7 +21,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
 }
 
 const SIDEBAR_TABS: SidebarTab[] = [
-  'media', 'audio', 'text', 'captions', 'transitions', 'effects', 'filters', 'ai',
+  'media', 'audio', 'text', 'captions', 'transitions', 'effects', 'filters', 'skills', 'ai',
 ];
 
 export function useKeyboardShortcuts(): void {

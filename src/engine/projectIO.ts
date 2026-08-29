@@ -272,6 +272,16 @@ export function deserializeProject(json: string, baseDir?: string): LoadResult {
 /* ── Autosave ───────────────────────────────────────────────────── */
 
 const AUTOSAVE_KEY = 'kerf.autosave';
+/*
+  When the slot was last written.
+
+  The slot itself is a serialized project and carries no time, so
+  "Autosave 2 min ago" had nothing to read. Kept as its own key rather
+  than folded into the payload, because the payload is a project file
+  format with a version and a migration path, and a UI timestamp has no
+  business in it.
+*/
+const AUTOSAVE_AT_KEY = 'kerf.autosave.at';
 let autosaveTimer: number | null = null;
 
 /** Debounced autosave to localStorage; returns a stop function. */
@@ -279,6 +289,7 @@ export function startAutosave(intervalMs = 20_000): () => void {
   const save = () => {
     try {
       localStorage.setItem(AUTOSAVE_KEY, serializeProject());
+      localStorage.setItem(AUTOSAVE_AT_KEY, String(Date.now()));
     } catch {
       // Quota exceeded on a heavy project — skip this cycle rather than throw.
     }
@@ -289,6 +300,24 @@ export function startAutosave(intervalMs = 20_000): () => void {
     if (autosaveTimer !== null) window.clearInterval(autosaveTimer);
     autosaveTimer = null;
   };
+}
+
+/**
+ * How long ago the autosave slot was written, or null if there is none.
+ *
+ * Null is the ordinary answer on the home screen: coming back to home
+ * CLEARS the slot on purpose, because coming home is what writes the
+ * project onto the recents wall (HANDOVER §7). A surviving slot means
+ * the app did not get to say goodbye.
+ */
+export function autosaveAgeMs(): number | null {
+  try {
+    if (localStorage.getItem(AUTOSAVE_KEY) === null) return null;
+    const at = Number(localStorage.getItem(AUTOSAVE_AT_KEY));
+    return Number.isFinite(at) && at > 0 ? Math.max(0, Date.now() - at) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function hasAutosave(): boolean {
@@ -303,4 +332,5 @@ export function restoreAutosave(): LoadResult {
 
 export function clearAutosave(): void {
   localStorage.removeItem(AUTOSAVE_KEY);
+  localStorage.removeItem(AUTOSAVE_AT_KEY);
 }

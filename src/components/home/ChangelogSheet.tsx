@@ -29,7 +29,13 @@ export const ChangelogSheet: React.FC<{
 
   return (
     <div className="scrim" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="modal-shell w-[560px] max-w-[92vw]">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="modal-shell w-[560px] max-w-[92vw]"
+        role="dialog"
+        aria-modal="true"
+        aria-label="What's new"
+      >
         <div className="panel-header">
           <div className="flex items-center gap-2">
             <Sparkle className="w-3.5 h-3.5 text-spectrum-accent" />

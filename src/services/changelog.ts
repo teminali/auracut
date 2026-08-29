@@ -36,6 +36,41 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.10.0',
+    date: '2026-08-29',
+    headline: 'The interface, measured not eyeballed',
+    detail:
+      'Every screen was compared against the approved design by rendering both and reading the '
+      + 'numbers off them, rather than by matching them by eye.',
+    items: [
+      'Home, the editor and the fullscreen player are now measured against the reference design '
+        + 'automatically: `tools/design_diff.py` renders both, reads the computed geometry, type '
+        + 'and colour off each, and prints only what differs. The design is the target and the '
+        + 'app moves.',
+      'The ink ladder was wrong. The body colour was pure white, which the design never paints '
+        + 'anywhere. The earlier measurement counted every wrapper against its whole subtree, and '
+        + 'since the page body is white, white scored 8838 characters and became the body ink. '
+        + 'Counted by what each element actually paints, white paints nothing.',
+      'The type scale had collapsed three of the design\'s sizes onto one, which is why dense '
+        + 'areas read flatter than the reference.',
+      'Timeline lanes are one height, 40px, audio included, as the design has them. The old '
+        + '44/52 split made the timeline a third taller for the same number of tracks.',
+      'A clip carries its lane colour as a border rather than a top rail, and the track header '
+        + 'no longer reserves an empty column that was costing the track name a quarter of its '
+        + 'width.',
+      'One play control, 40px and near-white, the same in the editor and the player.',
+      'The player\'s tools sit on a floating dock, and its chrome is the same solid bar the rest '
+        + 'of the product wears.',
+      'The player\'s blurred backdrop was blurring a 64x64 image across a 2000px stage every '
+        + 'frame at a 64px radius, and pinned a GPU process at 120% for as long as the player was '
+        + 'open. The upscale already does the smoothing, so the radius is now 16px and the wash is '
+        + 'unchanged.',
+      'The CSS variables and the Tailwind tokens are two hand-kept copies of one palette, and '
+        + 'they had drifted. A test now fails if they disagree, and if the body ink is ever pure '
+        + 'white again.',
+    ],
+  },
+  {
     version: '1.9.1',
     date: '2026-08-29',
     headline: 'Exports stop hogging the machine',

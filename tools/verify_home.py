@@ -56,7 +56,6 @@ JS = r'''
      being exactly "New project" — a restyle must not be able to fail a
      BEHAVIOUR check. */
   const home$ = (name) => document.querySelector('[data-home="' + name + '"]');
-  const tile = (label) => document.querySelector('button[title="Open the ' + label + ' panel"]');
   const sectionByHeading = (t) =>
     [...document.querySelectorAll('h2')].find((h) => h.textContent.trim() === t)?.closest('section');
   const home = async () => { window.__kerf.layout.setState({ showHome: true }); await tick(280); };
@@ -139,19 +138,22 @@ JS = r'''
   window.__kerf.recorder.getState().close();
   await tick(200);
 
-  /* ── Tool tiles open the panel they name, and not a different one ── */
-  for (const [label, tab] of [['Captions', 'captions'], ['Colour', 'filters'],
-                              ['Transitions', 'transitions'], ['Media', 'media']]) {
-    await home();
-    window.__kerf.layout.setState({ activeTab: tab === 'media' ? 'audio' : 'media' });
-    await tick(140);
-    click(tile(label));
-    await tick(300);
-    const l = window.__kerf.layout.getState();
-    add('the ' + label + ' tile opens the ' + tab + ' panel',
-        l.activeTab === tab && l.showHome === false,
-        'tab=' + l.activeTab + ' showHome=' + l.showHome);
-  }
+  /* ── The panel tiles are GONE, and that is a capability, not a restyle ──
+
+     Home used to carry a "Panels" row of eight tiles that entered the
+     editor with a chosen panel already open, and four of them were
+     checked here. The approved launcher has no such row, so it was
+     removed with the rest of the home rebuild.
+
+     The checks go with it, because a check for a component that no
+     longer exists is not a check. What was LOST is worth naming: there
+     is no longer a way to go from home straight to Captions, Colour,
+     Transitions or any other panel — you enter the editor and pick the
+     panel from the rail. If that row ever comes back, so do these four
+     checks, and the reason they mattered comes back with them: six of
+     the eight tiles differed only by which panel they opened, and no
+     screenshot would ever have told you two of them opened the same
+     one. */
 
   /* ── Copilot card ────────────────────────────────────────────── */
   await home();
@@ -163,6 +165,68 @@ JS = r'''
       window.__kerf.project.getState().isCopilotOpen === true &&
       window.__kerf.layout.getState().showHome === false,
       'copilotOpen=' + window.__kerf.project.getState().isCopilotOpen);
+
+  /* ── The right rail: account, and what is installed ────────────
+
+     This replaces the four panel-tile checks above it, and for the
+     same reason they existed: the rail is a list of cards that all
+     look alike, so nothing about the rendered pixels would tell you
+     the search filters the real list or that a card reaches the real
+     Skills view rather than nothing at all. */
+  await home();
+  const rail = () => document.querySelector('[aria-label="Account and skills"]');
+  const railCards = () => rail() ? rail().querySelectorAll('.hp-skill-card').length : -1;
+
+  /* Not a control, and it says so: nothing is clicked to make this
+     true, so suppressing clicks cannot make it false. It is the
+     PRECONDITION for the two checks under it — if the rail were empty,
+     "the search filtered it to nothing" would pass on an empty list. */
+  add('the skills rail lists what is installed', railCards() > 0,
+      railCards() + ' cards', false);
+
+  {
+    const before = railCards();
+    const input = rail()?.querySelector('input');
+    if (input && !SUPPRESS) {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(input, 'zzzznomatch');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    await tick(240);
+    const after = railCards();
+    add('the rail search filters the real list', before > 0 && after === 0,
+        before + ' -> ' + after);
+
+    /* Not a control: it is the control FOR the check above it. If
+       clearing did not restore the list, the filter was destructive
+       rather than a filter. */
+    if (input && !SUPPRESS) {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(input, '');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    await tick(240);
+    add('control: clearing the rail search brings the list back', railCards() === before,
+        before + ' vs ' + railCards(), false);
+  }
+
+  {
+    await home();
+    /* The card carries Run and Configure now, so it is a container
+       with buttons in it rather than one big button. Click the one
+       that opens the skill, not the box around it. */
+    click(rail()?.querySelector('.hp-skill-card button'));
+    await tick(280);
+    const onSkillsView = document.querySelector('main h2')?.textContent?.trim() === 'Skills';
+    add('a rail skill card opens the Skills view', onSkillsView,
+        'heading=' + (document.querySelector('main h2')?.textContent?.trim() ?? 'none'));
+    /* `home()` only puts the app back on the home SCREEN; the home
+       screen's own view is React state and stays on Skills. Put it
+       back through the nav, the way a user would, or every check
+       after this one runs against the wrong view. */
+    click(btn('Home'));
+    await tick(260);
+  }
 
   /* ── Nav toggles the view both ways ──────────────────────────── */
   await home();
@@ -185,8 +249,8 @@ JS = r'''
   const sec = () => sectionByHeading('Projects');
   const tiles = () => sec().querySelectorAll('[data-home="project-tile"]').length;
   const before = tiles();
-  click(sec().querySelector('button[title="Search projects"]'));
-  await tick(220);
+  /* The field is on screen now rather than behind a magnifier, so
+     there is nothing to click first. */
   const input = sec().querySelector('input');
   if (input) setInput(input, 'zzzz-no-such-project');
   await tick(240);
@@ -199,16 +263,77 @@ JS = r'''
   add('control: clearing the search brings the wall back', tiles() === before,
       tiles() + ' vs ' + before, false);
 
+  /* Grid/List is a segmented control now, not a two-option <select>:
+     a popup to choose between two things was a popup too many. Same
+     assertion as before — the LAYOUT has to actually change, because
+     six identical-looking tiles would not tell you if it did not. */
+  const segBtn = (label) =>
+    [...sec().querySelectorAll('.seg-item')].find((b) => b.textContent.trim() === label);
   const gridBefore = !!sec().querySelector('div.grid');
-  const select = sec().querySelector('select');
-  if (select && !SUPPRESS) {
-    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'list');
-    select.dispatchEvent(new Event('change', { bubbles: true }));
-  }
+  click(segBtn('List'));
   await tick(240);
   add('the view mode really changes the layout',
       gridBefore === true && !sec().querySelector('div.grid'),
       'grid before=' + gridBefore + ' after=' + !!sec().querySelector('div.grid'));
+  click(segBtn('Grid'));
+  await tick(200);
+
+  /* And the sort is real: ordering by name has to reorder the wall.
+     The <select> that used to be the view mode is the sort now. */
+  /* The NAME, not the whole tile: a tile's text begins with its
+     duration, so comparing `textContent` compares "0:01" against
+     "0:12" and calls a correctly-sorted wall out of order. It did. */
+  const nameList = () => [...sec().querySelectorAll('[data-home="project-name"]')]
+      .map((t) => t.textContent.trim());
+  const names = () => nameList().join('|');
+  /*
+    Two projects, put there on purpose.
+
+    A one-project wall cannot be sorted wrong, so the check below would
+    have been a permanent green tick. These are added through the real
+    store and removed again straight after, so the sort is exercised
+    against something that has an order.
+  */
+  /* THREE, not two: the most recent entry is featured in the hero and
+     is deliberately kept off the wall below it, so two seeds leave one
+     tile and the sort has nothing to get wrong. */
+  const SEEDED = ['zzz-verify-sort-c', 'mmm-verify-sort-b', 'aaa-verify-sort-a'];
+  if (!SUPPRESS) {
+    for (const name of SEEDED) {
+      window.__kerf.recents.getState().remember({
+        id: name, name, durationMs: 1000, aspectRatio: '16:9', clipCount: 1,
+      });
+    }
+  }
+  await tick(260);
+  const orderBefore = names();
+  const select = sec().querySelector('select');
+  if (select && !SUPPRESS) {
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'name');
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  await tick(260);
+  const byName = nameList();
+  /*
+    With one tile on the wall `every()` is vacuously true and this
+    check cannot fail, which would make it a green tick that proves
+    nothing. It says so instead: the assertion only counts when there
+    is an order to get wrong.
+  */
+  if (byName.length < 2) {
+    add('sorting by name really orders the wall', false,
+        'NOT EXERCISED - needs 2+ projects, wall has ' + byName.length, false);
+  } else {
+    const sortedRight = byName.every((n, i) => i === 0 || byName[i - 1].localeCompare(n) <= 0);
+    add('sorting by name really orders the wall', sortedRight,
+        sortedRight ? byName.length + ' tiles, ascending' : 'OUT OF ORDER: ' + byName.join(' | '));
+  }
+  if (!SUPPRESS) {
+    for (const id of SEEDED) window.__kerf.recents.getState().forget(id);
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'recent');
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  await tick(240);
 
   /* ── A project tile opens THAT project ───────────────────────── */
   await home();
@@ -235,6 +360,42 @@ JS = r'''
   add('the agent chip has three states, not two',
       unknown === 'checking…' && absent === 'no agent' && ready === 'Claude Code',
       [unknown, absent, ready].join(' | '), false);
+
+  /* ── Global overlays really exist on Home ─────────────────────
+     These buttons were visually present while their editor-only overlay
+     components were not mounted on Home. Store state changed, but the
+     person saw nothing. Drive all three launch points and require the
+     actual dialog content. */
+  {
+    const command = document.querySelector('button[aria-label="Command palette"]');
+    click(command);
+    await tick(220);
+    const palette = document.querySelector('input[placeholder^="Search commands"]');
+    add('Home Commands opens the real command palette', !!palette,
+        palette ? 'palette shown' : 'NO palette');
+    if (!SUPPRESS) window.__kerf.ui.getState().closeCommandPalette();
+    await tick(160);
+
+    const shortcuts = document.querySelector('button[aria-label="Keyboard shortcuts"]');
+    click(shortcuts);
+    await tick(220);
+    const shortcutDialog = [...document.querySelectorAll('[role="dialog"]')]
+      .find((el) => el.textContent.includes('Keyboard shortcuts'));
+    add('Home shortcuts opens the real shortcuts dialog', !!shortcutDialog,
+        shortcutDialog ? 'shortcuts shown' : 'NO shortcuts');
+    if (!SUPPRESS) window.__kerf.ui.getState().setShortcutsOpen(false);
+    await tick(160);
+
+    const mcp = document.querySelector('button[aria-label="MCP server and tools"]');
+    click(mcp);
+    await tick(220);
+    const mcpDialog = [...document.querySelectorAll('[role="dialog"]')]
+      .find((el) => el.textContent.includes('Model Context Protocol'));
+    add('Home MCP opens the real status dialog', !!mcpDialog,
+        mcpDialog ? 'MCP shown' : 'NO MCP dialog');
+    if (!SUPPRESS) window.__kerf.project.getState().setMcpModalOpen(false);
+    await tick(160);
+  }
 
   /* ── A broken file is reported, not swallowed ────────────────── */
   await home();

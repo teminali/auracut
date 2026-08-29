@@ -15,13 +15,14 @@ import { useProjectStore } from '../../store/projectStore';
 import { useUiStore } from '../../store/uiStore';
 import { AspectRatio, ASPECT_DIMENSIONS } from '../../types/edl';
 import { formatTimecode } from '../../utils/time';
-import { McpStatusModal } from './McpStatusModal';
 import { serializeProject, deserializeProject } from '../../engine/projectIO';
 import { UpdateIndicator } from './UpdateIndicator';
 import { KerfMark } from '../ui/KerfMark';
 import {
-  Sparkle, Download, Undo2, Redo2, Command, Save, FolderOpen, Keyboard,
+  Sparkle, Download, Undo2, Redo2, Command, Save, FolderOpen, Keyboard, X,
 } from '../ui/icons';
+import { useRecorderStore } from '../../store/recorderStore';
+import { StatusDot } from '../ui/Primitives';
 
 /** A hairline rule between control clusters. */
 const Divider: React.FC = () => <div className="w-px h-4 bg-line flex-shrink-0" />;
@@ -38,6 +39,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
   const isCopilotOpen = useProjectStore((s) => s.isCopilotOpen);
   const setCopilotOpen = useProjectStore((s) => s.setCopilotOpen);
   const setExportModalOpen = useProjectStore((s) => s.setExportModalOpen);
+  const setMcpModalOpen = useProjectStore((s) => s.setMcpModalOpen);
   const setAspectRatio = useProjectStore((s) => s.setAspectRatio);
   const setProjectName = useProjectStore((s) => s.setProjectName);
   const setFps = useProjectStore((s) => s.setFps);
@@ -46,7 +48,6 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
   const setShortcutsOpen = useUiStore((s) => s.setShortcutsOpen);
   const pushToast = useUiStore((s) => s.pushToast);
 
-  const [isMcpOpen, setMcpOpen] = useState(false);
   const [isEditingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(project.name);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,7 +88,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
 
   return (
     <header
-      className="titlebar-drag h-10 flex-shrink-0 bg-spectrum-panelHeader border-b border-line flex items-center gap-3 pr-3 z-30"
+      className="editor-topbar titlebar-drag h-[52px] flex-shrink-0 bg-spectrum-panelHeader border-b border-line flex items-center gap-2.5 pr-[15px] z-30"
     >
       {/* Window-control gutter — macOS only, sized by --titlebar-inset. */}
       <div className="titlebar-gutter" />
@@ -101,11 +102,11 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           disabled={!onGoHome}
           title={onGoHome ? 'Back to home' : undefined}
             aria-label={onGoHome ? 'Back to home' : undefined}
-          className="flex items-center gap-2 flex-shrink-0 rounded-[6px] px-1 -mx-1 py-0.5
+          className="flex items-center gap-2 flex-shrink-0 rounded-squircle-xs px-1 -mx-1 py-0.5
                      hover:bg-white/[0.05] transition-colors disabled:hover:bg-transparent"
         >
           <div
-            className="w-[22px] h-[22px] rounded-[5px] flex items-center justify-center shadow-raised"
+            className="w-[22px] h-[22px] rounded-squircle-xs flex items-center justify-center shadow-raised"
             style={{ background: 'linear-gradient(145deg,#eb9b81,#c4603f)' }}
           >
             {/* The kerf: two bars and the cut between them. */}
@@ -129,14 +130,29 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
             className="pro-input h-[26px] px-2 text-ui font-medium w-52"
           />
         ) : (
-          <button
-            onClick={() => { setTitleDraft(project.name); setEditingTitle(true); }}
-            className="pro-btn h-[26px] px-2 text-ui text-spectrum-textMuted hover:text-spectrum-text truncate max-w-[240px]"
-            title="Click to rename the project"
-          
-            aria-label="Click to rename the project">
-            {project.name}
-          </button>
+          /* A tab, with the close that a tab implies. Closing it is
+             the same `goHome` the mark performs — the project is
+             remembered on the recents wall on the way out, so this
+             cannot lose work. */
+          <span className="editor-tab">
+            <button
+              onClick={() => { setTitleDraft(project.name); setEditingTitle(true); }}
+              className="truncate max-w-[220px] text-ui text-spectrum-text"
+              title="Click to rename the project"
+              aria-label="Click to rename the project"
+            >
+              {project.name}
+            </button>
+            <button
+              onClick={onGoHome}
+              disabled={!onGoHome}
+              className="editor-tab-close"
+              title="Close the project and go home"
+              aria-label="Close the project and go home"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
         )}
       </div>
 
@@ -217,6 +233,20 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         {/* Renders nothing unless there is an update to act on. */}
         <UpdateIndicator />
 
+        {/* Recording is reachable from home only today, which means
+            leaving the project to start one. The design puts it in the
+            editor header and it opens the SAME recorder studio — one
+            component, two doors, like the Player. */}
+        <button
+          onClick={() => useRecorderStore.getState().open()}
+          className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs"
+          title="Record the screen"
+          aria-label="Record the screen"
+        >
+          <StatusDot state="error" />
+          Record
+        </button>
+
         <button onClick={openCommandPalette} className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs" title="Command palette (⌘K)"
             aria-label="Command palette (⌘K)">
           <Command className="w-3 h-3" />
@@ -230,12 +260,12 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         </button>
 
         <button
-          onClick={() => setMcpOpen(true)}
+          onClick={() => setMcpModalOpen(true)}
           className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs font-mono tracking-wide"
           title="MCP server & tools"
         
             aria-label="MCP server & tools">
-          <span className="w-1.5 h-1.5 rounded-full bg-spectrum-green animate-pulse-ring" />
+          <StatusDot state="on" className="animate-pulse-ring" />
           MCP
         </button>
 
@@ -243,10 +273,13 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
 
         <button
           onClick={() => setCopilotOpen(!isCopilotOpen)}
-          className={`h-[26px] px-2.5 rounded-squircle-xs border text-ui-sm font-medium flex items-center gap-1.5 transition-colors ${
-            isCopilotOpen
-              ? 'bg-spectrum-accentSoft border-spectrum-accentLine text-spectrum-accent'
-              : 'bg-spectrum-card border-line text-spectrum-textMuted hover:text-spectrum-text hover:bg-spectrum-cardHover'
+          /* The shared filled button plus the shared on-state, rather
+             than a fifth hand-rolled button in the same 26px row. It
+             had its own radius (6px against everything else's 8px),
+             its own border and its own hover, which is how one control
+             in a toolbar ends up a different shape from its neighbours. */
+          className={`pro-btn-filled h-[26px] px-2.5 gap-1.5 text-ui-sm font-medium ${
+            isCopilotOpen ? 'pro-btn-active' : ''
           }`}
           title="AI Copilot (⌘J)"
         
@@ -260,8 +293,6 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           Export
         </button>
       </div>
-
-      {isMcpOpen && <McpStatusModal onClose={() => setMcpOpen(false)} />}
     </header>
   );
 };

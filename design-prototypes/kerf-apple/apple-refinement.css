@@ -1,0 +1,987 @@
+:root {
+  color-scheme: dark;
+  --kerf-canvas: #0f1012;
+  --kerf-window: #17181b;
+  --kerf-surface: #1d1e22;
+  --kerf-surface-raised: #242529;
+  --kerf-control: #2a2b30;
+  --kerf-control-hover: #32343a;
+  --kerf-hairline: rgba(255, 255, 255, 0.075);
+  --kerf-hairline-strong: rgba(255, 255, 255, 0.12);
+  --kerf-text: #f5f5f7;
+  --kerf-text-secondary: #b4b4bb;
+  --kerf-text-tertiary: #77777f;
+  --kerf-accent: #f28b46;
+  --kerf-accent-soft: #ffad72;
+  --kerf-accent-deep: #c7672e;
+  --kerf-focus: rgba(242, 139, 70, 0.4);
+  --kerf-radius-xs: 5px;
+  --kerf-radius-sm: 7px;
+  --kerf-radius-md: 10px;
+  --kerf-radius-lg: 14px;
+  --kerf-shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.035) inset,
+    0 18px 44px rgba(0, 0, 0, 0.16);
+}
+
+html,
+body {
+  background: var(--kerf-canvas) !important;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist", system-ui, sans-serif;
+}
+
+.kerf-app {
+  background: var(--kerf-window) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 10px !important;
+  color: var(--kerf-text) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist", system-ui, sans-serif !important;
+  letter-spacing: -0.012em !important;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+}
+
+.kerf-app .kfbar {
+  height: 52px !important;
+  padding: 0 15px !important;
+  gap: 10px !important;
+  background: rgba(35, 36, 40, 0.92) !important;
+  border-bottom-color: var(--kerf-hairline) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 10px 30px rgba(0, 0, 0, 0.16);
+  backdrop-filter: saturate(145%) blur(24px);
+  -webkit-backdrop-filter: saturate(145%) blur(24px);
+}
+
+.kerf-workspace {
+  gap: 1px !important;
+  background: #090a0c !important;
+}
+
+.kerf-rail,
+.kerf-library,
+.kerf-inspector,
+.kerf-timeline {
+  background: var(--kerf-surface) !important;
+  border-color: rgba(255, 255, 255, 0.095) !important;
+  box-shadow: var(--kerf-shadow-panel);
+}
+
+.kerf-program {
+  background: var(--kerf-window) !important;
+  container-type: inline-size;
+}
+
+.kerf-rail {
+  padding: 8px 0 !important;
+  align-items: center;
+  gap: 2px;
+  overflow-x: hidden !important;
+}
+
+.kerf-rail > div {
+  min-height: 42px;
+  margin: 2px 7px !important;
+  padding: 8px 0 !important;
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-rail > div:hover {
+  background: rgba(255, 255, 255, 0.065) !important;
+}
+
+.kerf-rail > .kerf-rail-tab {
+  position: relative;
+  box-sizing: border-box;
+  width: 46px !important;
+  height: 46px !important;
+  min-height: 46px !important;
+  flex: 0 0 46px;
+  justify-content: center;
+  gap: 2px !important;
+  margin: 1px auto !important;
+  padding: 5px 2px !important;
+  border: 1px solid transparent;
+  border-radius: 8px !important;
+  isolation: isolate;
+}
+
+.kerf-rail-tab > span:first-child {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.kerf-rail-tab > span:last-child {
+  max-width: 44px;
+  overflow: hidden;
+  font-size: 9px !important;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kerf-rail-tab:hover {
+  border-color: rgba(255, 255, 255, 0.075) !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+
+.kerf-rail-tab.is-active {
+  color: var(--kerf-text) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.052)) !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.055) inset,
+    0 7px 18px rgba(0, 0, 0, 0.2) !important;
+}
+
+.kerf-app input,
+.kerf-app textarea,
+.kerf-app select {
+  color: var(--kerf-text) !important;
+}
+
+.kerf-app input:focus-visible,
+.kerf-app textarea:focus-visible,
+.kerf-app select:focus-visible {
+  outline: 3px solid var(--kerf-focus) !important;
+  outline-offset: 1px !important;
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-app ::selection {
+  background: rgba(242, 139, 70, 0.3);
+}
+
+.kerf-app .kf::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+.kerf-app .kf::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border: 4px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.kerf-app .kf::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* Re-tone the Premiere-like panel system without changing its information model. */
+.kerf-app [style*="background:#2a2a2a"] {
+  background: var(--kerf-surface-raised) !important;
+}
+
+.kerf-app [style*="background:#232323"] {
+  background: var(--kerf-surface) !important;
+}
+
+.kerf-app [style*="background:#1c1c1c"] {
+  background: var(--kerf-window) !important;
+}
+
+.kerf-app [style*="background:#191919"],
+.kerf-app [style*="background:#141414"] {
+  background: var(--kerf-canvas) !important;
+}
+
+.kerf-app [style*="background:#262626"] {
+  background: rgba(255, 255, 255, 0.035) !important;
+}
+
+.kerf-app [style*="background:#2d2d2d"],
+.kerf-app [style*="background:#323232"] {
+  background: var(--kerf-control) !important;
+}
+
+.kerf-app [style*="border:1px solid #141414"],
+.kerf-app [style*="border-bottom:1px solid #141414"],
+.kerf-app [style*="border-top:1px solid #141414"],
+.kerf-app [style*="border-left:1px solid #141414"],
+.kerf-app [style*="border-right:1px solid #141414"] {
+  border-color: var(--kerf-hairline) !important;
+}
+
+.kerf-app [style*="border:1px solid #3a3a3a"],
+.kerf-app [style*="border-bottom:1px solid #323232"] {
+  border-color: var(--kerf-hairline-strong) !important;
+}
+
+.kerf-app [style*="border-radius:2px"] {
+  border-radius: var(--kerf-radius-xs) !important;
+}
+
+.kerf-app [style*="border-radius:3px"] {
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-app [style*="color:#e8e8e8"],
+.kerf-app [style*="color:#d6d6d6"] {
+  color: var(--kerf-text) !important;
+}
+
+.kerf-app [style*="color:#c4c4c4"],
+.kerf-app [style*="color:#a6a6a6"],
+.kerf-app [style*="color:#989898"] {
+  color: var(--kerf-text-secondary) !important;
+}
+
+.kerf-app [style*="color:#8a8a8a"],
+.kerf-app [style*="color:#6b6b6b"] {
+  color: var(--kerf-text-tertiary) !important;
+}
+
+/* Apple-style control surfaces: quieter borders, generous radii, crisp hover lift. */
+.kerf-app [style*="cursor:pointer"],
+.kerf-app [style*="cursor: pointer"] {
+  transition: background-color 160ms cubic-bezier(0.2, 0.72, 0, 1),
+    border-color 160ms ease,
+    color 160ms ease,
+    filter 160ms ease,
+    box-shadow 180ms ease,
+    transform 180ms cubic-bezier(0.2, 0.72, 0, 1),
+    opacity 160ms ease !important;
+}
+
+.kerf-app [style*="cursor:pointer"]:hover,
+.kerf-app [style*="cursor: pointer"]:hover {
+  filter: brightness(1.08);
+}
+
+.kerf-app [style*="cursor:pointer"]:active,
+.kerf-app [style*="cursor: pointer"]:active {
+  transform: scale(0.975) !important;
+}
+
+.kerf-app [style*="background:#c9622f"],
+.kerf-app [style*="background:#e0854d"] {
+  background: linear-gradient(180deg, var(--kerf-accent-soft), var(--kerf-accent)) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #2b1609 !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 5px 14px rgba(199, 103, 46, 0.2);
+}
+
+.kerf-app [style*="background:#33281e"],
+.kerf-app [style*="background:#2b2520"] {
+  background: rgba(242, 139, 70, 0.13) !important;
+  border-color: rgba(242, 139, 70, 0.34) !important;
+}
+
+.kerf-app [style*="color:#f0a173"] {
+  color: var(--kerf-accent-soft) !important;
+}
+
+.kerf-app [style*="border-top:2px solid #c9622f"] {
+  border-top: 0 !important;
+  box-shadow: 0 -2px 0 var(--kerf-accent) inset;
+}
+
+/* Panel title bars become slimmer, calmer segmented headers. */
+.kerf-library > div:first-child,
+.kerf-program > div:first-child,
+.kerf-inspector > div:first-child {
+  height: 42px !important;
+  padding-left: 13px !important;
+  padding-right: 13px !important;
+  background: rgba(36, 37, 41, 0.96) !important;
+  border-bottom-color: var(--kerf-hairline) !important;
+}
+
+.kerf-library > div:first-child > span:first-child,
+.kerf-program > div:first-child > span:first-child {
+  height: 27px !important;
+  padding: 0 10px !important;
+  border-radius: 7px !important;
+  background: rgba(255, 255, 255, 0.065) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  box-shadow: none !important;
+}
+
+.kerf-inspector > div:first-child > span:first-child {
+  width: 4px !important;
+  height: 17px !important;
+  border-radius: 999px !important;
+  background: var(--kerf-accent) !important;
+  box-shadow: 0 0 12px rgba(242, 139, 70, 0.35);
+}
+
+.kerf-library .kfmedia,
+.kerf-library [style*="border:1px solid {{"],
+.kerf-inspector [style*="background:#262626"] {
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-library > .kf {
+  overflow-x: hidden !important;
+}
+
+.kerf-library .kfpanel,
+.kerf-library .kfpanel > div,
+.kerf-library .kfpanel [style*="display:grid"] > * {
+  min-width: 0;
+}
+
+.kerf-library .kfpanel [style*="grid-template-columns:1fr 1fr"],
+.kerf-library .kfpanel [style*="grid-template-columns:repeat(3,1fr)"] {
+  width: 100%;
+}
+
+.kerf-library .kfmedia:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.11) !important;
+}
+
+/* Program monitor: a deeper theater with a floating glass tool shelf. */
+.kerf-program > div:nth-child(2) {
+  background: radial-gradient(circle at 50% 42%, #202126 0, #111215 48%, #0d0e10 100%) !important;
+  padding: 28px 30px 8px !important;
+}
+
+.kerf-program > div:nth-child(2) > div:first-child {
+  border-radius: var(--kerf-radius-md) !important;
+  box-shadow: 0 28px 62px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.kerf-program > div:nth-child(2) > div:last-child {
+  border-radius: var(--kerf-radius-md) !important;
+  background: rgba(30, 31, 35, 0.82) !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.42),
+    0 1px 0 rgba(255, 255, 255, 0.07) inset !important;
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+.kerf-program > div:nth-child(3) {
+  background: var(--kerf-surface) !important;
+  border-top-color: var(--kerf-hairline) !important;
+}
+
+/* Keep the monitor, overlay shelf, and transport on independent, stable rows. */
+.kerf-program-stage {
+  overflow: hidden !important;
+  padding: 16px 18px 12px !important;
+}
+
+.kerf-program-canvas {
+  width: min(100%, 720px) !important;
+  max-width: 100% !important;
+  max-height: calc(100% - 16px) !important;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 32px 74px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.1) inset !important;
+}
+
+.kerf-align-shelf {
+  left: 50%;
+  bottom: 14px !important;
+  translate: -50% 0;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
+  white-space: nowrap;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(34, 35, 39, 0.91) !important;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.52),
+    0 1px 0 rgba(255, 255, 255, 0.075) inset !important;
+}
+
+.kerf-program-transport {
+  position: relative;
+  z-index: 3;
+  padding: 10px 14px 11px !important;
+  border-top-color: rgba(255, 255, 255, 0.105) !important;
+  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.16),
+    0 1px 0 rgba(255, 255, 255, 0.025) inset;
+}
+
+.kerf-program-transport > span:first-child {
+  height: 5px !important;
+  background: rgba(255, 255, 255, 0.075) !important;
+}
+
+.kerf-transport-row {
+  display: grid !important;
+  grid-template-columns: minmax(170px, 1fr) auto minmax(220px, 1fr);
+  align-items: center !important;
+  column-gap: 12px !important;
+  min-height: 40px;
+}
+
+.kerf-transport-time {
+  justify-self: start;
+  min-width: 0;
+}
+
+.kerf-transport-playback {
+  justify-self: center;
+  margin: 0 !important;
+}
+
+.kerf-transport-actions {
+  justify-self: end;
+  min-width: 0;
+}
+
+.kerf-inspector [data-inspector-tab] {
+  flex: 0 0 auto !important;
+  min-width: 0;
+  gap: 5px !important;
+  padding: 8px 7px !important;
+  font-size: 11.5px !important;
+}
+
+.kerf-inspector-tab {
+  border-radius: 6px 6px 0 0;
+  transition: color 160ms ease, background-color 160ms ease !important;
+}
+
+.kerf-inspector-tab:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.kerf-inspector-tab.is-active {
+  color: var(--kerf-text) !important;
+  background: linear-gradient(180deg, rgba(242, 139, 70, 0.085), transparent 85%);
+  text-shadow: 0 0 18px rgba(242, 139, 70, 0.14);
+}
+
+.kerf-library > div:first-child,
+.kerf-program > div:first-child,
+.kerf-inspector > div:first-child {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset,
+    0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.kerf-timeline > div:first-of-type {
+  background: rgba(28, 29, 33, 0.98) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.09) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
+    0 10px 24px rgba(0, 0, 0, 0.14);
+}
+
+.kerf-timeline > div:nth-of-type(2) {
+  border-top: 1px solid rgba(255, 255, 255, 0.035);
+}
+
+@container (max-width: 760px) {
+  .kerf-transport-row {
+    grid-template-columns: minmax(120px, 1fr) auto minmax(150px, 1fr);
+    column-gap: 7px !important;
+  }
+
+  .kerf-transport-actions > span:nth-last-child(-n + 2) {
+    display: none !important;
+  }
+}
+
+@container (max-width: 620px) {
+  .kerf-transport-time > span:last-child,
+  .kerf-transport-actions > span:nth-child(-n + 2) {
+    display: none !important;
+  }
+
+  .kerf-transport-row {
+    grid-template-columns: minmax(94px, 1fr) auto minmax(90px, 1fr);
+  }
+}
+
+/* Inspector fields read as native macOS controls while staying compact. */
+.kerf-inspector [style*="display:grid;grid-template-columns:1fr 1fr;gap:8px"] > span,
+.kerf-inspector [style*="display:flex;align-items:center;gap:8px;padding:7px 10px"] {
+  min-height: 31px;
+  border-radius: var(--kerf-radius-sm) !important;
+  background: rgba(255, 255, 255, 0.045) !important;
+  border-color: rgba(255, 255, 255, 0.075) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.025) inset;
+}
+
+.kerf-inspector [style*="height:1px;background:#141414"] {
+  background: var(--kerf-hairline) !important;
+}
+
+.kerf-app .kfslider {
+  height: 5px !important;
+  background: rgba(255, 255, 255, 0.09) !important;
+}
+
+.kerf-app .kfslider > span:last-child,
+.kerf-timeline [style*="width:14px;height:14px"] {
+  background: #f5f5f7 !important;
+  border: 1px solid rgba(0, 0, 0, 0.45) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5),
+    0 0 0 0.5px rgba(255, 255, 255, 0.3) inset !important;
+}
+
+/* Timeline: Premiere's editing grammar with quieter, layered Apple surfaces. */
+.kerf-timeline {
+  border-top-color: rgba(255, 255, 255, 0.12) !important;
+  background: #15161a !important;
+  box-shadow: 0 -18px 42px rgba(0, 0, 0, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.035) inset !important;
+}
+
+.kerf-timeline > div:nth-child(2) {
+  gap: 1px !important;
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+
+.kerf-track-list,
+.kerf-timeline-lanes {
+  background: #17181b !important;
+}
+
+.kerf-track-list {
+  border-right-color: rgba(255, 255, 255, 0.105) !important;
+  box-shadow: 10px 0 28px rgba(0, 0, 0, 0.14);
+  z-index: 2;
+}
+
+.kerf-track-list-header {
+  box-sizing: border-box;
+  height: 48px !important;
+  min-height: 48px !important;
+  padding-top: 1px !important;
+  background: linear-gradient(180deg, #24252a, #1d1e22) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+  color: #8f9098 !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset;
+}
+
+.kerf-time-ruler {
+  background: linear-gradient(180deg, rgba(37, 38, 43, 0.98), rgba(29, 30, 34, 0.98)) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.075) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset;
+}
+
+.kerf-time-ruler > span {
+  border-left-color: rgba(255, 255, 255, 0.115) !important;
+  color: #85868e !important;
+}
+
+.kerf-marker-strip {
+  background: rgba(25, 26, 30, 0.98) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.075) !important;
+}
+
+.kerf-marker-strip > span {
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.32));
+}
+
+.kerf-track-row,
+.kerf-track-lane {
+  box-sizing: border-box;
+  border-bottom-color: rgba(255, 255, 255, 0.062) !important;
+  transition: background-color 160ms ease, box-shadow 160ms ease !important;
+}
+
+.kerf-track-row {
+  background: rgba(255, 255, 255, 0.012) !important;
+}
+
+.kerf-track-row:hover {
+  background: rgba(255, 255, 255, 0.045) !important;
+}
+
+.kerf-track-row.is-active {
+  background: linear-gradient(90deg, rgba(242, 139, 70, 0.1), rgba(255, 255, 255, 0.028)) !important;
+  box-shadow: 2px 0 0 rgba(242, 139, 70, 0.75) inset;
+}
+
+.kerf-track-lane {
+  background: rgba(255, 255, 255, 0.008) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.012) inset;
+}
+
+.kerf-track-lane:nth-of-type(even) {
+  background: rgba(255, 255, 255, 0.018) !important;
+}
+
+.kerf-track-lane.is-active {
+  background: linear-gradient(90deg, rgba(242, 139, 70, 0.035), rgba(255, 255, 255, 0.016)) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.018) inset,
+    0 0 24px rgba(242, 139, 70, 0.025) inset;
+}
+
+.kerf-timeline .kfclip {
+  top: 5px !important;
+  bottom: 5px !important;
+  padding: 5px 8px !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.105) inset,
+    0 6px 16px rgba(0, 0, 0, 0.18) !important;
+}
+
+.kerf-timeline .kfclip:hover {
+  transform: translateY(-1px) scale(1.005) !important;
+  filter: brightness(1.12) saturate(1.06) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 9px 22px rgba(0, 0, 0, 0.25) !important;
+}
+
+.kerf-timeline .kfclip.is-selected {
+  border-color: rgba(255, 183, 132, 0.92) !important;
+  box-shadow: 0 0 0 1px rgba(242, 139, 70, 0.72),
+    0 0 0 4px rgba(242, 139, 70, 0.105),
+    0 1px 0 rgba(255, 255, 255, 0.14) inset,
+    0 9px 24px rgba(0, 0, 0, 0.24) !important;
+}
+
+.kerf-timeline .kftrack {
+  border-bottom-color: rgba(255, 255, 255, 0.065) !important;
+}
+
+.kerf-timeline .kfplayhead {
+  width: 2px !important;
+  background: linear-gradient(180deg, #ff835f, #f05e43) !important;
+  box-shadow: 0 0 10px rgba(255, 107, 74, 0.24);
+}
+
+.kerf-timeline .kfplayhead > span {
+  left: -5px !important;
+  width: 12px !important;
+  height: 11px !important;
+  border-radius: 3px 3px 5px 5px !important;
+  background: linear-gradient(180deg, #ff8662, #f05e43) !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3),
+    0 0 10px rgba(255, 107, 74, 0.2);
+}
+
+.kerf-app .kftipbox {
+  padding: 6px 9px !important;
+  border-radius: 7px !important;
+  background: rgba(42, 43, 48, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  box-shadow: 0 9px 24px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+/* Motion language: responsive and quietly cinematic, never ornamental. */
+@keyframes kerf-app-enter {
+  0% {
+    transform: scale(0.998);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes kerf-topbar-enter {
+  from {
+    transform: translateY(-10px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes kerf-left-enter {
+  from {
+    transform: translateX(-12px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes kerf-right-enter {
+  from {
+    transform: translateX(12px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes kerf-program-enter {
+  from {
+    transform: scale(0.985);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes kerf-bottom-enter {
+  from {
+    transform: translateY(16px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes kerf-panel-swap {
+  from {
+    opacity: 0;
+    transform: translateX(-7px) scale(0.995);
+    filter: blur(1.5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes kerf-modal-veil {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(10px);
+  }
+}
+
+@keyframes kerf-modal-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.965);
+    filter: blur(4px);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.002);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes kerf-mystic-drift {
+  0% {
+    opacity: 0.25;
+    transform: translate3d(-1.5%, -1%, 0) scale(0.98);
+  }
+  50% {
+    opacity: 0.42;
+  }
+  100% {
+    opacity: 0.28;
+    transform: translate3d(1.5%, 1%, 0) scale(1.025);
+  }
+}
+
+@keyframes kerf-status-breathe {
+  0%,
+  100% {
+    opacity: 0.72;
+    box-shadow: 0 0 0 0 rgba(63, 196, 111, 0);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 0 4px rgba(63, 196, 111, 0.1),
+      0 0 12px rgba(63, 196, 111, 0.22);
+  }
+}
+
+@keyframes kerf-playhead-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.kerf-app .kfbar {
+  animation: kerf-topbar-enter 430ms 45ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.kerf-rail {
+  animation: kerf-left-enter 460ms 90ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.kerf-library {
+  animation: kerf-left-enter 480ms 125ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.kerf-program {
+  animation: kerf-program-enter 520ms 145ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.kerf-inspector {
+  animation: kerf-right-enter 480ms 125ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.kerf-timeline {
+  animation: kerf-bottom-enter 520ms 175ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.kerf-app .kfscreen {
+  animation: kerf-program-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+
+.kerf-app .kfpanel {
+  animation: kerf-panel-swap 320ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+}
+
+.kerf-app .kfveil {
+  animation: kerf-modal-veil 260ms ease-out both !important;
+  background: rgba(7, 8, 10, 0.58) !important;
+  backdrop-filter: blur(10px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(120%) !important;
+}
+
+.kerf-app .kfpop {
+  animation: kerf-modal-pop 420ms cubic-bezier(0.16, 1, 0.3, 1) both !important;
+  border-radius: 14px !important;
+  background: rgba(31, 32, 36, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.13) !important;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.56),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset !important;
+}
+
+/* The only continuous ambient movement lives behind the canvas. */
+.kerf-program > div:nth-child(2)::before {
+  content: "";
+  position: absolute;
+  inset: 8% 10%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 28% 38%, rgba(242, 139, 70, 0.14), transparent 36%),
+    radial-gradient(circle at 74% 62%, rgba(120, 96, 220, 0.1), transparent 39%);
+  filter: blur(42px);
+  animation: kerf-mystic-drift 16s ease-in-out infinite alternate;
+}
+
+.kerf-program > div:nth-child(2) > * {
+  z-index: 1;
+}
+
+.kerf-program > div:nth-child(2) > div:first-child {
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 360ms ease !important;
+}
+
+.kerf-program > div:nth-child(2):hover > div:first-child {
+  transform: translateY(-2px) scale(1.002);
+  box-shadow: 0 34px 72px rgba(0, 0, 0, 0.59),
+    0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+}
+
+.kerf-program > div:nth-child(2) > div:last-child {
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 200ms ease,
+    box-shadow 260ms ease !important;
+}
+
+.kerf-program > div:nth-child(2) > div:last-child:hover {
+  transform: translateY(-2px);
+  background: rgba(38, 39, 44, 0.9) !important;
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.48),
+    0 1px 0 rgba(255, 255, 255, 0.09) inset !important;
+}
+
+/* Native-feeling response: lift only substantial controls, never bare icons. */
+.kerf-app [style*="cursor:pointer"][style*="border:1px"],
+.kerf-app [style*="cursor: pointer"][style*="border:1px"] {
+  will-change: transform;
+}
+
+.kerf-app [style*="cursor:pointer"][style*="border:1px"]:hover,
+.kerf-app [style*="cursor: pointer"][style*="border:1px"]:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.045) inset,
+    0 6px 16px rgba(0, 0, 0, 0.13);
+}
+
+.kerf-app [style*="cursor:pointer"][style*="border:1px"]:active,
+.kerf-app [style*="cursor: pointer"][style*="border:1px"]:active {
+  transform: translateY(0) scale(0.975) !important;
+  transition-duration: 70ms !important;
+}
+
+.kerf-app .kfmedia {
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 180ms ease,
+    border-color 180ms ease,
+    box-shadow 240ms ease !important;
+}
+
+.kerf-app .kfmedia:hover {
+  transform: translateX(2px);
+  box-shadow: -2px 0 0 rgba(242, 139, 70, 0.36),
+    0 6px 18px rgba(0, 0, 0, 0.1);
+}
+
+.kerf-app .kfadd {
+  transform: translateX(3px) scale(0.92);
+  transition: opacity 160ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.kerf-app .kfmedia:hover .kfadd {
+  transform: translateX(0) scale(1);
+}
+
+.kerf-app .kfslider > span:last-child {
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease !important;
+}
+
+.kerf-app .kfslider:hover > span:last-child {
+  transform: scale(1.16);
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.55),
+    0 0 0 4px rgba(242, 139, 70, 0.12) !important;
+}
+
+.kerf-app .kfclip {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 160ms ease,
+    border-color 180ms ease,
+    box-shadow 220ms ease !important;
+}
+
+.kerf-app .kfplayhead {
+  transition: left 110ms linear, filter 180ms ease !important;
+  animation: kerf-playhead-arrive 420ms 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  filter: drop-shadow(0 0 5px rgba(255, 107, 74, 0.28));
+}
+
+.kerf-app .kfbar [style*="background:#3fc46f"] {
+  animation: kerf-status-breathe 3.2s ease-in-out infinite !important;
+}
+
+.kerf-app .kftipbox {
+  transform: translate(-50%, 6px) scale(0.97);
+  transform-origin: 50% 100%;
+  transition: opacity 150ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+.kerf-app .kftip:hover .kftipbox {
+  transform: translate(-50%, 0) scale(1) !important;
+}
+
+.kerf-app button:focus-visible,
+.kerf-app [style*="cursor:pointer"]:focus-visible,
+.kerf-app [style*="cursor: pointer"]:focus-visible {
+  outline: 3px solid var(--kerf-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kerf-app *,
+  .kerf-app *::before,
+  .kerf-app *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

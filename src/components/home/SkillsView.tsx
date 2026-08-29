@@ -56,7 +56,7 @@ const SCOPES: { id: Scope; label: string }[] = [
    plate carries the mark and the badges rather than a picture of
    nothing: the reference puts the duration and the use count on its
    thumbnail, and these are the two facts that belong in that slot. */
-const PLATE = 'block aspect-[4/5] rounded-[8px] relative overflow-hidden flex items-center justify-center';
+const PLATE = 'block aspect-[4/5] rounded-squircle-sm relative overflow-hidden flex items-center justify-center';
 
 export const SkillsView: React.FC = () => {
   const { skills: allBundledSkills } = useBundledSkills();
@@ -271,14 +271,14 @@ export const SkillsView: React.FC = () => {
 
                       {skill.verified && (
                         <span
-                          className="media-pill absolute bottom-2 left-2 h-[18px] px-1.5 rounded-[5px]
+                          className="media-pill absolute bottom-2 left-2 h-[18px] px-1.5 rounded-squircle-xs
                                      flex items-center gap-1 !font-sans !text-spectrum-green"
                           title="Ships with its own verification test, which is what makes it a skill rather than a prompt pack"
                         >
                           <BadgeCheck className="w-2.5 h-2.5" weight="fill" /> verified
                         </span>
                       )}
-                      <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center">
+                      <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-squircle-xs flex items-center">
                         v{skill.version}
                       </span>
                     </span>
@@ -356,21 +356,21 @@ export const SkillsView: React.FC = () => {
                   return (
                     <div key={skill.id} className="hp-catalog-card group">
                       <span className={`${PLATE} hp-plate-cool`}>
-                        <span className="w-11 h-11 rounded-[13px] bg-white/[0.10] flex items-center justify-center
+                        <span className="w-11 h-11 rounded-squircle-md bg-white/[0.10] flex items-center justify-center
                                          shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
                           <Blocks className="w-[22px] h-[22px] text-spectrum-accent" weight="duotone" />
                         </span>
 
                         {skill.verifiedAt && (
                           <span
-                            className="media-pill absolute bottom-2 left-2 h-[18px] px-1.5 rounded-[5px]
+                            className="media-pill absolute bottom-2 left-2 h-[18px] px-1.5 rounded-squircle-xs
                                        flex items-center gap-1 !font-sans !text-spectrum-green"
                             title={`Verified against a fresh project, ${skill.verifiedBuild ?? 'build not recorded'}`}
                           >
                             <BadgeCheck className="w-2.5 h-2.5" weight="fill" /> verified
                           </span>
                         )}
-                        <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center">
+                        <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-squircle-xs flex items-center">
                           v{skill.latestVersion}
                         </span>
                       </span>

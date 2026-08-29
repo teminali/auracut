@@ -8,8 +8,19 @@ interface TimelineRulerProps {
   height: number;
 }
 
-/** Tick ladder — pick the first step that keeps labels ≥64px apart. */
+/** Tick ladder — pick the first step that keeps labels ≥64px apart.
+ *
+ *  The ladder used to bottom out at 100ms, so past about 0.64px/ms the
+ *  ruler had nothing finer to offer and simply spread 100ms labels
+ *  further and further apart: the picture kept zooming and the SCALE
+ *  stopped. It reaches 1ms now, which is what makes the extra zoom
+ *  range mean something rather than just being bigger.
+ *
+ *  Milliseconds are honest here; video frames would not be. A frame
+ *  boundary is 1000/fps ms apart and nothing exists between two of
+ *  them, so this draws time and never implies a frame. */
 const TICK_STEPS_MS = [
+  1, 2, 5, 10, 20, 50,
   100, 200, 500, 1000, 2000, 5000, 10_000, 15_000, 30_000,
   60_000, 120_000, 300_000, 600_000,
 ];
@@ -25,9 +36,14 @@ function labelFor(ms: number, majorStep: number): string {
   const totalSeconds = ms / 1000;
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
-  // Sub-second steps need a decimal to stay distinguishable.
-  if (majorStep < 1000) return `${m}:${s.toFixed(1).padStart(4, '0')}`;
-  return `${m}:${Math.floor(s).toString().padStart(2, '0')}`;
+  /*
+    Exactly as many decimals as the step can actually distinguish.
+    One decimal against a 10ms step prints the same label three times
+    in a row, which reads as a broken ruler rather than a fine one.
+  */
+  const decimals = majorStep >= 1000 ? 0 : majorStep >= 100 ? 1 : majorStep >= 10 ? 2 : 3;
+  if (decimals === 0) return `${m}:${Math.floor(s).toString().padStart(2, '0')}`;
+  return `${m}:${s.toFixed(decimals).padStart(decimals + 3, '0')}`;
 }
 
 export const TimelineRuler: React.FC<TimelineRulerProps> = ({ pxPerMs, durationMs, height }) => {
@@ -88,7 +104,7 @@ export const TimelineRuler: React.FC<TimelineRulerProps> = ({ pxPerMs, durationM
         else setInPoint(Math.round(ms));
       }}
       style={{ height }}
-      className="relative cursor-ew-resize bg-spectrum-panelHeader select-none"
+      className="editor-time-ruler relative cursor-ew-resize bg-spectrum-panelHeader select-none"
       title="Drag to scrub · double-click sets in point · ⌥ double-click sets out point"
     >
       {/*

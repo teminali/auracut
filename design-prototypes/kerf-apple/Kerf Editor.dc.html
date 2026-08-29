@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<script src="./image-slot.js"></script>
+<link rel="stylesheet" href="./apple-refinement.css">
+<link rel="stylesheet" href="./kerf-components.css">
+<link rel="stylesheet" href="./kerf-unified.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #101010; }
+  body { overflow: auto; }
+  .kfbar { white-space: nowrap }
+  .kfcentre { min-width: 0; overflow: hidden }
+  .kfcentre > * { min-width: 0 }
+  .kfaspect { flex: 0 1 auto }
+  @media (max-width: 1420px) { .kfaspect { max-width: 108px } }
+  @media (max-width: 1300px) { .kfaspect { max-width: 46px } .kftotal { display: none } }
+  @media (max-width: 1220px) { .kffps { display: none } }
+  a { color: #f0a173; text-decoration: none; }
+  .kf::-webkit-scrollbar { width: 10px; height: 10px }
+  .kf::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 999px; border: 3px solid transparent; background-clip: content-box }
+  .kf::-webkit-scrollbar-track { background: transparent }
+  input, select, textarea { font: inherit }
+  input::placeholder, textarea::placeholder { color: #6b6b6b }
+  input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid #e0854d; outline-offset: 2px; border-radius: 3px }
+  [style*="background:#2d2d2d"], [style*="background:#323232"] { box-shadow: inset 0 1px 0 rgba(255,255,255,.05) }
+  ::selection { background: rgba(224,133,77,.32) }
+  @keyframes kfpulse { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+  @keyframes kfveil { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes kfpop { from { opacity: 0; transform: translateY(10px) scale(.985) } to { opacity: 1; transform: none } }
+  @keyframes kfpanel { from { opacity: 0; transform: translateX(-8px) } to { opacity: 1; transform: none } }
+  @keyframes kfscreen { from { opacity: 0; transform: scale(.995) } to { opacity: 1; transform: none } }
+  @keyframes kfsheen { from { transform: translateX(-100%) } to { transform: translateX(220%) } }
+  @keyframes kfblink { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+  [style*="cursor:pointer"], [style*="cursor: pointer"] {
+    transition: background-color .2s cubic-bezier(.32,.72,0,1), background .2s cubic-bezier(.32,.72,0,1), color .2s ease, border-color .2s ease, filter .2s ease, box-shadow .2s ease, transform .22s cubic-bezier(.32,.72,0,1), opacity .2s ease;
+  }
+  [style*="cursor:pointer"]:active { transform: scale(.985) }
+  input, textarea { transition: border-color .15s ease, background-color .15s ease }
+  .kfveil { animation: kfveil .16s ease both }
+  .kfpop { animation: kfpop .24s cubic-bezier(.32,.72,0,1) both }
+  .kfpanel { animation: kfpanel .22s cubic-bezier(.32,.72,0,1) both }
+  .kfscreen { animation: kfscreen .26s cubic-bezier(.32,.72,0,1) both }
+  .kfslider span { transition: left .18s cubic-bezier(.32,.72,0,1), width .18s cubic-bezier(.32,.72,0,1), right .18s cubic-bezier(.32,.72,0,1) }
+  .kfclip { transition: filter .15s ease, box-shadow .18s ease, transform .15s ease }
+  .kfclip:hover { transform: translateY(-1px) }
+  .kfgrip { transition: background-color .15s ease }
+  .kfgrip:hover { background: rgba(224,133,77,.55) !important }
+  .kfgrip:active { background: #e0854d !important }
+  .kfplayhead { transition: left .12s linear }
+  .kfsweep::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.14), transparent); animation: kfsheen 1.6s linear infinite }
+  .kfrec { animation: kfblink 1.4s ease-in-out infinite }
+  .kfmedia:hover .kfadd { opacity: 1 }
+  .kfadd { opacity: 0; transition: .14s ease }
+  .kftrack:hover .kfeye { color: #e8e8e8 }
+  .kftip { position: relative }
+  .kftip:hover .kftipbox { opacity: 1; transform: translate(-50%, 0) }
+  .kftipbox { opacity: 0; transform: translate(-50%, 3px); transition: .14s ease; pointer-events: none }
+</style>
+</helmet>
+
+<div class="kerf-app" style="width:100%;min-width:1180px;height:100vh;min-height:720px;box-sizing:border-box;background:#1c1c1c;font-family:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px;color:#e8e8e8;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-0.006em;font-feature-settings:'tnum' 1,'ss01' 1;display:flex;flex-direction:column;border:1px solid #141414;border-radius:2px;overflow:hidden;position:relative">
+
+  <sc-if value="{{ isHome }}" hint-placeholder-val="{{ false }}">
+  <div class="kfscreen" style="width:100%;height:100%"><dc-import name="KerfHome" on-open="{{ showEditor }}" on-preview="{{ showPlayerFromHome }}" hint-size="100%,100%" style="width:100%;height:100%"></dc-import></div>
+  </sc-if>
+
+  <sc-if value="{{ isPlayer }}" hint-placeholder-val="{{ false }}">
+  <div class="kfscreen" style="width:100%;height:100%"><dc-import name="KerfPlayer" title="{{ playerTitle }}" orientation="{{ playerOrientation }}" image="{{ playerImage }}" on-close="{{ closePlayer }}" on-edit="{{ showEditor }}" hint-size="100%,100%" style="width:100%;height:100%"></dc-import></div>
+  </sc-if>
+
+  <sc-if value="{{ isEditor }}" hint-placeholder-val="{{ true }}">
+  <div class="kfscreen" style="display:flex;flex-direction:column;height:100%;min-height:0;gap:2px;background:#101010">
+
+  <div class="kfbar" style="display:flex;align-items:center;gap:9px;height:46px;flex:none;padding:0 12px;background:#2a2a2a;border-bottom:1px solid #141414;z-index:2;overflow:hidden">
+    <span style="display:flex;gap:8px;align-items:center;flex:none;margin-right:4px">
+      <span onClick="{{ showHome }}" title="Home" style="width:11px;height:11px;border-radius:50%;background:#ff5f57;cursor:pointer"></span>
+      <span style="width:11px;height:11px;border-radius:50%;background:#febc2e"></span>
+      <span style="width:11px;height:11px;border-radius:50%;background:#28c840"></span>
+    </span>
+    <span style="width:22px;height:22px;border-radius:3px;background:#c9622f;color:#20100a;display:grid;place-items:center;font-weight:800;font-size:12.5px">K</span>
+    <span style="font-size:13.5px;font-weight:700;letter-spacing:-.01em">Kerf</span>
+    <span style="width:1px;height:18px;background:#3a3a3a;margin:0 3px"></span>
+    <span style="display:flex;align-items:center;gap:7px;padding:3px 5px 3px 9px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12.5px;color:#e8e8e8">Kerf · Brand Film<span onClick="{{ showHome }}" style="display:grid;place-items:center;width:18px;height:18px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#3f3f3f;color:#e8e8e8"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></span></span>
+    <span style="display:flex;align-items:center;gap:1px;margin-left:8px">
+      <span style="display:grid;place-items:center;width:27px;height:26px;border-radius:2px;color:#a6a6a6;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10h10a4.5 4.5 0 0 1 0 9h-3"/><path d="M7.5 6.5 4 10l3.5 3.5"/></svg>
+      </span>
+      <span style="display:grid;place-items:center;width:27px;height:26px;border-radius:2px;color:#585858;cursor:pointer" style-hover="background:#2f2f2f">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10H10a4.5 4.5 0 0 0 0 9h3"/><path d="M16.5 6.5 20 10l-3.5 3.5"/></svg>
+      </span>
+      <span style="display:grid;place-items:center;width:27px;height:26px;border-radius:2px;color:#a6a6a6;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h11L19.5 8v11.5h-15z"/><path d="M8.5 4.5v5h7v-5M8.5 19.5v-6h7v6"/></svg>
+      </span>
+      <span style="display:grid;place-items:center;width:27px;height:26px;border-radius:2px;color:#a6a6a6;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3.2l1.8 2.2H18a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
+      </span>
+    </span>
+
+    <div class="kfcentre" style="margin:0 auto;display:flex;align-items:center;gap:8px;flex:0 1 auto">
+      <span style="display:flex;align-items:center;gap:8px;padding:5px 9px 5px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;cursor:pointer" style-hover="background:#2f2f2f">
+        <span class="kfaspect" style="color:#e8e8e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">16:9 · Landscape · YouTube</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </span>
+      <span class="kffps" style="display:flex;align-items:center;gap:7px;flex:none;padding:5px 9px 5px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:12px;cursor:pointer" style-hover="background:#2f2f2f">
+        30 fps
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </span>
+      <span style="display:flex;align-items:baseline;gap:8px;flex:none;padding:5px 12px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0">
+        <span style="font-size:14.5px;color:#e8e8e8;letter-spacing:.02em">{{ timecode }}</span>
+        <span class="kftotal" style="font-size:11.5px;color:#6b6b6b">/ 00:00:11:14</span>
+      </span>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;flex:none">
+      <span class="kerf-record-button" onClick="{{ openRecord }}" style="display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        <span style="width:9px;height:9px;border-radius:50%;background:#e0854d"></span>
+        Record
+      </span>
+      <span class="kerf-command-button" onClick="{{ openPalette }}" style="display:flex;align-items:center;gap:7px;padding:5px 9px 5px 10px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;color:#a6a6a6;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        Commands
+        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#8a8a8a">⌘K</span>
+      </span>
+      <span style="display:grid;place-items:center;width:28px;height:26px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>
+      </span>
+      <span class="kerf-agent-button" onClick="{{ openAgentDialog }}" style="display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:11.5px;color:#9fc9ab;cursor:pointer" style-hover="background:#2f2f2f">
+        <span style="width:6px;height:6px;border-radius:50%;background:#3fc46f;animation:kfpulse 2.6s ease-in-out infinite"></span>MCP
+      </span>
+      <span class="kerf-copilot-button" onClick="{{ toggleCopilot }}" style="display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:3px;background:{{ copilotBtnBg }};border:1px solid {{ copilotBtnBorder }};font-size:12px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.15)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f0a173" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/></svg>
+        Copilot
+      </span>
+      <span class="kerf-export-button" onClick="{{ openExport }}" style="display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:3px;background:#c9622f;color:#20100a;font-size:12.5px;font-weight:700;cursor:pointer" style-hover="filter:brightness(1.08)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 10.5l4 4.5 4-4.5"/><path d="M4 19h16"/></svg>
+        Export
+      </span>
+    </div>
+  </div>
+
+  <div class="kerf-workspace" style="flex:1;display:grid;grid-template-columns:{{ cols }};grid-template-rows:minmax(0,1fr);min-height:0;gap:2px;background:#101010;transition:{{ gridTransition }}">
+
+    <nav class="kf kerf-rail" style="display:flex;flex-direction:column;background:#232323;border-right:1px solid #141414;padding:6px 0;min-height:0;overflow:auto">
+      <sc-for list="{{ rail }}" as="r" hint-placeholder-count="8">
+        <div class="kerf-rail-tab {{ r.activeClass }}" data-rail="{{ r.label }}" onClick="{{ r.select }}" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 0;margin:1px 5px;border-radius:2px;cursor:pointer;background:{{ r.bg }};color:{{ r.fg }}" style-hover="background:#303030;color:#e8e8e8">
+          <span style="display:grid;place-items:center;width:19px;height:19px">{{ r.icon }}</span>
+          <span style="font-size:10px;font-weight:600">{{ r.label }}</span>
+        </div>
+      </sc-for>
+    </nav>
+
+    <section class="kerf-library" style="display:flex;flex-direction:column;background:#232323;border-right:1px solid #141414;min-width:0;min-height:0;overflow:hidden;position:relative">
+      <div style="display:flex;align-items:center;gap:8px;height:38px;flex:none;padding:0 10px 0 12px;border-bottom:1px solid #141414">
+        <span style="display:flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:2px;background:#323232;border-top:2px solid #c9622f;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#e8e8e8">{{ panelTitle }}</span>
+        <sc-if value="{{ panelCount }}" hint-placeholder-val="{{ false }}">
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#6b6b6b">{{ panelCount }}</span>
+        </sc-if>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
+          <sc-if value="{{ isMedia }}" hint-placeholder-val="{{ true }}">
+            <span onClick="{{ toggleMediaView }}" style="display:grid;place-items:center;width:26px;height:24px;border-radius:3px;background:{{ mediaViewBg }};color:{{ mediaViewFg }};cursor:pointer" style-hover="color:#e8e8e8">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="4" y="4" width="6.5" height="6.5" rx="1.4"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.4"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.4"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.4"/></svg>
+            </span>
+            <span style="display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:3px;background:#33281e;border:1px solid #7a4a25;color:#f0a173;font-size:12px;font-weight:600;cursor:pointer" style-hover="background:#3d2f22">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10M8 10.5l4 3.5 4-3.5"/><path d="M4 19h16"/></svg>
+              Import
+            </span>
+          </sc-if>
+          <sc-if value="{{ panelChip }}" hint-placeholder-val="{{ false }}">
+            <span style="padding:4px 10px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#c4c4c4">{{ panelChip }}</span>
+          </sc-if>
+          <sc-if value="{{ panelAction }}" hint-placeholder-val="{{ false }}">
+            <span style="display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <span style="display:grid;place-items:center;width:13px;height:13px;color:#f0a173">{{ panelActionIcon }}</span>
+              {{ panelAction }}
+            </span>
+          </sc-if>
+        </span>
+      </div>
+
+      <sc-if value="{{ panelSearch }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:10px;flex:none">
+        <span style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:2px;background:#262626;border:1px solid #141414">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b6b6b" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+          <input value="{{ panelQuery }}" onChange="{{ setPanelQuery }}" placeholder="{{ panelSearch }}" style="flex:1;min-width:0;border:0;background:transparent;color:#e8e8e8;font-size:12.5px;padding:0" />
+        </span>
+      </div>
+      </sc-if>
+
+      <span class="kfgrip" onMouseDown="{{ startMediaResize }}" onDoubleClick="{{ resetMedia }}" title="Drag to resize the panel" style="position:absolute;top:0;bottom:0;right:0;width:5px;background:transparent;cursor:col-resize;z-index:6"></span>
+      <div class="kf" style="flex:1;min-height:0;overflow:auto;padding:2px 10px 14px;display:flex;flex-direction:column;gap:14px">
+
+        <sc-if value="{{ isMedia }}" hint-placeholder-val="{{ true }}">
+        <div class="kfpanel" style="display:flex;flex-direction:column;gap:5px">
+          <sc-for list="{{ media }}" as="m" hint-placeholder-count="7">
+            <div class="kfmedia" onClick="{{ m.select }}" style="display:flex;align-items:center;gap:10px;padding:7px;border-radius:2px;cursor:pointer;background:{{ m.bg }};border:1px solid {{ m.border }}" style-hover="background:#303030">
+              <span style="position:relative;width:54px;height:34px;flex:none;border-radius:2px;overflow:hidden;background:#000;display:grid;place-items:center">
+                <image-slot id="{{ m.slot }}" shape="rect" src="{{ m.img }}" placeholder=""></image-slot>
+                <sc-if value="{{ m.isAudio }}" hint-placeholder-val="{{ false }}">
+                  <span style="position:absolute;inset:0;display:grid;place-items:center;background:rgba(8,9,10,.6);color:#8fc79f;pointer-events:none">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14c2-4 3 4 5 0s3 3 5 0 3 2 6-1"/></svg>
+                  </span>
+                </sc-if>
+              </span>
+              <span style="min-width:0;flex:1">
+                <span style="display:block;font-size:12.5px;color:#e8e8e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ m.name }}</span>
+                <span style="display:block;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#8a8a8a;margin-top:2px">{{ m.meta }}</span>
+              </span>
+              <span class="kfadd" style="display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:3px;background:#3a3a3a;color:#e8e8e8">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isAudio }}" hint-placeholder-val="{{ false }}">
+        <div class="kfpanel" style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14c2-4 3 4 5 0s3 3 5 0 3 2 6-1"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">SOUND EFFECTS · GENERATED</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ sfx }}" as="s" hint-placeholder-count="12">
+                <div onClick="{{ s.select }}" style="padding:9px 10px;border-radius:2px;background:{{ s.bg }};border:1px solid {{ s.border }};cursor:pointer" style-hover="background:#303030;border-color:#4a4a4a">
+                  <span style="display:block;min-width:0;font-size:12.5px;font-weight:600;color:{{ s.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</span>
+                  <span style="display:block;font-size:11px;color:#8a8a8a;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.desc }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17V5l9-1.6V15"/><circle cx="6.4" cy="17.4" r="2.4"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">MUSIC &amp; SFX</span>
+            </div>
+            <sc-for list="{{ audioFiles }}" as="a" hint-placeholder-count="3">
+              <div class="kfmedia" style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:2px;background:#262626;border:1px solid #141414;cursor:pointer" style-hover="background:#303030">
+                <span style="width:38px;height:30px;flex:none;border-radius:3px;background:#1f2a22;border:1px solid #33463a;display:grid;place-items:center;color:#8fc79f">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14c2-5 3 5 5 0s3 4 5 0 3 3 6-1"/></svg>
+                </span>
+                <span style="min-width:0;flex:1">
+                  <span style="display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.name }}</span>
+                  <span style="display:block;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#8a8a8a;margin-top:2px">{{ a.meta }}</span>
+                </span>
+                <span class="kfadd" style="display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:3px;background:#3a3a3a;color:#e8e8e8">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17V5l9-1.6V15"/><circle cx="6.4" cy="17.4" r="2.4"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">BEAT TOOLS</span>
+            </div>
+            <p style="margin:0;font-size:12px;color:#989898;line-height:1.5">Analyses the music track, estimates the tempo and lays a beat grid on the timeline.</p>
+            <span style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;border-radius:2px;background:#c9622f;color:#20100a;font-size:12.5px;font-weight:700;cursor:pointer" style-hover="filter:brightness(1.08)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17V5l9-1.6V15"/><circle cx="6.4" cy="17.4" r="2.4"/></svg>
+              Detect beats
+            </span>
+            <span style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12.5px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14c2-4 3 4 5 0s3 3 5 0 3 2 6-1"/></svg>
+              Detect &amp; snap cuts to beats
+            </span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.2"/><circle cx="6" cy="17" r="2.2"/><path d="M8.2 8.2 20 16M8.2 15.8 20 8"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">CLEANUP</span>
+            </div>
+            <p style="margin:0;font-size:12px;color:#989898;line-height:1.5">Trims dialogue pauses and closes the gaps with a ripple edit.</p>
+            <span style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12.5px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="7" r="2.2"/><circle cx="6" cy="17" r="2.2"/><path d="M8.2 8.2 20 16M8.2 15.8 20 8"/></svg>
+              Cut silence
+            </span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3L12 5v14L7 14.5H4z"/><path d="M16 9.5a4 4 0 0 1 0 5"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">TRACK LEVELS</span>
+            </div>
+            <sc-for list="{{ levels }}" as="l" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;align-items:center"><span style="font-size:12.5px;color:#d6d6d6">{{ l.name }}</span><span style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:#989898">{{ l.value }}</span></div>
+                <span class="kfslider" style="position:relative;height:4px;border-radius:999px;background:#141414;cursor:pointer">
+                  <span style="position:absolute;left:0;top:0;bottom:0;width:{{ l.knob }};border-radius:999px;background:#c9622f"></span>
+                  <span style="position:absolute;left:{{ l.knob }};top:-5px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#f2f2f2;box-shadow:0 0 0 .5px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.45)"></span>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isText }}" hint-placeholder-val="{{ false }}">
+        <div class="kfpanel" style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">TITLE PRESETS</div>
+            <sc-for list="{{ titlePresets }}" as="t" hint-placeholder-count="4">
+              <div class="kfmedia" style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:2px;background:#262626;border:1px solid #141414;cursor:pointer" style-hover="background:#303030;border-color:#4a4a4a">
+                <span style="width:58px;height:32px;flex:none;border-radius:3px;background:#323232;border:1px solid #3a3a3a;display:grid;place-items:center;font-size:10px;color:#c4c4c4">{{ t.tag }}</span>
+                <span style="min-width:0;flex:1">
+                  <span style="display:flex;align-items:center;gap:6px">
+                    <span style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</span>
+                    <sc-if value="{{ t.isNew }}" hint-placeholder-val="{{ false }}">
+                      <span style="padding:0 5px;border-radius:2px;background:#33281e;color:#f0a173;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:9.5px;font-weight:700">NEW</span>
+                    </sc-if>
+                  </span>
+                  <span style="display:block;font-size:11px;color:#8a8a8a;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.desc }}</span>
+                </span>
+                <span class="kfadd" style="display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:3px;background:#3a3a3a;color:#e8e8e8">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6"><rect x="4" y="5.5" width="16" height="13" rx="2"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">SHAPES</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <sc-for list="{{ shapes }}" as="s" hint-placeholder-count="9">
+                <div class="kftip" onClick="{{ s.select }}" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:13px 6px;border-radius:2px;background:{{ s.bg }};border:1px solid {{ s.border }};cursor:pointer" style-hover="background:#303030;border-color:#4a4a4a">
+                  <span style="display:grid;place-items:center;width:22px;height:22px;color:{{ s.fg }}">{{ s.icon }}</span>
+                  <span style="font-size:11.5px;color:#c4c4c4">{{ s.name }}</span>
+                  <span class="kftipbox" style="position:absolute;left:50%;bottom:calc(100% + 6px);padding:4px 9px;border-radius:3px;background:#3a3a3a;border:1px solid #2f343a;font-size:11px;white-space:nowrap;z-index:5">Add {{ s.name }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">UTILITY LAYERS</span>
+            </div>
+            <div class="kfmedia" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:2px;background:#262626;border:1px solid #141414;cursor:pointer" style-hover="background:#303030">
+              <span style="min-width:0;flex:1">
+                <span style="display:block;font-size:12.5px;font-weight:600">Adjustment layer</span>
+                <span style="display:block;font-size:11px;color:#8a8a8a;margin-top:2px">Grades every layer beneath it</span>
+              </span>
+              <span class="kfadd" style="display:grid;place-items:center;width:24px;height:24px;flex:none;border-radius:3px;background:#3a3a3a;color:#e8e8e8">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              </span>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isCaptions }}" hint-placeholder-val="{{ false }}">
+        <div class="kfpanel" style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10M8 8.5l4-4.5 4 4.5"/><path d="M4 19h16"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">IMPORT SUBTITLES</span>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:9px;padding:22px 12px;border-radius:2px;border:1px dashed #3a3a3a;cursor:pointer" style-hover="border-color:#7a4a25;background:#262626">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7.5 8.5 12 4l4.5 4.5"/><path d="M4 19h16"/></svg>
+              <span style="font-size:12.5px;color:#c4c4c4">Drop a subtitle file, or click to browse</span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#6b6b6b">SRT · VTT · ASS · SSA · SBV · JSON</span>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round"><path d="M5 6h14M12 6v12"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">CAPTION STYLE</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ captionStyles }}" as="c" hint-placeholder-count="4">
+                <div onClick="{{ c.select }}" style="padding:11px;border-radius:2px;background:{{ c.bg }};border:1px solid {{ c.border }};cursor:pointer" style-hover="border-color:#4a4a4a">
+                  <span style="display:block;font-size:13px;font-weight:700;color:{{ c.fg }}">{{ c.name }}</span>
+                  <span style="display:block;font-size:11px;color:#8a8a8a;margin-top:3px">{{ c.desc }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">SPEECH TO TEXT</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;font-size:12px;color:#a6a6a6">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f0a173" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3 3.5 3 13.5 0 17M12 3.5c-3 3.5-3 13.5 0 17"/></svg>
+              Language
+            </div>
+            <span onClick="{{ cycleLanguage }}" style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:2px;background:#262626;border:1px solid #141414;cursor:pointer" style-hover="background:#323232">
+              <span style="font-size:12.5px">{{ language }}</span>
+              <svg style="margin-left:auto" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+            <span style="display:flex;align-items:center;justify-content:center;gap:7px;padding:11px;border-radius:2px;background:#c9622f;color:#20100a;font-size:12.5px;font-weight:700;cursor:pointer" style-hover="filter:brightness(1.08)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6.5" width="18" height="11" rx="2.4"/><path d="M8.5 11.5a2 2 0 1 0 0 1M15.5 11.5a2 2 0 1 0 0 1" stroke-linecap="round"/></svg>
+              Generate captions
+            </span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 10.5l4 4.5 4-4.5"/><path d="M4 19h16"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">EXPORT</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+              <sc-for list="{{ subtitleFormats }}" as="f" hint-placeholder-count="5">
+                <span style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 6px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8L18 8v12.5H6z"/><path d="M13.5 3.5V8H18"/></svg>
+                  {{ f }}
+                </span>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isTrans }}" hint-placeholder-val="{{ false }}">
+        <div class="kfpanel" style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:12px;color:#a6a6a6">Placement</span>
+            <span style="display:flex;padding:3px;border-radius:2px;background:#262626;border:1px solid #141414">
+              <sc-for list="{{ placements }}" as="p" hint-placeholder-count="3">
+                <span onClick="{{ p.select }}" style="flex:1;text-align:center;padding:6px 4px;border-radius:2px;font-size:12px;font-weight:600;cursor:pointer;background:{{ p.bg }};color:{{ p.fg }}" style-hover="color:#e8e8e8">{{ p.label }}</span>
+              </sc-for>
+            </span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center"><span style="font-size:12.5px;color:#d6d6d6">Duration</span><span style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:#f0a173">{{ transDuration }}</span></div>
+            <span onClick="{{ cycleDuration }}" style="position:relative;height:4px;border-radius:999px;background:#141414;cursor:pointer">
+              <span style="position:absolute;left:0;top:0;bottom:0;width:{{ transKnob }};border-radius:999px;background:#c9622f"></span>
+              <span style="position:absolute;left:{{ transKnob }};top:-5px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#f2f2f2;box-shadow:0 0 0 .5px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.45)"></span>
+            </span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <sc-for list="{{ transitions }}" as="t" hint-placeholder-count="6">
+              <div class="kftip" onClick="{{ t.select }}" style="cursor:pointer">
+                <span style="position:relative;display:block;height:82px;border-radius:2px;overflow:hidden;background:{{ t.thumb }};border:1px solid {{ t.border }}">
+                  <span style="position:absolute;inset:0;display:grid;place-items:center;font-size:26px;font-weight:800;color:rgba(255,255,255,.55)">{{ t.glyph }}</span>
+                </span>
+                <span style="display:block;font-size:12.5px;font-weight:600;color:{{ t.fg }};margin-top:7px">{{ t.name }}</span>
+                <span style="display:block;font-size:11px;color:#8a8a8a;margin-top:2px">{{ t.desc }}</span>
+                <span class="kftipbox" style="position:absolute;left:50%;bottom:calc(100% + 6px);padding:4px 9px;border-radius:3px;background:#3a3a3a;border:1px solid #2f343a;font-size:11px;white-space:nowrap;z-index:5">{{ t.desc }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isVfx }}" hint-placeholder-val="{{ false }}">
+        <div class="kfpanel" style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">EFFECTS</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ effects }}" as="e" hint-placeholder-count="8">
+                <div onClick="{{ e.select }}" style="padding:10px;border-radius:2px;background:{{ e.bg }};border:1px solid {{ e.border }};cursor:pointer" style-hover="background:#303030;border-color:#4a4a4a">
+                  <span style="display:flex;align-items:center;gap:7px">
+                    <span style="display:grid;place-items:center;width:15px;height:15px;color:{{ e.color }}">{{ e.icon }}</span>
+                    <span style="font-size:12.5px;font-weight:600;color:{{ e.fg }}">{{ e.name }}</span>
+                  </span>
+                  <span style="display:block;font-size:11px;color:#8a8a8a;margin-top:4px">{{ e.desc }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">SELECTED · {{ effect }}</div>
+            <sc-for list="{{ effectParams }}" as="p" hint-placeholder-count="3">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;align-items:center"><span style="font-size:12.5px;color:#d6d6d6">{{ p.name }}</span><span style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:#989898">{{ p.value }}</span></div>
+                <span style="position:relative;height:4px;border-radius:999px;background:#141414">
+                  <span style="position:absolute;left:0;top:0;bottom:0;width:{{ p.knob }};border-radius:999px;background:#c9622f"></span>
+                  <span style="position:absolute;left:{{ p.knob }};top:-5px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#f2f2f2;box-shadow:0 0 0 .5px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.45)"></span>
+                </span>
+              </div>
+            </sc-for>
+            <div style="display:flex;gap:8px">
+              <span style="flex:1;text-align:center;padding:10px;border-radius:2px;background:#c9622f;color:#20100a;font-size:12.5px;font-weight:700;cursor:pointer" style-hover="filter:brightness(1.08)">Apply to clip</span>
+              <span style="padding:10px 12px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12.5px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">All clips</span>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isColour }}" hint-placeholder-val="{{ false }}">
+        <div class="kfpanel" style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">LOOKS</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <sc-for list="{{ looks }}" as="l" hint-placeholder-count="6">
+                <div onClick="{{ l.select }}" style="border-radius:2px;overflow:hidden;background:#262626;border:1px solid {{ l.border }};cursor:pointer" style-hover="border-color:#4a4a4a">
+                  <span style="display:block;height:44px;background:{{ l.swatch }}"></span>
+                  <span style="display:block;padding:7px 9px;font-size:12px;font-weight:600;color:{{ l.fg }}">{{ l.name }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">BASIC</div>
+            <sc-for list="{{ grade }}" as="g" hint-placeholder-count="5">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div style="display:flex;align-items:center"><span style="font-size:12.5px;color:#d6d6d6">{{ g.name }}</span><span style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:#989898">{{ g.value }}</span></div>
+                <span style="position:relative;height:4px;border-radius:999px;background:{{ g.rail }}">
+                  <span style="position:absolute;left:{{ g.knob }};top:-5px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#f2f2f2;box-shadow:0 0 0 .5px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.45)"></span>
+                </span>
+              </div>
+            </sc-for>
+            <div style="display:flex;gap:8px">
+              <span style="flex:1;text-align:center;padding:9px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">Copy grade</span>
+              <span style="flex:1;text-align:center;padding:9px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">Reset</span>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isSkills }}" hint-placeholder-val="{{ false }}">
+        <div class="kfpanel" style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:12px;color:#989898">Apply to</span>
+            <span style="display:flex;padding:3px;border-radius:3px;background:#1a1a1a;border:1px solid #3a3a3a">
+              <sc-for list="{{ skillScopes }}" as="t" hint-placeholder-count="3">
+                <span onClick="{{ t.select }}" style="flex:1;text-align:center;padding:6px 4px;border-radius:2px;font-size:11.5px;font-weight:600;cursor:pointer;background:{{ t.bg }};color:{{ t.fg }}" style-hover="color:#e8e8e8">{{ t.label }}</span>
+              </sc-for>
+            </span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">INSTALLED · 2</span>
+              <span style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:#8a8a8a">no limit</span>
+            </div>
+            <sc-for list="{{ skills }}" as="s" hint-placeholder-count="2">
+              <div onClick="{{ s.select }}" style="border-radius:3px;background:{{ s.bg }};border:1px solid {{ s.border }};overflow:hidden;cursor:pointer" style-hover="border-color:#7a4a25">
+                <span style="position:relative;display:block;aspect-ratio:16/9;background:#000">
+                  <image-slot id="{{ s.slot }}" shape="rect" src="{{ s.img }}" placeholder=""></image-slot>
+                  <span style="position:absolute;left:8px;bottom:8px;display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:2px;background:rgba(12,12,12,.78);font-size:10.5px;font-weight:600;color:#8fc79f;pointer-events:none">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"/></svg>
+                    verified
+                  </span>
+                  <span style="position:absolute;right:8px;bottom:8px;padding:3px 7px;border-radius:2px;background:rgba(12,12,12,.78);font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:#d6d6d6;pointer-events:none">{{ s.version }}</span>
+                </span>
+                <span style="display:block;padding:11px 12px 12px">
+                  <span style="display:flex;align-items:center;gap:7px">
+                    <span style="font-size:13px;font-weight:600;color:{{ s.fg }}">{{ s.name }}</span>
+                    <span style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:#8a8a8a">{{ s.runtime }}</span>
+                  </span>
+                  <span style="display:block;font-size:11.5px;color:#8a8a8a;margin:5px 0 10px;line-height:1.5">{{ s.desc }}</span>
+                  <span style="display:flex;gap:6px">
+                    <span onClick="{{ s.run }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:7px;border-radius:2px;background:#33281e;border:1px solid #7a4a25;font-size:12px;font-weight:600;color:#f0a173;cursor:pointer" style-hover="background:#3d2f22">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4.5v15l13-7.5z"/></svg>
+                      {{ s.action }}
+                    </span>
+                    <span style="padding:7px 11px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#323232;color:#e8e8e8">Settings</span>
+                  </span>
+                  <sc-if value="{{ s.running }}" hint-placeholder-val="{{ false }}">
+                    <span style="display:block;margin-top:10px">
+                      <span style="display:flex;align-items:center;gap:8px;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:#f0a173;margin-bottom:6px">
+                        <span class="kfrec" style="width:6px;height:6px;border-radius:50%;background:#e0854d"></span>
+                        {{ s.stage }}
+                      </span>
+                      <span class="kfsweep" style="position:relative;display:block;height:3px;border-radius:999px;background:#141414;overflow:hidden"><span style="display:block;height:100%;width:64%;background:#c9622f"></span></span>
+                    </span>
+                  </sc-if>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">FROM THE STORE</div>
+            <sc-for list="{{ storeSkills }}" as="s" hint-placeholder-count="3">
+              <div class="kfmedia" style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:3px;background:#262626;border:1px solid #141414;cursor:pointer" style-hover="background:#303030">
+                <span style="position:relative;width:52px;height:32px;flex:none;border-radius:2px;overflow:hidden;background:#000">
+                  <image-slot id="{{ s.slot }}" shape="rect" src="{{ s.img }}" placeholder=""></image-slot>
+                </span>
+                <span style="min-width:0;flex:1">
+                  <span style="display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</span>
+                  <span style="display:block;font-family:'Geist Mono',ui-monospace,monospace;font-size:10.5px;color:#8a8a8a;margin-top:2px">{{ s.meta }}</span>
+                </span>
+                <span class="kfadd" style="flex:none;padding:5px 10px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:11.5px;font-weight:600;color:#c4c4c4">{{ s.price }}</span>
+              </div>
+            </sc-for>
+            <span style="display:flex;align-items:center;justify-content:center;gap:7px;padding:9px;border-radius:3px;border:1px dashed #3f3f3f;color:#989898;font-size:12px;font-weight:600;cursor:pointer" style-hover="border-color:#7a4a25;color:#f0a173">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Browse the skill store
+            </span>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isAi }}" hint-placeholder-val="{{ false }}">
+        <div class="kfpanel" style="display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">ONE-CLICK RECIPES</span>
+            </div>
+            <sc-for list="{{ recipes }}" as="r" hint-placeholder-count="6">
+              <div onClick="{{ r.select }}" style="display:flex;gap:11px;padding:11px;border-radius:2px;background:{{ r.bg }};border:1px solid {{ r.border }};cursor:pointer" style-hover="background:#303030;border-color:#4a4a4a">
+                <span style="display:grid;place-items:center;width:17px;height:17px;flex:none;margin-top:1px;color:{{ r.color }}">{{ r.icon }}</span>
+                <span style="min-width:0">
+                  <span style="display:block;font-size:12.5px;font-weight:600;color:{{ r.fg }}">{{ r.name }}</span>
+                  <span style="display:block;font-size:11.5px;color:#8a8a8a;margin-top:3px;line-height:1.45">{{ r.desc }}</span>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 6v12" stroke-linecap="round"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">SMART B-ROLL</span>
+            </div>
+            <p style="margin:0;font-size:12px;color:#989898;line-height:1.5">Scans the dialogue for keywords and proposes cutaways from the media pool.</p>
+            <span style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12.5px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M9 6v12" stroke-linecap="round"/></svg>
+              Find B-roll
+            </span>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">SUBJECT ISOLATION</span>
+            </div>
+            <p style="margin:0;font-size:12px;color:#989898;line-height:1.5">Keys the background out of the selected layer so the subject sits on top.</p>
+            <span style="display:flex;align-items:center;justify-content:center;gap:7px;padding:10px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12.5px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/></svg>
+              Isolate subject
+            </span>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+    </section>
+
+    <section class="kerf-program" style="display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:#1c1c1c">
+      <div style="display:flex;align-items:center;gap:9px;height:38px;flex:none;padding:0 12px;border-bottom:1px solid #141414;background:#2a2a2a">
+        <span style="display:flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:2px;background:#323232;border-top:2px solid #c9622f;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#e8e8e8">PROGRAM</span>
+        <span style="color:#3f3f3f">|</span>
+        <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:#989898">{{ programMeta }}</span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:2px;padding:2px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a">
+          <sc-for list="{{ viewModes }}" as="v" hint-placeholder-count="5">
+            <span onClick="{{ v.select }}" title="{{ v.tip }}" style="display:grid;place-items:center;width:27px;height:22px;border-radius:2px;cursor:pointer;background:{{ v.bg }};color:{{ v.fg }}" style-hover="color:#e8e8e8">{{ v.icon }}</span>
+          </sc-for>
+        </span>
+        <span style="display:flex;align-items:center;gap:5px;margin-left:8px">
+          <span style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M8 11h6M16 16l4.5 4.5"/></svg>
+          </span>
+          <span style="padding:3px 9px;border-radius:3px;background:#323232;border:1px solid #3a3a3a;font-size:11.5px;color:#c4c4c4;cursor:pointer" style-hover="color:#e8e8e8">Fit</span>
+          <span style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M8 11h6M11 8v6M16 16l4.5 4.5"/></svg>
+          </span>
+          <span onClick="{{ showPlayerFromEditor }}" title="Open fullscreen player" style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"/></svg>
+          </span>
+        </span>
+      </div>
+
+      <div class="kerf-program-stage" style="flex:1;min-height:0;position:relative;display:grid;place-items:center;padding:24px 24px 0;background:#141414">
+        <div class="kerf-program-canvas" style="position:relative;width:100%;max-width:760px;aspect-ratio:16/9;background:#f4f2ef;border-radius:2px;box-shadow:0 10px 26px rgba(0,0,0,.5);display:grid;place-items:center;overflow:hidden">
+          <svg width="210" height="210" viewBox="0 0 100 100" fill="none" stroke="#111214" stroke-width="13" stroke-linecap="round"><path d="M22 14v72"/><path d="M78 14 44 50l34 36"/></svg>
+          <sc-if value="{{ showGuides }}" hint-placeholder-val="{{ true }}">
+            <span style="position:absolute;left:12%;top:8%;right:12%;bottom:8%;border:1px dashed rgba(224,133,77,.5);border-radius:2px;pointer-events:none"></span>
+            <span style="position:absolute;left:12%;top:8%;width:8px;height:8px;margin:-4px 0 0 -4px;background:#e0854d;border-radius:2px"></span>
+            <span style="position:absolute;right:12%;top:8%;width:8px;height:8px;margin:-4px -4px 0 0;background:#e0854d;border-radius:2px"></span>
+            <span style="position:absolute;left:12%;bottom:8%;width:8px;height:8px;margin:0 0 -4px -4px;background:#e0854d;border-radius:2px"></span>
+            <span style="position:absolute;right:12%;bottom:8%;width:8px;height:8px;margin:0 -4px -4px 0;background:#e0854d;border-radius:2px"></span>
+          </sc-if>
+        </div>
+
+        <div class="kerf-align-shelf" style="position:absolute;bottom:16px;display:flex;align-items:center;gap:3px;padding:6px;border-radius:2px;background:rgba(16,17,20,.94);border:1px solid #3a3a3a;box-shadow:0 6px 18px rgba(0,0,0,.45)">
+          <sc-for list="{{ alignTools }}" as="t" hint-placeholder-count="12">
+            <span title="{{ t.tip }}" style="display:grid;place-items:center;width:28px;height:26px;border-radius:2px;color:{{ t.color }};cursor:pointer" style-hover="background:#3a3a3a;color:#e8e8e8">{{ t.icon }}</span>
+            <sc-if value="{{ t.divider }}" hint-placeholder-val="{{ false }}">
+              <span style="width:1px;height:18px;background:#3a3a3a;margin:0 3px"></span>
+            </sc-if>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="kerf-program-transport" style="flex:none;padding:12px 14px;border-top:1px solid #141414;background:#232323">
+        <span style="display:block;position:relative;height:4px;border-radius:999px;background:#141414;cursor:pointer;margin-bottom:11px">
+          <span style="position:absolute;left:0;top:0;bottom:0;width:{{ playheadLeft }};border-radius:999px;background:#e0854d"></span>
+          <span style="position:absolute;left:{{ playheadLeft }};top:-4px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#f0a173;border:2px solid #232323"></span>
+        </span>
+        <div class="kerf-transport-row" style="display:flex;align-items:center;gap:12px;min-width:0">
+          <span class="kerf-transport-time" style="display:flex;align-items:baseline;gap:8px;flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0">
+            <span style="font-size:15.5px;color:#e8e8e8;letter-spacing:.02em">{{ timecode }}</span>
+            <span style="font-size:11.5px;color:#6b6b6b">/ 00:00:11:14</span>
+          </span>
+          <span class="kerf-transport-playback" style="margin:0 auto;display:flex;align-items:center;gap:6px;flex:0 1 auto;min-width:0">
+            <sc-for list="{{ transportLeft }}" as="t" hint-placeholder-count="2">
+              <span style="display:grid;place-items:center;width:30px;height:28px;border-radius:3px;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">{{ t.icon }}</span>
+            </sc-for>
+            <span onClick="{{ togglePlay }}" style="display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:{{ playBg }};color:{{ playFg }};cursor:pointer;margin:0 4px" style-hover="filter:brightness(1.1)">{{ playIcon }}</span>
+            <sc-for list="{{ transportRight }}" as="t" hint-placeholder-count="2">
+              <span style="display:grid;place-items:center;width:30px;height:28px;border-radius:3px;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">{{ t.icon }}</span>
+            </sc-for>
+          </span>
+          <span class="kerf-transport-actions" style="display:flex;align-items:center;gap:5px">
+            <span style="display:grid;place-items:center;width:28px;height:26px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18M6 4h11l-2.5 4L17 12H6"/></svg>
+            </span>
+            <span style="display:grid;place-items:center;width:28px;height:26px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6.5" r="2.5"/><circle cx="6" cy="17.5" r="2.5"/><path d="M8.4 7.8 20 16M8.4 16.2 20 8"/></svg>
+            </span>
+            <span onClick="{{ toggleLoop }}" style="display:grid;place-items:center;width:28px;height:26px;border-radius:3px;background:{{ loopBg }};color:{{ loopFg }};cursor:pointer" style-hover="background:#2f2f2f">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V7.5A2.5 2.5 0 0 1 6.5 5H18l-2.5-2.5M20 15v1.5A2.5 2.5 0 0 1 17.5 19H6l2.5 2.5"/></svg>
+            </span>
+            <span onClick="{{ cycleSpeed }}" style="display:flex;align-items:center;gap:6px;padding:4px 8px 4px 10px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;cursor:pointer" style-hover="background:#2f2f2f">
+              {{ speed }}
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+            <span style="width:1px;height:20px;background:#3a3a3a;margin:0 4px"></span>
+            <span style="display:flex;flex-direction:column;gap:4px;width:88px">
+              <span style="display:flex;align-items:center;gap:6px"><span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:9.5px;color:#6b6b6b">L</span><span style="flex:1;height:4px;border-radius:2px;background:#141414;overflow:hidden"><span style="display:block;height:100%;width:62%;background:linear-gradient(90deg,#3fc46f,#e0c84d)"></span></span></span>
+              <span style="display:flex;align-items:center;gap:6px"><span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:9.5px;color:#6b6b6b">R</span><span style="flex:1;height:4px;border-radius:2px;background:#141414;overflow:hidden"><span style="display:block;height:100%;width:48%;background:linear-gradient(90deg,#3fc46f,#e0c84d)"></span></span></span>
+            </span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <aside class="kerf-inspector" style="display:flex;flex-direction:column;background:#232323;border-left:1px solid #141414;min-width:0;min-height:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:9px;height:38px;flex:none;padding:0 12px;border-bottom:1px solid #141414;background:#2a2a2a">
+        <span style="width:3px;height:15px;border-radius:2px;background:#e0854d"></span>
+        <span style="font-size:13px;font-weight:700">Bookend slab</span>
+        <span style="margin-left:auto;display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.4"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
+        </span>
+      </div>
+
+      <div style="display:flex;gap:2px;padding:8px 10px 0;flex:none;border-bottom:1px solid #141414">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+          <span class="kerf-inspector-tab {{ t.activeClass }}" data-inspector-tab="{{ t.label }}" onClick="{{ t.select }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 4px;font-size:12px;font-weight:600;cursor:pointer;color:{{ t.fg }};border-bottom:2px solid {{ t.rule }}" style-hover="color:#e8e8e8">
+            <span style="display:grid;place-items:center;width:14px;height:14px">{{ t.icon }}</span>
+            {{ t.label }}
+            <sc-if value="{{ t.badge }}" hint-placeholder-val="{{ false }}">
+              <span style="padding:0 5px;border-radius:999px;background:#3a2a17;color:#f0a173;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10px;font-weight:700">{{ t.badge }}</span>
+            </sc-if>
+          </span>
+        </sc-for>
+      </div>
+
+      <div class="kf" style="flex:1;min-height:0;overflow:auto;padding:12px 12px 16px;display:flex;flex-direction:column;gap:14px">
+        <sc-if value="{{ isTransform }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg>
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">TRANSFORM</span>
+            <span style="margin-left:auto;display:grid;place-items:center;width:22px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a8 8 0 1 1 2.5 6.5"/><path d="M4 5v5h5"/></svg>
+            </span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <span style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:2px;background:#262626;border:1px solid #141414">
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#8a8a8a">X</span>
+              <span style="width:1px;height:14px;background:#3a3a3a"></span>
+              <span style="flex:1;text-align:right;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:12.5px">-485</span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#6b6b6b">px</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:2px;background:#262626;border:1px solid #141414">
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#8a8a8a">Y</span>
+              <span style="width:1px;height:14px;background:#3a3a3a"></span>
+              <span style="flex:1;text-align:right;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:12.5px">0</span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#6b6b6b">px</span>
+            </span>
+          </div>
+
+          <sc-for list="{{ sliders }}" as="s" hint-placeholder-count="3">
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="display:flex;align-items:center;gap:7px">
+                <span style="display:grid;place-items:center;width:13px;height:13px;color:{{ s.keyColor }}">{{ s.keyIcon }}</span>
+                <span style="font-size:12.5px;color:#d6d6d6">{{ s.label }}</span>
+                <span style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:#f0a173">{{ s.value }}</span>
+              </div>
+              <span class="kfslider" style="position:relative;height:4px;border-radius:999px;background:#141414;cursor:pointer">
+                <span style="position:absolute;left:{{ s.fillLeft }};right:{{ s.fillRight }};top:0;bottom:0;border-radius:999px;background:#c9622f"></span>
+                <span style="position:absolute;left:{{ s.knob }};top:-5px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#f2f2f2;box-shadow:0 0 0 .5px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.45)"></span>
+              </span>
+            </div>
+          </sc-for>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <span style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:2px;background:#262626;border:1px solid #141414">
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#8a8a8a">W</span>
+              <span style="width:1px;height:14px;background:#3a3a3a"></span>
+              <span style="flex:1;text-align:right;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:12.5px">17</span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#6b6b6b">%</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:2px;background:#262626;border:1px solid #141414">
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#8a8a8a">H</span>
+              <span style="width:1px;height:14px;background:#3a3a3a"></span>
+              <span style="flex:1;text-align:right;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:12.5px">23</span>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#6b6b6b">%</span>
+            </span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <span style="display:flex;align-items:center;justify-content:center;gap:7px;padding:9px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M8 7 4 12l4 5M16 7l4 5-4 5"/></svg>
+              Flip H
+            </span>
+            <span style="display:flex;align-items:center;justify-content:center;gap:7px;padding:9px;border-radius:2px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M7 8l5-4 5 4M7 16l5 4 5-4"/></svg>
+              Flip V
+            </span>
+          </div>
+        </div>
+
+        <div style="height:1px;background:#141414"></div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">COMPOSITING</span>
+          </div>
+          <div style="font-size:12px;color:#989898">Blend mode</div>
+          <span onClick="{{ cycleBlend }}" style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:2px;background:#262626;border:1px solid #141414;cursor:pointer" style-hover="background:#323232">
+            <span style="font-size:12.5px">{{ blend }}</span>
+            <svg style="margin-left:auto" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </div>
+
+        <div style="height:1px;background:#141414"></div>
+
+        <sc-for list="{{ collapsed }}" as="c" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer" style-hover="color:#e8e8e8">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            <span style="display:grid;place-items:center;width:13px;height:13px;color:#989898">{{ c.icon }}</span>
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">{{ c.label }}</span>
+          </div>
+        </sc-for>
+        </sc-if>
+
+        <sc-if value="{{ isOther }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">{{ otherTitle }}</div>
+          <sc-for list="{{ otherRows }}" as="r" hint-placeholder-count="4">
+            <span style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:2px;background:#262626;border:1px solid #141414">
+              <span style="font-size:12px;color:#a6a6a6">{{ r.k }}</span>
+              <span style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:12px;color:#e8e8e8">{{ r.v }}</span>
+            </span>
+          </sc-for>
+        </div>
+        </sc-if>
+      </div>
+    </aside>
+
+    <sc-if value="{{ copilotOpen }}" hint-placeholder-val="{{ false }}">
+    <aside style="display:flex;flex-direction:column;background:#232323;border-left:1px solid #141414;min-width:0;min-height:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;height:38px;flex:none;padding:0 10px 0 12px;border-bottom:1px solid #141414;background:#2a2a2a">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f0a173" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/></svg>
+        <span style="font-size:13px;font-weight:700">Copilot</span>
+        <span onClick="{{ openAgentDialog }}" style="display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:2px;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#9fc9ab;cursor:pointer" style-hover="background:#2f2f2f">
+          <span style="width:6px;height:6px;border-radius:50%;background:#3fc46f"></span>
+          {{ agent }}
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:2px">
+          <span style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.4"/></svg>
+          </span>
+          <span style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-6 5 12L17 12h4"/></svg>
+          </span>
+          <span style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e08a7a">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg>
+          </span>
+          <span onClick="{{ toggleCopilot }}" style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </span>
+        </span>
+      </div>
+
+      <div class="kf" style="flex:1;min-height:0;overflow:auto;padding:12px 13px">
+        <div style="display:flex;align-items:center;gap:8px;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#989898;margin-bottom:14px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3fc46f" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4"/></svg>
+          {{ timecode }} · f{{ currentFrame }} <span style="color:#6b6b6b">target: Bookend slab</span>
+        </div>
+        <div style="font-size:15.5px;font-weight:700;letter-spacing:-.01em;margin-bottom:8px">{{ agent }} is driving this editor.</div>
+        <p style="margin:0 0 16px;font-size:12.5px;color:#a6a6a6;line-height:1.6">It can read your timeline and change it, and it brings its own tools too. Your files, the shell, the web. Ask in plain language; it will show you every step it takes.</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="4">
+            <div onClick="{{ s.select }}" style="padding:11px 12px;border-radius:2px;background:#262626;border:1px solid #141414;cursor:pointer" style-hover="background:#303030;border-color:#7a4a25">
+              <span style="display:block;font-size:12.5px;color:#e8e8e8">{{ s.text }}</span>
+              <span style="display:block;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#6b6b6b;margin-top:4px">{{ s.hint }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex:none;padding:10px 12px 12px;border-top:1px solid #141414">
+        <div style="display:flex;align-items:flex-end;gap:8px;padding:9px 10px;border-radius:2px;background:#262626;border:1px solid {{ askBorder }}">
+          <textarea value="{{ ask }}" onChange="{{ setAsk }}" placeholder="Ask anything, or tell me what to change…" style="flex:1;min-width:0;height:44px;resize:none;border:0;background:transparent;color:#e8e8e8;font-size:12.5px;line-height:1.5;padding:0"></textarea>
+          <span style="display:grid;place-items:center;width:22px;height:22px;border-radius:2px;color:#8a8a8a;cursor:pointer" style-hover="color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9.5" y="3" width="5" height="10" rx="2.5"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
+          </span>
+          <span style="display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:{{ sendBg }};color:{{ sendFg }};cursor:pointer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5M6.5 10.5 12 5l5.5 5.5"/></svg>
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#6b6b6b">
+          <span>⏎ send</span><span>⇧⏎ new line</span><span>↑ history</span>
+        </div>
+      </div>
+    </aside>
+    </sc-if>
+  </div>
+
+  <div class="kerf-timeline" style="position:relative;flex:none;background:#232323;border-top:1px solid #141414">
+    <span class="kfgrip" onMouseDown="{{ startRowResize }}" onDoubleClick="{{ resetRow }}" title="Drag to resize the timeline" style="position:absolute;left:0;right:0;top:-2px;height:5px;background:transparent;cursor:row-resize;z-index:6"></span>
+    <div style="display:flex;align-items:center;gap:6px;height:42px;padding:0 12px;border-bottom:1px solid #141414">
+      <span style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v6.5a2 2 0 0 0 2 2h8M6 20v-6.5"/><circle cx="18" cy="12.5" r="2"/></svg>
+        Split
+      </span>
+      <span style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#e08a7a;cursor:pointer" style-hover="background:#33231b;border-color:#5a3227">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg>
+        Delete
+      </span>
+      <span style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="11.5" height="11.5" rx="2.4"/><path d="M15.5 5.5H6a2 2 0 0 0-2 2V16"/></svg>
+        Duplicate
+      </span>
+      <span style="width:1px;height:20px;background:#141414;margin:0 5px"></span>
+      <span onClick="{{ toggleSnap }}" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:3px;background:{{ snapBg }};border:1px solid {{ snapBorder }};color:{{ snapFg }};font-size:12px;font-weight:600;cursor:pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h5l6 8h5"/><path d="M9 8V5M15 16v3"/></svg>
+        Snap
+      </span>
+      <span onClick="{{ toggleRipple }}" style="display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:3px;background:{{ rippleBg }};border:1px solid {{ rippleBorder }};color:{{ rippleFg }};font-size:12px;font-weight:600;cursor:pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h13l-2.5-2.5M20 15H7l2.5 2.5"/></svg>
+        Ripple
+      </span>
+      <span style="width:1px;height:20px;background:#141414;margin:0 5px"></span>
+      <sc-for list="{{ timelineTools }}" as="t" hint-placeholder-count="6">
+        <span style="position:relative;display:grid;place-items:center;width:30px;height:28px;border-radius:3px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+          {{ t.icon }}
+          <sc-if value="{{ t.badge }}" hint-placeholder-val="{{ false }}">
+            <span style="position:absolute;top:-4px;right:-4px;min-width:17px;height:15px;padding:0 4px;border-radius:999px;background:#c9622f;color:#20100a;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:9.5px;font-weight:700;display:grid;place-items:center">{{ t.badge }}</span>
+          </sc-if>
+        </span>
+      </sc-for>
+      <span style="display:flex;align-items:center;gap:6px;margin-left:8px;padding:6px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        Track
+      </span>
+
+      <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+        <span style="display:grid;place-items:center;width:28px;height:26px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"/></svg>
+        </span>
+        <span onClick="{{ zoomOut }}" title="Zoom out timeline" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M8 11h6M16 16l4.5 4.5"/></svg></span>
+        <span onClick="{{ setZoom }}" title="Timeline zoom" style="position:relative;width:130px;height:4px;border-radius:999px;background:#141414;cursor:pointer">
+          <span style="position:absolute;left:0;top:0;bottom:0;width:{{ zoom }};border-radius:999px;background:#c9622f"></span>
+          <span style="position:absolute;left:{{ zoom }};top:-5px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:#f2f2f2;box-shadow:0 0 0 .5px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.45)"></span>
+        </span>
+        <span onClick="{{ zoomIn }}" title="Zoom in timeline" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M8 11h6M11 8v6M16 16l4.5 4.5"/></svg></span>
+        <span title="Current timeline time and precision" style="min-width:116px;padding:4px 7px;border-radius:6px;background:#26272b;border:1px solid rgba(255,255,255,.08);font-family:'Geist Mono',ui-monospace,monospace;font-size:10px;color:#a6a6a6;text-align:center">{{ zoomStatus }}</span>
+      </span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:160px minmax(0,1fr);grid-template-rows:minmax(0,1fr);height:{{ timelineH }};gap:2px;background:#101010;transition:{{ heightTransition }}">
+      <div class="kerf-track-list" style="border-right:1px solid #141414;display:flex;flex-direction:column;background:#232323">
+        <span class="kerf-track-list-header" style="height:30px;flex:none;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid #323232;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#8a8a8a">TRACKS</span>
+        <sc-for list="{{ tracks }}" as="t" hint-placeholder-count="5">
+          <span class="kftrack kerf-track-row {{ t.activeClass }}" onClick="{{ t.select }}" style="flex:1;display:flex;align-items:center;gap:9px;padding:0 11px;border-bottom:1px solid #323232;background:{{ t.bg }};cursor:pointer">
+            <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;color:{{ t.color }}">{{ t.id }}</span>
+            <span style="font-size:12px;color:#d6d6d6">{{ t.name }}</span>
+            <span style="margin-left:auto;display:flex;align-items:center;gap:4px">
+              <sc-if value="{{ t.isAudio }}" hint-placeholder-val="{{ false }}">
+                <span class="kfeye" style="display:grid;place-items:center;width:20px;height:20px;border-radius:2px;color:#585858">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15v-3a8 8 0 0 1 16 0v3"/><path d="M4 14h3v6H5.5A1.5 1.5 0 0 1 4 18.5zM20 14h-3v6h1.5A1.5 1.5 0 0 0 20 18.5z"/></svg>
+                </span>
+                <span class="kfeye" style="display:grid;place-items:center;width:20px;height:20px;border-radius:2px;color:#585858">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3L12 5v14L7 14.5H4z"/><path d="M16 9.5a4 4 0 0 1 0 5"/></svg>
+                </span>
+              </sc-if>
+              <span class="kfeye" style="display:grid;place-items:center;width:20px;height:20px;border-radius:2px;color:#585858">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.4"/></svg>
+              </span>
+              <span class="kfeye" style="display:grid;place-items:center;width:20px;height:20px;border-radius:2px;color:#585858">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="9" rx="2.2"/><path d="M8.2 10.5V8a3.8 3.8 0 0 1 7.6 0v2.5"/></svg>
+              </span>
+            </span>
+          </span>
+        </sc-for>
+      </div>
+
+      <div class="kf kerf-timeline-lanes" onClick="{{ seekTimeline }}" onWheel="{{ timelineWheel }}" style="position:relative;min-width:0;overflow-x:auto;background:#191919;display:flex;flex-direction:column">
+        <span class="kerf-time-ruler" style="width:{{ timelineWidth }};height:30px;flex:none;display:flex;align-items:stretch;border-bottom:1px solid #323232">
+          <sc-for list="{{ ruler }}" as="r" hint-placeholder-count="8">
+            <span style="flex:1;position:relative;border-left:1px solid #4a4a4a;padding:8px 0 0 6px;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10px;color:#989898"><span style="position:absolute;left:0;right:0;bottom:0;height:5px;background:repeating-linear-gradient(90deg,#333 0 1px,transparent 1px 12.5%)"></span>{{ r }}</span>
+          </sc-for>
+        </span>
+        <span class="kerf-marker-strip" style="width:{{ timelineWidth }};height:18px;flex:none;position:relative;border-bottom:1px solid #323232">
+          <sc-for list="{{ markers }}" as="m" hint-placeholder-count="18">
+            <span style="position:absolute;top:5px;left:{{ m }};width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:7px solid #e06aa0"></span>
+          </sc-for>
+        </span>
+        <sc-for list="{{ tracks }}" as="t" hint-placeholder-count="5">
+          <span class="kerf-track-lane {{ t.activeClass }}" style="width:{{ timelineWidth }};flex:1;position:relative;border-bottom:1px solid #323232;background:{{ t.laneBg }}">
+            <sc-for list="{{ t.clips }}" as="c" hint-placeholder-count="3">
+              <span onClick="{{ c.select }}" class="kfclip {{ c.activeClass }}" style="position:absolute;top:5px;bottom:5px;left:{{ c.left }};width:{{ c.width }};border-radius:3px;background:{{ c.bg }};border:1px solid {{ c.border }};box-shadow:{{ c.shadow }};overflow:hidden;padding:5px 7px;box-sizing:border-box;cursor:pointer" style-hover="filter:brightness(1.16)">
+                <span style="display:flex;align-items:center;gap:6px">
+                  <span style="display:grid;place-items:center;width:11px;height:11px;color:{{ c.fg }};flex:none">{{ c.icon }}</span>
+                  <span style="font-size:10.5px;color:{{ c.fg }};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.label }}</span>
+                  <span style="margin-left:auto;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10px;color:{{ c.fg }};opacity:.8;flex:none">{{ c.dur }}</span>
+                </span>
+                <sc-if value="{{ c.wave }}" hint-placeholder-val="{{ false }}">
+                  <span style="position:absolute;left:0;right:0;bottom:2px;top:22px;display:flex;align-items:flex-end;gap:1px;padding:0 3px">
+                    <sc-for list="{{ c.wave }}" as="h" hint-placeholder-count="40">
+                      <span style="flex:1;height:{{ h }};background:rgba(143,199,159,.55);border-radius:1px"></span>
+                    </sc-for>
+                  </span>
+                </sc-if>
+                <sc-for list="{{ c.keys }}" as="k" hint-placeholder-count="3">
+                  <span style="position:absolute;bottom:3px;left:{{ k }};width:6px;height:6px;margin-left:-3px;background:#e0c84d;transform:rotate(45deg)"></span>
+                </sc-for>
+              </span>
+            </sc-for>
+          </span>
+        </sc-for>
+        <span class="kfplayhead" style="position:absolute;left:{{ zoomedPlayheadLeft }};top:0;bottom:0;width:1px;background:#ff6b4a;pointer-events:none;z-index:3"><span style="position:absolute;left:-6px;top:0;width:13px;height:10px;border-radius:2px 2px 3px 3px;background:#ff6b4a"></span></span>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ paletteOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeAll }}" class="kfveil" style="position:absolute;inset:0;background:rgba(5,6,7,.66);display:flex;justify-content:center;padding-top:120px;z-index:30">
+    <div onClick="{{ stop }}" class="kfpop" style="width:min(580px,92vw);height:max-content;border-radius:2px;background:#232323;border:1px solid #3f3f3f;box-shadow:0 16px 40px rgba(0,0,0,.6);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:9px;padding:12px 14px;border-bottom:1px solid #141414">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6b6b6b" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        <input value="{{ paletteQuery }}" onChange="{{ setPaletteQuery }}" placeholder="Search commands, clips, effects…" style="flex:1;border:0;background:transparent;color:#e8e8e8;font-size:14px;padding:0" />
+        <span onClick="{{ closeAll }}" style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;padding:2px 6px;border-radius:2px;background:#3a3a3a;color:#b0b0b0;cursor:pointer">esc</span>
+      </div>
+      <div style="padding:6px">
+        <sc-for list="{{ paletteItems }}" as="c" hint-placeholder-count="6">
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:3px;cursor:pointer" style-hover="background:#2d2d2d">
+            <span style="width:28px;height:22px;border-radius:3px;background:#141414;color:#c4c4c4;display:grid;place-items:center;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700">{{ c.badge }}</span>
+            <span style="font-size:13px">{{ c.label }}</span>
+            <span style="margin-left:auto;font-size:11px;color:#6b6b6b">{{ c.hint }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ agentDialogOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeAll }}" class="kfveil" style="position:absolute;inset:0;background:rgba(5,6,7,.72);backdrop-filter:blur(7px);display:flex;justify-content:center;align-items:center;z-index:40">
+    <div onClick="{{ stop }}" class="kf kfpop" style="width:min(600px,92vw);max-height:calc(100% - 80px);overflow:auto;border-radius:3px;background:#232323;border:1px solid #3f3f3f;box-shadow:0 18px 44px rgba(0,0,0,.6)">
+      <div style="display:flex;align-items:center;gap:9px;padding:14px 16px;border-bottom:1px solid #141414;position:sticky;top:0;background:#232323">
+        <span style="font-size:14.5px;font-weight:700">Copilot agent</span>
+        <span onClick="{{ closeAll }}" style="margin-left:auto;display:grid;place-items:center;width:26px;height:24px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#3a3a3a;color:#e8e8e8">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </span>
+      </div>
+      <div style="padding:16px">
+        <p style="margin:0 0 16px;font-size:12.5px;color:#a6a6a6;line-height:1.6">Whichever you pick gets Kerf's 48 editing tools over MCP, plus its own file, shell and web access.</p>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <sc-for list="{{ agents }}" as="a" hint-placeholder-count="4">
+            <div onClick="{{ a.select }}" style="padding:13px;border-radius:2px;background:{{ a.bg }};border:1px solid {{ a.border }};cursor:pointer">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:13px;font-weight:700">{{ a.name }}</span>
+                <span style="font-size:12px;color:#8a8a8a">{{ a.vendor }}</span>
+                <sc-if value="{{ a.active }}" hint-placeholder-val="{{ false }}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e0854d" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"/></svg>
+                </sc-if>
+                <sc-if value="{{ a.signIn }}" hint-placeholder-val="{{ false }}">
+                  <span style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:6px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3f3f3f;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#333333;color:#e8e8e8">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5"/><path d="M15 8l4 4-4 4M9.5 12h9.5"/></svg>
+                    Sign in
+                  </span>
+                </sc-if>
+              </div>
+              <div style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:{{ a.statusColor }};margin-top:6px;line-height:1.5">{{ a.status }}</div>
+              <sc-if value="{{ a.help }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:12px;color:#a6a6a6;margin-top:8px">{{ a.help }}</div>
+              </sc-if>
+              <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+                <sc-if value="{{ a.modelLabel }}" hint-placeholder-val="{{ false }}">
+                  <span style="font-size:12px;color:#989898;flex:none">Model</span>
+                </sc-if>
+                <span style="flex:1;padding:8px 11px;border-radius:3px;background:#1a1a1a;border:1px solid #3a3a3a;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:#989898">{{ a.field }}</span>
+                <span style="flex:none;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#6b6b6b">{{ a.note }}</span>
+                <sc-if value="{{ a.save }}" hint-placeholder-val="{{ false }}">
+                  <span style="flex:none;padding:7px 13px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#8a8a8a;cursor:pointer" style-hover="color:#e8e8e8">Save</span>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ exportOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeAll }}" class="kfveil" style="position:absolute;inset:0;background:rgba(5,6,7,.72);backdrop-filter:blur(7px);display:flex;justify-content:center;align-items:center;z-index:40">
+    <div onClick="{{ stop }}" class="kfpop" style="width:min(640px,92vw);border-radius:3px;background:#232323;border:1px solid #3f3f3f;box-shadow:0 18px 44px rgba(0,0,0,.6);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:9px;padding:14px 16px;border-bottom:1px solid #141414">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f0a173" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 10.5l4 4.5 4-4.5"/><path d="M4 19h16"/></svg>
+        <span style="font-size:14.5px;font-weight:700">Export</span>
+        <span style="font-size:12px;color:#8a8a8a">Kerf · Brand Film</span>
+        <span onClick="{{ closeAll }}" style="margin-left:auto;display:grid;place-items:center;width:26px;height:24px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#3a3a3a;color:#e8e8e8">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </span>
+      </div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#989898">PRESET</span>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <sc-for list="{{ exportPresets }}" as="p" hint-placeholder-count="4">
+              <div onClick="{{ p.select }}" style="padding:11px;border-radius:2px;background:{{ p.bg }};border:1px solid {{ p.border }};cursor:pointer" style-hover="border-color:#7a4a25">
+                <span style="display:block;font-size:12.5px;font-weight:700;color:{{ p.fg }}">{{ p.name }}</span>
+                <span style="display:block;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#8a8a8a;margin-top:4px">{{ p.spec }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <sc-for list="{{ exportFields }}" as="f" hint-placeholder-count="6">
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:11.5px;color:#989898">{{ f.k }}</span>
+              <span style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:2px;background:#1a1a1a;border:1px solid #3a3a3a;cursor:pointer" style-hover="background:#323232">
+                <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:12px;color:#e8e8e8">{{ f.v }}</span>
+                <svg style="margin-left:auto" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b6b6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+              </span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span style="font-size:11.5px;color:#989898">Destination</span>
+          <span style="display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:2px;background:#1a1a1a;border:1px solid #3a3a3a">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b6b6b" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3.2l1.8 2.2H18a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
+            <span style="flex:1;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:12px;color:#c4c4c4">~/Studio/Kerf/exports/brand-film_1080p.mp4</span>
+            <span style="padding:5px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3f3f3f;font-size:11.5px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="color:#e8e8e8">Change…</span>
+          </span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;padding:11px;border-radius:2px;background:#262626;border:1px solid #141414">
+          <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11.5px;color:#989898">Estimated 148 MB · 00:00:11:14 · ~40 s on this Mac</span>
+          <span style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <span onClick="{{ closeAll }}" style="padding:8px 14px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12.5px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="color:#e8e8e8">Cancel</span>
+            <span style="display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:3px;background:#c9622f;color:#20100a;font-size:12.5px;font-weight:700;cursor:pointer" style-hover="filter:brightness(1.08)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 10.5l4 4.5 4-4.5"/><path d="M4 19h16"/></svg>
+              Start export
+            </span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ recordOpen }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ closeAll }}" class="kfveil" style="position:absolute;inset:0;background:rgba(5,6,7,.74);backdrop-filter:blur(8px);display:flex;justify-content:center;align-items:center;z-index:45">
+    <div onClick="{{ stop }}" class="kfpop" style="width:min(1080px,92vw);height:min(640px,86vh);display:flex;flex-direction:column;border-radius:3px;background:#232323;border:1px solid #3f3f3f;box-shadow:0 18px 44px rgba(0,0,0,.6);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:10px;height:48px;flex:none;padding:0 16px;border-bottom:1px solid #141414">
+        <span style="display:grid;place-items:center;width:18px;height:18px;border-radius:50%;border:2px solid #e0854d"><span style="width:8px;height:8px;border-radius:50%;background:#e0854d"></span></span>
+        <span style="font-size:14.5px;font-weight:700">Record the screen</span>
+        <span onClick="{{ closeAll }}" style="margin-left:auto;display:grid;place-items:center;width:26px;height:24px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#3a3a3a;color:#e8e8e8">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </span>
+      </div>
+
+      <div style="flex:1;display:grid;grid-template-columns:1fr 330px;min-height:0">
+        <div style="display:flex;flex-direction:column;min-width:0;border-right:1px solid #141414">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;flex:none">
+            <span style="display:flex;padding:3px;border-radius:2px;background:#1a1a1a;border:1px solid #3a3a3a">
+              <sc-for list="{{ recordTabs }}" as="t" hint-placeholder-count="2">
+                <span onClick="{{ t.select }}" style="padding:6px 13px;border-radius:2px;font-size:12.5px;font-weight:600;cursor:pointer;background:{{ t.bg }};color:{{ t.fg }}" style-hover="color:#e8e8e8">{{ t.label }}</span>
+              </sc-for>
+            </span>
+            <span style="margin-left:auto;font-size:12px;color:#989898">{{ recordHint }}</span>
+            <span style="display:grid;place-items:center;width:26px;height:24px;border-radius:2px;color:#989898;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a8 8 0 0 1 13.5-4M20 14a8 8 0 0 1-13.5 4"/><path d="M4 5v5h5M20 19v-5h-5"/></svg>
+            </span>
+          </div>
+          <div class="kf" style="flex:1;min-height:0;overflow:auto;padding:0 16px 16px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-content:start">
+            <sc-for list="{{ recordSources }}" as="s" hint-placeholder-count="2">
+              <div onClick="{{ s.select }}" style="border-radius:2px;overflow:hidden;background:#1a1a1a;border:1px solid {{ s.border }};box-shadow:{{ s.glow }};cursor:pointer" style-hover="border-color:#7a4a25">
+                <span style="position:relative;display:block;aspect-ratio:16/10;background:#000">
+                  <image-slot id="{{ s.slot }}" shape="rect" src="{{ s.img }}" placeholder=""></image-slot>
+                  <sc-if value="{{ s.picked }}" hint-placeholder-val="{{ false }}">
+                    <span style="position:absolute;right:9px;top:9px;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#e0854d;color:#20100a;pointer-events:none">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"/></svg>
+                    </span>
+                  </sc-if>
+                </span>
+                <span style="display:flex;align-items:center;gap:9px;padding:11px 12px;background:{{ s.footBg }}">
+                  <span style="display:grid;place-items:center;width:15px;height:15px;flex:none;color:#989898">{{ s.icon }}</span>
+                  <span style="min-width:0">
+                    <span style="display:block;font-size:12.5px;color:#e8e8e8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</span>
+                    <span style="display:block;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#8a8a8a;margin-top:2px">{{ s.meta }}</span>
+                  </span>
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="kf" style="overflow:auto;padding:14px 14px 16px;display:flex;flex-direction:column;gap:16px;min-width:0">
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="13" height="11" rx="2.4"/><path d="M16 11l5-2.8v7.6L16 13z"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">CAMERA</span>
+            </div>
+            <span onClick="{{ cycleCamera }}" style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:2px;background:#1a1a1a;border:1px solid #3a3a3a;cursor:pointer" style-hover="background:#323232">
+              <span style="font-size:12.5px">{{ camera }}</span>
+              <svg style="margin-left:auto" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b6b6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+            <span style="display:grid;place-items:center;aspect-ratio:16/10;border-radius:2px;background:#171717;border:1px solid #141414;color:#4a4a4a">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6.5" width="13" height="11" rx="2.4"/><path d="M16 11l5-2.8v7.6L16 13z"/><path d="M3 3l18 18"/></svg>
+            </span>
+          </div>
+
+          <div style="height:1px;background:#141414"></div>
+
+          <div style="display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9.5" y="3" width="5" height="10" rx="2.5"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">SOUND</span>
+            </div>
+            <span onClick="{{ cycleMic }}" style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:2px;background:#1a1a1a;border:1px solid #3a3a3a;cursor:pointer" style-hover="background:#323232">
+              <span style="font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ mic }}</span>
+              <svg style="margin-left:auto;flex:none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6b6b6b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+            <span style="display:flex;align-items:center;gap:9px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9.5" y="3" width="5" height="10" rx="2.5"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
+              <span style="flex:1;height:4px;border-radius:999px;background:#141414;overflow:hidden"><span style="display:block;height:100%;width:6%;background:#e0854d"></span></span>
+            </span>
+            <div style="display:flex;align-items:flex-start;gap:12px">
+              <span style="min-width:0">
+                <span style="display:block;font-size:12.5px;color:#e8e8e8">System audio</span>
+                <span style="display:block;font-size:11.5px;color:#8a8a8a;margin-top:3px">What the machine is playing</span>
+              </span>
+              <span onClick="{{ toggleSystemAudio }}" style="margin-left:auto;flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:2px;background:{{ sysBg }};border:1px solid {{ sysBorder }};color:#20100a;cursor:pointer">
+                <sc-if value="{{ systemAudio }}" hint-placeholder-val="{{ true }}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"/></svg>
+                </sc-if>
+              </span>
+            </div>
+            <p style="margin:0;font-size:11.5px;color:#6b6b6b;line-height:1.6">Only Windows exposes a loopback device. It is asked for anyway, in case one is installed here; if there is none the screen clip simply has no sound of its own and the take says so.</p>
+          </div>
+
+          <div style="height:1px;background:#141414"></div>
+
+          <div style="display:flex;flex-direction:column;gap:11px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#989898" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2.2"/><path d="M9 20h6"/></svg>
+              <span style="font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;font-weight:700;letter-spacing:.13em;color:#c4c4c4">CAPTURE</span>
+            </div>
+            <span style="font-size:12.5px;color:#d6d6d6">Frame rate</span>
+            <span style="display:flex;padding:3px;border-radius:2px;background:#1a1a1a;border:1px solid #3a3a3a">
+              <sc-for list="{{ fpsOptions }}" as="f" hint-placeholder-count="2">
+                <span onClick="{{ f.select }}" style="flex:1;text-align:center;padding:7px 4px;border-radius:2px;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:12px;font-weight:600;cursor:pointer;background:{{ f.bg }};color:{{ f.fg }}" style-hover="color:#e8e8e8">{{ f.label }}</span>
+              </sc-for>
+            </span>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span style="min-width:0">
+                <span style="display:block;font-size:12.5px;color:#e8e8e8">Auto zoom</span>
+                <span style="display:block;font-size:11.5px;color:#8a8a8a;margin-top:3px">Pushes in where the cursor works</span>
+              </span>
+              <span onClick="{{ toggleAutoZoom }}" style="margin-left:auto;flex:none;display:grid;place-items:center;width:20px;height:20px;border-radius:2px;background:{{ zoomBg }};border:1px solid {{ zoomBorder }};color:#20100a;cursor:pointer">
+                <sc-if value="{{ autoZoom }}" hint-placeholder-val="{{ true }}">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4 10-10"/></svg>
+                </sc-if>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:18px;height:64px;flex:none;padding:0 16px;border-top:1px solid #141414;background:#1a1a1a">
+        <sc-for list="{{ recordSummary }}" as="s" hint-placeholder-count="3">
+          <span style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#c4c4c4">
+            <span style="display:grid;place-items:center;width:15px;height:15px;color:#989898">{{ s.icon }}</span>
+            {{ s.label }}
+          </span>
+        </sc-for>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:9px;padding:10px 20px;border-radius:2px;background:#c9622f;color:#20100a;font-size:13px;font-weight:700;cursor:pointer" style-hover="filter:brightness(1.08)">
+          <span style="display:grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#20100a"><span style="width:7px;height:7px;border-radius:50%;background:#f0a173"></span></span>
+          Start recording
+        </span>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const P = (d) => React.createElement("path", { d: d, key: d });
+const svg = (paths, size, sw) => React.createElement("svg", { width: size || 17, height: size || 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: sw || 1.6, strokeLinecap: "round", strokeLinejoin: "round" }, paths.map(P));
+const fill = (d, size) => React.createElement("svg", { width: size || 17, height: size || 17, viewBox: "0 0 24 24", fill: "currentColor" }, P(d));
+const circ = (r, size) => React.createElement("svg", { width: size || 17, height: size || 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.9 }, React.createElement("circle", { cx: 12, cy: 12, r: r, key: "c" }));
+
+const I = {
+  media: () => svg(["M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"]),
+  audio: () => svg(["M9 18V5l12-2v13", "M6 15a3 3 0 1 0 3 3M18 13a3 3 0 1 0 3 3"]),
+  text: () => svg(["M4 7V4h16v3", "M9 20h6", "M12 4v16"]),
+  captions: () => svg(["M3 5h18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z", "M7 15h4M15 15h2M7 11h2M13 11h4"]),
+  trans: () => svg(["M12 2 2 7l10 5 10-5-10-5Z", "M2 12l10 5 10-5", "M2 17l10 5 10-5"]),
+  vfx: () => svg(["M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"]),
+  colour: () => svg(["M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3", "M1 14h6M9 8h6M17 16h6"]),
+  ai: () => svg(["M11.5 2.5 13.2 8l5.5 1.7-5.5 1.7-1.7 5.5-1.7-5.5L4.3 9.7 9.8 8z", "M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"]),
+
+  vSingle: () => svg(["M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"], 14),
+  vGrid: () => svg(["M3 5h18v14H3z", "M9 5v14M15 5v14M3 12h18"], 14),
+  vSplit: () => svg(["M3 5h18v14H3z", "M12 5v14"], 14),
+  vSafe: () => svg(["M3 5h18v14H3z", "M7 8h10v8H7z"], 14),
+  vScope: () => svg(["M3 12c2.5-5 5.5 5 8 0s5-2.5 10-1"], 14),
+
+  toStart: () => svg(["M19 20 9 12l10-8z", "M5 19V5"], 16),
+  frameBack: () => svg(["M15 18 9 12l6-6z"], 16),
+  frameFwd: () => svg(["M9 18l6-6-6-6z"], 16),
+  toEnd: () => svg(["M5 4l10 8-10 8z", "M19 5v14"], 16),
+  play: () => fill("M6 4.5v15l13-7.5z", 17),
+  pause: () => fill("M7 4.5h3.5v15H7zM13.5 4.5H17v15h-3.5z", 17),
+
+  key: () => React.createElement("svg", { width: 12, height: 12, viewBox: "0 0 24 24", fill: "currentColor" }, P("M12 3.2l8.8 8.8-8.8 8.8L3.2 12z")),
+  align: (d) => svg(d, 15),
+  keyframeTool: () => svg(["M12 3.2 20.8 12 12 20.8 3.2 12z"], 16),
+  reset: () => svg(["M3 12a9 9 0 1 0 3-6.7", "M3 4v5h5"], 16),
+  link: () => svg(["M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7L11.5 5", "M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7L12.5 19"], 16),
+  layers: () => svg(["M12 2 2 7l10 5 10-5-10-5Z", "M2 12l10 5 10-5", "M2 17l10 5 10-5"], 16),
+  markers: () => svg(["M4 15s1-1 4-1 5 2 8 2 4-1 4-1V4s-1 1-4 1-5-2-8-2-4 1-4 1z", "M4 22v-7"], 16),
+  audioTool: () => svg(["M2 12h2l2-6 3 12 3-9 2.5 6L18 9l2 3h2"], 16),
+
+  tShape: () => svg(["M3 5h9v9H3z", "M11 11h10v8H11z"], 14),
+  tTransform: () => svg(["M12 2v20M2 12h20", "M9 5l3-3 3 3M9 19l3 3 3-3M5 9l-3 3 3 3M19 9l3 3-3 3"], 14),
+  tVfx: () => svg(["M11.5 2.5 13.2 8l5.5 1.7-5.5 1.7-1.7 5.5-1.7-5.5L4.3 9.7 9.8 8z"], 14),
+  tKeys: () => svg(["M12 3.2 20.8 12 12 20.8 3.2 12z"], 14),
+  blur: () => svg(["M4 8h16M4 12h11M4 16h16"], 13),
+  path: () => svg(["M3 18c7 0 5-12 11-12 3.5 0 5.5 3 7 6"], 13),
+  clipText: () => svg(["M5 7V5h14v2", "M12 5v14"], 11),
+  clipLayers: () => svg(["M12 2 2 7l10 5 10-5z", "M2 12l10 5 10-5"], 11),
+  clipAudio: () => svg(["M9 18V5l12-2v13"], 11),
+
+  sqr: () => svg(["M4 4h16v16H4z"], 20),
+  ell: () => circ(8, 20),
+  tri: () => svg(["M12 3.5 21.5 20.5h-19z"], 20),
+  poly: () => svg(["M12 2.5l8.5 5v9L12 21.5l-8.5-5v-9z"], 20),
+  star: () => svg(["M12 2.5l2.9 6.2 6.6.8-4.9 4.5 1.3 6.5-5.9-3.4-5.9 3.4 1.3-6.5L2.5 9.5l6.6-.8z"], 20),
+  line: () => svg(["M4 20 20 4"], 20),
+  arrow: () => svg(["M4 12h15", "M13 6l6 6-6 6"], 20),
+  heart: () => svg(["M19 14c1.5-1.5 2.5-3.2 2.5-5A4.5 4.5 0 0 0 12 6.5 4.5 4.5 0 0 0 2.5 9c0 1.8 1 3.5 2.5 5l7 7z"], 20),
+  blob: () => svg(["M8 4c6-2.5 12 1.5 11.5 7S13 21 8.5 19 2 6.5 8 4z"], 20),
+
+  palette: () => svg(["M12 2a10 10 0 1 0 0 20c1.4 0 2-1 1.5-2.2-.6-1.4.4-2.8 2-2.8H19a3 3 0 0 0 3-3c0-6-4.5-12-10-12z", "M8 9h.01M12 7h.01M16 10h.01M8.5 14h.01"], 17),
+  scissors: () => svg(["M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12", "M6 7a3 3 0 1 0 0-.01M6 20a3 3 0 1 0 0-.01"], 17),
+  note: () => svg(["M9 18V5l12-2v13", "M6 15a3 3 0 1 0 3 3"], 17),
+  cc: () => svg(["M3 5h18v14H3z", "M8 11a2 2 0 1 0 0 2M16 11a2 2 0 1 0 0 2"], 17),
+  phone: () => svg(["M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z", "M10.5 18.5h3"], 17),
+  spark: () => svg(["M11.5 2.5 13.2 8l5.5 1.7-5.5 1.7-1.7 5.5-1.7-5.5L4.3 9.7 9.8 8z"], 17),
+  glow: () => svg(["M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8", "M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"], 15),
+  grain: () => svg(["M5 8h.01M9 12h.01M13 7h.01M17 11h.01M7 16h.01M15 16h.01M19 6h.01M11 19h.01"], 15),
+  shake: () => svg(["M2 12h3l2.5-6 3.5 12 3-9 2 5 2.5-4h3.5"], 15),
+  vignette: () => svg(["M3 4h18v16H3z", "M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7"], 15),
+  screen: () => svg(["M3 4h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z", "M9 20h6M12 16v4"], 15),
+  camIcon: () => svg(["M2 7h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1Z", "M15 11.5 22 8v8l-7-3.5z"], 15),
+  micIcon: () => svg(["M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z", "M5 11a7 7 0 0 0 14 0M12 18v4"], 15),
+  win: () => svg(["M3 4h18v16H3z", "M3 9h18"], 15),
+  skills: () => svg(["M4 4h6.5v6.5H4zM13.5 4H20v6.5h-6.5zM4 13.5h6.5V20H4zM13.5 13.5H20V20h-6.5z"])
+};
+
+const SKILLS = [
+  { id: "beat", slot: "sk-beat", name: "Beat Montage", version: "v1.0.0", runtime: "~40 s", img: "https://picsum.photos/seed/kerfbeat/480/270", desc: "Cuts every clip in the pool to the beat of the music bed and lays them 9:16." },
+  { id: "tut", slot: "sk-tut", name: "Tutorial", version: "v1.1.0", runtime: "~2 min", img: "https://picsum.photos/seed/kerftutorial/480/270", desc: "Turns a screen recording into a finished tutorial: hard cuts, callouts, chapters." }
+];
+
+const STORE_SKILLS = [
+  { slot: "st-1", name: "Podcast Clips", meta: "v2.0.1 · 1.4k installs", price: "$24", img: "https://picsum.photos/seed/kerfpod/240/150" },
+  { slot: "st-2", name: "Product Reel", meta: "v1.3.0 · 860 installs", price: "$18", img: "https://picsum.photos/seed/kerfreel/240/150" },
+  { slot: "st-3", name: "Doc Assembly", meta: "v0.9.4 · beta", price: "Free", img: "https://picsum.photos/seed/kerfdocs/240/150" }
+];
+
+const MEDIA = [
+  { slot: "md-1", name: "Kerf film bed", meta: "0:12 · 2.2 MB", isAudio: true, img: "https://picsum.photos/seed/kerffilmbed/160/100" },
+  { slot: "md-2", name: "Still_NeonCity.jpg", meta: "0:06 · 1.4 MB", img: "https://picsum.photos/seed/kerfneon/160/100" },
+  { slot: "md-3", name: "Still_CinematicJump.jpg", meta: "0:05 · 1.8 MB", img: "https://picsum.photos/seed/kerfjump/160/100" },
+  { slot: "md-4", name: "Still_KariakooStore.jpg", meta: "0:05 · 2.1 MB", img: "https://picsum.photos/seed/kerfstore/160/100" },
+  { slot: "md-5", name: "Audio_TechHouse_Mix.wav", meta: "0:16 · 4.2 MB", isAudio: true, img: "https://picsum.photos/seed/kerfmix/160/100" },
+  { slot: "md-6", name: "SFX_OpticalWhoosh.wav", meta: "0:02 · 380 KB", isAudio: true, img: "https://picsum.photos/seed/kerfsfx/160/100" },
+  { slot: "md-7", name: "Graphics_Mascot_Layered.png", meta: "0:06 · 1.1 MB", img: "https://picsum.photos/seed/kerfmascot/160/100" }
+];
+
+const SFX = [
+  ["Whoosh", "Air pass, for a cut"], ["Reverse Whoosh", "Sucks into the next shot"],
+  ["Impact", "Hard hit on the beat"], ["Cinematic Boom", "Deep trailer hit with tail"],
+  ["Riser", "Builds tension into a cut"], ["Sub Drop", "Falling sub bass"],
+  ["Click", "Tight UI tick"], ["Pop", "Bubble pop for text"],
+  ["Beep", "Clean notification tone"], ["Glitch", "Digital stutter and tear"],
+  ["Sweep Up", "Filtered rise, softens"], ["Noise Hit", "Short percussive noise"]
+];
+
+const AUDIO_FILES = [
+  { name: "Kerf film bed", meta: "0:12 · 2.2 MB" },
+  { name: "Audio_TechHouse_Mix.wav", meta: "0:16 · 4.2 MB" },
+  { name: "SFX_OpticalWhoosh_01.wav", meta: "0:02 · 380 KB" }
+];
+
+const TITLE_PRESETS = [
+  { tag: "Title", name: "Bold Title", desc: "Heavy slab, centre frame" },
+  { tag: "Callout", name: "Callout chip", desc: "Pill with a leader line", isNew: true },
+  { tag: "Typewri", name: "Typewriter", desc: "Typed one letter at a time" },
+  { tag: "Subtitle", name: "End Credit", desc: "Directed by, small caps" }
+];
+
+const CAPTION_STYLES = [
+  { name: "Viral Bold", desc: "kinetic stack" }, { name: "Clean", desc: "fade slide" },
+  { name: "Boxed", desc: "none" }, { name: "Karaoke", desc: "karaoke highlight" }
+];
+
+const LANGS = ["Kiswahili", "English (US)", "English (UK)", "Français", "Español"];
+const BLENDS = ["Normal", "Screen", "Multiply", "Overlay", "Add"];
+const SPEEDS = ["0.5×", "1×", "1.5×", "2×"];
+const TIMELINE_DURATION_MS = 12000;
+const TIMELINE_FRAMES = 360;
+const SEQUENCE_FRAMES = 344;
+const ZOOM_SCALES = [1, 2, 4, 8, 16, 32];
+const ZOOM_DIVISIONS_MS = [2000, 1000, 500, 250, 100, 50];
+const ZOOM_PRECISION_MS = [1000 / 30, 10, 5, 2, 1, 1];
+const SORT_DUR = ["400ms", "250ms", "600ms", "1000ms"];
+
+const TRANSITIONS = [
+  { name: "Glitch", desc: "RGB tear", glyph: "B", thumb: "linear-gradient(140deg,#2c5a5e,#173437)" },
+  { name: "Diagonal", desc: "Corner slide", glyph: "", thumb: "linear-gradient(140deg,#141d24,#0e1418)" },
+  { name: "Push Left", desc: "Slide the frame out", glyph: "", thumb: "linear-gradient(180deg,#2b7f8c,#7fd3dd)" },
+  { name: "Push Right", desc: "Slide the frame in", glyph: "A", thumb: "linear-gradient(180deg,#e0b45f,#8a5f22)" },
+  { name: "Slide Up", desc: "Vertical push", glyph: "", thumb: "linear-gradient(180deg,#1c5f6b,#2b8b98)" },
+  { name: "Spin", desc: "Rotate and scale", glyph: "B", thumb: "linear-gradient(180deg,#123842,#5fc6d6)" }
+];
+
+const EFFECTS = [
+  { name: "Glow", desc: "Soft bloom on highlights", icon: I.glow(), color: "#f0a173" },
+  { name: "Film grain", desc: "Analogue texture", icon: I.grain(), color: "#c4c4c4" },
+  { name: "Camera shake", desc: "Handheld energy", icon: I.shake(), color: "#8a7fe0" },
+  { name: "Vignette", desc: "Darkens the edges", icon: I.vignette(), color: "#5f8fd0" },
+  { name: "Chromatic", desc: "Split the channels", icon: I.grain(), color: "#e06aa0" },
+  { name: "Zoom pulse", desc: "Punch in on the beat", icon: I.shake(), color: "#8fc79f" },
+  { name: "Blur in", desc: "Focus pull on entry", icon: I.glow(), color: "#c4c4c4" },
+  { name: "Scan lines", desc: "CRT overlay", icon: I.grain(), color: "#c4c4c4" }
+];
+
+const LOOKS = [
+  { name: "Neutral", swatch: "linear-gradient(120deg,#4a4b4d,#989898)" },
+  { name: "Teal & orange", swatch: "linear-gradient(120deg,#1f5f6b,#e0854d)" },
+  { name: "Warm film", swatch: "linear-gradient(120deg,#7a4526,#e0b06f)" },
+  { name: "Cold steel", swatch: "linear-gradient(120deg,#2a3c52,#8fa6c0)" },
+  { name: "Bleach", swatch: "linear-gradient(120deg,#7b7466,#e5e0d4)" },
+  { name: "Night", swatch: "linear-gradient(120deg,#131a2a,#3d4c74)" }
+];
+
+const RECIPES = [
+  { name: "Cinematic look", desc: "Teal & orange grade, scope bars and film grain across every clip", icon: I.palette(), color: "#e0b06f" },
+  { name: "Cut silence", desc: "Trim dialogue pauses over ~400ms and close the gaps", icon: I.scissors(), color: "#e08a7a" },
+  { name: "Beat-lock the cuts", desc: "Detect the tempo and nudge every cut onto the nearest beat", icon: I.note(), color: "#8fc79f" },
+  { name: "Auto captions", desc: "Transcribe the dialogue into a styled caption track", icon: I.cc(), color: "#f0a173" },
+  { name: "Reframe for vertical", desc: "Switch to 9:16 and re-fit every layer to the new frame", icon: I.phone(), color: "#8a7fe0" },
+  { name: "Add energy", desc: "Beat zoom pulse, subtle shake and a punchier grade", icon: I.spark(), color: "#e06aa0" }
+];
+
+const CMDS = [
+  { badge: "⌘B", label: "Split clip at playhead", hint: "timeline" },
+  { badge: "⌥K", label: "Add keyframe · Opacity", hint: "transform" },
+  { badge: "⌘M", label: "Add marker", hint: "timeline" },
+  { badge: "⇧S", label: "Toggle snapping", hint: "timeline" },
+  { badge: "⇧R", label: "Record the screen", hint: "capture" },
+  { badge: "⌘E", label: "Export · 1080p YouTube", hint: "render" },
+  { badge: "⌘J", label: "Ask Copilot to tighten cuts", hint: "agent" }
+];
+
+const AGENTS = [
+  { name: "Claude Code", vendor: "Anthropic", status: "2.1.245 (Claude Code)", statusColor: "#8a8a8a", modelLabel: true, field: "Claude Code default", note: "suggested" },
+  { name: "Gemini CLI", vendor: "Google", status: "Google no longer supports personal sign-in for Gem…", statusColor: "#8a8a8a", help: "Paste a Gemini API key from aistudio.google.com/apikey.", field: "GEMINI_API_KEY", save: true, signIn: true },
+  { name: "Codex CLI", vendor: "OpenAI", status: "codex-cli 0.149.1", statusColor: "#8a8a8a", modelLabel: true, field: "Codex CLI default", note: "listed" },
+  { name: "Cursor Agent", vendor: "Cursor", status: "Error: Authentication required. Please run 'agent …", statusColor: "#c98a7a", help: "Run `cursor-agent login` in a terminal, or paste a Cursor API key.", field: "CURSOR_API_KEY", save: true, signIn: true }
+];
+
+const EXPORT_PRESETS = [
+  { name: "YouTube", spec: "1080p · H.264" }, { name: "Vertical", spec: "9:16 · 1080p" },
+  { name: "Master", spec: "4K · ProRes" }, { name: "GIF", spec: "720p · loop" }
+];
+
+const CAMERAS = ["No camera", "FaceTime HD Camera", "Logitech Brio 4K"];
+const MICS = ["Default - MacBook Pro Microphone (Built-in)", "Shure MV7", "AirPods Pro"];
+
+const wave = (n, seed) => Array.from({ length: n }, (_, i) => (12 + Math.abs(Math.sin((i + seed) * 1.7)) * 88).toFixed(0) + "%");
+
+class Component extends DCLogic {
+  state = {
+    screen: "editor", playerReturn: "home", playerTitle: "Kerf · Brand Film", playerOrientation: "landscape", playerImage: "https://picsum.photos/seed/kerfbrandfilm/1600/900", mediaW: 272, inspW: 296, tlH: 248, drag: null, playhead: 33.0556,
+    rail: "Media", tab: "Transform", skillScope: "Whole timeline", skill: "beat", running: null, playing: false, snap: true, ripple: false, loop: false,
+    speed: 1, panelQuery: "", mediaSel: "md-1", viewMode: 3, mediaGrid: false,
+    track: "V3", clip: "c-mark-1", palette: false, pq: "",
+    sfx: "Whoosh", shape: "Ellipse", captionStyle: "Viral Bold", lang: 0, blend: 0,
+    placement: "Across cut", trans: "Push Right", transDur: 0, effect: "Glow", look: "Teal & orange",
+    recipe: "Auto captions", zoom: 0,
+    copilot: false, ask: "", agent: "Claude Code", agentDialog: false, exportOpen: false, exportPreset: "YouTube",
+    record: false, recordTab: "Displays (1)", recordSrc: "src-screen", camera: 0, mic: 0, systemAudio: true, fps: 30, autoZoom: true
+  };
+
+  componentDidMount() {
+    this._k = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); this.setState({ palette: true }); }
+      if (e.key === "Escape") this.setState({ palette: false, pq: "", agentDialog: false, exportOpen: false, record: false });
+      if (e.code === "Space" && e.target.tagName !== "INPUT" && e.target.tagName !== "TEXTAREA") { e.preventDefault(); this.setState(s => ({ playing: !s.playing })); }
+    };
+    window.addEventListener("keydown", this._k);
+
+    this._move = (e) => {
+      const d = this.state.drag;
+      if (!d) return;
+      e.preventDefault();
+      if (d.type === "media") this.setState({ mediaW: Math.max(210, Math.min(460, d.w + (e.clientX - d.x))) });
+      else if (d.type === "insp") this.setState({ inspW: Math.max(240, Math.min(480, d.w - (e.clientX - d.x))) });
+      else if (d.type === "row") this.setState({ tlH: Math.max(150, Math.min(460, d.w - (e.clientY - d.y))) });
+    };
+    this._up = () => { if (this.state.drag) { document.body.style.cursor = ""; this.setState({ drag: null }); } };
+    window.addEventListener("mousemove", this._move);
+    window.addEventListener("mouseup", this._up);
+
+    this._tick = setInterval(() => {
+      if (this.state.playing) this.setState(st => ({ playhead: st.playhead >= 96 ? 2 : st.playhead + 1.4 }));
+    }, 260);
+  }
+  componentWillUnmount() {
+    window.removeEventListener("keydown", this._k);
+    window.removeEventListener("mousemove", this._move);
+    window.removeEventListener("mouseup", this._up);
+    clearInterval(this._tick);
+  }
+
+  beginDrag(type, e) {
+    e.preventDefault();
+    const s = this.state;
+    document.body.style.cursor = type === "row" ? "row-resize" : "col-resize";
+    this.setState({ drag: { type, x: e.clientX, y: e.clientY, w: type === "media" ? s.mediaW : type === "insp" ? s.inspW : s.tlH } });
+  }
+
+  railItem(label, icon) {
+    const on = this.state.rail === label;
+    return { label, icon, activeClass: on ? "is-active" : "", bg: on ? "#3a3a3a" : "transparent", fg: on ? "#f2f2f2" : "#989898", select: () => this.setState({ rail: label, panelQuery: "" }) };
+  }
+  tab(label, icon, badge) {
+    const on = this.state.tab === label;
+    return { label, icon, badge: badge || false, activeClass: on ? "is-active" : "", fg: on ? "#f2f2f2" : "#989898", rule: on ? "#e0854d" : "transparent", select: () => this.setState({ tab: label }) };
+  }
+  pick(key, value, extra) {
+    const on = this.state[key] === value;
+    return Object.assign({
+      bg: on ? "#2b2520" : "#262626", border: on ? "#7a4a25" : "#141414",
+      fg: on ? "#f0a173" : "#e8e8e8", select: () => this.setState({ [key]: value })
+    }, extra || {});
+  }
+  seg(key, value, label) {
+    const on = this.state[key] === value;
+    return { label, bg: on ? "#3f3f3f" : "transparent", fg: on ? "#e8e8e8" : "#989898", select: () => this.setState({ [key]: value }) };
+  }
+  clip(id, left, width, label, dur, kind, keys, waveN) {
+    const on = this.state.clip === id;
+    const C = {
+      type: { bg: "linear-gradient(180deg,#4b2034,#351828)", border: "#d76599", fg: "#f6c4da", icon: I.clipText() },
+      mark: { bg: "linear-gradient(180deg,#30295b,#211d43)", border: "#8175d8", fg: "#d4cff9", icon: I.clipLayers() },
+      guide: { bg: "linear-gradient(180deg,#24395c,#192944)", border: "#5f8fd0", fg: "#c9dcf5", icon: I.clipLayers() },
+      ground: { bg: "linear-gradient(180deg,#2c2852,#201d3e)", border: "#7770c3", fg: "#d0ccf3", icon: I.clipLayers() },
+      audio: { bg: "linear-gradient(180deg,#173525,#10271c)", border: "#3fc46f", fg: "#b4eac7", icon: I.clipAudio() }
+    }[kind];
+    return {
+      left, width, label, dur: dur || "", bg: C.bg, border: C.border, fg: C.fg, icon: C.icon, activeClass: on ? "is-selected" : "",
+      shadow: on ? "0 0 0 1.5px #f0a173, 0 0 0 4px rgba(224,133,77,.18), inset 0 2px 0 " + C.border : "inset 0 2px 0 " + C.border,
+      keys: keys || [], wave: waveN ? wave(waveN, id.length) : false,
+      select: () => this.setState({ clip: id })
+    };
+  }
+  track(id, name, color, isAudio, clips) {
+    const on = this.state.track === id;
+    return { id, name, color, isAudio: !!isAudio, clips, activeClass: on ? "is-active" : "", bg: on ? "#2b2b2b" : "transparent", laneBg: on ? "rgba(255,255,255,.014)" : "transparent", select: () => this.setState({ track: id }) };
+  }
+
+  centreTimelineOnPlayhead() {
+    requestAnimationFrame(() => {
+      const timeline = document.querySelector(".kerf-timeline-lanes");
+      if (!timeline) return;
+      const target = (this.state.playhead / 100) * timeline.scrollWidth - timeline.clientWidth / 2;
+      timeline.scrollLeft = Math.max(0, Math.min(timeline.scrollWidth - timeline.clientWidth, target));
+    });
+  }
+
+  setTimelineZoom(level) {
+    const next = Math.max(0, Math.min(ZOOM_SCALES.length - 1, level));
+    this.setState({ zoom: next });
+    this.centreTimelineOnPlayhead();
+  }
+
+  seekTimeline(event) {
+    const timeline = event.currentTarget;
+    const rect = timeline.getBoundingClientRect();
+    const position = event.clientX - rect.left + timeline.scrollLeft;
+    const rawMs = Math.max(0, Math.min(TIMELINE_DURATION_MS, (position / timeline.scrollWidth) * TIMELINE_DURATION_MS));
+    const precision = ZOOM_PRECISION_MS[this.state.zoom];
+    const snappedMs = Math.round(rawMs / precision) * precision;
+    this.setState({ playhead: Math.min(95.5556, (snappedMs / TIMELINE_DURATION_MS) * 100) });
+  }
+
+  timelineWheel(event) {
+    if (!event.metaKey && !event.ctrlKey) return;
+    event.preventDefault();
+    this.setTimelineZoom(this.state.zoom + (event.deltaY < 0 ? 1 : -1));
+  }
+
+  renderVals() {
+    const s = this.state, p = this.props;
+    const q = s.panelQuery.trim().toLowerCase();
+    const pq = s.pq.trim().toLowerCase();
+    const rail = s.rail;
+
+    const panelMeta = {
+      Media: { title: "MEDIA", count: MEDIA.length, search: "Search media…" },
+      Audio: { title: "AUDIO", chip: "22 beats", search: "Search sounds…" },
+      Text: { title: "TITLES & GRAPHICS", search: "Search titles & shapes…" },
+      Captions: { title: "CAPTIONS", count: 9, action: "Restyle all", actionIcon: I.spark() },
+      Trans: { title: "TRANSITIONS", search: "Search transitions…" },
+      VFX: { title: "EFFECTS", search: "Search effects…" },
+      Colour: { title: "COLOUR", search: "Search looks…" },
+      Skills: { title: "SKILLS", count: 2, search: "Search skills…" },
+      AI: { title: "AI TOOLS", action: "Ask", actionIcon: I.spark() }
+    }[rail];
+
+    const alignDefs = [
+      ["M5 4v16", "M9 8h8v3H9zM9 14h5v3H9z"], ["M12 4v16", "M8 8h8v3H8zM9.5 14h5v3h-5z"], ["M19 4v16", "M7 8h8v3H7zM10 14h5v3h-5z"],
+      ["M4 5h16", "M8 9h3v8H8zM14 9h3v5h-3z"], ["M4 12h16", "M8 8h3v8H8zM14 9.5h3v5h-3z"], ["M4 19h16", "M8 7h3v8H8zM14 10h3v5h-3z"],
+      ["M4 6h16M4 18h16", "M9 10h6v4H9z"], ["M6 4v16M18 4v16", "M10 9h4v6h-4z"],
+      ["M12 3v18", "M8 7 4 12l4 5M16 7l4 5-4 5"], ["M3 12h18", "M7 8l5-4 5 4M7 16l5 4 5-4"],
+      ["M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"], ["M4 10a8 8 0 1 1 2.5 6.5", "M4 5v5h5"]
+    ];
+    const modes = [I.vSingle(), I.vGrid(), I.vSplit(), I.vSafe(), I.vScope()];
+
+    const shapeDefs = [["Rectangle", I.sqr()], ["Ellipse", I.ell()], ["Triangle", I.tri()], ["Polygon", I.poly()], ["Star", I.star()], ["Line", I.line()], ["Arrow", I.arrow()], ["Heart", I.heart()], ["Blob", I.blob()]];
+
+    const recordSources = s.recordTab === "Displays (1)"
+      ? [{ id: "src-screen", slot: "rec-screen", name: "Entire screen", meta: "3024x1964 · main", img: "https://picsum.photos/seed/kerfdisplay/640/400", icon: I.screen() }]
+      : [
+          { id: "src-w1", slot: "rec-w1", name: "Kerf — Brand Film", meta: "1600x1000", img: "https://picsum.photos/seed/kerfwin1/640/400", icon: I.win() },
+          { id: "src-w2", slot: "rec-w2", name: "Safari — aistudio", meta: "1440x900", img: "https://picsum.photos/seed/kerfwin2/640/400", icon: I.win() },
+          { id: "src-w3", slot: "rec-w3", name: "Terminal", meta: "980x640", img: "https://picsum.photos/seed/kerfwin3/640/400", icon: I.win() },
+          { id: "src-w4", slot: "rec-w4", name: "Finder — Footage", meta: "1120x720", img: "https://picsum.photos/seed/kerfwin4/640/400", icon: I.win() }
+        ];
+
+    const timelineMs = (s.playhead / 100) * TIMELINE_DURATION_MS;
+    const currentFrame = Math.min(SEQUENCE_FRAMES - 1, Math.max(0, Math.round(timelineMs / (1000 / 30))));
+    const timeSeconds = Math.floor(currentFrame / 30);
+    const timeFrames = currentFrame % 30;
+    const timecode = "00:00:" + String(timeSeconds).padStart(2, "0") + ":" + String(timeFrames).padStart(2, "0");
+    const zoomScale = ZOOM_SCALES[s.zoom];
+    const divisionMs = ZOOM_DIVISIONS_MS[s.zoom];
+    const precisionMs = ZOOM_PRECISION_MS[s.zoom];
+    const ruler = Array.from({ length: Math.floor(TIMELINE_DURATION_MS / divisionMs) + 1 }, (_, index) => {
+      const milliseconds = index * divisionMs;
+      const seconds = Math.floor(milliseconds / 1000);
+      const remainder = Math.round(milliseconds % 1000);
+      return divisionMs < 1000
+        ? "0:" + String(seconds).padStart(2, "0") + "." + String(remainder).padStart(3, "0")
+        : "0:" + String(seconds).padStart(2, "0");
+    });
+    const timelineReadout = "00:" + String(Math.floor(timelineMs / 1000)).padStart(2, "0") + "." + String(Math.round(timelineMs % 1000)).padStart(3, "0");
+    const precisionLabel = s.zoom === 0 ? "frame" : (precisionMs < 10 ? precisionMs.toFixed(0) : precisionMs.toFixed(0)) + " ms";
+
+    return {
+      isEditor: s.screen === "editor",
+      isHome: s.screen === "home",
+      isPlayer: s.screen === "player",
+      showHome: () => this.setState({ screen: "home", palette: false, exportOpen: false, record: false, agentDialog: false }),
+      showEditor: () => this.setState({ screen: "editor" }),
+      showPlayerFromHome: (project) => this.setState({
+        screen: "player",
+        playerReturn: "home",
+        playerTitle: project && project.title ? project.title : "Kerf · Brand Film",
+        playerOrientation: project && project.orientation ? project.orientation : "landscape",
+        playerImage: project && project.image ? project.image : "https://picsum.photos/seed/kerfbrandfilm/1600/900"
+      }),
+      showPlayerFromEditor: () => this.setState({
+        screen: "player",
+        playerReturn: "editor",
+        playerTitle: "Kerf · Brand Film",
+        playerOrientation: "landscape",
+        playerImage: "https://picsum.photos/seed/kerfbrandfilm/1600/900"
+      }),
+      closePlayer: () => this.setState(st => ({ screen: st.playerReturn || "home" })),
+      playerTitle: s.playerTitle,
+      playerOrientation: s.playerOrientation,
+      playerImage: s.playerImage,
+      timecode,
+      currentFrame,
+      programMeta: "1920×1080 · 30 fps · Rec.709",
+      showGuides: p.showSafeGuides ?? true,
+      cols: "60px " + s.mediaW + "px minmax(0,1fr) " + s.inspW + "px" + (s.copilot ? " 300px" : ""),
+      gridTransition: s.drag ? "none" : "grid-template-columns .34s cubic-bezier(.22,1,.36,1)",
+      timelineH: s.tlH + "px",
+      heightTransition: s.drag ? "none" : "height .34s cubic-bezier(.22,1,.36,1)",
+      playheadLeft: s.playhead.toFixed(1) + "%",
+      zoomedPlayheadLeft: (s.playhead * zoomScale).toFixed(3) + "%",
+      timelineWidth: (zoomScale * 100) + "%",
+      startMediaResize: (e) => this.beginDrag("media", e),
+      startInspResize: (e) => this.beginDrag("insp", e),
+      startRowResize: (e) => this.beginDrag("row", e),
+      resetMedia: () => this.setState({ mediaW: 272 }),
+      resetInsp: () => this.setState({ inspW: 296 }),
+      resetRow: () => this.setState({ tlH: 248 }),
+
+      rail: [
+        this.railItem("Media", I.media()), this.railItem("Audio", I.audio()), this.railItem("Text", I.text()),
+        this.railItem("Captions", I.captions()), this.railItem("Trans", I.trans()), this.railItem("VFX", I.vfx()),
+        this.railItem("Colour", I.colour()), this.railItem("Skills", I.skills()), this.railItem("AI", I.ai())
+      ],
+
+      panelTitle: panelMeta.title,
+      panelCount: panelMeta.count || false,
+      panelChip: panelMeta.chip || false,
+      panelAction: panelMeta.action || false,
+      panelActionIcon: panelMeta.actionIcon || false,
+      panelSearch: panelMeta.search || false,
+      panelQuery: s.panelQuery,
+      setPanelQuery: (e) => this.setState({ panelQuery: e.target.value }),
+
+      isMedia: rail === "Media", isAudio: rail === "Audio", isText: rail === "Text",
+      isCaptions: rail === "Captions", isTrans: rail === "Trans", isVfx: rail === "VFX",
+      isColour: rail === "Colour", isSkills: rail === "Skills", isAi: rail === "AI",
+
+      toggleMediaView: () => this.setState(st => ({ mediaGrid: !st.mediaGrid })),
+      mediaViewBg: s.mediaGrid ? "#3f3f3f" : "transparent",
+      mediaViewFg: s.mediaGrid ? "#e8e8e8" : "#989898",
+      media: MEDIA.filter(m => !q || m.name.toLowerCase().includes(q)).map(m => Object.assign({}, m, {
+        bg: s.mediaSel === m.slot ? "#242f26" : "#262626",
+        border: s.mediaSel === m.slot ? "#3a5a42" : "#141414",
+        select: () => this.setState({ mediaSel: m.slot })
+      })),
+
+      sfx: SFX.filter(x => !q || x[0].toLowerCase().includes(q)).map(x => Object.assign({ name: x[0], desc: x[1] }, this.pick("sfx", x[0]))),
+      audioFiles: AUDIO_FILES,
+      levels: [{ name: "Music", value: "100%", knob: "62%" }, { name: "Dialogue", value: "84%", knob: "48%" }],
+
+      titlePresets: TITLE_PRESETS.filter(t => !q || t.name.toLowerCase().includes(q)),
+      shapes: shapeDefs.filter(x => !q || x[0].toLowerCase().includes(q)).map(x => Object.assign({ name: x[0], icon: x[1] }, this.pick("shape", x[0]))),
+
+      captionStyles: CAPTION_STYLES.map(c => Object.assign({ name: c.name, desc: c.desc }, this.pick("captionStyle", c.name))),
+      language: LANGS[s.lang],
+      cycleLanguage: () => this.setState(st => ({ lang: (st.lang + 1) % LANGS.length })),
+      subtitleFormats: ["SRT", "VTT", "ASS", "SBV", "JSON"],
+
+      placements: ["Across cut", "Clip in", "Clip out"].map(l => this.seg("placement", l, l)),
+      transDuration: SORT_DUR[s.transDur],
+      transKnob: ["18%", "8%", "34%", "62%"][s.transDur],
+      cycleDuration: () => this.setState(st => ({ transDur: (st.transDur + 1) % SORT_DUR.length })),
+      transitions: TRANSITIONS.filter(t => !q || t.name.toLowerCase().includes(q)).map(t => {
+        const on = s.trans === t.name;
+        return Object.assign({}, t, { border: on ? "#c9622f" : "#141414", fg: on ? "#f0a173" : "#e8e8e8", select: () => this.setState({ trans: t.name }) });
+      }),
+
+      effects: EFFECTS.filter(e => !q || e.name.toLowerCase().includes(q)).map(e => Object.assign({ name: e.name, desc: e.desc, icon: e.icon, color: e.color }, this.pick("effect", e.name))),
+      effect: s.effect,
+      effectParams: [
+        { name: "Amount", value: "62%", knob: "62%" },
+        { name: "Radius", value: "18 px", knob: "34%" },
+        { name: "Mix", value: "100%", knob: "100%" }
+      ],
+
+      looks: LOOKS.filter(l => !q || l.name.toLowerCase().includes(q)).map(l => {
+        const on = s.look === l.name;
+        return { name: l.name, swatch: l.swatch, border: on ? "#c9622f" : "#141414", fg: on ? "#f0a173" : "#e8e8e8", select: () => this.setState({ look: l.name }) };
+      }),
+      grade: [
+        { name: "Exposure", value: "+0.4", knob: "58%", rail: "linear-gradient(90deg,#1a1a1a,#e6e2da)" },
+        { name: "Contrast", value: "+12", knob: "62%", rail: "#141414" },
+        { name: "Saturation", value: "-6", knob: "44%", rail: "linear-gradient(90deg,#5a5a5a,#c9622f)" },
+        { name: "Temperature", value: "+180K", knob: "66%", rail: "linear-gradient(90deg,#5f8fd0,#e0b06f)" },
+        { name: "Tint", value: "0", knob: "50%", rail: "linear-gradient(90deg,#8fc79f,#e06aa0)" }
+      ],
+
+      skillScopes: ["Whole timeline", "Selected clips", "New track"].map(l => this.seg("skillScope", l, l)),
+      skills: SKILLS.filter(x => !q || x.name.toLowerCase().includes(q)).map(x => {
+        const on = s.skill === x.id, run = s.running === x.id;
+        return Object.assign({}, x, {
+          bg: on ? "#2b2520" : "#262626", border: on ? "#7a4a25" : "#141414", fg: on ? "#f0a173" : "#e8e8e8",
+          running: run, stage: run ? "Analysing 87 clips · step 2 of 4" : false,
+          action: run ? "Running…" : "Apply to " + s.skillScope.toLowerCase(),
+          select: () => this.setState({ skill: x.id }),
+          run: (ev) => { ev.stopPropagation(); this.setState(st => ({ skill: x.id, running: st.running === x.id ? null : x.id })); }
+        });
+      }),
+      storeSkills: STORE_SKILLS.filter(x => !q || x.name.toLowerCase().includes(q)),
+      recipes: RECIPES.map(r => Object.assign({ name: r.name, desc: r.desc, icon: r.icon, color: r.color }, this.pick("recipe", r.name))),
+
+      viewModes: modes.map((icon, i) => ({
+        icon, tip: ["Programme only","Quad view","Compare · before / after","Safe margins","Scopes"][i],
+        bg: s.viewMode === i ? "#33281e" : "transparent", fg: s.viewMode === i ? "#f0a173" : "#989898",
+        select: () => this.setState({ viewMode: i })
+      })),
+      alignTools: alignDefs.map((d, i) => ({ icon: I.align(d), tip: ["Align left","Align centre","Align right","Align top","Align middle","Align bottom","Distribute vertically","Distribute horizontally","Flip horizontal","Flip vertical","Fit to frame","Reset transform"][i], color: i > 9 ? "#989898" : "#c4c4c4", divider: i === 2 || i === 5 || i === 7 || i === 9 })),
+
+      transportLeft: [{ icon: I.toStart(), tip: "Go to start · Home" }, { icon: I.frameBack(), tip: "Previous frame · ←" }],
+      transportRight: [{ icon: I.frameFwd(), tip: "Next frame · →" }, { icon: I.toEnd(), tip: "Go to end · End" }],
+      playIcon: s.playing ? I.pause() : I.play(),
+      playBg: s.playing ? "#c9622f" : "#f2f2f2",
+      playFg: s.playing ? "#20100a" : "#151617",
+      togglePlay: () => this.setState(st => ({ playing: !st.playing })),
+      toggleLoop: () => this.setState(st => ({ loop: !st.loop })),
+      loopBg: s.loop ? "#33281e" : "transparent",
+      loopFg: s.loop ? "#f0a173" : "#989898",
+      speed: SPEEDS[s.speed],
+      cycleSpeed: () => this.setState(st => ({ speed: (st.speed + 1) % SPEEDS.length })),
+
+      tabs: [this.tab("Shape", I.tShape()), this.tab("Transform", I.tTransform()), this.tab("VFX", I.tVfx()), this.tab("Keys", I.tKeys(), "6")],
+      isTransform: s.tab === "Transform",
+      isOther: s.tab !== "Transform",
+      otherTitle: s.tab.toUpperCase(),
+      otherRows: s.tab === "Shape"
+        ? [{ k: "Corner radius", v: "6 px" }, { k: "Stroke", v: "0 px" }, { k: "Fill", v: "#111214" }, { k: "Shadow", v: "off" }]
+        : s.tab === "VFX"
+          ? [{ k: "Glow", v: "18%" }, { k: "Grain", v: "6%" }, { k: "Chromatic", v: "off" }, { k: "Vignette", v: "12%" }]
+          : [{ k: "Opacity", v: "3 keys" }, { k: "Scale", v: "2 keys" }, { k: "Rotation", v: "1 key" }, { k: "Easing", v: "Smooth" }],
+      sliders: [
+        { label: "Scale", value: "17%", knob: "17%", fillLeft: "0%", fillRight: "83%", keyIcon: I.reset(), keyColor: "#8a8a8a" },
+        { label: "Rotation", value: "90.0°", knob: "75%", fillLeft: "50%", fillRight: "25%", keyIcon: I.reset(), keyColor: "#8a8a8a" },
+        { label: "Opacity", value: "0%", knob: "0%", fillLeft: "0%", fillRight: "100%", keyIcon: I.key(), keyColor: "#e0c84d" }
+      ],
+      blend: BLENDS[s.blend],
+      cycleBlend: () => this.setState(st => ({ blend: (st.blend + 1) % BLENDS.length })),
+      collapsed: [{ label: "MOTION BLUR", icon: I.blur() }, { label: "MOTION PATH", icon: I.path() }],
+
+      toggleSnap: () => this.setState(st => ({ snap: !st.snap })),
+      snapBg: s.snap ? "#33281e" : "#2d2d2d",
+      snapBorder: s.snap ? "#7a4a25" : "#3a3a3a",
+      snapFg: s.snap ? "#f0a173" : "#c4c4c4",
+      toggleRipple: () => this.setState(st => ({ ripple: !st.ripple })),
+      rippleBg: s.ripple ? "#33281e" : "#2d2d2d",
+      rippleBorder: s.ripple ? "#7a4a25" : "#3a3a3a",
+      rippleFg: s.ripple ? "#f0a173" : "#c4c4c4",
+      timelineTools: [
+        { icon: I.keyframeTool(), tip: "Add keyframe · ⌥K" }, { icon: I.reset(), tip: "Reset clip transform" },
+        { icon: I.link(), tip: "Link / unlink A+V" }, { icon: I.layers(), tip: "Nest selection" },
+        { icon: I.markers(), badge: "22", tip: "Markers · ⌘M" }, { icon: I.audioTool(), tip: "Show audio waveforms" }
+      ],
+      zoom: ((s.zoom / (ZOOM_SCALES.length - 1)) * 100).toFixed(0) + "%",
+      zoomOut: (event) => { event.stopPropagation(); this.setTimelineZoom(s.zoom - 1); },
+      zoomIn: (event) => { event.stopPropagation(); this.setTimelineZoom(s.zoom + 1); },
+      setZoom: (event) => {
+        event.stopPropagation();
+        const rect = event.currentTarget.getBoundingClientRect();
+        const level = Math.round(Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)) * (ZOOM_SCALES.length - 1));
+        this.setTimelineZoom(level);
+      },
+      zoomStatus: timelineReadout + " · " + precisionLabel,
+      seekTimeline: (event) => this.seekTimeline(event),
+      timelineWheel: (event) => this.timelineWheel(event),
+
+      ruler,
+      markers: Array.from({ length: 18 }, (_, i) => (3 + i * 4.4).toFixed(1) + "%"),
+      tracks: [
+        this.track("T1", "Type", "#e06aa0", false, [
+          this.clip("c-type-1", "7%", "17%", "Build caption", "2.7s", "type", ["12%", "38%", "72%"]),
+          this.clip("c-type-2", "27%", "5%", "T", "", "type", ["50%"]),
+          this.clip("c-type-3", "36%", "5%", "T", "", "type", []),
+          this.clip("c-type-4", "45%", "6%", "Sub", "", "type", ["40%"]),
+          this.clip("c-type-5", "56%", "12%", "End card", "1.4s", "type", ["20%", "70%"])
+        ]),
+        this.track("V3", "Mark", "#8a7fe0", false, [
+          this.clip("c-mark-1", "2%", "20%", "Stem · Leg", "2.0s", "mark", ["10%", "30%", "62%", "88%"]),
+          this.clip("c-mark-2", "24%", "28%", "Mark reveal", "3.4s", "mark", ["25%", "75%"]),
+          this.clip("c-mark-3", "54%", "13%", "Finish", "1.2s", "mark", ["45%"])
+        ]),
+        this.track("V2", "Guides", "#5f8fd0", false, [
+          this.clip("c-guide-1", "6%", "16%", "Optical grid", "1.9s", "guide", ["18%", "44%", "80%"]),
+          this.clip("c-guide-2", "38%", "5%", "Guide", "", "guide", []),
+          this.clip("c-guide-3", "47%", "5%", "Guide", "", "guide", []),
+          this.clip("c-guide-4", "55%", "4%", "G", "", "guide", [])
+        ]),
+        this.track("V1", "Ground", "#7d76c8", false, [
+          this.clip("c-ground-1", "1%", "42%", "Bloom bed", "4.0s", "ground", ["8%", "30%", "58%", "84%"]),
+          this.clip("c-ground-2", "45%", "22%", "Field wash", "1.5s", "ground", ["30%", "70%"])
+        ]),
+        this.track("A1", "Music", "#3fc46f", true, [
+          this.clip("c-audio-1", "1%", "66%", "Kerf film bed", "11.5s", "audio", [], 60)
+        ])
+      ],
+
+      copilotOpen: s.copilot,
+      toggleCopilot: () => this.setState(st => ({ copilot: !st.copilot })),
+      copilotBtnBg: s.copilot ? "#33281e" : "#2d2d2d",
+      copilotBtnBorder: s.copilot ? "#7a4a25" : "#3a3a3a",
+      agent: s.agent,
+      suggestions: [
+        { text: "What is on my timeline right now?", hint: "reads the edit" },
+        { text: "Import the newest video from my Downloads", hint: "uses your files" },
+        { text: "Cut the silence out of the dialogue", hint: "edits the timeline" },
+        { text: "Give the whole thing a warm cinematic grade", hint: "grades every clip" }
+      ].map(x => Object.assign({}, x, { select: () => this.setState({ ask: x.text }) })),
+      ask: s.ask,
+      setAsk: (e) => this.setState({ ask: e.target.value }),
+      askBorder: s.ask ? "#c9622f" : "#3a3a3a",
+      sendBg: s.ask ? "#c9622f" : "#2d2d2d",
+      sendFg: s.ask ? "#20100a" : "#8a8a8a",
+
+      agentDialogOpen: s.agentDialog,
+      openAgentDialog: () => this.setState({ agentDialog: true }),
+      agents: AGENTS.map(a => {
+        const on = s.agent === a.name;
+        return Object.assign({}, a, {
+          active: on, bg: on ? "#2b2520" : "#262626", border: on ? "#c9622f" : "#141414",
+          modelLabel: !!a.modelLabel, note: a.note || "", save: !!a.save, signIn: !!a.signIn, help: a.help || false,
+          select: () => this.setState({ agent: a.name })
+        });
+      }),
+
+      exportOpen: s.exportOpen,
+      openExport: () => this.setState({ exportOpen: true }),
+      exportPresets: EXPORT_PRESETS.map(x => Object.assign({ name: x.name, spec: x.spec }, this.pick("exportPreset", x.name))),
+      exportFields: [
+        { k: "Format", v: "MP4 · H.264" }, { k: "Resolution", v: "1920×1080" },
+        { k: "Frame rate", v: "30 fps" }, { k: "Bitrate", v: "18 Mbps" },
+        { k: "Audio", v: "AAC 320 kbps" }, { k: "Range", v: "Whole timeline" }
+      ],
+
+      recordOpen: s.record,
+      openRecord: () => this.setState({ record: true }),
+      recordTabs: ["Displays (1)", "Windows (8)"].map(l => this.seg("recordTab", l, l)),
+      recordHint: s.recordTab === "Displays (1)" ? "A whole display. Auto zoom works here." : "One window. Everything else stays private.",
+      recordSources: recordSources.map(r => {
+        const on = s.recordSrc === r.id;
+        return Object.assign({}, r, {
+          picked: on, border: on ? "#c9622f" : "#141414",
+          glow: on ? "0 0 0 1px rgba(201,98,47,.35)" : "none",
+          footBg: on ? "#2b2520" : "#1a1a1a",
+          select: () => this.setState({ recordSrc: r.id })
+        });
+      }),
+      camera: CAMERAS[s.camera],
+      cycleCamera: () => this.setState(st => ({ camera: (st.camera + 1) % CAMERAS.length })),
+      mic: MICS[s.mic],
+      cycleMic: () => this.setState(st => ({ mic: (st.mic + 1) % MICS.length })),
+      systemAudio: s.systemAudio,
+      toggleSystemAudio: () => this.setState(st => ({ systemAudio: !st.systemAudio })),
+      sysBg: s.systemAudio ? "#e0854d" : "transparent",
+      sysBorder: s.systemAudio ? "#e0854d" : "#3f3f3f",
+      autoZoom: s.autoZoom,
+      toggleAutoZoom: () => this.setState(st => ({ autoZoom: !st.autoZoom })),
+      zoomBg: s.autoZoom ? "#e0854d" : "transparent",
+      zoomBorder: s.autoZoom ? "#e0854d" : "#3f3f3f",
+      fpsOptions: [30, 60].map(v => this.seg("fps", v, v + " fps")),
+      recordSummary: [
+        { icon: I.screen(), label: recordSources.find(r => r.id === s.recordSrc) ? recordSources.find(r => r.id === s.recordSrc).name : "Entire screen" },
+        { icon: I.camIcon(), label: CAMERAS[s.camera] },
+        { icon: I.micIcon(), label: s.mic === 0 ? "Mic on" : MICS[s.mic] }
+      ],
+
+      paletteOpen: s.palette,
+      openPalette: () => this.setState({ palette: true }),
+      closeAll: () => this.setState({ palette: false, pq: "", agentDialog: false, exportOpen: false, record: false }),
+      stop: (e) => e.stopPropagation(),
+      paletteQuery: s.pq,
+      setPaletteQuery: (e) => this.setState({ pq: e.target.value }),
+      paletteItems: CMDS.filter(c => !pq || c.label.toLowerCase().includes(pq))
+    };
+  }
+}
+</script>
+</body>
+</html>

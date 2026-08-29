@@ -119,13 +119,17 @@ export const VersionFooter: React.FC = () => {
     <div className="px-1 relative" ref={root}>
       <button
         onClick={() => setOpen((v) => !v)}
+        /* The rail is 76px wide now, so this cannot spill onto two
+           lines: it is centred, it does not wrap, and the word "Kerf"
+           is dropped because it sits directly under a rail whose only
+           subject is Kerf. */
         className="text-micro text-spectrum-textFaint hover:text-spectrum-textDim
-                   transition-colors flex items-center gap-1 w-full"
+                   transition-colors flex items-center justify-center gap-0.5 w-full whitespace-nowrap"
         aria-haspopup="menu"
         aria-expanded={open}
-        title="Version, updates and rollback"
+        title={`Kerf ${currentVersion || ''} · version, updates and rollback`}
       >
-        Kerf {currentVersion || '…'}
+        {currentVersion || '…'}
         {newer && <span className="w-1.5 h-1.5 rounded-full bg-spectrum-accent flex-shrink-0" />}
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>

@@ -118,7 +118,7 @@ export const INITIAL_TRACKS: Track[] = [
     locked: false,
     solo: false,
     volume: 1,
-    heightPx: 46,
+    heightPx: 40,
     collapsed: false,
     clips: [
       createClip({
@@ -175,7 +175,7 @@ export const INITIAL_TRACKS: Track[] = [
     locked: false,
     solo: false,
     volume: 1,
-    heightPx: 52,
+    heightPx: 40,
     collapsed: false,
     clips: [
       createClip({
@@ -211,7 +211,7 @@ export const INITIAL_TRACKS: Track[] = [
     locked: false,
     solo: false,
     volume: 1,
-    heightPx: 58,
+    heightPx: 40,
     collapsed: false,
     clips: [
       createClip({
@@ -273,7 +273,7 @@ export const INITIAL_TRACKS: Track[] = [
     locked: false,
     solo: false,
     volume: 0.85,
-    heightPx: 48,
+    heightPx: 40,
     collapsed: false,
     clips: [
       createClip({
@@ -300,7 +300,7 @@ export const INITIAL_TRACKS: Track[] = [
     locked: false,
     solo: false,
     volume: 1,
-    heightPx: 44,
+    heightPx: 40,
     collapsed: false,
     clips: [
       createClip({

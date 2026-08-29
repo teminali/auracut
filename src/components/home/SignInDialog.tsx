@@ -33,11 +33,17 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
   const close = () => { cancel(); onClose(); };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-[420px] rounded-squircle-lg bg-spectrum-panel border border-line shadow-modal animate-scale-in">
+    <div className="scrim !z-[100]" onClick={close}>
+      <div
+        className="modal-shell w-[420px] max-w-[92vw]"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="kerf-sign-in-title"
+      >
 
-        <div className="flex items-center justify-between px-4 h-11 border-b border-line">
-          <h2 className="text-ui-lg font-semibold text-spectrum-text">Sign in to Kerf</h2>
+        <div className="panel-header">
+          <h2 id="kerf-sign-in-title" className="text-ui font-semibold text-spectrum-text">Sign in to Kerf</h2>
           <button onClick={close} className="pro-btn w-6 h-6" title="Close"
             aria-label="Close">
             <X className="w-3.5 h-3.5" />

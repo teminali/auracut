@@ -349,11 +349,14 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
         selectClip(clip.id, e.shiftKey || e.metaKey);
       }}
       onContextMenu={handleContextMenu}
-      style={{ left: leftPx, width: widthPx, height: trackHeightPx - 6 }}
-      className={`clip-body absolute top-[3px] rounded-[5px] overflow-hidden select-none group transition-shadow ${
+      /* Identity is the 1px border, in the lane's own colour — the
+         reference outlines a clip rather than capping it with a rail,
+         and one signal per state is the rule. */
+      style={{ left: leftPx, width: widthPx, height: trackHeightPx - 6, border: `1px solid ${tint}` }}
+      className={`editor-clip clip-body absolute top-[3px] rounded-squircle-xs overflow-hidden select-none group transition-shadow ${
         clip.locked || track.locked ? 'cursor-not-allowed' : 'cursor-grab'
       } ${interaction === 'move' ? 'cursor-grabbing opacity-90 z-20' : ''} ${
-        isSelected ? 'z-10 shadow-clipSelected' : 'shadow-clip'
+        isSelected ? 'is-selected z-10 shadow-clipSelected' : 'shadow-clip'
       } ${clip.hidden ? 'opacity-40' : ''}`}
     >
       {/* Identity wash — strongest at the top, gone by mid-height. */}
@@ -376,13 +379,10 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
       {/* Gradient scrim keeps the label readable over any thumbnail */}
       <div className="absolute inset-x-0 top-0 h-5 bg-gradient-to-b from-black/60 to-transparent pointer-events-none" />
 
-      {/* Lane identity rail */}
-      <div className="clip-rail" style={{ background: tint }} />
-
       {/* Label row */}
       {!isTiny && (
         <div className="relative h-[17px] mt-[2px] px-1.5 flex items-center justify-between gap-1 pointer-events-none">
-          <span className="flex items-center gap-1 min-w-0 text-micro font-medium text-white/95 leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+          <span className="flex items-center gap-1 min-w-0 text-ui-sm text-spectrum-textBright leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
             <Icon className="w-2.5 h-2.5 flex-shrink-0 opacity-75" />
             {!isCompact && <span className="truncate tracking-normal normal-case">{clip.name}</span>}
           </span>
@@ -447,12 +447,12 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
       {!isCompact && (
         <div className="absolute bottom-0.5 right-1 flex items-center gap-1 pointer-events-none">
           {hasSpeedRamp && (
-            <span className="px-1 rounded-[3px] bg-black/65 text-micro font-mono text-spectrum-amber leading-[13px] tracking-normal">
+            <span className="px-1 rounded-squircle-2xs bg-black/65 text-micro font-mono text-spectrum-amber leading-[13px] tracking-normal">
               {clip.speed.reversed ? '◀' : ''}{clip.speed.multiplier.toFixed(2).replace(/0$/, '')}×
             </span>
           )}
           {clip.blendMode !== 'normal' && (
-            <span className="px-1 rounded-[3px] bg-black/65 text-micro text-spectrum-purple leading-[13px] tracking-normal">
+            <span className="px-1 rounded-squircle-2xs bg-black/65 text-micro text-spectrum-purple leading-[13px] tracking-normal">
               {clip.blendMode.slice(0, 4)}
             </span>
           )}

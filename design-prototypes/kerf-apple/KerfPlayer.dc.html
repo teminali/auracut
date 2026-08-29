@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<script src="./image-slot.js"></script>
+<link rel="stylesheet" href="./apple-refinement.css">
+<link rel="stylesheet" href="./kerf-player.css">
+<link rel="stylesheet" href="./kerf-components.css">
+<link rel="stylesheet" href="./kerf-unified.css">
+</helmet>
+
+<div class="kerf-app kp-shell">
+  <header class="kp-header kfbar">
+    <div class="kp-header-start">
+      <span onClick="{{ close }}" title="Back · Esc" aria-label="Back" style="display:grid;place-items:center;width:27px;height:26px;border-radius:2px;color:#a6a6a6;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        {{ backIcon }}
+      </span>
+      <span style="width:22px;height:22px;border-radius:3px;background:#c9622f;color:#20100a;display:grid;place-items:center;font-weight:800;font-size:12.5px">K</span>
+      <span style="width:1px;height:18px;background:#3a3a3a;margin:0 3px"></span>
+      <span class="kp-title-wrap">
+        <span class="kp-title">{{ title }}</span>
+        <span class="kp-project-meta">{{ formatLabel }} · 30 fps · Rec.709</span>
+      </span>
+    </div>
+
+    <div class="kp-save-state">
+      <span class="kp-save-dot"></span>
+      All changes saved
+    </div>
+
+    <div class="kp-header-actions">
+      <span onClick="{{ toggleOrientation }}" title="Preview the other frame orientation" style="display:flex;align-items:center;gap:8px;padding:5px 9px 5px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;cursor:pointer" style-hover="background:#2f2f2f">
+        <span style="color:#e8e8e8;white-space:nowrap">{{ formatLabel }}</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </span>
+      <span onClick="{{ toggleCopilot }}" style="display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:3px;background:{{ copilotBtnBg }};border:1px solid {{ copilotBtnBorder }};font-size:12px;font-weight:600;cursor:pointer" style-hover="filter:brightness(1.15)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f0a173" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/></svg>
+        Copilot
+      </span>
+      <span onClick="{{ edit }}" style="display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:3px;background:#2d2d2d;border:1px solid #3a3a3a;font-size:12px;font-weight:600;color:#c4c4c4;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+        {{ timelineIcon }}
+        Open timeline
+      </span>
+      <span style="display:flex;align-items:center;gap:7px;padding:6px 14px;border-radius:3px;background:#c9622f;color:#20100a;font-size:12.5px;font-weight:700;cursor:pointer" style-hover="filter:brightness(1.08)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M8 10.5l4 4.5 4-4.5"/><path d="M4 19h16"/></svg>
+        Export
+      </span>
+    </div>
+  </header>
+
+  <main class="kp-content" style="grid-template-columns:{{ contentCols }}">
+    <section class="kp-stage">
+      <div class="kp-ambient" aria-hidden="true"></div>
+
+      <div class="kp-media-zone">
+        <div class="kp-frame {{ frameClass }}">
+          <img class="kp-video-backdrop" src="{{ image }}" alt="" aria-hidden="true">
+          <img class="kp-video-image" src="{{ image }}" alt="">
+          <span class="kp-frame-vignette"></span>
+
+          <div class="kp-frame-top">
+            <span class="kp-format-chip">{{ formatLabel }}</span>
+            <span class="kp-frame-status"><span></span> Editing live</span>
+          </div>
+
+          <div class="kp-frame-bottom">
+            <div class="kp-now-playing">
+              <span class="kp-now-label">NOW PLAYING</span>
+              <span>{{ title }}</span>
+            </div>
+            <span class="kp-frame-time">{{ currentTime }} / {{ duration }}</span>
+          </div>
+
+          <button class="kp-copilot-marker" onClick="{{ focusCopilot }}" title="Copilot suggestion at this moment">
+            {{ sparkIcon }}
+            <span>Tighten this beat</span>
+          </button>
+
+          <div class="kp-transport">
+            <div class="kp-progress" onClick="{{ seekForward }}">
+              <span class="kp-progress-buffer"></span>
+              <span class="kp-progress-fill" style="width:{{ progress }}"></span>
+              <span class="kp-progress-knob" style="left:{{ progress }}"></span>
+            </div>
+
+            <div class="kp-transport-row">
+              <div class="kp-transport-group">
+                <button class="kp-icon-button kf-ui-icon-button" title="Previous edit">{{ previousIcon }}</button>
+                <button class="kp-icon-button kf-ui-icon-button" onClick="{{ skipBack }}" title="Back 5 seconds">{{ backFiveIcon }}</button>
+                <button class="kp-play-button kf-ui-play-button" onClick="{{ togglePlay }}" aria-label="{{ playLabel }}">{{ playIcon }}</button>
+                <button class="kp-icon-button kf-ui-icon-button" onClick="{{ skipForward }}" title="Forward 5 seconds">{{ forwardFiveIcon }}</button>
+                <button class="kp-icon-button kf-ui-icon-button" title="Next edit">{{ nextIcon }}</button>
+              </div>
+
+              <span class="kp-timecode">{{ currentTime }}</span>
+
+              <div class="kp-transport-group kp-transport-group--right">
+                <button class="kp-icon-button kf-ui-icon-button {{ loopClass }}" onClick="{{ toggleLoop }}" title="Loop">{{ loopIcon }}</button>
+                <button class="kp-icon-button kf-ui-icon-button" title="Volume">{{ volumeIcon }}</button>
+                <button class="kp-speed-button kf-ui-button" onClick="{{ cycleSpeed }}">{{ speed }}</button>
+                <button class="kp-icon-button kf-ui-icon-button" title="Picture in picture">{{ pipIcon }}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="kp-edit-dock">
+        <div class="kp-dock-context">
+          <span class="kp-dock-kicker">QUICK EDIT</span>
+          <span class="kp-dock-copy">{{ toolHint }}</span>
+        </div>
+        <span class="kp-dock-divider"></span>
+        <sc-for list="{{ tools }}" as="t" hint-placeholder-count="5">
+          <button onClick="{{ t.select }}" class="kp-tool kf-ui-toolbar-button" style="background:{{ t.bg }};color:{{ t.fg }};border-color:{{ t.border }}">
+            <span class="kp-tool-icon">{{ t.icon }}</span>
+            <span>{{ t.label }}</span>
+            <span class="kp-tool-key">{{ t.key }}</span>
+          </button>
+        </sc-for>
+        <span class="kp-dock-divider"></span>
+        <button class="kp-icon-button kf-ui-icon-button" title="Add marker">{{ markerIcon }}</button>
+        <button class="kp-icon-button kf-ui-icon-button" title="More actions">{{ moreIcon }}</button>
+      </div>
+    </section>
+
+    <sc-if value="{{ copilotOpen }}" hint-placeholder-val="{{ true }}">
+    <aside class="kp-copilot kf-ui-panel kf-ui-copilot-panel" style="display:flex;flex-direction:column;background:#232323;border-left:1px solid #141414;min-width:0;min-height:0;overflow:hidden">
+      <div class="kf-ui-panel-header" style="display:flex;align-items:center;gap:8px;height:38px;flex:none;padding:0 10px 0 12px;border-bottom:1px solid #141414;background:#2a2a2a">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f0a173" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/></svg>
+        <span style="font-size:13px;font-weight:700">Copilot</span>
+        <span style="display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:2px;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#9fc9ab;cursor:pointer" style-hover="background:#2f2f2f">
+          <span style="width:6px;height:6px;border-radius:50%;background:#3fc46f"></span>
+          Claude Code
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#8a8a8a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:2px">
+          <span class="kf-ui-icon-button" style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.4"/></svg>
+          </span>
+          <span class="kf-ui-icon-button" style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-6 5 12L17 12h4"/></svg>
+          </span>
+          <span class="kf-ui-icon-button" style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e08a7a">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg>
+          </span>
+          <span class="kf-ui-icon-button" onClick="{{ toggleCopilot }}" style="display:grid;place-items:center;width:24px;height:22px;border-radius:2px;color:#6b6b6b;cursor:pointer" style-hover="background:#2f2f2f;color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </span>
+        </span>
+      </div>
+
+      <div class="kf" style="flex:1;min-height:0;overflow:auto;padding:12px 13px">
+        <div style="display:flex;align-items:center;gap:8px;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#989898;margin-bottom:14px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3fc46f" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4"/></svg>
+          {{ currentTime }} <span style="color:#6b6b6b">target: current frame</span>
+        </div>
+        <div style="font-size:15.5px;font-weight:700;letter-spacing:-.01em;margin-bottom:8px">Claude Code is driving this player.</div>
+        <p style="margin:0 0 16px;font-size:12.5px;color:#a6a6a6;line-height:1.6">It can read your timeline and change it while you watch. Ask in plain language; it will show you every step it takes.</p>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ suggestions }}" as="s" hint-placeholder-count="3">
+            <div onClick="{{ s.select }}" style="padding:11px 12px;border-radius:2px;background:#262626;border:1px solid #141414;cursor:pointer" style-hover="background:#303030;border-color:#7a4a25">
+              <span style="display:block;font-size:12.5px;color:#e8e8e8">{{ s.text }}</span>
+              <span style="display:block;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:11px;color:#6b6b6b;margin-top:4px">{{ s.hint }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="flex:none;padding:10px 12px 12px;border-top:1px solid #141414">
+        <div class="kf-ui-field" style="display:flex;align-items:flex-end;gap:8px;padding:9px 10px;border-radius:2px;background:#262626;border:1px solid {{ composerBorder }}">
+          <textarea value="{{ prompt }}" onChange="{{ setPrompt }}" placeholder="Ask anything, or tell me what to change…" style="flex:1;min-width:0;height:44px;resize:none;border:0;background:transparent;color:#e8e8e8;font-size:12.5px;line-height:1.5;padding:0"></textarea>
+          <span style="display:grid;place-items:center;width:22px;height:22px;border-radius:2px;color:#8a8a8a;cursor:pointer" style-hover="color:#e8e8e8">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9.5" y="3" width="5" height="10" rx="2.5"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
+          </span>
+          <span onClick="{{ submitPrompt }}" style="display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:{{ sendBg }};color:{{ sendFg }};cursor:pointer">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V5M6.5 10.5 12 5l5.5 5.5"/></svg>
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px;font-family:'Geist Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums;letter-spacing:0;font-size:10.5px;color:#6b6b6b">
+          <span>⏎ send</span><span>⇧⏎ new line</span><span>↑ history</span>
+        </div>
+      </div>
+    </aside>
+    </sc-if>
+  </main>
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1600,&quot;height&quot;:1000},&quot;title&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Kerf · Brand Film&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;orientation&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;landscape&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;image&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://picsum.photos/seed/kerfbrandfilm/1600/900&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const P = (d) => React.createElement("path", { d, key: d });
+const svg = (paths, size, options) => React.createElement("svg", {
+  width: size || 17,
+  height: size || 17,
+  viewBox: "0 0 24 24",
+  fill: options && options.fill ? options.fill : "none",
+  stroke: options && options.stroke === false ? "none" : "currentColor",
+  strokeWidth: options && options.strokeWidth ? options.strokeWidth : 1.7,
+  strokeLinecap: "round",
+  strokeLinejoin: "round"
+}, paths.map(P));
+
+const I = {
+  back: () => svg(["M15 18l-6-6 6-6", "M9 12h11"], 18),
+  close: () => svg(["M6 6l12 12M18 6 6 18"], 15),
+  play: () => svg(["M8 5.5v13l11-6.5z"], 20, { fill: "currentColor", stroke: false }),
+  pause: () => svg(["M8 5v14M16 5v14"], 19, { strokeWidth: 2.4 }),
+  previous: () => svg(["M6 5v14M18 6l-8 6 8 6z"], 16),
+  next: () => svg(["M18 5v14M6 6l8 6-8 6z"], 16),
+  backFive: () => svg(["M5 8H2V5", "M3 7a9 9 0 1 1-1 8", "M10 9v6", "M14 10.5a2 2 0 1 1 0 3"], 17),
+  forwardFive: () => svg(["M19 8h3V5", "M21 7a9 9 0 1 0 1 8", "M10 9v6", "M14 10.5a2 2 0 1 1 0 3"], 17),
+  loop: () => svg(["M4 9V7a2 2 0 0 1 2-2h12l-3-3", "M20 15v2a2 2 0 0 1-2 2H6l3 3"], 17),
+  volume: () => svg(["M4 9h4l5-4v14l-5-4H4z", "M17 9a4 4 0 0 1 0 6"], 17),
+  pip: () => svg(["M3 5h18v14H3z", "M13 12h6v5h-6z"], 17),
+  spark: () => svg(["M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"], 16),
+  timeline: () => svg(["M4 6h16M4 12h16M4 18h16", "M8 4v4M14 10v4M11 16v4"], 16),
+  export: () => svg(["M12 15V4M8 10.5l4 4.5 4-4.5", "M4 19h16"], 16),
+  landscape: () => svg(["M3 6h18v12H3z", "M7 15l3-3 2.5 2 2.5-3 3 4"], 16),
+  portrait: () => svg(["M7 2h10v20H7z", "M10.5 18.5h3"], 16),
+  trim: () => svg(["M6 4v6.5a2 2 0 0 0 2 2h8M6 20v-6.5", "M18 4v16"], 16),
+  split: () => svg(["M6 4v6.5a2 2 0 0 0 2 2h8M6 20v-6.5", "M18 9l3 3-3 3"], 16),
+  captions: () => svg(["M3 6h18v12H3z", "M9 10a2 2 0 1 0 0 4M16 10a2 2 0 1 0 0 4"], 16),
+  frame: () => svg(["M4 9V4h5M20 15v5h-5M20 9V4h-5M4 15v5h5"], 16),
+  adjust: () => svg(["M4 7h10M18 7h2M4 17h2M10 17h10", "M14 4v6M10 14v6"], 16),
+  marker: () => svg(["M6 3v18M6 4h11l-2.5 4L17 12H6"], 17),
+  more: () => svg(["M5 12h.01M12 12h.01M19 12h.01"], 18, { strokeWidth: 2.6 }),
+  arrow: () => svg(["M9 6l6 6-6 6"], 14),
+  send: () => svg(["M4 4l17 8-17 8 3-8z", "M7 12h14"], 15),
+  context: () => svg(["M4 5h16v14H4z", "M8 9h8M8 13h5"], 14),
+  scissors: () => svg(["M8.5 8.5 20 17M8.5 15.5 20 7", "M5.5 9A2.5 2.5 0 1 0 5.5 4a2.5 2.5 0 0 0 0 5M5.5 20a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"], 15),
+  magic: () => svg(["M4 20 16 8", "M14 4l1 2.5L18 8l-2.5 1.5L14 12l-1.5-2.5L10 8l2.5-1.5z", "M19 14l.7 1.8 1.8.7-1.8.7L19 19l-.7-1.8-1.8-.7 1.8-.7z"], 15)
+};
+
+const SPEEDS = ["0.5×", "1×", "1.5×", "2×"];
+
+class Component extends DCLogic {
+  state = {
+    playing: false,
+    playhead: 34,
+    copilot: true,
+    tool: "Trim",
+    prompt: "",
+    submittedPrompt: "",
+    orientation: "",
+    loop: false,
+    speed: 1
+  };
+
+  componentDidMount() {
+    this._key = (event) => {
+      const typing = event.target && (event.target.tagName === "INPUT" || event.target.tagName === "TEXTAREA");
+      if (event.key === "Escape" && this.props.onClose) this.props.onClose();
+      if (event.code === "Space" && !typing) {
+        event.preventDefault();
+        this.setState(state => ({ playing: !state.playing }));
+      }
+      if (event.key.toLowerCase() === "c" && !typing) this.setState(state => ({ copilot: !state.copilot }));
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && this.state.prompt.trim()) {
+        event.preventDefault();
+        this.submit();
+      }
+    };
+    window.addEventListener("keydown", this._key);
+    this._tick = setInterval(() => {
+      if (this.state.playing) this.setState(state => ({
+        playhead: state.playhead >= 98 ? (state.loop ? 2 : 98) : state.playhead + 0.8
+      }));
+    }, 240);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener("keydown", this._key);
+    clearInterval(this._tick);
+  }
+
+  submit() {
+    const value = this.state.prompt.trim();
+    if (!value) return;
+    this.setState({ submittedPrompt: value, prompt: "" });
+  }
+
+  renderVals() {
+    const state = this.state;
+    const props = this.props;
+    const orientation = state.orientation || props.orientation || "landscape";
+    const portrait = orientation === "portrait";
+    const seconds = Math.round(state.playhead * 0.12);
+    const currentTime = "00:00:" + String(seconds).padStart(2, "0") + ":" + String(Math.round((state.playhead % 1) * 29)).padStart(2, "0");
+    const toolHints = {
+      Trim: "Adjust the visible range without leaving playback",
+      Split: "Cut at the current playhead position",
+      Captions: "Generate and restyle captions from this view",
+      Reframe: "Switch framing while keeping the subject centred",
+      Adjust: "Tune colour, exposure, and audio essentials"
+    };
+    const toolDefs = [
+      ["Trim", I.trim(), "T"],
+      ["Split", I.split(), "S"],
+      ["Captions", I.captions(), "C"],
+      ["Reframe", I.frame(), "F"],
+      ["Adjust", I.adjust(), "A"]
+    ];
+
+    const selectSuggestion = (text) => this.setState({ prompt: text, copilot: true });
+
+    return {
+      title: props.title || "Kerf · Brand Film",
+      image: props.image || "https://picsum.photos/seed/kerfbrandfilm/1600/900",
+      close: () => { if (props.onClose) props.onClose(); },
+      edit: () => { if (props.onEdit) props.onEdit(); },
+      contentCols: state.copilot ? "minmax(0,1fr) 300px" : "minmax(0,1fr)",
+      copilotOpen: state.copilot,
+      copilotBtnBg: state.copilot ? "#33281e" : "#2d2d2d",
+      copilotBtnBorder: state.copilot ? "#7a4a25" : "#3a3a3a",
+      toggleCopilot: () => this.setState(value => ({ copilot: !value.copilot })),
+      focusCopilot: () => this.setState({ copilot: true, prompt: "Tighten this beat and keep the cut feeling natural" }),
+      frameClass: portrait ? "kp-frame--portrait" : "kp-frame--landscape",
+      formatLabel: portrait ? "9:16 · Portrait" : "16:9 · Landscape",
+      orientationLabel: portrait ? "Portrait" : "Landscape",
+      orientationIcon: portrait ? I.portrait() : I.landscape(),
+      toggleOrientation: () => this.setState({ orientation: portrait ? "landscape" : "portrait" }),
+      playing: state.playing,
+      playLabel: state.playing ? "Pause" : "Play",
+      playIcon: state.playing ? I.pause() : I.play(),
+      togglePlay: () => this.setState(value => ({ playing: !value.playing })),
+      progress: state.playhead.toFixed(1) + "%",
+      currentTime,
+      duration: "00:00:12:00",
+      seekForward: () => this.setState(value => ({ playhead: Math.min(98, value.playhead + 8) })),
+      skipBack: () => this.setState(value => ({ playhead: Math.max(2, value.playhead - 12) })),
+      skipForward: () => this.setState(value => ({ playhead: Math.min(98, value.playhead + 12) })),
+      loopClass: state.loop ? "kp-icon-button--active" : "",
+      toggleLoop: () => this.setState(value => ({ loop: !value.loop })),
+      speed: SPEEDS[state.speed],
+      cycleSpeed: () => this.setState(value => ({ speed: (value.speed + 1) % SPEEDS.length })),
+      toolHint: toolHints[state.tool],
+      tools: toolDefs.map(def => {
+        const active = state.tool === def[0];
+        return {
+          label: def[0],
+          icon: def[1],
+          key: def[2],
+          bg: active ? "rgba(242,139,70,.14)" : "transparent",
+          fg: active ? "#ffad72" : "#b4b4bb",
+          border: active ? "rgba(242,139,70,.34)" : "transparent",
+          select: () => this.setState({ tool: def[0] })
+        };
+      }),
+      suggestions: [
+        { text: "Tighten this opening", hint: "removes the quiet lead-in", select: () => selectSuggestion("Tighten this opening and remove the quiet lead-in") },
+        { text: "Make this moment land", hint: "pacing, sound and emphasis", select: () => selectSuggestion("Make this moment land with better pacing, sound, and emphasis") },
+        { text: portrait ? "Refine the vertical framing" : "Create a vertical version", hint: "keeps the subject naturally framed", select: () => selectSuggestion(portrait ? "Refine the vertical framing around the subject" : "Create a vertical version and keep the subject naturally framed") }
+      ],
+      prompt: state.prompt,
+      setPrompt: event => this.setState({ prompt: event.target.value }),
+      hasPrompt: !!state.submittedPrompt,
+      submittedPrompt: state.submittedPrompt,
+      submitPrompt: () => this.submit(),
+      composerBorder: state.prompt ? "rgba(242,139,70,.5)" : "rgba(255,255,255,.12)",
+      sendBg: state.prompt ? "#f28b46" : "#2a2b30",
+      sendFg: state.prompt ? "#2b1609" : "#77777f",
+      backIcon: I.back(),
+      closeIcon: I.close(),
+      sparkIcon: I.spark(),
+      timelineIcon: I.timeline(),
+      exportIcon: I.export(),
+      previousIcon: I.previous(),
+      nextIcon: I.next(),
+      backFiveIcon: I.backFive(),
+      forwardFiveIcon: I.forwardFive(),
+      loopIcon: I.loop(),
+      volumeIcon: I.volume(),
+      pipIcon: I.pip(),
+      markerIcon: I.marker(),
+      moreIcon: I.more(),
+      arrowIcon: I.arrow(),
+      sendIcon: I.send(),
+      contextIcon: I.context()
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -13,19 +13,17 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useTimelineStore, getContentEndMs } from '../../store/timelineStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useLayoutStore } from '../../store/layoutStore';
-import { renderTimelineFrame } from '../../engine/compositor';
 import { computeViewport, viewToCanvas, hitTestBox, getClipBox } from '../../engine/geometry';
-import { getNaturalSize, getMediaGeneration } from '../../engine/compositor';
+import { getNaturalSize } from '../../engine/compositor';
 import { getVisibleClipsAt } from '../../store/timelineStore';
 import { TransformGizmo } from '../canvas/TransformGizmo';
 import { AlignmentBar } from '../canvas/AlignmentBar';
 import { PlaybackControls } from './PlaybackControls';
 import { useMeasure } from '../../hooks/useMeasure';
-import { useRafLoop } from '../../hooks/useRafLoop';
+import { useProgramLoop } from '../../hooks/useProgramLoop';
 import { audioEngine } from '../../engine/audioEngine';
-import { syncVideo } from '../../engine/videoEngine';
 import {
-  Grid3x3, Ratio, Film, Magnet, ZoomIn, ZoomOut, Maximize2, Minimize2, Gauge,
+  Grid3x3, Ratio, Film, Magnet, ZoomIn, ZoomOut, Maximize2, Gauge,
 } from '../ui/icons';
 
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
@@ -49,22 +47,30 @@ export const PreviewPlayer: React.FC = () => {
 
   /* ── Zoom / fit ── */
   const [zoomMode, setZoomMode] = useState<'fit' | number>('fit');
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  /* The monitor's fullscreen button opens the SHARED Player — the same
+     one Home opens — rather than the `position: fixed` div this used to
+     grow into. That div was fullscreen-looking and nothing else: no
+     receding overlays, no Copilot, and a second copy of the transport. */
+  const isPlayerOpen = useLayoutStore((s) => s.isPlayerOpen);
+  const openPlayer = useLayoutStore((s) => s.openPlayer);
   const [meters, setMeters] = useState({ l: 0.04, r: 0.04, peak: 0 });
 
-  // Leave a margin so the gizmo's rotate handle and readout have somewhere to
-  // live without being clipped by the stage edge.
-  const GIZMO_MARGIN = 44;
+  // Match the approved monitor's optical inset. The gizmo is an overlay and
+  // must not shrink the picture by a second, hidden 44px margin.
+  const STAGE_PAD_X = 18;
+  const STAGE_PAD_TOP = 16;
+  const STAGE_PAD_BOTTOM = 12;
+  const MAX_CANVAS_WIDTH = 720;
   const stageInner = useMemo(
     () => ({
-      width: Math.max(1, stageSize.width - GIZMO_MARGIN * 2),
-      height: Math.max(1, stageSize.height - GIZMO_MARGIN * 2),
+      width: Math.max(1, stageSize.width - STAGE_PAD_X * 2),
+      height: Math.max(1, stageSize.height - STAGE_PAD_TOP - STAGE_PAD_BOTTOM),
     }),
     [stageSize.width, stageSize.height]
   );
 
   const fitScale = useMemo(
-    () => Math.min(stageInner.width / project.width, stageInner.height / project.height),
+    () => Math.min(stageInner.width / project.width, stageInner.height / project.height, MAX_CANVAS_WIDTH / project.width),
     [stageInner, project.width, project.height]
   );
 
@@ -75,108 +81,26 @@ export const PreviewPlayer: React.FC = () => {
     const fitted = computeViewport(stageInner.width, stageInner.height, project, zoomFactor);
     return {
       ...fitted,
-      offsetX: (stageSize.width - fitted.displayWidth) / 2,
-      offsetY: (stageSize.height - fitted.displayHeight) / 2,
+      offsetX: STAGE_PAD_X + (stageInner.width - fitted.displayWidth) / 2,
+      offsetY: STAGE_PAD_TOP + (stageInner.height - fitted.displayHeight) / 2,
     };
   }, [stageInner, stageSize.width, stageSize.height, project, zoomFactor]);
 
   const effectiveScale = viewport.scale;
 
-  /* ── Render loop ── */
-
-  const lastRenderKey = useRef('');
-
-  /*
-    Bumped on EVERY store mutation.
-
-    The repaint key used to be built from `historyIndex`, which only
-    moves when something calls `commit()`. Four mutations never do —
-    `setEffectParam`, `setEffectIntensity`, `updateShapeStyle` and
-    `setMotionPath` — so dragging an effect slider, or an agent setting
-    an effect parameter, changed the project and left the picture
-    exactly as it was until some unrelated edit forced a repaint.
-
-    Subscribing catches every write, including any added later, which a
-    hand-maintained list of fields in the key would not.
-  */
-  const storeRevision = useRef(0);
-  useEffect(() => {
-    const bump = () => { storeRevision.current++; };
-    const unsubTimeline = useTimelineStore.subscribe(bump);
-    const unsubProject = useProjectStore.subscribe(bump);
-    return () => { unsubTimeline(); unsubProject(); };
-  }, []);
-
-  useRafLoop((deltaMs) => {
-    const state = useTimelineStore.getState();
-    const { isPlaying, playbackRate, loopEnabled, inPointMs, outPointMs } = state;
-
-    if (isPlaying) {
-      const endMs = outPointMs ?? project.durationMs;
-      const startMs = inPointMs ?? 0;
-      const next = state.playheadMs + deltaMs * playbackRate;
-
-      if (next >= endMs) {
-        state.setPlayheadMs(loopEnabled || outPointMs !== null ? startMs : endMs);
-        if (!loopEnabled && outPointMs === null) state.setIsPlaying(false);
-      } else {
-        state.setPlayheadMs(next);
-      }
-
-    }
-
-    /*
-      Drive audio from the same frame loop as the picture, so sound
-      follows the playhead through scrubbing, looping and rate changes
-      with no separate clock to drift against.
-    */
-    audioEngine.sync(state.tracks, state.playheadMs, isPlaying, playbackRate);
-
-    /*
-      And the picture. Video clips draw from <video> elements, which hold
-      whatever frame they were last seeked to — so they need the playhead
-      pushed at them every frame exactly as the sound does.
-    */
-    syncVideo(state.tracks, state.playheadMs, isPlaying, playbackRate);
-
-    // Meters read the actual output graph. They used to be Math.random(),
-    // which bounced convincingly while nothing was playing at all.
-    const levels = audioEngine.getLevels();
-    setMeters((prev) =>
-      Math.abs(levels.l - prev.l) < 0.004 && Math.abs(levels.r - prev.r) < 0.004
-        ? prev
-        : levels
-    );
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Skip the repaint when nothing that affects the image has moved.
-    const key = [
-      Math.round(state.playheadMs),
-      `${project.width}x${project.height}`,
-      state.historyIndex,
-      state.txDepth,
-      storeRevision.current,
-      getMediaGeneration(),
-      structuralSignature.current,
-    ].join('|');
-    const forceRedraw = state.isPlaying || state.txDepth > 0;
-    if (!forceRedraw && key === lastRenderKey.current) return;
-    lastRenderKey.current = key;
-
-    const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) return;
-    renderTimelineFrame(ctx, state.tracks, project, state.playheadMs, project.width, project.height);
+  /* ── Render loop ──────────────────────────────────────────────
+     Owned by `useProgramLoop`, and yielded while the fullscreen
+     Player is open. The loop drives the audio graph and every <video>
+     element as well as the canvas, so exactly one of the two may run:
+     two would sync the same media twice per frame from two callers. */
+  useProgramLoop({
+    canvasRef,
+    project,
+    active: !isPlayerOpen,
+    onMeters: setMeters,
   });
 
-  // Any structural change invalidates the cached frame, even while paused.
   const tracksSignature = useTimelineStore((s) => s.tracks);
-  const structuralSignature = useRef(0);
-  useEffect(() => {
-    structuralSignature.current += 1;
-    lastRenderKey.current = '';
-  }, [tracksSignature, project]);
 
   /* ── Keep project duration >= content ── */
   useEffect(() => {
@@ -228,15 +152,19 @@ export const PreviewPlayer: React.FC = () => {
   const zoomLabel = zoomMode === 'fit' ? 'Fit' : `${Math.round(zoomMode * 100)}%`;
 
   return (
-    <div className={`flex-1 flex flex-col min-h-0 bg-spectrum-bg relative ${isFullscreen ? 'fixed inset-0 z-[60]' : ''}`}>
+    /* The monitor column sits on chrome, not on the app backdrop —
+       measured off the approved editor, where this plane is the single
+       largest surface on the screen. */
+    <div className="editor-program-inner flex-1 flex flex-col min-h-0 bg-spectrum-panelHeader relative">
       {/* ── Monitor bar ──────────────────────────────────────────────
           Overlay toggles are icon-only: they are glanced at constantly
           and named rarely, so a label on each is pure noise.            */}
-      <div className="h-9 flex items-center justify-between gap-3 px-3 flex-shrink-0 border-b border-line bg-spectrum-panelHeader">
+      <div className="editor-program-header h-[42px] flex items-center justify-between gap-3 px-[13px] flex-shrink-0 border-b border-line bg-spectrum-panelHeader">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-micro font-semibold tracking-[0.09em] text-spectrum-textMuted uppercase flex-shrink-0">
-            Program
-          </span>
+          {/* The shared panel title, not a hand-typed copy of it: the
+              library and the monitor wear the same label control in the
+              reference, and re-typing it is how they drifted apart. */}
+          <span className="panel-title flex-shrink-0">Program</span>
           <span className="w-px h-3 bg-line flex-shrink-0" />
           <span className="text-ui-xs text-spectrum-textDim font-mono truncate tabular">
             {project.width}×{project.height} · {project.fps} fps · Rec.709
@@ -272,12 +200,11 @@ export const PreviewPlayer: React.FC = () => {
           </div>
 
           <button
-            onClick={() => setIsFullscreen((v) => !v)}
+            onClick={openPlayer}
             className="pro-btn w-6 h-6"
-            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen monitor'}
-          
-            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen monitor'}>
-            {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            title="Play fullscreen"
+            aria-label="Play fullscreen">
+            <Maximize2 className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -286,7 +213,7 @@ export const PreviewPlayer: React.FC = () => {
       <div
         ref={stageRef}
         onPointerDown={(e) => { audioEngine.resume(); handleStagePointerDown(e); }}
-        className="flex-1 relative min-h-0 overflow-hidden stage-bed"
+        className="editor-program-stage flex-1 relative min-h-0 overflow-hidden stage-bed"
       >
         {/* Canvas + overlays, positioned exactly on the computed viewport */}
         <div
@@ -298,7 +225,10 @@ export const PreviewPlayer: React.FC = () => {
             height: viewport.displayHeight,
           }}
         >
-          <div className="absolute inset-0 overflow-hidden bg-black shadow-stage">
+          {/* The picture floats above the bed, as the approved editor
+              draws it: an 11px corner, a long soft drop and a single
+              hairline. It was a hard-edged rectangle on a vignette. */}
+          <div className="absolute inset-0 overflow-hidden bg-black rounded-squircle-md shadow-stage">
             <canvas
               ref={canvasRef}
               width={project.width}
@@ -363,7 +293,7 @@ export const PreviewPlayer: React.FC = () => {
           row that appears and disappears would shift the picture each time.
         */}
         {hasSelection && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 animate-slide-up">
+          <div className="editor-align-shelf absolute bottom-3 left-1/2 -translate-x-1/2 z-30 animate-slide-up">
             <div className="glass rounded-squircle-md shadow-pop px-1.5 py-1">
               <AlignmentBar />
             </div>
@@ -372,7 +302,7 @@ export const PreviewPlayer: React.FC = () => {
       </div>
 
       {/* ── Transport ── */}
-      <div className="flex-shrink-0 px-3 py-2 border-t border-line bg-spectrum-panelHeader flex items-stretch gap-3">
+      <div className="editor-program-transport flex-shrink-0 px-[14px] pt-[10px] pb-[11px] border-t border-line bg-spectrum-panel flex items-stretch gap-3">
         <div className="flex-1 min-w-0">
           <PlaybackControls />
         </div>
@@ -402,7 +332,7 @@ const LevelMeters: React.FC<{ left: number; right: number; peak: number }> = ({ 
     </div>
     <div className="flex flex-col justify-center gap-[3px] w-[92px]">
       {[left, right].map((value, i) => (
-        <div key={i} className="relative h-[7px] rounded-[3px] bg-spectrum-sunken border border-line overflow-hidden">
+        <div key={i} className="relative h-[7px] rounded-squircle-2xs bg-spectrum-sunken border border-line overflow-hidden">
           <div
             className="absolute inset-y-0 left-0 transition-[width] duration-75"
             style={{

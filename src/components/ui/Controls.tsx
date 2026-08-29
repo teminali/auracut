@@ -198,9 +198,12 @@ export const SliderRow: React.FC<SliderRowProps> = ({
 
       <div className="relative flex items-center">
         {/* Fill track drawn under the native range input */}
-        <div className="absolute left-0 right-0 h-[4px] rounded-full bg-[#262b33] shadow-[inset_0_1px_1px_rgba(0,0,0,0.35)] pointer-events-none" />
+        {/* 5px on a translucent white rail, as the reference has it —
+            #262b33 was a leftover from the previous blue-black ladder,
+            and the inset shadow is not in the design. */}
+        <div className="absolute left-0 right-0 h-[5px] rounded-full bg-white/[0.09] pointer-events-none" />
         <div
-          className="absolute h-[4px] rounded-full bg-spectrum-accent pointer-events-none"
+          className="absolute h-[5px] rounded-full bg-spectrum-accent pointer-events-none"
           style={
             bipolar
               ? { left: `${Math.min(zeroPct, pct)}%`, width: `${Math.abs(pct - zeroPct)}%` }
@@ -249,7 +252,7 @@ export interface KeyframeToggleProps {
 export const KeyframeToggle: React.FC<KeyframeToggleProps> = ({ animated, atPlayhead, onToggle, title }) => (
   <button
     onClick={onToggle}
-    className={`w-4 h-4 rounded-[3px] flex items-center justify-center flex-shrink-0 transition-colors ${
+    className={`w-4 h-4 rounded-squircle-2xs flex items-center justify-center flex-shrink-0 transition-colors ${
       animated ? 'text-spectrum-amber hover:bg-spectrum-amber/15' : 'text-spectrum-textFaint hover:text-spectrum-textMuted hover:bg-spectrum-hover'
     }`}
     title={title ?? (atPlayhead ? 'Remove keyframe at playhead' : 'Add keyframe at playhead')}
@@ -314,8 +317,17 @@ export function SegmentedControl<T extends string>({
   columns?: number;
 }) {
   return (
+    /*
+      The shared segmented control, not a second one that looks like it.
+
+      This used to hand-roll `.seg-group`'s trough and `.seg-item`'s
+      cell inline — same intent, its own radius, its own active
+      treatment — so the inspector's segments and the toolbar's drifted
+      apart every time either was touched. It is `.seg-group` with a
+      grid template now; everything else comes from the primitive.
+    */
     <div
-      className="grid gap-px p-[2px] rounded-squircle-sm bg-spectrum-sunken border border-line shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]"
+      className="seg-group !grid"
       style={{ gridTemplateColumns: `repeat(${columns ?? options.length}, minmax(0, 1fr))` }}
     >
       {options.map((opt) => {
@@ -327,12 +339,12 @@ export function SegmentedControl<T extends string>({
             onClick={() => !opt.disabled && onChange(opt.value)}
             disabled={opt.disabled}
             title={opt.title ?? opt.label}
-            className={`h-[24px] rounded-[5px] border text-ui-xs font-medium flex items-center justify-center gap-1 transition-colors truncate px-1 ${
+            className={`seg-item !px-1 truncate ${
               opt.disabled
-                ? 'border-transparent text-spectrum-textFaint opacity-45 cursor-not-allowed'
+                ? 'opacity-45 cursor-not-allowed'
                 : active
-                  ? 'bg-spectrum-card border-line-strong text-spectrum-text shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_1px_2px_rgba(0,0,0,0.4)]'
-                  : 'border-transparent text-spectrum-textDim hover:text-spectrum-text hover:bg-white/[0.05]'
+                  ? 'seg-item-active'
+                  : ''
             }`}
           
             aria-label={opt.title ?? opt.label}>

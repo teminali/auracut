@@ -125,7 +125,7 @@ export const SourceGrid: React.FC<Props> = ({ sources, loading, selectedId, onSe
 
                 <span className="flex items-center gap-1.5 px-2 py-1.5 min-w-0">
                   {source.icon ? (
-                    <img src={source.icon} alt="" className="w-3.5 h-3.5 flex-shrink-0 rounded-[3px]" />
+                    <img src={source.icon} alt="" className="w-3.5 h-3.5 flex-shrink-0 rounded-squircle-2xs" />
                   ) : source.kind === 'screen' ? (
                     <Monitor className="w-3.5 h-3.5 flex-shrink-0 text-spectrum-textFaint" />
                   ) : (

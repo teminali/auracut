@@ -164,7 +164,7 @@ const EffectRow: React.FC<{
           <MotionThumb
             load={() => effectPreview(def.type)}
             label={`${def.label} preview`}
-            className="w-[34px] aspect-video rounded-[4px] flex-shrink-0"
+            className="w-[34px] aspect-video rounded-squircle-2xs flex-shrink-0"
           />
           <span className="text-ui-sm font-medium text-spectrum-text truncate">{def.label}</span>
           {keyframedParams.size > 0 && (
@@ -361,6 +361,9 @@ const EffectBrowser: React.FC<{
       <div
         onClick={(e) => e.stopPropagation()}
         className="modal-shell w-[620px] max-w-[92vw] max-h-[78vh] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="VFX Library"
       >
         <div className="panel-header">
           <div className="flex items-center gap-2">
@@ -420,7 +423,7 @@ const EffectBrowser: React.FC<{
                   <MotionThumb
                     load={() => effectPreview(effect.type)}
                     label={`${effect.label} preview`}
-                    className="w-[56px] aspect-video rounded-[5px] flex-shrink-0"
+                    className="w-[56px] aspect-video rounded-squircle-xs flex-shrink-0"
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-center justify-between gap-2">

@@ -48,6 +48,43 @@ import { createEffectInstance, getEffectDefinition } from '../engine/effectsRegi
 import { getAnimatedProperties, interpolateKeyframes } from '../engine/keyframeMath';
 import { validateProperty, applyClipProperty, resolvePropertyAlias, getClipProperty } from '../engine/propertyPath';
 
+/* ── the time scale ─────────────────────────────────────────────
+   One definition of how a millisecond becomes a pixel, and one clamp
+   over it. Both used to be duplicated: the store clamped to 0.05..20
+   in two places and `Timeline`'s wheel handler carried a THIRD copy of
+   the same two numbers, so raising the ceiling in the store would have
+   left ⌘-wheel silently stopping at the old one.
+
+   The ceiling is real, not decorative. At MAX_ZOOM the scale is 4px
+   per millisecond — at 30fps that is 133px per video frame, which is
+   as far in as anything can honestly go: a video frame boundary is
+   1000/fps ms and nothing exists between two of them, so the ruler may
+   show milliseconds but must never imply a frame there.
+
+   MAX_LANE_PX is measured, not guessed. This engine honours element
+   widths up to 16,777,214px (2^24 - 2) and silently clamps past it, so
+   a long project zoomed in far enough would have had its lanes, ruler
+   and clips quietly disagree with the playhead. Half of that is the
+   budget, leaving headroom for the ruler's overdraw past the content
+   end. A project long enough to hit it gets a lower ceiling instead of
+   a broken one.
+   ───────────────────────────────────────────────────────────────── */
+export const BASE_PX_PER_MS = 0.05;
+export const MIN_ZOOM = 0.05;
+export const MAX_ZOOM = 80;
+const MAX_LANE_PX = 8_000_000;
+
+/** The highest zoom this project can take without out-measuring the engine. */
+export function maxZoomFor(contentEndMs: number): number {
+  if (!(contentEndMs > 0)) return MAX_ZOOM;
+  return Math.min(MAX_ZOOM, MAX_LANE_PX / (contentEndMs * BASE_PX_PER_MS));
+}
+
+export function clampZoom(zoom: number, contentEndMs: number): number {
+  if (!Number.isFinite(zoom)) return MIN_ZOOM;
+  return Math.max(MIN_ZOOM, Math.min(maxZoomFor(contentEndMs), zoom));
+}
+
 /* ── ids ────────────────────────────────────────────────────────── */
 
 let idCounter = 0;
@@ -892,13 +929,13 @@ export const useTimelineStore = create<TimelineStore>()(
 
     /* ══ view ══ */
 
-    setZoomLevel: (zoom) => set((s) => { s.zoomLevel = Math.max(0.05, Math.min(20, zoom)); }),
+    setZoomLevel: (zoom) => set((s) => { s.zoomLevel = clampZoom(zoom, getContentEndMs(s.tracks)); }),
 
     zoomToFit: (viewportPx, durationMs) =>
       set((s) => {
         if (durationMs <= 0 || viewportPx <= 0) return;
         // basePixelsPerMs is 0.05 in the timeline; solve for the zoom that fits.
-        s.zoomLevel = Math.max(0.05, Math.min(20, viewportPx / (durationMs * 0.05)));
+        s.zoomLevel = clampZoom(viewportPx / (durationMs * BASE_PX_PER_MS), getContentEndMs(s.tracks));
       }),
 
     toggleSnapping: () => set((s) => { s.snappingEnabled = !s.snappingEnabled; }),
@@ -1452,7 +1489,7 @@ export const useTimelineStore = create<TimelineStore>()(
             locked: false,
             solo: false,
             volume: 1,
-            heightPx: 44,
+            heightPx: 40,
             collapsed: false,
             clips: [],
           };
@@ -1518,7 +1555,10 @@ export const useTimelineStore = create<TimelineStore>()(
           locked: false,
           solo: false,
           volume: 1,
-          heightPx: type === 'audio' ? 44 : 52,
+          /* One height for every lane, as the reference has it — audio
+             included. The volume rail that used to justify a taller
+             audio lane lives in the Audio panel, so nothing is lost. */
+          heightPx: 40,
           collapsed: false,
           clips: [],
         });
@@ -2689,7 +2729,7 @@ export const useTimelineStore = create<TimelineStore>()(
             locked: false,
             solo: false,
             volume: 1,
-            heightPx: 46,
+            heightPx: 40,
             collapsed: false,
             clips: [],
           };

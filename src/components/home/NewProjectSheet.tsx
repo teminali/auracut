@@ -36,6 +36,7 @@ export const NewProjectSheet: React.FC<Props> = ({ onBlank, onRecord, onClose })
         onClick={(e) => e.stopPropagation()}
         className="modal-shell w-[720px] max-w-[94vw]"
         role="dialog"
+        aria-modal="true"
         aria-label="Start a new project"
       >
         <div className="panel-header">
@@ -98,7 +99,7 @@ const Option: React.FC<OptionProps> = ({ testId, icon: Icon, title, blurb, bulle
     }`}
   >
     <span
-      className={`w-11 h-11 rounded-[13px] flex items-center justify-center flex-shrink-0 ${
+      className={`w-11 h-11 rounded-squircle-md flex items-center justify-center flex-shrink-0 ${
         accent ? 'bg-spectrum-accent/20' : 'bg-spectrum-card'
       }`}
     >

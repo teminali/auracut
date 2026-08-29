@@ -1,5 +1,5 @@
-import beatMontageUrl from '../../assets/skill-thumbnails/beat-montage.webp';
-import tutorialUrl from '../../assets/skill-thumbnails/tutorial.webp';
+import beatMontageUrl from '../../assets/design-thumbnails/skill-beat.jpg';
+import tutorialUrl from '../../assets/design-thumbnails/skill-tutorial.jpg';
 
 const ARTWORK: Record<string, string> = {
   'beat-montage': beatMontageUrl,

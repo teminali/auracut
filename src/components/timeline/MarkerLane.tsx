@@ -21,7 +21,7 @@ export const MarkerLane: React.FC<MarkerLaneProps> = ({ pxPerMs, height }) => {
   return (
     <div
       style={{ height }}
-      className="relative bg-spectrum-panelHeader/70 border-t border-line-soft"
+      className="editor-marker-strip relative bg-spectrum-panelHeader/70 border-t border-line-soft"
       onDoubleClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         addMarker(Math.max(0, (e.clientX - rect.left) / pxPerMs));

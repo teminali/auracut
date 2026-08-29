@@ -40,7 +40,7 @@ export const PlaybackControls: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="editor-playback-controls flex flex-col gap-2">
       {/* Scrub bar — thin at rest, thicker under the pointer so it is easy
           to grab without stealing vertical space from the transport. */}
       <div
@@ -83,9 +83,9 @@ export const PlaybackControls: React.FC = () => {
         />
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="editor-transport-row flex items-center justify-between gap-3 min-h-10">
         {/* Timecode — position leads, duration follows at half the weight. */}
-        <div className="flex items-baseline gap-1.5 font-mono min-w-[136px]">
+        <div className="editor-transport-time flex items-baseline gap-1.5 font-mono min-w-[136px]">
           <span className="text-ui-lg font-semibold text-spectrum-text tabular tracking-tight">
             {formatTimecode(playheadMs, project.fps)}
           </span>
@@ -105,13 +105,17 @@ export const PlaybackControls: React.FC = () => {
             <ChevronLeft className="w-[17px] h-[17px]" />
           </button>
 
+          {/* The one bright control on the screen. Measured off the
+              reference, which draws the SAME 40px near-white disc in the
+              editor and in the fullscreen player: 40px, 50%, #f2f2f2 on
+              a soft drop, with the icon carrying the state. It used to
+              be a 36px dark disc that turned accent while playing —
+              a second signal for something the icon already says, in a
+              hard-coded #2b1108 left over from the accent before last. */}
           <button
             onClick={togglePlay}
-            className={`w-9 h-9 mx-1 rounded-full flex items-center justify-center transition-all duration-fast ${
-              isPlaying
-                ? 'bg-spectrum-accent text-[#2b1108] shadow-[0_2px_10px_-2px_rgba(217,119,87,0.7)]'
-                : 'bg-spectrum-card border border-line-strong text-spectrum-text hover:bg-spectrum-cardHover shadow-raised'
-            }`}
+            className="w-10 h-10 mx-1 rounded-full flex items-center justify-center transition-all duration-fast
+                       bg-[#f2f2f2] text-[#151617] hover:bg-white shadow-[0_5px_16px_rgba(0,0,0,0.25)]"
             title="Play / pause (Space)"
             aria-label="Play / pause (Space)"
           >
@@ -131,7 +135,7 @@ export const PlaybackControls: React.FC = () => {
         </div>
 
         {/* Marking & playback modes */}
-        <div className="flex items-center gap-1 min-w-[136px] justify-end">
+        <div className="editor-transport-actions flex items-center gap-1 min-w-[136px] justify-end">
           <button onClick={() => addMarker(playheadMs)} className="pro-btn w-7 h-7" title="Add marker (M)"
             aria-label="Add marker (M)">
             <Flag className="w-[15px] h-[15px]" />

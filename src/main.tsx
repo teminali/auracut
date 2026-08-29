@@ -74,7 +74,8 @@ function mountEditor(): void {
       import('./store/layoutStore'),
       import('./store/recorderStore'),
       import('./engine/liveStream'),
-    ]).then(([timeline, project, chat, ui, mcp, agent, layout, recorder, live]) => {
+      import('./store/recentsStore'),
+    ]).then(([timeline, project, chat, ui, mcp, agent, layout, recorder, live, recents]) => {
       (window as any).__kerf = {
         timeline: timeline.useTimelineStore,
         project: project.useProjectStore,
@@ -95,6 +96,11 @@ function mountEditor(): void {
         /* The recorder, so `verify_home` can prove the New project
            chooser opens it without a real capture device. */
         recorder: recorder.useRecorderStore,
+        /* The recents wall, so `verify_home` can put two projects on
+           it and prove the sort really orders them. A one-project wall
+           cannot be sorted wrong, so without this the sort check was a
+           green tick that could not fail. */
+        recents: recents.useRecentsStore,
         /*
           Live streaming, so `verify_stream` can run one end to end
           against a real RTMP ingest with SYNTHETIC colour sources.

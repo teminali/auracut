@@ -1,0 +1,678 @@
+/* Kerf unified Apple refinement
+   A single restrained component language shared by Home, Editor, and Player. */
+
+:root {
+  --kerf-canvas: #0c0d0f;
+  --kerf-window: #17181b;
+  --kerf-surface: #1d1e22;
+  --kerf-surface-soft: #202126;
+  --kerf-surface-raised: #26272c;
+  --kerf-control: #2a2b30;
+  --kerf-control-hover: #32343a;
+  --kerf-hairline: rgba(255, 255, 255, 0.072);
+  --kerf-hairline-strong: rgba(255, 255, 255, 0.115);
+  --kerf-highlight: rgba(255, 255, 255, 0.045);
+  --kerf-text: #f5f5f7;
+  --kerf-text-secondary: #b6b6bd;
+  --kerf-text-tertiary: #7b7b84;
+  --kerf-accent: #f28b46;
+  --kerf-accent-soft: #ffad72;
+  --kerf-accent-deep: #c7672e;
+  --kerf-focus: rgba(242, 139, 70, 0.42);
+  --kerf-radius-xs: 6px;
+  --kerf-radius-sm: 8px;
+  --kerf-radius-md: 11px;
+  --kerf-radius-lg: 15px;
+  --kerf-shadow-control: 0 1px 0 rgba(255,255,255,.055) inset,
+    0 1px 2px rgba(0,0,0,.18);
+  --kerf-shadow-card: 0 1px 0 rgba(255,255,255,.035) inset,
+    0 10px 28px rgba(0,0,0,.14);
+  --kerf-shadow-float: 0 1px 0 rgba(255,255,255,.08) inset,
+    0 24px 70px rgba(0,0,0,.48);
+  --kerf-ease: cubic-bezier(.22, 1, .36, 1);
+}
+
+.kerf-app,
+.kerf-app * {
+  box-sizing: border-box;
+}
+
+.kerf-app {
+  color: var(--kerf-text) !important;
+  background: var(--kerf-window) !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist", system-ui, sans-serif !important;
+  letter-spacing: -.012em !important;
+}
+
+.kerf-app ::selection {
+  color: #fff;
+  background: rgba(242, 139, 70, .34);
+}
+
+.kerf-app input,
+.kerf-app textarea,
+.kerf-app select,
+.kerf-app button {
+  font: inherit;
+}
+
+.kerf-app input,
+.kerf-app textarea,
+.kerf-app select {
+  caret-color: var(--kerf-accent-soft);
+}
+
+.kerf-app input::placeholder,
+.kerf-app textarea::placeholder {
+  color: #696971 !important;
+}
+
+.kerf-app :focus-visible {
+  outline: 2px solid var(--kerf-focus) !important;
+  outline-offset: 2px !important;
+}
+
+.kerf-app .kf::-webkit-scrollbar,
+.kerf-app::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.kerf-app .kf::-webkit-scrollbar-track,
+.kerf-app::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kerf-app .kf::-webkit-scrollbar-thumb,
+.kerf-app::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(255,255,255,.22);
+  background-clip: content-box;
+}
+
+.kerf-app [style*="cursor:pointer"],
+.kerf-app [style*="cursor: pointer"],
+.kerf-app button {
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 180ms var(--kerf-ease),
+    background 180ms var(--kerf-ease),
+    border-color 180ms ease,
+    color 160ms ease,
+    box-shadow 200ms var(--kerf-ease),
+    filter 180ms ease,
+    opacity 180ms ease,
+    transform 200ms var(--kerf-ease) !important;
+}
+
+.kerf-app [style*="cursor:pointer"]:active,
+.kerf-app [style*="cursor: pointer"]:active,
+.kerf-app button:active {
+  transform: scale(.975);
+  transition-duration: 70ms !important;
+}
+
+/* Shared raised controls. Attribute matching upgrades legacy inline controls
+   while semantic classes cover the newer components. */
+.kerf-app [style*="background:#2d2d2d"][style*="border:1px solid #3a3a3a"],
+.kerf-app [style*="background:#323232"][style*="border:1px solid #3a3a3a"],
+.kerf-app .kf-ui-button,
+.kerf-app .kp-button--quiet {
+  border-color: var(--kerf-hairline-strong) !important;
+  border-radius: var(--kerf-radius-sm) !important;
+  color: var(--kerf-text-secondary) !important;
+  background: linear-gradient(180deg, #2d2e33 0%, #28292e 100%) !important;
+  box-shadow: var(--kerf-shadow-control) !important;
+}
+
+.kerf-app [style*="background:#2d2d2d"][style*="border:1px solid #3a3a3a"]:hover,
+.kerf-app [style*="background:#323232"][style*="border:1px solid #3a3a3a"]:hover,
+.kerf-app .kf-ui-button:hover,
+.kerf-app .kp-button--quiet:hover {
+  border-color: rgba(255,255,255,.17) !important;
+  color: var(--kerf-text) !important;
+  background: linear-gradient(180deg, #35363c 0%, #2e3035 100%) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.075) inset,
+    0 5px 15px rgba(0,0,0,.2) !important;
+}
+
+.kerf-app [style*="background:#c9622f"],
+.kerf-app [style*="background:#e0854d"],
+.kerf-app .kf-ui-primary-button,
+.kerf-app .kp-button--accent {
+  border: 1px solid rgba(255,255,255,.14) !important;
+  border-radius: var(--kerf-radius-sm) !important;
+  color: #2b1609 !important;
+  background: linear-gradient(180deg, var(--kerf-accent-soft), var(--kerf-accent)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.28) inset,
+    0 6px 18px rgba(199,103,46,.2) !important;
+}
+
+.kerf-app [style*="background:#c9622f"]:hover,
+.kerf-app [style*="background:#e0854d"]:hover,
+.kerf-app .kf-ui-primary-button:hover,
+.kerf-app .kp-button--accent:hover {
+  filter: brightness(1.055) saturate(1.03);
+  box-shadow: 0 1px 0 rgba(255,255,255,.34) inset,
+    0 8px 22px rgba(199,103,46,.25) !important;
+}
+
+.kerf-app [style*="border-radius:2px"] {
+  border-radius: var(--kerf-radius-xs) !important;
+}
+
+.kerf-app [style*="border-radius: 2px"] {
+  border-radius: var(--kerf-radius-xs) !important;
+}
+
+.kerf-app [style*="border-radius:3px"] {
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-app [style*="border-radius: 3px"] {
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-app [style*="background: rgb(45, 45, 45)"][style*="border: 1px solid rgb(58, 58, 58)"],
+.kerf-app [style*="background: rgb(50, 50, 50)"][style*="border: 1px solid rgb(58, 58, 58)"] {
+  border-color: var(--kerf-hairline-strong) !important;
+  color: var(--kerf-text-secondary) !important;
+  background: linear-gradient(180deg, #2d2e33 0%, #28292e 100%) !important;
+  box-shadow: var(--kerf-shadow-control) !important;
+}
+
+.kerf-app [style*="background: rgb(45, 45, 45)"][style*="border: 1px solid rgb(58, 58, 58)"]:hover,
+.kerf-app [style*="background: rgb(50, 50, 50)"][style*="border: 1px solid rgb(58, 58, 58)"]:hover {
+  border-color: rgba(255,255,255,.17) !important;
+  color: var(--kerf-text) !important;
+  background: linear-gradient(180deg, #35363c 0%, #2e3035 100%) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.075) inset,
+    0 5px 15px rgba(0,0,0,.2) !important;
+}
+
+.kerf-app [style*="background: rgb(38, 38, 38)"][style*="border: 1px solid rgb(20, 20, 20)"] {
+  border-color: var(--kerf-hairline) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.014)),
+    var(--kerf-surface-soft) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.028) inset;
+}
+
+.kerf-app [style*="background: rgb(38, 38, 38)"][style*="border: 1px solid rgb(20, 20, 20)"]:hover {
+  border-color: rgba(255,255,255,.16) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.024)),
+    var(--kerf-surface-raised) !important;
+}
+
+.kerf-app [style*="background: rgb(201, 98, 47)"],
+.kerf-app [style*="background: rgb(224, 133, 77)"] {
+  border: 1px solid rgba(255,255,255,.14) !important;
+  color: #2b1609 !important;
+  background: linear-gradient(180deg, var(--kerf-accent-soft), var(--kerf-accent)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.28) inset,
+    0 6px 18px rgba(199,103,46,.2) !important;
+}
+
+.kerf-app [style*="border:1px dashed"] {
+  border-color: rgba(255,255,255,.14) !important;
+  border-radius: var(--kerf-radius-md) !important;
+  background: rgba(255,255,255,.018);
+}
+
+.kerf-app [style*="border:1px dashed"]:hover {
+  border-color: rgba(255,255,255,.24) !important;
+  background: rgba(255,255,255,.035);
+}
+
+.kerf-app .kfpanel,
+.kerf-app .kfpop {
+  border-color: var(--kerf-hairline-strong) !important;
+  border-radius: var(--kerf-radius-lg) !important;
+  background: rgba(31,32,36,.97) !important;
+  box-shadow: var(--kerf-shadow-float) !important;
+  backdrop-filter: blur(30px) saturate(135%);
+  -webkit-backdrop-filter: blur(30px) saturate(135%);
+}
+
+/* Home */
+.kerf-home {
+  border-color: rgba(255,255,255,.065) !important;
+  border-radius: 11px !important;
+  box-shadow: 0 32px 90px rgba(0,0,0,.44) !important;
+}
+
+.kerf-home-header {
+  height: 52px !important;
+  padding: 0 15px !important;
+  background: rgba(35,36,40,.93) !important;
+  border-bottom-color: var(--kerf-hairline) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.035) inset,
+    0 12px 34px rgba(0,0,0,.18) !important;
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  z-index: 4;
+}
+
+.kerf-home-header > span:nth-child(2) {
+  width: 25px !important;
+  height: 25px !important;
+  border-radius: 7px !important;
+  color: #2b1609 !important;
+  background: linear-gradient(180deg, var(--kerf-accent-soft), var(--kerf-accent)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.27) inset,
+    0 5px 15px rgba(199,103,46,.2) !important;
+}
+
+.kerf-home-workspace {
+  gap: 1px;
+  background: #0a0b0d;
+}
+
+.kerf-home-rail,
+.kerf-home-aside {
+  background: var(--kerf-surface) !important;
+  border-color: var(--kerf-hairline) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025) inset;
+}
+
+.kerf-home-rail {
+  align-items: center;
+  gap: 2px;
+  padding: 9px 0 !important;
+}
+
+.kerf-home-rail-tab,
+.kerf-home-rail > div {
+  box-sizing: border-box;
+  width: 52px !important;
+  min-height: 52px;
+  margin: 1px auto !important;
+  padding: 7px 3px !important;
+  border: 1px solid transparent;
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-home-rail-tab:hover,
+.kerf-home-rail > div:hover {
+  color: var(--kerf-text) !important;
+  background: rgba(255,255,255,.06) !important;
+}
+
+.kerf-home-rail-tab.is-active {
+  border-color: rgba(242,139,70,.22) !important;
+  color: var(--kerf-accent-soft) !important;
+  background: linear-gradient(180deg, rgba(242,139,70,.17), rgba(242,139,70,.09)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.035) inset;
+}
+
+.kerf-home-main {
+  padding: 24px 28px 30px !important;
+  background: radial-gradient(circle at 30% -12%, rgba(255,255,255,.035), transparent 34%),
+    var(--kerf-window);
+}
+
+.kerf-home-notice {
+  min-height: 46px;
+  padding: 10px 12px !important;
+  border-color: rgba(242,139,70,.2) !important;
+  border-radius: var(--kerf-radius-md) !important;
+  background: linear-gradient(180deg, rgba(242,139,70,.075), rgba(242,139,70,.035)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025) inset;
+}
+
+.kerf-home-featured {
+  border-color: rgba(255,255,255,.095) !important;
+  border-radius: var(--kerf-radius-lg) !important;
+  box-shadow: 0 18px 46px rgba(0,0,0,.3),
+    0 1px 0 rgba(255,255,255,.05) inset;
+  transform: translateZ(0);
+}
+
+.kerf-home-featured:hover {
+  border-color: rgba(255,255,255,.17) !important;
+  box-shadow: 0 22px 54px rgba(0,0,0,.34),
+    0 1px 0 rgba(255,255,255,.07) inset;
+  transform: translateY(-2px);
+}
+
+.kerf-home-featured .kfplay > span,
+.kerf-home-project-card .kfplay > span {
+  box-shadow: 0 10px 32px rgba(0,0,0,.34),
+    0 1px 0 rgba(255,255,255,.65) inset;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.kerf-home-fact,
+.kerf-home-action,
+.kerf-home-project-card,
+.kerf-home-account,
+.kerf-home-skill-card,
+.kerf-home-cache-card,
+.kerf-home-project-list {
+  border-color: var(--kerf-hairline) !important;
+  border-radius: var(--kerf-radius-md) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.038), rgba(255,255,255,.018)),
+    var(--kerf-surface-soft) !important;
+  box-shadow: var(--kerf-shadow-card) !important;
+}
+
+.kerf-home-action:hover,
+.kerf-home-project-card:hover,
+.kerf-home-account:hover {
+  border-color: rgba(255,255,255,.16) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)),
+    var(--kerf-surface-raised) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.06) inset,
+    0 14px 34px rgba(0,0,0,.2) !important;
+  transform: translateY(-1px);
+}
+
+.kerf-home-fact {
+  min-height: 40px;
+}
+
+.kerf-home-action {
+  min-height: 100px;
+  padding: 14px !important;
+}
+
+.kerf-home-action > span:first-child > span:first-child {
+  width: 32px !important;
+  height: 32px !important;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: var(--kerf-radius-sm) !important;
+  background: rgba(7,8,10,.5) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025) inset;
+}
+
+.kerf-home-project-toolbar [style*="background:#262626"] {
+  border-color: var(--kerf-hairline) !important;
+  border-radius: var(--kerf-radius-sm) !important;
+  background: rgba(255,255,255,.035) !important;
+  box-shadow: var(--kerf-shadow-control);
+}
+
+.kerf-home-project-card {
+  overflow: hidden;
+}
+
+.kerf-home-project-card > div:first-child,
+.kerf-home-skill-card > div:first-child,
+.kerf-home-project-list .kfrow > span:first-child {
+  overflow: hidden;
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-home-project-list > div:first-child {
+  color: var(--kerf-text-tertiary) !important;
+  background: rgba(255,255,255,.035) !important;
+  border-color: var(--kerf-hairline) !important;
+}
+
+.kerf-home-project-list .kfrow {
+  min-height: 50px;
+  border-color: var(--kerf-hairline) !important;
+}
+
+.kerf-home-project-list .kfrow:hover {
+  background: rgba(255,255,255,.045) !important;
+}
+
+.kerf-home-aside {
+  padding: 16px 14px 20px !important;
+  overflow-x: hidden !important;
+}
+
+.kerf-home-account {
+  padding: 9px !important;
+}
+
+.kerf-home-account > span:first-child {
+  background: linear-gradient(180deg, #53545a, #3b3c41) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.1) inset;
+}
+
+.kerf-home-skill-card {
+  padding: 10px !important;
+}
+
+.kerf-home-skill-card [style*="background:#1f2a22"] {
+  border: 1px solid rgba(83,190,117,.16);
+  border-radius: 999px !important;
+  background: rgba(63,196,111,.1) !important;
+}
+
+.kerf-home-cache-card {
+  padding: 12px !important;
+}
+
+.kerf-home-statusbar {
+  height: 30px !important;
+  color: var(--kerf-text-tertiary) !important;
+  background: rgba(29,30,34,.96) !important;
+  border-color: var(--kerf-hairline) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025) inset;
+}
+
+.kerf-home-palette-veil {
+  background: rgba(5,6,8,.62) !important;
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+
+.kerf-home-palette {
+  border-radius: 16px !important;
+  background: rgba(31,32,36,.965) !important;
+  border-color: rgba(255,255,255,.14) !important;
+}
+
+.kerf-home-palette > div:first-child {
+  min-height: 54px;
+  border-color: var(--kerf-hairline) !important;
+  background: rgba(255,255,255,.02);
+}
+
+.kerf-home-palette > div:last-child > div {
+  min-height: 42px;
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-home-palette > div:last-child > div:hover {
+  background: rgba(255,255,255,.06) !important;
+}
+
+/* Editor: complete the shared component treatment without changing its
+   Premiere-derived density, panel map, or timeline grammar. */
+.kerf-app:not(.kerf-home):not(.kp-shell) .kfbar > [style*="background:#2d2d2d"],
+.kerf-app:not(.kerf-home):not(.kp-shell) .kfbar > div > [style*="background:#2d2d2d"] {
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kfmedia,
+.kerf-app:not(.kerf-home):not(.kp-shell) .kfpanel [style*="background:#262626"][style*="border:1px solid"] {
+  border-color: var(--kerf-hairline) !important;
+  border-radius: var(--kerf-radius-sm) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.032), rgba(255,255,255,.014)),
+    var(--kerf-surface-soft) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025) inset;
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kfmedia:hover {
+  border-color: rgba(255,255,255,.16) !important;
+  background: var(--kerf-surface-raised) !important;
+  transform: translateY(-1px);
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-inspector [style*="background:#262626"],
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-library [style*="background:#262626"] {
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-inspector input,
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-inspector select,
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-library input,
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-library select {
+  border-color: var(--kerf-hairline) !important;
+  border-radius: var(--kerf-radius-sm) !important;
+  background: rgba(255,255,255,.035) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.02) inset;
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-inspector input:focus,
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-library input:focus {
+  border-color: rgba(242,139,70,.48) !important;
+  box-shadow: 0 0 0 3px rgba(242,139,70,.085) !important;
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-library,
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-inspector {
+  overflow-x: hidden !important;
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-inspector-tab,
+.kerf-app:not(.kerf-home):not(.kp-shell) [data-inspector-tab] {
+  border-radius: var(--kerf-radius-sm) var(--kerf-radius-sm) 0 0 !important;
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kerf-align-shelf {
+  border-color: rgba(255,255,255,.13) !important;
+  border-radius: 12px !important;
+  background: rgba(42,43,48,.9) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.08) inset,
+    0 15px 40px rgba(0,0,0,.32) !important;
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kftipbox {
+  border-color: rgba(255,255,255,.12) !important;
+  border-radius: var(--kerf-radius-sm) !important;
+  background: rgba(35,36,40,.96) !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.34) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kfveil {
+  background: rgba(5,6,8,.58) !important;
+  backdrop-filter: blur(10px) saturate(115%);
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+}
+
+.kerf-app:not(.kerf-home):not(.kp-shell) .kfpop [style*="cursor:pointer"]:hover,
+.kerf-app:not(.kerf-home):not(.kp-shell) .kfpanel [style*="cursor:pointer"]:hover {
+  background-color: rgba(255,255,255,.055) !important;
+}
+
+/* Fullscreen Player and copied Copilot components. */
+.kp-shell {
+  background: #07080a !important;
+}
+
+.kp-header {
+  border-color: var(--kerf-hairline) !important;
+  background: rgba(31,32,36,.92) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.04) inset,
+    0 14px 36px rgba(0,0,0,.2) !important;
+}
+
+.kp-icon-button,
+.kp-speed-button,
+.kp-tool,
+.kp-result-actions button {
+  border-radius: var(--kerf-radius-sm) !important;
+}
+
+.kp-icon-button:hover,
+.kp-speed-button:hover,
+.kp-tool:hover,
+.kp-result-actions button:hover {
+  background: rgba(255,255,255,.07) !important;
+}
+
+.kp-format-chip,
+.kp-frame-status,
+.kp-copilot-marker {
+  border-color: rgba(255,255,255,.13) !important;
+  border-radius: var(--kerf-radius-sm) !important;
+  background: rgba(24,25,29,.68) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.055) inset,
+    0 10px 28px rgba(0,0,0,.25) !important;
+}
+
+.kp-copilot {
+  border-color: var(--kerf-hairline) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.018), transparent 20%),
+    var(--kerf-surface) !important;
+  box-shadow: -16px 0 45px rgba(0,0,0,.18),
+    1px 0 0 rgba(255,255,255,.025) inset !important;
+}
+
+.kp-copilot-header {
+  border-color: var(--kerf-hairline) !important;
+  background: rgba(37,38,43,.9) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.035) inset;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.kp-context-card,
+.kp-message--result,
+.kp-suggestion,
+.kp-composer {
+  border-color: var(--kerf-hairline) !important;
+  border-radius: var(--kerf-radius-md) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.014)),
+    var(--kerf-surface-soft) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.03) inset,
+    0 8px 24px rgba(0,0,0,.12);
+}
+
+.kp-suggestion:hover {
+  border-color: rgba(255,255,255,.16) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.025)),
+    var(--kerf-surface-raised) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.055) inset,
+    0 12px 30px rgba(0,0,0,.18);
+}
+
+.kp-message--user {
+  border: 1px solid rgba(242,139,70,.16);
+  border-radius: var(--kerf-radius-md) var(--kerf-radius-md) 4px var(--kerf-radius-md) !important;
+  background: linear-gradient(180deg, rgba(242,139,70,.14), rgba(242,139,70,.075)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025) inset;
+}
+
+.kp-composer:focus-within {
+  border-color: rgba(242,139,70,.48) !important;
+  box-shadow: 0 0 0 3px rgba(242,139,70,.085),
+    0 12px 32px rgba(0,0,0,.18) !important;
+}
+
+.kp-send {
+  border-radius: var(--kerf-radius-sm) !important;
+  background: linear-gradient(180deg, var(--kerf-accent-soft), var(--kerf-accent)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.28) inset,
+    0 6px 16px rgba(199,103,46,.2) !important;
+}
+
+.kp-edit-dock {
+  border-color: rgba(255,255,255,.12) !important;
+  border-radius: 13px !important;
+  background: rgba(36,37,42,.88) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.065) inset,
+    0 18px 48px rgba(0,0,0,.34) !important;
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kerf-app *,
+  .kerf-app *::before,
+  .kerf-app *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

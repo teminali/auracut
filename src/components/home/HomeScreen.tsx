@@ -39,23 +39,35 @@ import { SettingsView } from './SettingsView';
 import { AccountView } from './AccountView';
 import { HomeSidebar, HomeView } from './HomeSidebar';
 import { ActionRow } from './ActionRow';
-import { MoreTools } from './MoreTools';
 import { NewProjectSheet } from './NewProjectSheet';
 import { ProjectsSection } from './ProjectsSection';
 import { SkillsView } from './SkillsView';
-import { HomeSkillsShelf } from './HomeSkillsShelf';
+import { HomeSkillsRail } from './HomeSkillsRail';
+import { HomeStatusBar } from './HomeStatusBar';
+import { SignInDialog } from './SignInDialog';
 import { useHomeActions } from './homeActions';
 import { AgentPicker } from '../copilot/AgentPicker';
 import { ShortcutsOverlay } from '../ui/ShortcutsOverlay';
 import { useRecentsStore } from '../../store/recentsStore';
 import { useClaudeAgentStore } from '../../store/claudeAgentStore';
 import { useAccountStore } from '../../store/accountStore';
+import { useProjectStore } from '../../store/projectStore';
+import { useAgentChatStore } from '../../store/agentChatStore';
+import { useLayoutStore } from '../../store/layoutStore';
 import { hasAutosave, clearAutosave } from '../../engine/projectIO';
 import { posterFromSnapshot } from '../../engine/posterCapture';
 
 interface Props {
   onEnterEditor: () => void;
 }
+
+const VIEW_LABEL: Record<HomeView, string> = {
+  home: 'Home',
+  projects: 'Projects',
+  skills: 'Skills',
+  settings: 'Settings',
+  account: 'Account',
+};
 
 export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
   const [view, setView] = React.useState<HomeView>('home');
@@ -68,14 +80,49 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
     clicks through to `new-blank` or `new-record`.
   */
   const [newSheetOpen, setNewSheetOpen] = React.useState(false);
+  /* The right rail offers sign-in when nobody is signed in, and it
+     opens the SAME dialog the top bar does rather than a second one. */
+  const [signInOpen, setSignInOpen] = React.useState(false);
 
   const recents = useRecentsStore((s) => s.recents);
   const forget = useRecentsStore((s) => s.forget);
   const refreshStatus = useClaudeAgentStore((s) => s.refreshStatus);
   const initAccount = useAccountStore((s) => s.init);
   const actions = useHomeActions(onEnterEditor);
+  const setActiveTab = useLayoutStore((s) => s.setActiveTab);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  /*
+    Home's own key map.
+
+    The approved launcher prints ⌘N, ⇧R, ⌘J and ⌘O on the four tiles.
+    Three of those did nothing on this screen, so the tiles would have
+    been advertising bindings that were not there — the chips exist
+    because the shortcuts do, not the other way round.
+
+    Registered in the CAPTURE phase and scoped to this component, which
+    only mounts on home, so none of it can reach the editor's map. ⌘J
+    is deliberately left to that map: it already toggles the Copilot
+    everywhere, and a second handler for one binding is how two
+    behaviours end up fighting over one key.
+  */
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      if (typing) return;
+
+      const mod = e.metaKey || e.ctrlKey;
+      const key = e.key.toLowerCase();
+
+      if (mod && key === 'n') { e.preventDefault(); setNewSheetOpen(true); return; }
+      if (mod && key === 'o') { e.preventDefault(); fileInputRef.current?.click(); return; }
+      if (e.shiftKey && !mod && key === 'r') { e.preventDefault(); actions.startRecording(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [actions]);
 
   React.useEffect(() => {
     void refreshStatus();
@@ -147,34 +194,42 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
   }, []);
 
   return (
-    <div className="home-stage w-full h-full flex overflow-hidden">
-      <HomeSidebar view={view} onView={setView} />
+    <div className="home-stage w-full h-full flex flex-col overflow-hidden">
+      <HomeTopBar
+        onOpenAgentPicker={() => setPickerOpen(true)}
+        onOpenAccount={() => setView('account')}
+        onOpenCopilot={actions.openCopilot}
+        viewLabel={VIEW_LABEL[view]}
+      />
 
-      <div className="flex-1 min-w-0 flex flex-col">
-        <HomeTopBar
-          onOpenAgentPicker={() => setPickerOpen(true)}
-          onOpenAccount={() => setView('account')}
+      <div className={`hp-workspace flex-1 min-h-0 ${view === 'home' ? 'hp-workspace-home' : ''}`}>
+        <HomeSidebar
+          view={view}
+          onView={setView}
+          onImport={() => fileInputRef.current?.click()}
+          onOpenMedia={() => {
+            setActiveTab('media');
+            if (recents[0]) actions.openRecent(recents[0]);
+            else actions.newProject();
+          }}
         />
 
-        {/*
-          Capped rather than fluid. Eight tool tiles spread across a 27"
-          display land a hand's width apart and the row stops reading as
-          a group: the Gestalt breaks long before the pixels run out.
-        */}
-        <main className="hp-main flex-1 min-w-0 overflow-y-auto relative px-7 pb-14">
-          <div className="max-w-[1360px] mx-auto">
+        <main className="hp-main min-w-0 overflow-y-auto relative">
+          <div className="hp-main-inner">
             {/*
               Announcements, above everything and on every view: a
               version to install and a feature just arrived. It renders
               nothing when there is neither, so the ordinary home screen
-              is unchanged.
+              is unchanged. It spans both columns — an announcement that
+              only covered the left of the page would read as belonging
+              to whatever is under it.
             */}
             <div className="mb-5 empty:hidden">
               <PromoCarousel />
             </div>
 
             {view === 'home' ? (
-              <>
+              <div className="min-w-0 flex flex-col gap-5">
                 <ActionRow
                   onNewProject={() => setNewSheetOpen(true)}
                   onOpenCopilot={actions.openCopilot}
@@ -182,22 +237,30 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
                   onOpenFile={() => fileInputRef.current?.click()}
                   mostRecent={recents[0]}
                   onOpenRecent={actions.openRecent}
+                  onPlayRecent={actions.playRecent}
                   recoverable={recoverable}
                   onRecover={actions.recover}
                   onDiscardRecovery={() => { clearAutosave(); setRecoverable(false); }}
+                  onExport={() => useProjectStore.getState().setExportModalOpen(true)}
                 />
 
-                <div className="flex flex-col gap-9 rise-in rise-4">
-                  <HomeSkillsShelf onOpenSkills={() => setView('skills')} />
+                <div className="rise-in rise-4">
                   <ProjectsSection
                     recents={recents}
                     onOpen={actions.openRecent}
                     onForget={forget}
                     featuredId={recents[0]?.id}
                   />
-                  <MoreTools onOpenPanel={actions.openPanel} />
                 </div>
-              </>
+              </div>
+            ) : view === 'projects' ? (
+              /* The same wall, the same component, the whole width.
+                 There is no second projects list to keep in step. */
+              <ProjectsSection
+                recents={recents}
+                onOpen={actions.openRecent}
+                onForget={forget}
+              />
             ) : view === 'skills' ? (
               <SkillsView />
             ) : view === 'settings' ? (
@@ -207,7 +270,21 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
             )}
           </div>
         </main>
+
+        {view === 'home' && (
+          <HomeSkillsRail
+            onOpenSkills={() => setView('skills')}
+            onOpenAccount={() => setView('account')}
+            onSignIn={() => setSignInOpen(true)}
+            onRunSkill={(name) => {
+              actions.openCopilot();
+              void useAgentChatStore.getState().sendPrompt(`Run the ${name} skill.`);
+            }}
+          />
+        )}
       </div>
+
+      <HomeStatusBar />
 
       <input
         ref={fileInputRef}
@@ -229,6 +306,8 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
           onRecord={() => { setNewSheetOpen(false); actions.startRecording(); }}
         />
       )}
+
+      {signInOpen && <SignInDialog onClose={() => setSignInOpen(false)} />}
 
       {pickerOpen && (
         <AgentPicker

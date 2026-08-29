@@ -1,11 +1,12 @@
 import React from 'react';
-import { useTimelineStore, getContentEndMs } from '../../store/timelineStore';
+import { BASE_PX_PER_MS, MIN_ZOOM, MAX_ZOOM, useTimelineStore, getContentEndMs } from '../../store/timelineStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useUiStore } from '../../store/uiStore';
 import { detectBeats } from '../../engine/beatDetect';
 import {
   Scissors, Trash2, Copy, Magnet, ZoomIn, ZoomOut, Plus, ArrowLeftRight, Snowflake, RotateCcw, Unlink, Flag, Layers, Music4, Maximize,
 } from '../ui/icons';
+import { IconButton } from '../ui/Primitives';
 
 interface TimelineToolbarProps {
   scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -17,6 +18,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
   const rippleEditMode = useTimelineStore((s) => s.rippleEditMode);
   const zoomLevel = useTimelineStore((s) => s.zoomLevel);
   const markerCount = useTimelineStore((s) => s.markers.length);
+  const playheadMs = useTimelineStore((s) => s.playheadMs);
 
   const splitAtPlayhead = useTimelineStore((s) => s.splitAtPlayhead);
   const deleteSelected = useTimelineStore((s) => s.deleteSelected);
@@ -35,6 +37,13 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
 
   const pushToast = useUiStore((s) => s.pushToast);
   const project = useProjectStore((s) => s.project);
+
+  /* One pixel is worth this many milliseconds at the current zoom, and
+     the playhead is on this frame. Both derived from the same scale
+     the lanes and the ruler use, so a readout cannot disagree with the
+     picture beside it. */
+  const pxPerMs = BASE_PX_PER_MS * zoomLevel;
+  const frameAtPlayhead = Math.floor((playheadMs / 1000) * project.fps);
 
   const hasSelection = selectedClipIds.length > 0;
   const primaryId = selectedClipIds[0];
@@ -75,7 +84,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
   };
 
   return (
-    <div className="h-9 flex items-center justify-between px-2.5 gap-2 border-b border-line bg-spectrum-panelHeader flex-shrink-0">
+    <div className="editor-timeline-toolbar h-[43px] flex items-center justify-between px-3 gap-2 border-b border-line bg-spectrum-panelHeader flex-shrink-0">
       <div className="flex items-center gap-1.5 min-w-0">
         {/* Destructive and constructive edits, kept apart from the modes. */}
         <div className="flex items-center gap-1">
@@ -165,8 +174,12 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
         </button>
         <input
           type="range"
-          min={-1.3}
-          max={1.3}
+          /* Logarithmic, and its ends are the store's real limits rather
+             than two numbers that used to match them. The slider read
+             -1.3..1.3 (0.05x..20x) and would have pinned at 20 while
+             every other zoom control went to 80. */
+          min={Math.log10(MIN_ZOOM)}
+          max={Math.log10(MAX_ZOOM)}
           step={0.01}
           value={Math.log10(zoomLevel)}
           onChange={(e) => setZoomLevel(Math.pow(10, Number(e.target.value)))}
@@ -177,6 +190,26 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
             aria-label="Zoom in (+)">
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
+
+        {/*
+          What one pixel is worth at this zoom, and the frame it lands
+          in. The design puts a readout here and it is the thing that
+          makes the extra zoom range legible: without it 40x and 80x
+          look the same until you try to land on something.
+
+          `msPerPx` is the honest number — a frame at this project's
+          fps is 1000/fps ms, and the readout says which frame the
+          playhead is actually on rather than implying that a video
+          frame exists between two frames.
+        */}
+        <span className="well h-[26px] px-2 flex items-center gap-1.5 font-mono flex-shrink-0" title={`${(1 / pxPerMs).toFixed(3)} ms per pixel at ${zoomLevel.toFixed(2)}×`}>
+          <span className="text-ui-xs text-spectrum-text tabular">
+            {(1 / pxPerMs).toFixed(1)}
+          </span>
+          <span className="text-micro text-spectrum-textFaint">ms/px</span>
+          <span className="w-px h-3 bg-line" />
+          <span className="text-ui-xs text-spectrum-textDim tabular">f{frameAtPlayhead}</span>
+        </span>
       </div>
     </div>
   );
@@ -198,23 +231,5 @@ const ToolButton: React.FC<{
             aria-label={title}>
     <Icon className={`w-3 h-3 ${danger ? 'text-spectrum-red/85' : 'text-spectrum-textDim'}`} />
     <span>{label}</span>
-  </button>
-);
-
-const IconButton: React.FC<{
-  onClick: () => void;
-  icon: React.ElementType;
-  title: string;
-  disabled?: boolean;
-  badge?: number;
-}> = ({ onClick, icon: Icon, title, disabled, badge }) => (
-  <button onClick={onClick} disabled={disabled} className="pro-btn w-[26px] h-[26px] relative" title={title}
-            aria-label={title}>
-    <Icon className="w-3.5 h-3.5" />
-    {badge !== undefined && (
-      <span className="absolute -top-0.5 -right-0.5 min-w-[13px] h-[13px] px-0.5 rounded-full bg-spectrum-accent text-micro font-bold text-white flex items-center justify-center leading-none">
-        {badge > 99 ? '99+' : badge}
-      </span>
-    )}
   </button>
 );

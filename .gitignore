@@ -32,3 +32,9 @@ yarn-error.log*
 # Python bytecode from tools/
 __pycache__/
 *.pyc
+
+# The approved design prototype is tracked, but its `uploads/` folder is
+# 11MB of pasted screenshots that no page, stylesheet or script in it
+# references. The .dc.html files and their CSS are the reference; these
+# are not.
+design-prototypes/*/uploads/

@@ -29,7 +29,9 @@
 import React from 'react';
 import { RecentProject } from '../../store/recentsStore';
 import { formatDuration } from '../../utils/time';
-import { Search, Film, Clapperboard, X, ChevronDown } from '../ui/icons';
+import { Search, Film, Clapperboard, X } from '../ui/icons';
+import { Select } from '../ui/Primitives';
+import { projectArtwork } from './projectArtwork';
 
 interface Props {
   recents: RecentProject[];
@@ -50,10 +52,14 @@ interface Props {
 
 type ViewMode = 'grid' | 'list';
 
+/* Every one of these orders by a field the entry actually has. */
+type SortKey = 'recent' | 'name' | 'longest';
+
 export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, featuredId }) => {
   const [query, setQuery] = React.useState('');
   const [searching, setSearching] = React.useState(false);
   const [mode, setMode] = React.useState<ViewMode>('grid');
+  const [sort, setSort] = React.useState<SortKey>('recent');
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const filtered = React.useMemo(() => {
@@ -69,6 +75,14 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
     return recents;
   }, [recents, query, featuredId]);
 
+  const shown = React.useMemo(() => {
+    const list = [...filtered];
+    if (sort === 'name') list.sort((a, b) => a.name.localeCompare(b.name));
+    else if (sort === 'longest') list.sort((a, b) => b.durationMs - a.durationMs);
+    else list.sort((a, b) => b.openedAt - a.openedAt);
+    return list;
+  }, [filtered, sort]);
+
   const meta = (entry: RecentProject) =>
     `${formatDuration(entry.durationMs)} · ${entry.aspectRatio} · ${entry.clipCount} clips`;
 
@@ -78,58 +92,77 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           on the right, sharing one line. The reference's is "Business"
           with "View more" opposite it; ours is the wall's name with
           the two controls that are real. */}
-      <div className="flex items-center gap-2.5 h-[30px]">
-        <h2 className="text-ui-lg font-semibold text-spectrum-textMuted">Projects</h2>
-        {filtered.length > 1 && <span className="chip tabular">{filtered.length}</span>}
+      <div className="hp-projects-head flex items-center gap-2.5 h-[25px]">
+        <h2 className="hp-kicker">Projects</h2>
+        <span className="text-ui-sm text-spectrum-textDim tabular">{filtered.length} total</span>
         <span className="flex-1" />
 
-        {searching || query ? (
-          <div className="pro-input h-[30px] flex items-center gap-1.5 px-2.5 w-[230px]">
-            <Search className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onBlur={() => { if (!query) setSearching(false); }}
-              onKeyDown={(e) => { if (e.key === 'Escape') { setQuery(''); setSearching(false); } }}
-              placeholder="Search projects…"
-              className="flex-1 bg-transparent outline-none text-ui-sm text-spectrum-text
-                         placeholder:text-spectrum-textFaint min-w-0"
-            />
-            {query && (
-              <button onClick={() => setQuery('')} className="pro-btn w-4 h-4 flex-shrink-0"
-                      title="Clear" aria-label="Clear the search">
-                <X className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-        ) : (
-          <button
-            onClick={() => { setSearching(true); requestAnimationFrame(() => inputRef.current?.focus()); }}
-            className="pro-btn-filled w-[30px] h-[30px]"
-            title="Search projects"
-            aria-label="Search projects"
-          >
-            <Search className="w-3.5 h-3.5" />
-          </button>
-        )}
+        {/*
+          The search is ON SCREEN, not behind a magnifier.
 
-        <div className="relative">
-          <select
-            value={mode}
-            onChange={(e) => setMode(e.target.value as ViewMode)}
-            className="pro-input appearance-none h-[30px] text-ui-sm pl-2.5 pr-7 cursor-pointer"
-            title="How to lay the projects out"
-            aria-label="How to lay the projects out"
-          >
-            <option value="grid">Grid</option>
-            <option value="list">List</option>
-          </select>
-          <ChevronDown
-            className="w-3 h-3 text-spectrum-textDim absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-            aria-hidden="true"
+          It used to be an icon that swapped itself for a field. That
+          is a control whose only job is to reveal another control, on
+          a wall whose whole point is finding something — and it cost a
+          click every single time. The approved launcher shows the
+          field, and so does this.
+        */}
+        <div className="pro-input h-[24px] flex items-center gap-1.5 px-2.5 w-[180px]">
+          <Search className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape' && query) { e.stopPropagation(); setQuery(''); } }}
+            placeholder="Search projects…"
+            aria-label="Search projects"
+            className="flex-1 bg-transparent outline-none text-ui-sm text-spectrum-text
+                       placeholder:text-spectrum-textFaint min-w-0"
           />
+          {query && (
+            <button onClick={() => setQuery('')} className="pro-btn w-4 h-4 flex-shrink-0"
+                    title="Clear" aria-label="Clear the search">
+              <X className="w-3 h-3" />
+            </button>
+          )}
         </div>
+
+        {/* Two layouts, and they are a choice between two things, which
+            is what a segmented control is for. It was a two-option
+            <select>: a popup to pick between Grid and List. */}
+        <div className="seg-group">
+          <button
+            onClick={() => setMode('grid')}
+            className={`seg-item ${mode === 'grid' ? 'seg-item-active' : ''}`}
+            title="Lay the projects out as a grid"
+            aria-pressed={mode === 'grid'}
+          >
+            Grid
+          </button>
+          <button
+            onClick={() => setMode('list')}
+            className={`seg-item ${mode === 'list' ? 'seg-item-active' : ''}`}
+            title="Lay the projects out as a list"
+            aria-pressed={mode === 'list'}
+          >
+            List
+          </button>
+        </div>
+
+        {/* A real `<select>`, drawn as one of ours. It gets keyboard,
+            type-ahead and the platform popup for free, and every
+            hand-rolled replacement in this repo's history lost at least
+            one of the three. */}
+        <Select
+          value={sort}
+          onChange={setSort}
+          size="md"
+          title="How to order the projects"
+          options={[
+            { value: 'recent', label: 'Last edited' },
+            { value: 'name', label: 'Name' },
+            { value: 'longest', label: 'Longest' },
+          ]}
+        />
       </div>
 
       {filtered.length === 0 ? (
@@ -146,13 +179,13 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           </p>
         </div>
       ) : mode === 'grid' ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-3.5 gap-y-5 mt-4">
-          {filtered.map((entry) => (
-            <div key={entry.id} data-home="project-tile" className="group relative">
+        <div className="hp-project-grid grid mt-4">
+          {shown.map((entry) => (
+            <div key={entry.id} data-home="project-tile" className="hp-project-card group relative">
               <button onClick={() => onOpen(entry)} className="block w-full text-left">
-                <span className="hp-media block aspect-video rounded-squircle-lg overflow-hidden relative">
-                  {entry.posterUrl ? (
-                    <img src={entry.posterUrl} alt="" className="poster-zoom w-full h-full object-cover" />
+                <span className="hp-media hp-project-frame block aspect-video overflow-hidden relative">
+                  {projectArtwork(entry) ? (
+                    <img src={projectArtwork(entry)} alt="" className="poster-zoom w-full h-full object-cover" />
                   ) : (
                     <span className="poster-empty w-full h-full flex items-center justify-center">
                       <Film className="w-5 h-5 text-white/[0.10]" />
@@ -163,20 +196,20 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
                   <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-12 pointer-events-none"
                         style={{ background: 'linear-gradient(to top,rgba(6,8,12,0.6),transparent)' }} />
 
-                  <span className="media-pill absolute bottom-2 left-2 h-[18px] px-1.5 rounded-[5px] flex items-center">
+                  <span className="media-pill absolute bottom-2 left-2 h-[18px] px-1.5 rounded-squircle-xs flex items-center">
                     {formatDuration(entry.durationMs)}
                   </span>
-                  <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-[5px] flex items-center gap-1">
+                  <span className="media-pill absolute bottom-2 right-2 h-[18px] px-1.5 rounded-squircle-xs flex items-center gap-1">
                     <Film className="w-2.5 h-2.5" />
                     {entry.clipCount}
                   </span>
                 </span>
 
-                <span className="block text-ui-lg font-medium text-spectrum-text truncate mt-2.5
+                <span data-home="project-name" className="hp-project-name block text-ui-lg font-medium text-spectrum-text truncate
                                  tracking-[-0.006em]">
                   {entry.name}
                 </span>
-                <span className="block text-ui-sm text-spectrum-textDim truncate mt-0.5">
+                <span className="hp-project-meta block text-ui-sm text-spectrum-textDim truncate mt-0.5">
                   {entry.starter ? 'Starter project' : 'Recent'} · {entry.aspectRatio}
                 </span>
               </button>
@@ -198,7 +231,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
         </div>
       ) : (
         <div className="mt-4 flex flex-col">
-          {filtered.map((entry) => (
+          {shown.map((entry) => (
             <div key={entry.id} data-home="project-tile"
                  /* The padding bleeds OUTWARD, so a row starts on the
                     same vertical as the heading above it and as every
@@ -206,10 +239,10 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
                  className="group flex items-center gap-3.5 py-2.5 -mx-3 px-3 rounded-squircle-md
                             hover:bg-white/[0.035] transition-colors duration-fast">
               <button onClick={() => onOpen(entry)} className="flex items-center gap-3.5 flex-1 min-w-0 text-left">
-                <span className="hp-media w-[68px] h-[38px] rounded-[6px] overflow-hidden flex-shrink-0
+                <span className="hp-media w-[68px] h-[38px] rounded-squircle-xs overflow-hidden flex-shrink-0
                                  flex items-center justify-center">
-                  {entry.posterUrl
-                    ? <img src={entry.posterUrl} alt="" className="poster-zoom w-full h-full object-cover" />
+                  {projectArtwork(entry)
+                    ? <img src={projectArtwork(entry)} alt="" className="poster-zoom w-full h-full object-cover" />
                     : <span className="poster-empty w-full h-full flex items-center justify-center">
                         <Film className="w-3.5 h-3.5 text-white/[0.10]" />
                       </span>}

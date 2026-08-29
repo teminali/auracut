@@ -5,6 +5,7 @@
 
 import React, { useCallback, useEffect } from 'react';
 import { HeaderBar } from './components/header/HeaderBar';
+import { McpStatusModal } from './components/header/McpStatusModal';
 import { HomeScreen } from './components/home/HomeScreen';
 import { SidebarNav } from './components/sidebar/SidebarNav';
 import { MediaPanel } from './components/sidebar/MediaPanel';
@@ -14,12 +15,14 @@ import { CaptionsPanel } from './components/sidebar/CaptionsPanel';
 import { TransitionsPanel } from './components/sidebar/TransitionsPanel';
 import { EffectsPanel } from './components/sidebar/EffectsPanel';
 import { FiltersPanel } from './components/sidebar/FiltersPanel';
+import { SkillsPanel } from './components/sidebar/SkillsPanel';
 import { AiToolsPanel } from './components/sidebar/AiToolsPanel';
 import { PreviewPlayer } from './components/preview/PreviewPlayer';
 import { InspectorPanel } from './components/inspector/InspectorPanel';
 import { Timeline } from './components/timeline/Timeline';
 import { CopilotDrawer } from './components/copilot/CopilotDrawer';
 import { RecorderStudio } from './components/recorder/RecorderStudio';
+import { PlayerOverlay } from './components/player/PlayerOverlay';
 import { ExportModal } from './components/header/ExportModal';
 import { CommandPalette } from './components/ui/CommandPalette';
 import { ContextMenu } from './components/ui/ContextMenu';
@@ -45,6 +48,7 @@ const PANELS = {
   transitions: TransitionsPanel,
   effects: EffectsPanel,
   filters: FiltersPanel,
+  skills: SkillsPanel,
   ai: AiToolsPanel,
 } as const;
 
@@ -57,6 +61,8 @@ export const App: React.FC = () => {
     toggleSidebar, toggleInspector,
     activeTab, showHome, setShowHome,
   } = useLayoutStore();
+  const isMcpModalOpen = useProjectStore((s) => s.isMcpModalOpen);
+  const setMcpModalOpen = useProjectStore((s) => s.setMcpModalOpen);
 
   useKeyboardShortcuts();
 
@@ -187,22 +193,38 @@ export const App: React.FC = () => {
           was opened from.
         */}
         <RecorderStudio onEnterEditor={() => setShowHome(false)} />
+        {/*
+          Mounted on BOTH screens, exactly like the recorder and for the
+          same reason: it is ONE Player, and Home opens the same one the
+          editor's monitor does. Opening it from Home leaves `showHome`
+          true, so autosave never starts and the recents wall is not
+          rewritten by a session that only watched.
+        */}
+        <PlayerOverlay onOpenTimeline={() => { setShowHome(false); }} />
+        <ExportModal />
+        {isMcpModalOpen && <McpStatusModal onClose={() => setMcpModalOpen(false)} />}
+        <CommandPalette />
+        <ShortcutsOverlay />
+        <ContextMenu />
         <Toasts />
       </div>
     );
   }
 
+  /* The shell carries the BRIGHT rung, as the reference's own shell
+     does; text that is actually painted asks for `text-spectrum-text`
+     itself, which is one step dimmer. */
   return (
-    <div className="flex flex-col h-screen w-screen bg-spectrum-bg text-spectrum-text overflow-hidden font-sans select-none">
+    <div className="editor-shell flex flex-col h-screen w-screen bg-spectrum-bg text-spectrum-textBright overflow-hidden font-sans select-none">
       <HeaderBar onGoHome={goHome} />
 
       {/* Workspace */}
-      <div className="flex-1 flex overflow-hidden relative min-h-0">
+      <div className="editor-workspace flex-1 flex overflow-hidden relative min-h-0">
         <SidebarNav />
 
         {!isSidebarCollapsed && (
           <>
-            <div style={{ width: sidebarWidth }} className="h-full flex-shrink-0 overflow-hidden">
+            <div style={{ width: sidebarWidth }} className="editor-library h-full flex-shrink-0 overflow-hidden">
               <ActivePanel />
             </div>
             <div
@@ -215,7 +237,7 @@ export const App: React.FC = () => {
         )}
 
         {/* Monitor */}
-        <div className="flex-1 flex flex-col min-w-[280px] min-h-0 relative">
+        <div className="editor-program flex-1 flex flex-col min-w-[280px] min-h-0 relative">
           <PreviewPlayer />
 
           {/* Collapse affordances live on the monitor edges */}
@@ -247,7 +269,7 @@ export const App: React.FC = () => {
               className="splitter-col"
               title="Drag to resize · double-click to collapse"
             />
-            <div style={{ width: inspectorWidth }} className="h-full flex-shrink-0 overflow-hidden">
+            <div style={{ width: inspectorWidth }} className="editor-inspector h-full flex-shrink-0 overflow-hidden">
               <InspectorPanel />
             </div>
           </>
@@ -259,17 +281,19 @@ export const App: React.FC = () => {
       {/* Timeline */}
       <div
         onPointerDown={dragSplitter('y', -1, timelineHeight, setTimelineHeight)}
-        onDoubleClick={() => setTimelineHeight(320)}
+        onDoubleClick={() => setTimelineHeight(291)}
         className="splitter-row"
         title="Drag to resize the timeline · double-click to reset"
       />
-      <div style={{ height: timelineHeight }} className="flex-shrink-0 min-h-0">
+      <div style={{ height: timelineHeight }} className="editor-timeline flex-shrink-0 min-h-0">
         <Timeline />
       </div>
 
       {/* Overlays */}
       <RecorderStudio onEnterEditor={() => setShowHome(false)} />
+      <PlayerOverlay onOpenTimeline={() => setShowHome(false)} />
       <ExportModal />
+      {isMcpModalOpen && <McpStatusModal onClose={() => setMcpModalOpen(false)} />}
       <CommandPalette />
       <ShortcutsOverlay />
       <ContextMenu />

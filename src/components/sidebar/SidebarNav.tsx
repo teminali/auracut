@@ -2,15 +2,20 @@
    Left activity rail.
 
    Tiles are icon-over-label at a fixed size so the rail keeps a strict
-   vertical rhythm. The active tile lifts out of the chrome and is
-   anchored by a colour bar on the window edge — the same cue Resolve,
-   VS Code and Figma use, and the fastest one to read peripherally.
+   vertical rhythm. The active tile lifts out of the chrome by light —
+   a raised fill, a hairline and a filled glyph.
+
+   The orange bar that used to sit flush to the window edge is gone.
+   It was a fourth signal for a binary that already had three, and it
+   is the same correction HANDOVER §7 made on the home screen twice.
+   The geometry and the states live in `.rail-tile` in index.css, so
+   anything else that needs this tile gets the identical one.
    ═══════════════════════════════════════════════════════════════════ */
 
 import React from 'react';
 import { useLayoutStore, SidebarTab } from '../../store/layoutStore';
 import {
-  FolderOpen, Music, Type, Subtitles, Layers, Sparkle, Sliders, Zap,
+  FolderOpen, Music, Type, Subtitles, Layers, Sparkle, Sliders, Zap, Blocks,
 } from '../ui/icons';
 
 interface TabItem {
@@ -31,7 +36,8 @@ const TABS: TabItem[] = [
      tiles below it is how a set of one drifts back to a set of three. */
   { id: 'effects', label: 'VFX', icon: Zap, hotkey: '6' },
   { id: 'filters', label: 'Colour', icon: Sliders, hotkey: '7' },
-  { id: 'ai', label: 'AI', icon: Sparkle, hotkey: '8' },
+  { id: 'skills', label: 'Skills', icon: Blocks, hotkey: '8' },
+  { id: 'ai', label: 'AI', icon: Sparkle, hotkey: '9' },
 ];
 
 export const SidebarNav: React.FC = () => {
@@ -41,7 +47,7 @@ export const SidebarNav: React.FC = () => {
   const toggleSidebar = useLayoutStore((s) => s.toggleSidebar);
 
   return (
-    <nav className="w-[58px] flex-shrink-0 bg-spectrum-panelHeader border-r border-line flex flex-col items-center py-2 gap-1 z-20">
+    <nav className="editor-rail w-[60px] flex-shrink-0 bg-spectrum-panelHeader border-r border-line flex flex-col items-center py-2 gap-0.5 z-20">
       {TABS.map((tab) => {
         const Icon = tab.icon;
         const isActive = activeTab === tab.id && !isCollapsed;
@@ -50,20 +56,10 @@ export const SidebarNav: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => (activeTab === tab.id ? toggleSidebar() : setActiveTab(tab.id))}
-            className={`group relative w-[46px] h-[46px] rounded-squircle-sm flex flex-col items-center justify-center gap-[3px] transition-colors duration-fast ${
-              isActive
-                ? 'bg-spectrum-card text-spectrum-text shadow-raised'
-                : 'text-spectrum-textDim hover:text-spectrum-text hover:bg-white/[0.045]'
-            }`}
+            className={`group rail-tile ${isActive ? 'rail-tile-active' : ''}`}
             title={`${tab.label} · ${tab.hotkey}`}
-          
+            aria-current={isActive ? 'page' : undefined}
             aria-label={`${tab.label} · ${tab.hotkey}`}>
-            {/* Edge marker — flush to the window, not to the tile. */}
-            <span
-              className={`absolute -left-2 top-3 bottom-3 w-[3px] rounded-r-full bg-spectrum-accent transition-opacity duration-fast ${
-                isActive ? 'opacity-100' : 'opacity-0'
-              }`}
-            />
             {/* The reason the icon set changed. A stroke-only set can
                 signal "selected" with colour alone; a filled glyph reads
                 as selected at 18px before any colour is processed. */}

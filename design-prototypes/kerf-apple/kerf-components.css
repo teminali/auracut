@@ -1,0 +1,175 @@
+/* Shared Kerf primitives used by Home, Editor, and Fullscreen Player. */
+.kf-ui-button,
+.kf-ui-primary-button,
+.kf-ui-icon-button,
+.kf-ui-play-button,
+.kf-ui-toolbar-button {
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist", system-ui, sans-serif !important;
+  cursor: pointer;
+  transition: background-color 160ms cubic-bezier(.2,.72,0,1),
+    border-color 160ms ease,
+    color 160ms ease,
+    filter 160ms ease,
+    box-shadow 180ms ease,
+    transform 180ms cubic-bezier(.2,.72,0,1) !important;
+}
+
+.kf-ui-app-mark {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: var(--kerf-radius-xs, 5px) !important;
+  color: #2b1609 !important;
+  background: linear-gradient(180deg, var(--kerf-accent-soft, #ffad72), var(--kerf-accent, #f28b46)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.25) inset,
+    0 5px 14px rgba(199,103,46,.2) !important;
+  font-size: 12.5px !important;
+  font-weight: 800 !important;
+}
+
+.kf-ui-button {
+  min-height: 28px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center;
+  gap: 7px !important;
+  padding: 5px 10px !important;
+  border: 1px solid var(--kerf-hairline-strong, rgba(255,255,255,.12)) !important;
+  border-radius: var(--kerf-radius-sm, 7px) !important;
+  color: var(--kerf-text-secondary, #b4b4bb) !important;
+  background: var(--kerf-control, #2a2b30) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.035) inset !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.kf-ui-primary-button {
+  min-height: 30px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center;
+  gap: 7px !important;
+  padding: 6px 14px !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  border-radius: var(--kerf-radius-sm, 7px) !important;
+  color: #2b1609 !important;
+  background: linear-gradient(180deg, var(--kerf-accent-soft, #ffad72), var(--kerf-accent, #f28b46)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.25) inset,
+    0 5px 14px rgba(199,103,46,.2) !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.kf-ui-icon-button {
+  width: 28px !important;
+  height: 26px !important;
+  min-width: 28px !important;
+  min-height: 26px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: var(--kerf-radius-sm, 7px) !important;
+  color: var(--kerf-text-secondary, #b4b4bb) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.kf-ui-icon-button:hover {
+  color: var(--kerf-text, #f5f5f7) !important;
+  background: rgba(255,255,255,.07) !important;
+}
+
+.kf-ui-play-button {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  min-height: 40px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  color: #151617 !important;
+  background: #f2f2f2 !important;
+  box-shadow: 0 5px 16px rgba(0,0,0,.25) !important;
+}
+
+.kf-ui-toolbar-button {
+  min-height: 30px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center;
+  gap: 6px !important;
+  padding: 6px 10px !important;
+  border: 1px solid transparent;
+  border-radius: var(--kerf-radius-sm, 7px) !important;
+  color: var(--kerf-text-secondary, #b4b4bb);
+  background: transparent;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+}
+
+.kf-ui-button:hover,
+.kf-ui-primary-button:hover,
+.kf-ui-toolbar-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.kf-ui-button:active,
+.kf-ui-primary-button:active,
+.kf-ui-icon-button:active,
+.kf-ui-toolbar-button:active {
+  transform: scale(.975) !important;
+  transition-duration: 70ms !important;
+}
+
+.kf-ui-panel {
+  background: var(--kerf-surface, #1d1e22) !important;
+  border-color: var(--kerf-hairline, rgba(255,255,255,.075)) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025) inset,
+    0 18px 44px rgba(0,0,0,.16);
+}
+
+.kf-ui-panel-header {
+  height: 38px !important;
+  min-height: 38px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 0 10px 0 12px !important;
+  color: var(--kerf-text, #f5f5f7);
+  background: var(--kerf-surface-raised, #242529) !important;
+  border-bottom: 1px solid var(--kerf-hairline, rgba(255,255,255,.075)) !important;
+}
+
+.kf-ui-card,
+.kf-ui-field {
+  border: 1px solid var(--kerf-hairline, rgba(255,255,255,.075)) !important;
+  border-radius: var(--kerf-radius-sm, 7px) !important;
+  background: rgba(255,255,255,.035) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.025) inset;
+}
+
+.kf-ui-field:focus-within {
+  border-color: rgba(242,139,70,.5) !important;
+  box-shadow: 0 0 0 3px rgba(242,139,70,.09) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kf-ui-button,
+  .kf-ui-primary-button,
+  .kf-ui-icon-button,
+  .kf-ui-play-button,
+  .kf-ui-toolbar-button {
+    transition-duration: .001ms !important;
+  }
+}

@@ -94,8 +94,8 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
         ]);
       }}
       style={{ height: track.heightPx }}
-      className={`relative w-full flex items-center gap-2 pl-3 pr-2 border-b border-line cursor-pointer group transition-colors ${
-        isSelected ? 'bg-spectrum-card' : 'bg-spectrum-panelHeader hover:bg-white/[0.028]'
+      className={`editor-track-row relative w-full flex items-center gap-[9px] px-[11px] border-b border-line cursor-pointer group transition-colors ${
+        isSelected ? 'is-active bg-spectrum-card' : 'bg-spectrum-panelHeader hover:bg-white/[0.028]'
       }`}
     >
       {/* Lane colour spine — the track's identity, flush to the window edge. */}
@@ -108,9 +108,14 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
         Fixed-width lane badge. Giving the number its own column is what
         keeps a stack of track headers reading as a list rather than as
         ragged text — every name starts at the same x.
+
+        14px, not 22: every badge is two characters, so the reference
+        sizes this to the text and spends the difference on the name.
+        At a 160px column those 8px decide whether a lane is called
+        "Music" or "Mus…".
       */}
       <span
-        className={`flex-shrink-0 w-[22px] text-center text-micro font-mono font-bold tabular ${style.color}`}
+        className={`flex-shrink-0 w-[14px] text-center text-micro font-mono font-bold tabular ${style.color}`}
       >
         {style.badge}{laneNumber}
       </span>
@@ -163,12 +168,17 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
       </div>
 
       {/*
-        Toggles keep a reserved column so they never shift as solo appears
-        on audio lanes — a control that moves between rows is a control you
-        have to look for every time.
+        Toggles are RIGHT-ALIGNED and only as many as the lane actually
+        has, exactly as the reference draws them: audio carries solo,
+        video does not. This used to reserve an empty 22px slot on every
+        video row so the icons lined up between rows of different types
+        — but a row's type never changes, so nothing could ever shift,
+        and the reservation was costing the track NAME a quarter of its
+        width. At 160px that is the difference between "Ground" and
+        "Gr…".
       */}
       <div className="flex items-center gap-0.5 flex-shrink-0">
-        {isAudio ? (
+        {isAudio && (
           <button
             onClick={(e) => { e.stopPropagation(); setTrackSolo(track.id); }}
             className={`pro-btn w-[22px] h-[22px] ${track.solo ? 'pro-btn-active' : ''}`}
@@ -177,8 +187,6 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
             aria-label={track.solo ? 'Un-solo track' : 'Solo track'}>
             <Headphones className="w-3 h-3" />
           </button>
-        ) : (
-          <span className="w-[22px]" />
         )}
 
         <button

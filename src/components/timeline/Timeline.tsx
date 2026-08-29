@@ -18,10 +18,14 @@ import { Playhead, PlayheadHead } from './Playhead';
 import { MarkerLane } from './MarkerLane';
 import { MediaAsset } from '../../types/edl';
 
-export const BASE_PX_PER_MS = 0.05;
-export const HEADER_WIDTH = 204;
-const RULER_HEIGHT = 28;
-const MARKER_HEIGHT = 14;
+/* The scale and its clamp live in the store, because the store is what
+   enforces them. Re-exported here so the existing import sites keep
+   working — this module was their source before. */
+export { BASE_PX_PER_MS } from '../../store/timelineStore';
+import { BASE_PX_PER_MS } from '../../store/timelineStore';
+export const HEADER_WIDTH = 160;
+const RULER_HEIGHT = 30;
+const MARKER_HEIGHT = 18;
 
 export interface DragGhost {
   clipIds: string[];
@@ -209,9 +213,16 @@ export const Timeline: React.FC = () => {
       const cursorX = e.clientX - rect.left + el.scrollLeft;
       const timeAtCursor = cursorX / (BASE_PX_PER_MS * state.zoomLevel);
 
+      /* The clamp is the store's, and only the store's. This line used
+         to carry its own `Math.max(0.05, Math.min(20, …))`, which is a
+         second copy of a limit that has now moved — ⌘-wheel would have
+         kept stopping at the old ceiling while every other zoom control
+         went further. Ask the store what it actually settled on and
+         scroll to THAT, so the pointer anchor cannot drift at the
+         limits. */
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      const nextZoom = Math.max(0.05, Math.min(20, state.zoomLevel * factor));
-      state.setZoomLevel(nextZoom);
+      state.setZoomLevel(state.zoomLevel * factor);
+      const nextZoom = useTimelineStore.getState().zoomLevel;
 
       // Keep whatever was under the cursor under the cursor.
       requestAnimationFrame(() => {
@@ -269,20 +280,20 @@ export const Timeline: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-full bg-spectrum-panel border-t border-line overflow-hidden select-none">
+    <div className="editor-timeline-inner flex flex-col h-full bg-spectrum-panel border-t border-line overflow-hidden select-none">
       <TimelineToolbar scrollRef={scrollRef} />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* ── Track headers ── */}
         <div
-          className="flex-shrink-0 flex flex-col bg-spectrum-panelHeader border-r border-line z-20"
+          className="editor-track-list flex-shrink-0 flex flex-col bg-spectrum-panelHeader border-r border-line z-20"
           style={{ width: HEADER_WIDTH }}
         >
           <div
-            className="flex items-center px-3 border-b border-line bg-spectrum-panelHeader flex-shrink-0"
+            className="editor-track-list-header flex items-center px-[12px] pt-px border-b border-line bg-spectrum-panelHeader flex-shrink-0"
             style={{ height: RULER_HEIGHT + MARKER_HEIGHT }}
           >
-            <span className="panel-title">Tracks</span>
+            <span className="panel-title text-spectrum-textDimCool">Tracks</span>
           </div>
 
           <div className="flex-1 overflow-hidden">
@@ -293,10 +304,10 @@ export const Timeline: React.FC = () => {
         </div>
 
         {/* ── Scrollable lanes ── */}
-        <div ref={scrollRef} className="flex-1 overflow-x-auto overflow-y-auto relative bg-spectrum-sunken min-w-0">
+        <div ref={scrollRef} className="editor-timeline-lanes flex-1 overflow-x-auto overflow-y-auto relative bg-spectrum-sunken min-w-0">
           <div style={{ width: contentWidth, minHeight: '100%' }} className="relative">
             {/* Ruler + markers pinned to the top of the scroll area */}
-            <div className="sticky top-0 z-30 bg-spectrum-panelHeader border-b border-line">
+            <div className="editor-time-ruler-stack sticky top-0 z-30 bg-spectrum-panelHeader border-b border-line">
               <TimelineRuler pxPerMs={pxPerMs} durationMs={project.durationMs} height={RULER_HEIGHT} />
               <MarkerLane pxPerMs={pxPerMs} height={MARKER_HEIGHT} />
               <PlayheadHead pxPerMs={pxPerMs} height={RULER_HEIGHT + MARKER_HEIGHT} />
@@ -329,11 +340,11 @@ export const Timeline: React.FC = () => {
                   onDragLeave={() => setDropTargetTrack((t) => (t === track.id ? null : t))}
                   onDrop={(e) => handleDrop(e, track.id)}
                   style={{ height: track.heightPx }}
-                  className={`relative w-full border-b border-line lane-stripe transition-colors ${
+                  className={`editor-track-lane relative w-full border-b border-line lane-stripe transition-colors ${
                     dropTargetTrack === track.id
                       ? 'bg-spectrum-accent/12 ring-1 ring-inset ring-spectrum-accent/50'
                       : selectedTrackId === track.id
-                        ? 'bg-white/[0.028]'
+                        ? 'is-active bg-white/[0.028]'
                         : idx % 2 === 0
                           ? 'bg-white/[0.012]'
                           : 'bg-transparent'
@@ -368,7 +379,7 @@ export const Timeline: React.FC = () => {
               {/* Marquee */}
               {marquee && (
                 <div
-                  className="absolute border border-spectrum-accent bg-spectrum-accent/12 pointer-events-none z-40 rounded-[3px]"
+                  className="absolute border border-spectrum-accent bg-spectrum-accent/12 pointer-events-none z-40 rounded-squircle-2xs"
                   style={{
                     left: Math.min(marquee.x0, marquee.x1),
                     top: Math.min(marquee.y0, marquee.y1),

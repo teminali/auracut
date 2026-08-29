@@ -103,7 +103,7 @@ export const TextPanel: React.FC = () => {
                   load={() => textPreview(preset.style.kineticAnimation ?? 'none', preset.label)}
                   label={`${preset.label} preview`}
                   restAt={0.5}
-                  className="w-[52px] aspect-video rounded-[4px] flex-shrink-0"
+                  className="w-[52px] aspect-video rounded-squircle-2xs flex-shrink-0"
                 />
                 <span className="min-w-0 flex-1">
                   <span className="block text-ui-sm font-medium text-spectrum-text truncate group-hover:text-spectrum-accent transition-colors">

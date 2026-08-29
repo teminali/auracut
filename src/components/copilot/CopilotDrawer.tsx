@@ -44,7 +44,7 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <kbd className="px-1 h-[14px] inline-flex items-center rounded-[3px] border border-line bg-spectrum-sunken font-mono text-micro text-spectrum-textDim">
+  <kbd className="px-1 h-[14px] inline-flex items-center rounded-squircle-2xs border border-line bg-spectrum-sunken font-mono text-micro text-spectrum-textDim">
     {children}
   </kbd>
 );
@@ -357,7 +357,7 @@ export const CopilotDrawer: React.FC = () => {
           <span className="text-ui font-semibold text-spectrum-text flex-shrink-0">Copilot</span>
           <button
             onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1 flex-shrink-0 min-w-0 rounded-[4px] px-1 -mx-1 hover:bg-white/[0.05] transition-colors"
+            className="flex items-center gap-1 flex-shrink-0 min-w-0 rounded-squircle-2xs px-1 -mx-1 hover:bg-white/[0.05] transition-colors"
             title={
               !agentChecked
                 ? 'Looking for the Claude Code CLI…'
@@ -390,7 +390,7 @@ export const CopilotDrawer: React.FC = () => {
           {openGaps > 0 && (
             <button
               onClick={() => setGapLogOpen(true)}
-              className="h-[20px] px-1.5 rounded-[5px] border border-spectrum-amber/35 bg-spectrum-amber/10 text-spectrum-amber text-micro font-medium flex items-center gap-1 mr-1"
+              className="h-[20px] px-1.5 rounded-squircle-xs border border-spectrum-amber/35 bg-spectrum-amber/10 text-spectrum-amber text-micro font-medium flex items-center gap-1 mr-1"
               title={`${openGaps} thing${openGaps === 1 ? '' : 's'} asked for that Kerf cannot do yet`}
             
             aria-label={`${openGaps} thing${openGaps === 1 ? '' : 's'} asked for that Kerf cannot do yet`}>
@@ -826,7 +826,7 @@ const CliMissingNotice: React.FC<{ status: { installed: boolean } | null }> = ({
         It understands common editing phrasings, but it cannot hold a conversation or touch
         your files. Install the Claude Code CLI and reopen Kerf to get the full agent:
       </p>
-      <code className="block text-micro font-mono text-spectrum-accent bg-black/30 rounded-[3px] px-1.5 py-1">
+      <code className="block text-micro font-mono text-spectrum-accent bg-black/30 rounded-squircle-2xs px-1.5 py-1">
         npm i -g @anthropic-ai/claude-code
       </code>
     </div>

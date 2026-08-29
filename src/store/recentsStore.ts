@@ -120,7 +120,9 @@ export const useRecentsStore = create<RecentsState>((set, get) => ({
       ...get().recents.filter((r) => r.id !== entry.id && !r.starter),
     ].slice(0, LIMIT);
 
-    persist(next);
+    /* The starter is never persisted: it is rebuilt from code and a
+       stored copy of it would go stale the moment the EDL changes. */
+    persist(next.filter((r) => !r.starter));
     set({ recents: next });
   },
 
@@ -130,14 +132,28 @@ export const useRecentsStore = create<RecentsState>((set, get) => ({
     set({ recents: next });
   },
 
+  /*
+    Removing the last real project brings the starter back.
+
+    `withStarter` ran ONCE, at store construction, so it only ever
+    described the state at launch. Forget your last project — or clear
+    the list — and the wall stayed empty for the rest of the session
+    AND every session after it, because the empty list was persisted
+    and the starter is only re-added on load. The screen then showed
+    "no projects" to someone who had just been told the starter is
+    always there when there is nothing else.
+
+    Found by a check that seeded two projects and removed them again.
+    Both paths run the same rule now, and the rule lives in one place.
+  */
   forget: (id) => {
-    const next = get().recents.filter((r) => r.id !== id);
-    persist(next);
+    const next = withStarter(get().recents.filter((r) => r.id !== id));
+    persist(next.filter((r) => !r.starter));
     set({ recents: next });
   },
 
   clear: () => {
     persist([]);
-    set({ recents: [] });
+    set({ recents: withStarter([]) });
   },
 }));

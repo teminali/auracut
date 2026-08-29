@@ -93,7 +93,7 @@ export const FiltersPanel: React.FC = () => {
             <MotionThumb
               load={() => lookPreview(look.id, look.filters)}
               label={`${look.label} preview`}
-              className="w-[58px] aspect-video rounded-[5px] flex-shrink-0"
+              className="w-[58px] aspect-video rounded-squircle-xs flex-shrink-0"
             />
             <span className="flex-1 min-w-0">
               <span className="block text-ui-sm font-medium text-spectrum-text truncate">{look.label}</span>

@@ -34,6 +34,9 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div
         className="modal-shell w-[560px] max-h-[76vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Requested but missing"
       >
         <div className="panel-header">
           <div className="flex items-center gap-2 min-w-0">
@@ -70,7 +73,7 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 <div className="flex items-start gap-2">
                   <button
                     onClick={() => toggleResolved(gap.id)}
-                    className={`w-4 h-4 rounded-[4px] border flex-shrink-0 mt-px flex items-center justify-center transition-colors ${
+                    className={`w-4 h-4 rounded-squircle-2xs border flex-shrink-0 mt-px flex items-center justify-center transition-colors ${
                       gap.resolved
                         ? 'bg-spectrum-green border-spectrum-green'
                         : 'border-line-strong hover:border-spectrum-textMuted'

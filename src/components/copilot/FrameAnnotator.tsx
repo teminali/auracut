@@ -269,6 +269,9 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
       <div
         onClick={(e) => e.stopPropagation()}
         className="modal-shell w-[900px] max-w-[94vw] max-h-[92vh] flex flex-col"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Mark up the frame"
       >
         {/* Header */}
         <div className="panel-header">
@@ -353,7 +356,7 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
               <canvas
                 ref={overlayRef}
                 onPointerDown={handlePointerDown}
-                className={`block rounded-[3px] ring-1 ring-line-strong ${
+                className={`block rounded-squircle-2xs ring-1 ring-line-strong ${
                   tool === 'select' ? 'cursor-pointer' : 'cursor-crosshair'
                 }`}
               />

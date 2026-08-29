@@ -140,7 +140,13 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
 
   return (
     <div className="scrim" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="modal-shell w-[430px] max-w-[92vw]">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="modal-shell w-[430px] max-w-[92vw]"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Copilot agent"
+      >
         <div className="panel-header">
           <span className="text-ui font-semibold text-spectrum-text">Copilot agent</span>
           <button onClick={onClose} className="pro-btn w-6 h-6" aria-label="Close the agent picker">

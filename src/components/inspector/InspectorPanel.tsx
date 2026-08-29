@@ -122,7 +122,7 @@ export const InspectorPanel: React.FC = () => {
         makes the whole row reflow on each click. The strip scrolls instead,
         with a fade on the right edge so it is obvious there is more.
       */}
-      <div className="relative flex-shrink-0 border-b border-line bg-spectrum-panelHeader">
+      <div className="tab-strip">
         <div className="flex items-center gap-0.5 px-2 overflow-x-auto scrollbar-none">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -132,11 +132,10 @@ export const InspectorPanel: React.FC = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               title={tab.label}
-              className={`relative flex items-center gap-1 px-1.5 h-[30px] text-ui-xs font-medium whitespace-nowrap transition-colors ${
-                active ? 'text-spectrum-text' : 'text-spectrum-textDim hover:text-spectrum-textMuted'
-              }`}
-            
-            aria-label={tab.label}>
+              className={`tab-item ${active ? 'tab-item-active' : ''}`}
+              aria-selected={active}
+              role="tab"
+              aria-label={tab.label}>
               <Icon className="w-3.5 h-3.5 flex-shrink-0" />
               <span>{tab.label}</span>
               {tab.id === 'effects' && effectCount > 0 && (
@@ -149,7 +148,6 @@ export const InspectorPanel: React.FC = () => {
                   {clip.keyframes.length}
                 </span>
               )}
-              {active && <span className="absolute bottom-0 left-1 right-1 h-[2px] bg-spectrum-accent rounded-t-full" />}
             </button>
           );
         })}

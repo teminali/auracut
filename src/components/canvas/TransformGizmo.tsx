@@ -536,7 +536,7 @@ const SmartGuideLayer: React.FC<SmartGuideLayerProps> = ({ guides, spacing, view
                     top: sp.axis === 'x' ? a.y - 18 : a.y + length / 2,
                     transform: sp.axis === 'x' ? 'translateX(-50%)' : 'translateY(-50%)',
                   }}
-                  className="px-1 py-px rounded-[3px] bg-[#ff2d78] text-white text-micro font-mono font-semibold whitespace-nowrap"
+                  className="px-1 py-px rounded-squircle-2xs bg-[#ff2d78] text-white text-micro font-mono font-semibold whitespace-nowrap"
                 >
                   {sp.distance}
                 </div>

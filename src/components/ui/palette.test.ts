@@ -88,22 +88,121 @@ describe('the accent', () => {
 
   it('is distinguishable from every colour that carries a different meaning', () => {
     /*
-      Thirty degrees of hue, or a clear separation in saturation when hue
-      is unavailable. `red` is the documented exception: a terracotta is
-      an orange-red, and every hue between the accent and the pink text
-      lane is within 30 degrees of one or the other, so error red is
-      separated as a VIVID red against a muted clay instead.
-    */
-    const roles = ['amber', 'blue', 'green', 'purple', 'pink'] as const;
-    for (const role of roles) {
-      expect(
-        { role, gap: Math.round(hueGap(accent, token(role))) }
-      ).toEqual({ role, gap: expect.any(Number) });
-      expect(hueGap(accent, token(role))).toBeGreaterThanOrEqual(30);
-    }
+      ONE RULE, applied to all six roles: thirty degrees of hue, or a
+      clear separation in saturation when hue is unavailable.
 
-    const red = token('red');
-    const saturationGap = saturation(red) - saturation(accent);
-    expect(saturationGap).toBeGreaterThan(0.15);
+      That sentence has been the rule since the amber swap; what changed
+      is that it used to be written as "hue for five roles, and red is
+      a hard-coded exception". Which role needs which mechanism DEPENDS
+      ON THE ACCENT, and hard-coding it meant the test described one
+      particular accent rather than the rule:
+
+        terracotta  red boxed in at 18 deg  -> red separated by saturation
+        this orange gold at 26 deg          -> GOLD separates by saturation,
+                                               and red gets 33 deg of hue back
+
+      So the exception moved from red to gold when the accent moved, and
+      a test naming `red` would have failed on a palette that is
+      perfectly legible. Both mechanisms are checked for every role, and
+      the failure message says which one each colour is relying on — so
+      the next swap still fails loudly, and says why.
+    */
+    const roles = ['amber', 'blue', 'green', 'purple', 'pink', 'red'] as const;
+
+    const how = roles.map((role) => {
+      const hueDelta = hueGap(accent, token(role));
+      const satDelta = Math.abs(saturation(token(role)) - saturation(accent));
+      return {
+        role,
+        hue: Math.round(hueDelta),
+        sat: Number(satDelta.toFixed(2)),
+        separatedBy: hueDelta >= 30 ? 'hue' : satDelta >= 0.15 ? 'saturation' : 'NOTHING',
+      };
+    });
+
+    // Reads in the failure output as a table, which is the point.
+    expect(how.filter((r) => r.separatedBy === 'NOTHING')).toEqual([]);
+  });
+});
+
+/*
+  The ink ladder.
+
+  This exists because the ladder DID drift, silently, and nothing
+  caught it. `--text` in index.css and `text` in tailwind.config.js are
+  two hand-maintained copies of one decision — the Tailwind side cannot
+  read the CSS variable without breaking the `/50` alpha modifiers used
+  across the app — so only a test can hold them together.
+
+  The values are measured off the approved design by counting the
+  characters each element PAINTS ITSELF. Counting `textContent` instead
+  charges every wrapper for its entire subtree, and since <body> is
+  white that method scored pure white at 8838 characters and promoted it
+  to the body ink. Counted properly, white paints ZERO characters in the
+  design. That specific mistake is asserted against below.
+*/
+describe('the ink ladder', () => {
+  const RUNGS = [
+    { css: 'text-bright', tw: 'textBright' },
+    { css: 'text', tw: 'text' },
+    { css: 'text-muted', tw: 'textMuted' },
+    { css: 'text-dim', tw: 'textDim' },
+    { css: 'text-faint', tw: 'textFaint' },
+  ] as const;
+
+  it('is the same in the CSS variables and the Tailwind tokens', () => {
+    const drifted = RUNGS
+      .map((r) => ({ rung: r.css, css: cssVar(r.css), tailwind: token(r.tw) }))
+      .filter((r) => r.css.toLowerCase() !== r.tailwind.toLowerCase());
+    expect(drifted).toEqual([]);
+  });
+
+  it('contains no pure white, which the design never paints', () => {
+    const white = RUNGS
+      .map((r) => ({ rung: r.css, value: cssVar(r.css) }))
+      .filter((r) => r.value.toLowerCase() === '#ffffff');
+    expect(white).toEqual([]);
+  });
+
+  it('gets dimmer at every step, so the roles stay distinguishable', () => {
+    const steps = RUNGS.map((r) => ({ rung: r.css, luminance: luminance(cssVar(r.css)) }));
+    const wrongWay = steps
+      .slice(1)
+      .map((s, i) => ({ from: steps[i].rung, to: s.rung, drop: steps[i].luminance - s.luminance }))
+      .filter((s) => s.drop <= 0);
+    expect(wrongWay).toEqual([]);
+  });
+
+  it('keeps body text readable on the panel it sits on', () => {
+    // The forward plane most text is read against.
+    expect(contrast(cssVar('text'), cssVar('surface'))).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+/*
+  Track height is the one geometry the live-design comparison cannot
+  check, because a loaded project carries whatever heights it was saved
+  with -- so a screenshot of somebody's old project says nothing about
+  whether the app agrees with the reference. The DEFAULT is the thing
+  the design fixes, and it is fixed here.
+
+  The reference gives every lane the same ~40px, audio included. The app
+  used to give audio 44 and video 52, which made its timeline a third
+  taller than the design's for the same number of tracks.
+*/
+describe('the default track height', () => {
+  const STORE = readFileSync(join('src', 'store', 'timelineStore.ts'), 'utf8');
+  const MEDIA = readFileSync(join('src', 'mcp', 'defaultMedia.ts'), 'utf8');
+
+  it('is 40 everywhere a track is created', () => {
+    const heights = [...STORE.matchAll(/heightPx:\s*(\d+)/g)].map((m) => Number(m[1]));
+    expect(heights.length).toBeGreaterThan(0);
+    expect(heights.filter((h) => h !== 40)).toEqual([]);
+  });
+
+  it('is 40 on every lane of the bundled starter', () => {
+    const heights = [...MEDIA.matchAll(/heightPx:\s*(\d+)/g)].map((m) => Number(m[1]));
+    expect(heights.length).toBeGreaterThan(0);
+    expect(heights.filter((h) => h !== 40)).toEqual([]);
   });
 });

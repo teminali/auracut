@@ -169,6 +169,9 @@ export const ExportModal: React.FC = () => {
       <div
         onClick={(e) => e.stopPropagation()}
         className={`modal-shell max-w-[92vw] ${isExporting || done ? 'w-[520px]' : 'w-[460px]'}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Export"
       >
         <div className="panel-header">
           <div className="flex items-center gap-2">

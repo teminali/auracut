@@ -107,7 +107,7 @@ export const EffectsPanel: React.FC = () => {
                 load={() => effectPreview(effect.type)}
                 label={`${effect.label} preview`}
                 restAt={0.5}
-                className="w-[62px] aspect-video rounded-[5px] flex-shrink-0"
+                className="w-[62px] aspect-video rounded-squircle-xs flex-shrink-0"
               />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2">

@@ -83,7 +83,7 @@ const ToolRow: React.FC<{ call: AgentToolCall }> = React.memo(({ call }) => {
       <button
         aria-label="Expand or collapse this step"
         onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center gap-1.5 h-[22px] pl-1 pr-1.5 rounded-[4px] text-left
+        className={`w-full flex items-center gap-1.5 h-[22px] pl-1 pr-1.5 rounded-squircle-2xs text-left
           hover:bg-white/[0.035] transition-colors ${failed ? 'bg-spectrum-red/[0.06]' : ''}`}
       >
         <ChevronRight

@@ -135,6 +135,7 @@ export const RecorderStudio: React.FC<Props> = ({ onEnterEditor }) => {
         onClick={(e) => e.stopPropagation()}
         className="modal-shell w-[960px] max-w-[95vw] h-[620px] max-h-[92vh] flex flex-col"
         role="dialog"
+        aria-modal="true"
         aria-label="Screen recorder"
       >
         <div className="panel-header flex-shrink-0">

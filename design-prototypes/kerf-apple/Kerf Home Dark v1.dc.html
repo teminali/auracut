@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<script src="./image-slot.js"></script>
+<style>
+  body { margin: 0; background: #07080a; }
+  a { color: #f0a173; text-decoration: none; }
+  a:hover { color: #f7c3a3; }
+  .kf::-webkit-scrollbar { width: 11px; }
+  .kf::-webkit-scrollbar-thumb { background: #2c3035; border-radius: 999px; border: 3px solid transparent; background-clip: content-box; }
+  .kf::-webkit-scrollbar-track { background: transparent; }
+</style>
+</helmet>
+
+<div style="width:1440px;height:940px;box-sizing:border-box;background:#111214;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px;color:#eceae8;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;border:1px solid #24262a;border-radius:10px;overflow:hidden">
+
+  <div style="position:relative;display:flex;align-items:center;gap:12px;height:40px;flex:none;padding:0 12px;background:#17181b;border-bottom:1px solid #232529">
+    <span style="display:flex;gap:8px;align-items:center;flex:none">
+      <span style="width:12px;height:12px;border-radius:50%;background:#ff5f57"></span>
+      <span style="width:12px;height:12px;border-radius:50%;background:#febc2e"></span>
+      <span style="width:12px;height:12px;border-radius:50%;background:#28c840"></span>
+    </span>
+    <nav style="display:flex;gap:1px;margin-left:10px">
+      <span style="padding:4px 9px;border-radius:5px;color:#a3a19d;font-size:12.5px" style-hover="background:#212429;color:#eceae8">File</span>
+      <span style="padding:4px 9px;border-radius:5px;color:#a3a19d;font-size:12.5px" style-hover="background:#212429;color:#eceae8">Edit</span>
+      <span style="padding:4px 9px;border-radius:5px;color:#a3a19d;font-size:12.5px" style-hover="background:#212429;color:#eceae8">Timeline</span>
+      <span style="padding:4px 9px;border-radius:5px;color:#a3a19d;font-size:12.5px" style-hover="background:#212429;color:#eceae8">Skills</span>
+      <span style="padding:4px 9px;border-radius:5px;color:#a3a19d;font-size:12.5px" style-hover="background:#212429;color:#eceae8">Help</span>
+    </nav>
+    <span style="position:absolute;left:0;right:0;text-align:center;font-size:12.5px;color:#75736f;pointer-events:none">Kerf</span>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;z-index:1">
+      <span style="display:flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;background:#1a1f1c;border:1px solid #27332a;font-size:11.5px;color:#8fc79f">
+        <span style="width:6px;height:6px;border-radius:50%;background:#4ec97a"></span>Claude Code
+      </span>
+      <span style="display:grid;place-items:center;width:27px;height:24px;border-radius:5px;color:#8a8884" style-hover="background:#212429;color:#eceae8">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg>
+      </span>
+      <span style="padding:4px 12px;border-radius:6px;background:#212429;border:1px solid #2e3237;font-size:12px;font-weight:600" style-hover="background:#282c31">Sign in</span>
+    </div>
+  </div>
+
+  <div style="flex:1;display:grid;grid-template-columns:216px 1fr;min-height:0">
+
+    <aside style="display:flex;flex-direction:column;background:#141518;border-right:1px solid #222429;padding:14px 10px;gap:16px">
+      <div style="display:flex;align-items:center;gap:9px;padding:0 6px 2px">
+        <span style="width:26px;height:26px;border-radius:7px;background:linear-gradient(160deg,#f0a173,#c9622f);color:#201006;display:grid;place-items:center;font-weight:800;font-size:14px">K</span>
+        <span style="font-size:14.5px;font-weight:700;letter-spacing:-.01em">Kerf</span>
+        <span style="margin-left:auto;font-size:11px;color:#6d6b68;font-variant-numeric:tabular-nums">1.8.1</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:#66645f;padding:0 8px 5px">Workspace</div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;background:#22262b;color:#f6f4f2;font-weight:600;box-shadow:inset 2px 0 0 #e0854d">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/></svg>
+          Home
+          <span style="margin-left:auto;font-size:10.5px;color:#78766f;font-family:ui-monospace,monospace">⌘1</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;color:#b0aeaa" style-hover="background:#1b1e22;color:#f6f4f2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3.2l1.8 2.2H18a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
+          Projects
+          <span style="margin-left:auto;font-size:11px;color:#78766f;font-variant-numeric:tabular-nums">12</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;color:#b0aeaa" style-hover="background:#1b1e22;color:#f6f4f2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.6"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.6"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.6"/></svg>
+          Skills
+          <span style="margin-left:auto;font-size:11px;color:#78766f;font-variant-numeric:tabular-nums">2</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;color:#b0aeaa" style-hover="background:#1b1e22;color:#f6f4f2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></svg>
+          Copilot
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:2px">
+        <div style="font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:#66645f;padding:0 8px 5px">Library</div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;color:#b0aeaa" style-hover="background:#1b1e22;color:#f6f4f2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 9h19M7.5 5v4M16.5 5v4"/></svg>
+          Media
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;color:#b0aeaa" style-hover="background:#1b1e22;color:#f6f4f2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>
+          Audio
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:7px;color:#b0aeaa" style-hover="background:#1b1e22;color:#f6f4f2">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l7-16 7 16M7.5 14h7"/></svg>
+          Text &amp; titles
+        </div>
+      </div>
+
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px">
+        <div style="padding:10px;border-radius:9px;background:#1a1c20;border:1px solid #24272c">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#98968f;margin-bottom:6px"><span>Local cache</span><span style="font-variant-numeric:tabular-nums">64 / 120 GB</span></div>
+          <div style="height:4px;border-radius:999px;background:#2a2e33;overflow:hidden"><div style="width:53%;height:100%;background:#e0854d"></div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px;padding:6px;border-radius:8px" style-hover="background:#1b1e22">
+          <span style="width:28px;height:28px;border-radius:50%;background:#33383e;display:grid;place-items:center;font-size:11.5px;font-weight:700;color:#dcd9d4">AD</span>
+          <span style="display:flex;flex-direction:column;line-height:1.25">
+            <span style="font-size:12.5px;font-weight:600">{{ userName }}</span>
+            <span style="font-size:11px;color:#7c7a75">Studio plan</span>
+          </span>
+          <svg style="margin-left:auto" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7c7a75" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M4.9 7.6l1.7 1M17.4 15.4l1.7 1M4.9 16.4l1.7-1M17.4 8.6l1.7-1"/></svg>
+        </div>
+      </div>
+    </aside>
+
+    <main class="kf" style="overflow:auto;padding:22px 26px 28px;background:#111214">
+      <sc-if value="{{ showReleaseNote }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:20px;border-radius:9px;background:#1b1a19;border:1px solid #2b2724">
+        <span style="width:26px;height:26px;flex:none;border-radius:7px;background:#2f2621;color:#f0a173;display:grid;place-items:center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/></svg>
+        </span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#e0854d;flex:none">New in 1.8.1</span>
+        <span style="font-size:12.5px;color:#cfcdc9">Updates repair themselves — the updater recovers from a failed install, and agent setup works on Windows.</span>
+        <span style="margin-left:auto;display:flex;align-items:center;gap:8px;flex:none">
+          <span style="padding:4px 11px;border-radius:6px;background:#262a2f;font-size:12px;font-weight:600" style-hover="background:#2e333a">See what's new</span>
+          <span style="display:grid;place-items:center;width:22px;height:22px;border-radius:5px;color:#7c7a75" style-hover="background:#262a2f;color:#eceae8">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </span>
+        </span>
+      </div>
+      </sc-if>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px">
+        <div style="cursor:pointer;padding:16px;border-radius:10px;background:linear-gradient(150deg,#e08e56,#c9622f);color:#1d0f06;display:flex;flex-direction:column;gap:22px;box-shadow:0 6px 18px rgba(201,98,47,.22)" style-hover="filter:brightness(1.07)">
+          <span style="width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.85);display:grid;place-items:center;color:#a54c1f">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </span>
+          <span>
+            <span style="display:block;font-size:15px;font-weight:700;margin-bottom:2px">New project</span>
+            <span style="display:block;font-size:12px;opacity:.75">Blank timeline · ⌘N</span>
+          </span>
+        </div>
+        <div style="cursor:pointer;padding:16px;border-radius:10px;background:#1a1c20;border:1px solid #262a2f;display:flex;flex-direction:column;gap:22px" style-hover="background:#1f2226;border-color:#343941">
+          <span style="width:34px;height:34px;border-radius:9px;background:#262a2f;color:#f0a173;display:grid;place-items:center">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6.5" width="13" height="11" rx="2.5"/><path d="M15.5 11l6-3.2v8.4l-6-3.2z"/></svg>
+          </span>
+          <span>
+            <span style="display:block;font-size:15px;font-weight:700;margin-bottom:2px">Record screen</span>
+            <span style="display:block;font-size:12px;color:#8d8b86">Capture and cut in place</span>
+          </span>
+        </div>
+        <div style="cursor:pointer;padding:16px;border-radius:10px;background:#1a1c20;border:1px solid #262a2f;display:flex;flex-direction:column;gap:22px" style-hover="background:#1f2226;border-color:#343941">
+          <span style="width:34px;height:34px;border-radius:9px;background:#262a2f;color:#9dc7a6;display:grid;place-items:center">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/><path d="M18.5 16.5l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z"/></svg>
+          </span>
+          <span>
+            <span style="display:block;font-size:15px;font-weight:700;margin-bottom:2px">Ask Copilot</span>
+            <span style="display:block;font-size:12px;color:#8d8b86">Describe the edit you want</span>
+          </span>
+        </div>
+        <div style="cursor:pointer;padding:16px;border-radius:10px;background:#1a1c20;border:1px solid #262a2f;display:flex;flex-direction:column;gap:22px" style-hover="background:#1f2226;border-color:#343941">
+          <span style="width:34px;height:34px;border-radius:9px;background:#262a2f;color:#c9c6c1;display:grid;place-items:center">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7a2 2 0 0 1 2-2h3.2l1.8 2.2H18a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>
+          </span>
+          <span>
+            <span style="display:block;font-size:15px;font-weight:700;margin-bottom:2px">Open a project</span>
+            <span style="display:block;font-size:12px;color:#8d8b86">Browse folder · ⌘O</span>
+          </span>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <h2 style="margin:0;font-size:16px;font-weight:700;letter-spacing:-.01em">Recent projects</h2>
+        <span style="font-size:12px;color:#7c7a75">12 total</span>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          <span style="display:flex;align-items:center;gap:7px;padding:5px 10px;border-radius:7px;background:#1a1c20;border:1px solid #262a2f;color:#8d8b86;font-size:12px;width:190px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+            Search projects
+          </span>
+          <span style="display:flex;padding:2px;border-radius:7px;background:#1a1c20;border:1px solid #262a2f">
+            <span style="padding:3px 9px;border-radius:5px;background:#2b3037;font-size:11.5px;font-weight:600">Grid</span>
+            <span style="padding:3px 9px;border-radius:5px;font-size:11.5px;color:#8d8b86" style-hover="color:#eceae8">List</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;background:#1a1c20;border:1px solid #262a2f;font-size:12px;color:#c4c1bc" style-hover="background:#1f2226">
+            Last edited
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+          </span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:30px">
+        <sc-for list="{{ projects }}" as="p" hint-placeholder-count="4">
+          <div style="cursor:pointer;border-radius:10px;background:#1a1c20;border:1px solid #262a2f;overflow:hidden" style-hover="border-color:#3c424a;background:#1f2226">
+            <div style="position:relative;height:132px;background:#0e0f11">
+              <image-slot id="{{ p.slot }}" shape="rect" placeholder="{{ p.placeholder }}"></image-slot>
+              <span style="position:absolute;left:8px;top:8px;padding:3px 8px;border-radius:5px;background:rgba(10,11,12,.72);backdrop-filter:blur(4px);font-size:11px;font-weight:600;color:{{ p.stateColor }};pointer-events:none">{{ p.state }}</span>
+              <span style="position:absolute;right:8px;bottom:8px;padding:2px 7px;border-radius:5px;background:rgba(10,11,12,.72);font-family:ui-monospace,monospace;font-size:11px;color:#dcd9d4;pointer-events:none">{{ p.duration }}</span>
+              <span style="position:absolute;left:0;right:0;bottom:0;height:3px;background:#26292e;pointer-events:none"><span style="display:block;height:100%;width:{{ p.progress }};background:#e0854d"></span></span>
+            </div>
+            <div style="padding:10px 11px 11px">
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.title }}</span>
+                <svg style="margin-left:auto;flex:none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#75736f" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5.5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="18.5" r="1.2"/></svg>
+              </div>
+              <div style="font-size:11.5px;color:#7c7a75;margin-top:3px">{{ p.meta }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <h2 style="margin:0;font-size:16px;font-weight:700;letter-spacing:-.01em">Skills</h2>
+        <span style="font-size:12px;color:#7c7a75">agents that edit for you</span>
+        <a href="#" style="margin-left:auto;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:4px">Browse all
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </a>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">
+        <div style="display:flex;gap:12px;padding:11px;border-radius:10px;background:#1a1c20;border:1px solid #262a2f" style-hover="border-color:#3c424a">
+          <div style="position:relative;width:104px;height:74px;flex:none;border-radius:7px;overflow:hidden;background:#0e0f11">
+            <image-slot id="skill-beat" shape="rect" placeholder="Cover"></image-slot>
+          </div>
+          <div style="min-width:0;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:7px">
+              <span style="font-size:13px;font-weight:600">Beat Montage</span>
+              <span style="padding:1px 6px;border-radius:4px;background:#1e2a20;color:#8fc79f;font-size:10.5px;font-weight:600">Included</span>
+            </div>
+            <div style="font-size:11.5px;color:#7c7a75;margin:3px 0 8px">Cuts a folder of footage to its own music bed, 9:16.</div>
+            <span style="margin-top:auto;align-self:flex-start;padding:4px 11px;border-radius:6px;background:#262a2f;font-size:11.5px;font-weight:600" style-hover="background:#2e333a">Run</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;padding:11px;border-radius:10px;background:#1a1c20;border:1px solid #262a2f" style-hover="border-color:#3c424a">
+          <div style="position:relative;width:104px;height:74px;flex:none;border-radius:7px;overflow:hidden;background:#0e0f11">
+            <image-slot id="skill-tutorial" shape="rect" placeholder="Cover"></image-slot>
+          </div>
+          <div style="min-width:0;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:7px">
+              <span style="font-size:13px;font-weight:600">Tutorial</span>
+              <span style="padding:1px 6px;border-radius:4px;background:#1e2a20;color:#8fc79f;font-size:10.5px;font-weight:600">Included</span>
+            </div>
+            <div style="font-size:11.5px;color:#7c7a75;margin:3px 0 8px">Turns a screen recording into a finished tutorial with chapters.</div>
+            <span style="margin-top:auto;align-self:flex-start;padding:4px 11px;border-radius:6px;background:#262a2f;font-size:11.5px;font-weight:600" style-hover="background:#2e333a">Run</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;border-radius:10px;border:1px dashed #32363c;color:#8d8b86;font-size:12.5px;font-weight:600" style-hover="border-color:#4a5058;color:#eceae8">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Install a skill
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:14px;height:26px;flex:none;padding:0 12px;background:#141518;border-top:1px solid #222429;font-size:11.5px;color:#7c7a75">
+    <span>Ready</span>
+    <span style="color:#3a3d42">|</span>
+    <span>GPU acceleration on</span>
+    <span style="color:#3a3d42">|</span>
+    <span>Autosave 2 min ago</span>
+    <span style="margin-left:auto;font-variant-numeric:tabular-nums">Kerf 1.8.1 · macOS</span>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:940},&quot;userName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Ada Duval&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showReleaseNote&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    return {
+      userName: p.userName ?? "Ada Duval",
+      showReleaseNote: p.showReleaseNote ?? true,
+      projects: [
+        { slot: "pj-brand", placeholder: "Still", title: "Kerf · Brand Film", meta: "87 clips · 2 hours ago", state: "In progress", stateColor: "#f0a173", duration: "0:12", progress: "72%" },
+        { slot: "pj-teaser", placeholder: "Still", title: "Launch Teaser", meta: "24 clips · yesterday", state: "Rendering", stateColor: "#9dc7a6", duration: "0:45", progress: "94%" },
+        { slot: "pj-interview", placeholder: "Still", title: "Founder Interview", meta: "6 clips · last week", state: "Draft", stateColor: "#c9c6c1", duration: "4:20", progress: "18%" },
+        { slot: "pj-recap", placeholder: "Still", title: "Q3 Recap", meta: "41 clips · 12 Aug", state: "Exported", stateColor: "#c9c6c1", duration: "2:08", progress: "100%" }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
