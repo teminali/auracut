@@ -34,12 +34,9 @@ const AppUpdateBanner: React.FC = () => {
   const pushToast = useUiStore((s) => s.pushToast);
   const [busy, setBusy] = React.useState(false);
   const [ready, setReady] = React.useState<string | null>(null);
-  const [failed, setFailed] = React.useState<string | null>(null);
-  const [dismissed, setDismissed] = React.useState<string | null>(null);
 
   const install = React.useCallback(async () => {
     setBusy(true);
-    setFailed(null);
     const result = await sideload();
     setBusy(false);
     if (result.ok) {
@@ -50,7 +47,6 @@ const AppUpdateBanner: React.FC = () => {
         detail: 'Quit and reopen Kerf to launch the new version.',
       });
     } else {
-      setFailed(result.message);
       pushToast({
         kind: 'error',
         title: 'Update failed',
@@ -59,22 +55,18 @@ const AppUpdateBanner: React.FC = () => {
     }
   }, [sideload, pushToast]);
 
-  /*
-    Shown ahead of everything else because it outlives the status that
-    produced it: the bundle is already swapped, and somebody mid-edit
-    should still find the restart when they are done.
-  */
   if (status.state === 'ready' || ready) {
     const readyVersion = status.state === 'ready' ? status.version : '';
     return (
-      <Card
-        tone="accent"
-        icon={RefreshCw}
-        title={readyVersion ? `Kerf ${readyVersion} installed` : 'Update installed'}
-        body={ready ?? (readyVersion ? `Kerf ${readyVersion} is installed. Quit and reopen Kerf when you are ready.` : 'Update installed. Close and reopen Kerf to launch the new version.')}
-        actionLabel="Quit Kerf"
-        onAction={quitForUpdate}
-      />
+      <button
+        onClick={quitForUpdate}
+        className="rail-tile !text-spectrum-green bg-spectrum-green/10 border border-spectrum-green/30 animate-pulse mx-auto"
+        title={ready ?? `Kerf ${readyVersion} is installed. Click to quit and restart Kerf.`}
+        aria-label="Quit and restart Kerf to apply update"
+      >
+        <RefreshCw className="w-[18px] h-[18px]" />
+        <span className="text-micro leading-none font-semibold">Restart</span>
+      </button>
     );
   }
 
@@ -83,129 +75,49 @@ const AppUpdateBanner: React.FC = () => {
 
   const version = status.state === 'available' || status.state === 'manual-only'
     ? status.version : '';
-  if (dismissed === version) return null;
-
   const canSideload = status.state === 'manual-only' ? status.canSideload : true;
 
   return (
-    <Card
-      tone="accent"
-      icon={Download}
-      title={`Kerf ${version}`}
-      body={
-        failed
-          ?? (canSideload
-            ? 'A newer version is available. Screen recording will need granting again '
-              + 'afterwards, because an unsigned update always invalidates it.'
-            : 'A newer version is available, and this copy is not somewhere Kerf can '
-              + 'replace it. Open the download page.')
-      }
-      actionLabel={canSideload ? (busy ? 'Updating…' : 'Update now') : 'Open downloads'}
-      onAction={canSideload ? () => void install() : openReleases}
-      actionIcon={canSideload ? undefined : ExternalLink}
-      busy={busy}
-      onDismiss={() => setDismissed(version)}
-    />
+    <button
+      onClick={canSideload ? () => void install() : openReleases}
+      disabled={busy}
+      className="rail-tile !text-spectrum-accent bg-spectrum-accent/10 border border-spectrum-accent/30 mx-auto"
+      title={`Kerf ${version} is available. Click to update.`}
+      aria-label={`Update to Kerf ${version}`}
+    >
+      {busy ? (
+        <RefreshCw className="w-[18px] h-[18px] animate-spin" />
+      ) : (
+        <Download className="w-[18px] h-[18px]" />
+      )}
+      <span className="text-micro leading-none font-semibold">
+        {busy ? 'Updating…' : 'Update'}
+      </span>
+    </button>
   );
 };
 
 const SkillUpdateBanner: React.FC<{ onOpenSkills?: () => void }> = ({ onOpenSkills }) => {
   const { skills: local, loaded: localLoaded } = useBundledSkills();
   const remote = useAccountStore((s) => s.skills);
-  const install = useAccountStore((s) => s.installManifestUpdate);
-  const pushToast = useUiStore((s) => s.pushToast);
-  const [busy, setBusy] = React.useState(false);
-  const [failed, setFailed] = React.useState<string | null>(null);
-  const [dismissed, setDismissed] = React.useState<string[]>([]);
 
-  /* One skill per card. Dismissing one reveals the next, so several
-     pending updates do not need several competing banners. */
   const candidate = remote
     .filter((s) => s.included)
     .map((storeSkill) => ({ storeSkill, installed: local.find((s) => s.id === storeSkill.id) }))
     .filter((x) => x.installed && compareVersions(x.storeSkill.latestVersion, x.installed.version) > 0)
-    .find((x) => !dismissed.includes(`${x.storeSkill.id}@${x.storeSkill.latestVersion}`));
+    .find((x) => true);
 
   if (!localLoaded || !candidate) return null;
 
-  const { storeSkill, installed } = candidate;
-  const key = `${storeSkill.id}@${storeSkill.latestVersion}`;
-  const compatible = storeSkill.toolApi <= SUPPORTED_SKILL_TOOL_API;
-
-  const update = async () => {
-    if (!compatible) {
-      onOpenSkills?.();
-      return;
-    }
-    setBusy(true);
-    setFailed(null);
-    const result = await install(storeSkill.id, storeSkill.latestVersion);
-    setBusy(false);
-    if (!result.ok) {
-      setFailed(result.message);
-      return;
-    }
-    pushToast({ kind: 'success', title: `${storeSkill.name} updated`, detail: result.message });
-  };
-
   return (
-    <Card
-      tone="accent"
-      icon={Sparkle}
-      title={`${storeSkill.name} ${storeSkill.latestVersion}`}
-      body={
-        failed
-          ?? (compatible
-            ? `A newer skill manifest is available (installed ${installed!.version}). It updates `
-              + 'settings and guidance; compiled tool behaviour still comes from this Kerf build.'
-            : `This skill targets tool API ${storeSkill.toolApi}. Update Kerf before installing it.`)
-      }
-      actionLabel={compatible ? (busy ? 'Updating…' : 'Update skill') : 'Open Skills'}
-      onAction={() => void update()}
-      busy={busy}
-      onDismiss={() => setDismissed((ids) => [...ids, key])}
-    />
+    <button
+      onClick={onOpenSkills}
+      className="rail-tile !text-spectrum-accent bg-spectrum-accent/10 border border-spectrum-accent/30 mx-auto"
+      title={`Newer skill available: ${candidate.storeSkill.name}. Click to view skills.`}
+      aria-label="Skill update available"
+    >
+      <Sparkle className="w-[18px] h-[18px]" />
+      <span className="text-micro leading-none font-semibold">Skills</span>
+    </button>
   );
 };
-
-/* ── The card, matching the one beside it ───────────────────────── */
-
-const Card: React.FC<{
-  tone: 'accent';
-  icon: React.ElementType;
-  title: string;
-  body: string;
-  actionLabel: string;
-  onAction: () => void;
-  actionIcon?: React.ElementType;
-  busy?: boolean;
-  onDismiss?: () => void;
-}> = ({ icon: Icon, title, body, actionLabel, onAction, actionIcon: ActionIcon, busy, onDismiss }) => (
-  <div className="surface-card rounded-squircle-lg p-3">
-    <div className="flex items-start gap-2.5">
-      <Icon className="w-4 h-4 text-spectrum-accent flex-shrink-0 mt-px" />
-      <div className="min-w-0 flex-1">
-        <p className="text-ui-lg font-medium text-spectrum-text leading-tight">{title}</p>
-        <p className="text-ui-sm text-spectrum-textDim leading-snug mt-1">{body}</p>
-      </div>
-      {onDismiss && (
-        <button
-          onClick={onDismiss}
-          className="pro-btn w-5 h-5 flex-shrink-0 -mt-0.5 -mr-0.5"
-          title="Not now"
-          aria-label="Dismiss this update notice"
-        >
-          <X className="w-3 h-3" />
-        </button>
-      )}
-    </div>
-    <button
-      onClick={onAction}
-      disabled={busy}
-      className="pro-btn-filled w-full h-[30px] mt-3 text-ui-sm gap-1.5 disabled:opacity-60"
-    >
-      {ActionIcon && <ActionIcon className="w-3.5 h-3.5" />}
-      {actionLabel}
-    </button>
-  </div>
-);

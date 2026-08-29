@@ -36,6 +36,18 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.11.2',
+    date: '2026-08-29',
+    headline: 'Sidebar rail update tile and layering',
+    detail:
+      'Converted update notices in the 76px sidebar rail into sleek icon tiles to prevent text squishing and clipping.',
+    items: [
+      'Update and restart notices in the narrow sidebar rail now render as native rail tiles that fit the 76px column.',
+      'Full update descriptions continue to be featured on the top promo carousel without distortion.',
+      'Refined dropdown menu z-index and border styling in the version footer for clean layering over all surfaces.',
+    ],
+  },
+  {
     version: '1.11.1',
     date: '2026-08-29',
     headline: 'Update feedback and dropdown layering',
