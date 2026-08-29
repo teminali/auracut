@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import { Section } from '../ui/Controls';
-import { Sparkle, Image as ImageIcon, Plus, Scissors, Download } from '../ui/icons';
-import { generateImage, removeBackground } from '../../services/cloudflareAi';
+import { Sparkle, Image as ImageIcon, Plus, Scissors, Settings } from '../ui/icons';
+import { generateImage, removeBackground, getCredentials, setCredentials } from '../../services/cloudflareAi';
 
 export const ImageEditorPanel: React.FC = () => {
   const pushToast = useUiStore((s) => s.pushToast);
@@ -12,6 +12,18 @@ export const ImageEditorPanel: React.FC = () => {
   const [prompt, setPrompt] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+
+  // Settings
+  const [showSettings, setShowSettings] = useState(false);
+  const creds = getCredentials();
+  const [accountId, setAccountId] = useState(creds.accountId);
+  const [token, setToken] = useState(creds.token);
+
+  const handleSaveSettings = () => {
+    setCredentials(accountId.trim(), token.trim());
+    pushToast({ kind: 'success', title: 'Settings saved' });
+    setShowSettings(false);
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -48,7 +60,6 @@ export const ImageEditorPanel: React.FC = () => {
   const handleAddToProject = async () => {
     if (!generatedImage) return;
     
-    // We need to fetch the data URL and convert to blob to add it to the media pool
     try {
       const response = await fetch(generatedImage);
       const blob = await response.blob();
@@ -73,14 +84,54 @@ export const ImageEditorPanel: React.FC = () => {
 
   return (
     <div className="w-full h-full bg-spectrum-panel border-r border-line flex flex-col overflow-hidden">
-      <div className="panel-header">
+      <div className="panel-header flex items-center justify-between">
         <span className="panel-title">AI Image Editor</span>
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className={`p-1 rounded text-spectrum-textFaint hover:text-spectrum-text transition-colors ${showSettings ? 'text-spectrum-accent' : ''}`}
+          title="Cloudflare API Settings"
+        >
+          <Settings className="w-3.5 h-3.5" />
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
+        {showSettings && (
+          <Section title="API Configuration" icon={Settings}>
+            <div className="space-y-2 mb-3">
+              <div>
+                <label className="text-micro text-spectrum-textFaint block mb-1">Account ID</label>
+                <input
+                  type="text"
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="w-full h-7 bg-spectrum-darker border border-line rounded px-2 text-ui text-spectrum-text focus:border-spectrum-accent focus:outline-none"
+                  placeholder="Cloudflare Account ID"
+                />
+              </div>
+              <div>
+                <label className="text-micro text-spectrum-textFaint block mb-1">API Token</label>
+                <input
+                  type="password"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  className="w-full h-7 bg-spectrum-darker border border-line rounded px-2 text-ui text-spectrum-text focus:border-spectrum-accent focus:outline-none"
+                  placeholder="Cloudflare API Token"
+                />
+              </div>
+              <button
+                onClick={handleSaveSettings}
+                className="btn-primary w-full h-6 text-micro mt-1"
+              >
+                Save Credentials
+              </button>
+            </div>
+          </Section>
+        )}
+
         <Section title="Generate" icon={Sparkle}>
           <p className="text-micro text-spectrum-textFaint leading-relaxed mb-2">
-            Describe the image you want to generate.
+            Describe the image you want to generate with Flux.1.
           </p>
           <textarea
             value={prompt}
