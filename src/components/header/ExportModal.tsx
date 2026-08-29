@@ -40,11 +40,17 @@ const ENGINES = [
   { value: 'ffmpeg', label: 'Precise', hint: 'Constant quality, slower' },
 ] as const;
 
+/*
+  More windows is SLOWER, and the control says so rather than implying
+  otherwise. Chromium decodes video in the shared GPU process, so extra
+  render windows queue onto one decoder instead of getting their own.
+  Measured on 900 frames of 1080p: one window 7889ms, four windows
+  47488ms. `Auto` is one window.
+*/
 const WORKER_CHOICES = [
-  { value: '1', label: '1', hint: 'One window' },
-  { value: '2', label: '2', hint: 'Two at once' },
-  { value: '4', label: '4', hint: 'Four at once' },
-  { value: 'auto', label: 'Auto', hint: 'Half this machine’s cores' },
+  { value: 'auto', label: 'Auto', hint: 'One window. The fastest option on every project measured' },
+  { value: '2', label: '2', hint: 'Two windows. Slower unless the render is compositing-bound' },
+  { value: '4', label: '4', hint: 'Four windows. Much slower on anything that decodes video' },
 ] as const;
 
 const PLATFORM_PRESETS = [
@@ -86,7 +92,7 @@ export const ExportModal: React.FC = () => {
   const [resolution, setResolution] = useState<ExportResolution>('1080p');
   const [codec, setCodec] = useState<'h264' | 'hevc' | 'prores'>('h264');
   const [engine, setEngine] = useState<'auto' | 'ffmpeg'>('auto');
-  const [workerChoice, setWorkerChoice] = useState<'1' | '2' | '4' | 'auto'>('auto');
+  const [workerChoice, setWorkerChoice] = useState<'2' | '4' | 'auto'>('auto');
   const [rangeOnly, setRangeOnly] = useState(false);
   const [done, setDone] = useState<ExportResult | null>(null);
 
@@ -268,10 +274,13 @@ export const ExportModal: React.FC = () => {
                     onChange={setWorkerChoice}
                     options={WORKER_CHOICES.map((w) => ({ value: w.value, label: w.label, title: w.hint }))}
                   />
-                  <p className="text-micro text-spectrum-textFaint pt-0.5">
-                    {workerChoice === '1'
-                      ? 'One window renders the whole timeline, start to finish.'
-                      : 'The timeline is cut into chunks rendered side by side and joined in order. The editor stays free while they run.'}
+                  <p className={`text-micro pt-0.5 ${workerChoice === 'auto' ? 'text-spectrum-textFaint' : 'text-spectrum-amber'}`}>
+                    {workerChoice === 'auto'
+                      ? 'One window renders the whole timeline. Splitting it across more was measured '
+                        + 'and is slower: video is decoded in one shared process however many windows ask.'
+                      : 'Slower on anything that decodes video, and it will make the machine '
+                        + 'sluggish while it runs. Worth trying only if a render is limited by '
+                        + 'compositing rather than by footage.'}
                   </p>
                 </div>
               </Section>

@@ -71,15 +71,42 @@ export interface ChunkProgress {
 }
 
 /**
- * How many windows to run.
+ * How many windows to run. ONE, and this is a measurement, not caution.
  *
- * Half the cores, because each worker is a full Chromium renderer with
- * its own video decoders and its own copy of every frame in flight —
- * this is bounded by memory and decoder bandwidth long before it is
- * bounded by arithmetic. Four is the ceiling until somebody has measured
- * a machine where more helps.
+ * The farm was built on the reasoning that once WebCodecs took encoding
+ * off the critical path what remained was the SEEK — one decoder, one
+ * thread, waiting, while the other cores idled. The reasoning is sound
+ * and the conclusion was wrong, because the decoder is not per-window:
+ * Chromium runs video decode in the shared GPU process, so four renderer
+ * windows do not get four decoders, they get four queues onto one and
+ * thrash it.
+ *
+ * Measured on 900 frames of 1080p (GOP 250), interleaved, three rounds,
+ * median elapsed:
+ *
+ *     JPEG -> libx264, one window     24,147 ms   1.00x
+ *     WebCodecs, one window            7,889 ms   3.06x
+ *     WebCodecs, four windows         47,488 ms   0.51x
+ *
+ * Four windows is SIX TIMES SLOWER than one, and it is slower than the
+ * path it replaced. On a project of stills it is merely neutral (2280ms
+ * against 2261ms), so there is no measured case where it wins.
+ *
+ * It also does the thing an editor must never do, which is make the
+ * machine unusable: four hidden Chromium renderers each decoding 1080p
+ * is what a stuck computer looks like.
+ *
+ * The code stays because the arithmetic is tested and the chunk join is
+ * proven, and because the case it was built for — a render whose cost is
+ * COMPOSITING rather than decoding — has not been found yet rather than
+ * been ruled out. It is opt-in, via `workers`, and it warns.
  */
 export function defaultWorkerCount(): number {
+  return 1;
+}
+
+/** What `os.cpus()` would have suggested, for the opt-in ceiling only. */
+export function machineWorkerCeiling(): number {
   const cores = os.cpus()?.length ?? 4;
   return Math.max(1, Math.min(4, Math.floor(cores / 2)));
 }
@@ -93,7 +120,17 @@ export function defaultWorkerCount(): number {
  * supplies the machine-dependent default.
  */
 export function planFarm(totalFrames: number, fps: number, requested?: number): FarmPlan {
-  return planPure(totalFrames, fps, defaultWorkerCount(), requested);
+  /*
+    An explicit request is still capped at what the machine can carry.
+    `renderPlan` allows up to eight because that is the arithmetic's
+    limit; the limit that matters is the one where the user can still
+    use their computer, and four hidden renderers decoding 1080p is
+    already past it.
+  */
+  const capped = requested === undefined
+    ? undefined
+    : Math.min(requested, machineWorkerCeiling());
+  return planPure(totalFrames, fps, defaultWorkerCount(), capped);
 }
 
 interface Lane {

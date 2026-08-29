@@ -1202,10 +1202,29 @@ comments so the reasoning survives.
 
   **This entry's conclusion has since been acted on — 1.9.0.** The JPEG
   path is no longer the default: `frameEncoder.ts` sends the canvas to a
-  WebCodecs `VideoEncoder` and ffmpeg stream-copies the result. Measured
-  on the starter project, 600 frames at 720p: ffmpeg 5836ms, WebCodecs
-  2280ms. Do not go looking for a faster `toBlob`; there is no longer one
-  on the hot path.
+  WebCodecs `VideoEncoder` and ffmpeg stream-copies the result. Do not go
+  looking for a faster `toBlob`; there is no longer one on the hot path.
+
+  **How much it is worth depends entirely on the content**, and the
+  honest pair of numbers is:
+
+        600 frames, 720p, stills   5836 ms -> 2280 ms   2.6x
+        900 frames, 1080p, video  54,616 ms -> 44,056 ms  1.24x
+
+  Because on footage the encode was never the cost. The profile of a
+  one-window 1080p video render is:
+
+        seek 47.83 ms/frame   99.5%
+        composite 0.18        0.4%
+        encode 0.04           0.1%
+        write 0.02            0.0%
+
+  **The next real win in the export is the SEEK, and nothing else is
+  close.** Every frame sets `currentTime` on a `<video>`, which is a
+  random-access seek; on a long-GOP file that decodes from the preceding
+  keyframe. The export walks time FORWARD, so the shape that fits is
+  sequential decode — `requestVideoFrameCallback` over a playing element,
+  or a WebCodecs `VideoDecoder` fed by a demuxer — not a faster seek.
 - **Lowering JPEG quality to speed up export.** 0.95 → 0.80 moved the
   encode from 13,435ms to 13,235ms. The cost is the readback, not the
   compression.
@@ -1243,12 +1262,36 @@ comments so the reasoning survives.
   the font cache. `ensureFontsLoaded` calls `document.fonts.load()`,
   which is what actually requests a face.
 
-- **Expecting the render farm to speed up the starter project.** It does
-  not, and the reason is the point: 600 frames at 720p took 2280ms in one
-  window and 2261ms across four. A project of stills has no decode to
-  parallelise and four window startups are not free. The farm is for
-  timelines whose cost is SEEKING REAL FOOTAGE. Benchmark it on video, or
-  it will look like it does nothing.
+- **The render farm. It is slower, and this entry replaces the claim the
+  1.9.0 commit message made for it.** The reasoning was that once
+  WebCodecs took encoding off the critical path what remained was the
+  seek — one decoder, one thread, waiting, while the other cores idled —
+  so cut the timeline up and render the pieces at once. The reasoning is
+  sound and the conclusion is wrong: **Chromium decodes video in the
+  shared GPU process**, so four renderer windows do not get four
+  decoders. They get four queues onto one, and thrash it.
+
+        900 frames, 1080p, GOP 250, one window      ~44 s
+        900 frames, 1080p, GOP 250, four windows    ~47 s and climbing,
+                                                     with the machine
+                                                     unusable while it ran
+        600 frames, 720p, stills, one window         2280 ms
+        600 frames, 720p, stills, four windows       2261 ms
+
+  Neutral on stills, worse on footage, and it is what a stuck computer
+  looks like. Defaulted to one window in 1.9.1; the code is kept and
+  opt-in because the case it was built for — a render bound by
+  COMPOSITING rather than decoding — has not been found rather than
+  ruled out.
+
+- **Benchmarking the export by running the conditions in a fixed order.**
+  The first render of a file costs several times the second: the OS page
+  cache and the element's decoder are both cold. Running
+  `[old, new, farm]` three times looks interleaved and is not — the order
+  effect repeats every round instead of cancelling, and it put the old
+  path in the cold slot every time. It produced a confident 3.06x that
+  did not survive a balanced order, where the same comparison is 1.24x.
+  Discard a warm-up render, then alternate which condition goes first.
 - **Transitions on the GPU, beyond the two that are there.** All 14
   already worked, and `NEXT.md` called the job "quality and speed". The
   speed half goes the other way. Six stacked full-frame 1080p clips, 45

@@ -36,6 +36,22 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.9.1',
+    date: '2026-08-29',
+    headline: 'Exports stop hogging the machine',
+    detail:
+      'A render now uses one window instead of four. It is faster that way, and it leaves ' +
+      'the computer usable while it works.',
+    items: [
+      'Splitting a render across several hidden windows was measured and is slower: video is '
+        + 'decoded in one shared process however many windows ask for it, so the extra windows '
+        + 'queue behind each other and take the machine down with them.',
+      'The split is still available under Speed in the export dialog, and says plainly that it '
+        + 'is slower.',
+      'Hardware encoding, which is where the real gain is, is unchanged.',
+    ],
+  },
+  {
     version: '1.9.0',
     date: '2026-08-29',
     headline: 'Renders that use the whole machine',
@@ -45,8 +61,9 @@ export const CHANGELOG: Release[] = [
     items: [
       'The frame goes straight from the canvas to the platform encoder, and ffmpeg copies '
         + 'the result rather than decoding and re-encoding it.',
-      'A long render is cut into chunks rendered side by side in hidden windows and joined '
-        + 'in order. The editor stays usable while they run.',
+      'A long render can be cut into chunks drawn side by side in hidden windows and joined '
+        + 'in order. Measured afterwards and found slower than a single window, so 1.9.1 turns '
+        + 'it off by default.',
       'The export dialog shows the rate, the time remaining, the encoder in use, and one '
         + 'bar per render window.',
       'A finished export can be shown in the folder or opened straight from the dialog.',
