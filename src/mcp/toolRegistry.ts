@@ -1552,7 +1552,14 @@ defineTool({
     if (!asset) {
       throw new Error(`No media asset "${assetId}". Available: ${state.mediaPool.map((a) => a.name).join(', ')}`);
     }
-    const tid = trackId ? resolveTrackId(trackId) : (asset.type === 'audio' ? resolveTrackId('audio') : state.tracks[0].id);
+    
+    let tid: string;
+    if (state.tracks.length === 0) {
+      tid = state.addTrack(asset.type === 'audio' ? 'audio' : 'video');
+    } else {
+      tid = trackId ? resolveTrackId(trackId) : (asset.type === 'audio' ? resolveTrackId('audio') : state.tracks[0].id);
+    }
+    
     const id = state.insertClip(tid, asset, startTimeMs ?? state.playheadMs);
     return { clipId: id, assetName: asset.name, trackId: tid };
   },
@@ -1568,10 +1575,53 @@ defineTool({
   }),
   handler: ({ clipId, atMs }) => {
     const state = timeline();
-    const id = resolveClipId(clipId);
     const at = atMs ?? state.playheadMs;
+    let id: string;
+    
+    if (clipId) {
+      id = resolveClipId(clipId);
+    } else {
+      let found: string | undefined;
+      for (const t of state.tracks) {
+        const c = t.clips.find(c => at > c.startTimeMs && at < c.startTimeMs + c.durationMs);
+        if (c) {
+          found = c.id;
+          break; // take first intersecting clip
+        }
+      }
+      id = found ?? resolveClipId(); // Fallback to selected clip
+    }
+
     if (!state.splitClip(id, at)) throw new Error(refuseReason(id, at));
     return { clipId: id, splitAtMs: at };
+  },
+});
+
+defineTool({
+  name: 'split_clips',
+  category: 'timeline',
+  description: 'Razor clips at multiple timeline positions sequentially.',
+  schema: z.object({
+    cutMs: z.array(z.number()).describe('Array of timeline positions to split at'),
+  }),
+  handler: ({ cutMs }) => {
+    const results = [];
+    for (const at of cutMs) {
+      const currentState = timeline();
+      let foundClip: any;
+      
+      for (const t of currentState.tracks) {
+        foundClip = t.clips.find(c => at > c.startTimeMs && at < c.startTimeMs + c.durationMs);
+        if (foundClip) break;
+      }
+      
+      if (foundClip) {
+        currentState.splitClip(foundClip.id, at);
+        results.push({ clipId: foundClip.id, splitAtMs: at });
+      }
+    }
+    
+    return { splits: results };
   },
 });
 
