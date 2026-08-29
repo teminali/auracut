@@ -1,6 +1,6 @@
 {
   "name": "kerf",
-  "version": "1.12.2",
+  "version": "1.12.3",
   "description": "Kerf — open-source AI video editor with full Model Context Protocol (MCP) integration",
   "author": {
     "name": "teminali",
