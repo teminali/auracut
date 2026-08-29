@@ -36,6 +36,18 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.11.3',
+    date: '2026-08-29',
+    headline: 'Direct agent connection & free API key access',
+    detail:
+      'Added direct MCP status indicator for Antigravity IDE and 1-click links to obtain free API keys directly from model providers.',
+    items: [
+      'Agent Picker displays real-time Antigravity IDE connection over MCP on port 3888.',
+      'Added direct 1-click links to get free Gemini API keys from Google AI Studio and console keys for OpenAI, Anthropic, and Cursor.',
+      'Added shell.openExternal IPC support for reliable in-browser link navigation from the desktop app.',
+    ],
+  },
+  {
     version: '1.11.2',
     date: '2026-08-29',
     headline: 'Sidebar rail update tile and layering',

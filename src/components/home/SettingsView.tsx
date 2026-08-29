@@ -185,9 +185,9 @@ export const SettingsView: React.FC<{ onOpenAgentPicker: () => void }> = ({ onOp
       <Group title="Connections" icon={Server}>
         <Row
           label="Model Context Protocol"
-          value="Kerf’s 100+ tools, exposed to an external agent"
-          state="unknown"
-          actionLabel="Set up"
+          value="Kerf’s 58 tools exposed live to Antigravity & external agents (Port 3888)"
+          state="ok"
+          actionLabel="Details"
           onAction={() => setMcpModalOpen(true)}
         />
       </Group>

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "kerf": {
+      "command": "node",
+      "args": [
+        "./dist-electron/mcpStdio.cjs"
+      ]
+    }
+  }
+}

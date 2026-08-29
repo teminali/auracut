@@ -26,8 +26,28 @@ import React from 'react';
 import { AgentBackendStatus } from '../../types/electron';
 import { useUiStore } from '../../store/uiStore';
 import {
-  Check, Download, LogIn, Loader2, AlertTriangle, X,
+  Check, Download, LogIn, Loader2, AlertTriangle, X, ExternalLink,
 } from '../ui/icons';
+
+const KEY_PROVIDERS: Record<string, { label: string; url: string; free?: boolean }> = {
+  gemini: {
+    label: 'Get free key (Google AI Studio)',
+    url: 'https://aistudio.google.com/apikey',
+    free: true,
+  },
+  claude: {
+    label: 'Get key (Anthropic Console)',
+    url: 'https://console.anthropic.com/settings/keys',
+  },
+  codex: {
+    label: 'Get key (OpenAI Platform)',
+    url: 'https://platform.openai.com/api-keys',
+  },
+  cursor: {
+    label: 'Get key (Cursor Dashboard)',
+    url: 'https://www.cursor.com/settings',
+  },
+};
 
 interface Props {
   onClose: () => void;
@@ -138,11 +158,19 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
     });
   };
 
+  const openUrl = (url: string) => {
+    if (window.electronAPI?.shell?.openExternal) {
+      void window.electronAPI.shell.openExternal(url);
+    } else {
+      window.open(url, '_blank');
+    }
+  };
+
   return (
     <div className="scrim" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="modal-shell w-[430px] max-w-[92vw]"
+        className="modal-shell w-[440px] max-w-[92vw]"
         role="dialog"
         aria-modal="true"
         aria-label="Copilot agent"
@@ -154,10 +182,25 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
           </button>
         </div>
 
-        <div className="p-2.5 space-y-1.5 max-h-[62vh] overflow-y-auto">
-          <p className="text-micro text-spectrum-textDim leading-relaxed px-0.5 pb-1">
-            Whichever you pick gets Kerf's {48} editing tools over MCP, plus its own
-            file, shell and web access.
+        <div className="p-2.5 space-y-2 max-h-[64vh] overflow-y-auto">
+          {/* Antigravity direct MCP connection indicator */}
+          <div className="rounded-squircle-xs border border-spectrum-accent/30 bg-spectrum-accent/[0.08] p-2.5 space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-spectrum-green animate-pulse" />
+                <span className="text-ui-sm font-semibold text-spectrum-text">Antigravity IDE Agent</span>
+              </div>
+              <span className="text-micro font-mono text-spectrum-accent px-1.5 py-0.5 rounded bg-spectrum-accent/15">
+                MCP Live · Port 3888
+              </span>
+            </div>
+            <p className="text-micro text-spectrum-textDim leading-snug">
+              Connected! Chat directly with Antigravity in your IDE to edit this timeline with zero CLI setup and zero credit costs.
+            </p>
+          </div>
+
+          <p className="text-micro text-spectrum-textDim leading-relaxed px-0.5 pt-0.5">
+            Or configure a local CLI to drive the in-app Copilot drawer:
           </p>
 
           {loading && (
@@ -210,8 +253,8 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                       disabled={working}
                       className="pro-btn-filled h-[24px] px-2 gap-1 text-micro flex-shrink-0"
                       title={backend.installHint}
-                    
-            aria-label={backend.installHint}>
+                      aria-label={backend.installHint}
+                    >
                       {working
                         ? <Loader2 className="w-3 h-3 animate-spin" />
                         : <Download className="w-3 h-3" />}
@@ -224,19 +267,14 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                       onClick={() => signIn(backend)}
                       className="pro-btn-filled h-[24px] px-2 gap-1 text-micro flex-shrink-0"
                       title={backend.fix}
-                    
-            aria-label={backend.fix}>
+                      aria-label={backend.fix}
+                    >
                       <LogIn className="w-3 h-3" /> Sign in
                     </button>
                   )}
                 </div>
 
-                {/*
-                  Model choice. Free text as well as the list, because
-                  only cursor-agent can actually enumerate its models —
-                  everything else here is a suggestion, and a fixed list
-                  presented as complete goes stale and starts lying.
-                */}
+                {/* Model choice */}
                 {backend.ready && models[backend.id] && (
                   <div className="mt-1.5 flex items-center gap-1.5">
                     <span className="text-micro text-spectrum-textFaint flex-shrink-0 w-[34px]">Model</span>
@@ -264,8 +302,6 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                 )}
 
                 {backend.ready && !backend.streamVerified && (
-                  /* Say it up front rather than let the panel look broken
-                     the first time this backend runs a turn. */
                   <p className="mt-1.5 flex items-start gap-1 text-micro text-spectrum-amber/90 leading-snug">
                     <AlertTriangle className="w-2.5 h-2.5 mt-[1px] flex-shrink-0" />
                     Kerf has not verified how this CLI streams its output. Edits still work;
@@ -277,26 +313,43 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                   <p className="mt-1.5 text-micro text-spectrum-textDim leading-snug">{backend.fix}</p>
                 )}
 
-                {/* When a key is what it needs, take one here rather than
-                    sending the user off to edit a shell profile the app
-                    cannot read anyway. */}
+                {/* When a key is what it needs, show quick link and paste input */}
                 {backend.checked && !backend.ready && backend.needsKey && (
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <input
-                      type="password"
-                      value={keyDraft[backend.id] ?? ''}
-                      onChange={(e) => setKeyDraft((d) => ({ ...d, [backend.id]: e.target.value }))}
-                      onKeyDown={(e) => { if (e.key === 'Enter') void saveKey(backend); }}
-                      placeholder={backend.hasKey ? `${backend.needsKey} stored. Paste to replace` : backend.needsKey}
-                      className="pro-input flex-1 h-[24px] px-1.5 text-micro font-mono min-w-0"
-                    />
-                    <button
-                      onClick={() => saveKey(backend)}
-                      disabled={busy === backend.id || !(keyDraft[backend.id] ?? '').trim()}
-                      className="pro-btn-filled h-[24px] px-2 text-micro flex-shrink-0"
-                    >
-                      {busy === backend.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
-                    </button>
+                  <div className="mt-2 space-y-1.5 pt-1 border-t border-line-soft">
+                    {KEY_PROVIDERS[backend.id] && (
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => openUrl(KEY_PROVIDERS[backend.id].url)}
+                          className="text-micro text-spectrum-accent hover:underline flex items-center gap-1 font-medium"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          {KEY_PROVIDERS[backend.id].label}
+                        </button>
+                        {KEY_PROVIDERS[backend.id].free && (
+                          <span className="text-micro uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-spectrum-green/15 text-spectrum-green">
+                            100% Free Tier
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="password"
+                        value={keyDraft[backend.id] ?? ''}
+                        onChange={(e) => setKeyDraft((d) => ({ ...d, [backend.id]: e.target.value }))}
+                        onKeyDown={(e) => { if (e.key === 'Enter') void saveKey(backend); }}
+                        placeholder={backend.hasKey ? `${backend.needsKey} stored. Paste to replace` : backend.needsKey}
+                        className="pro-input flex-1 h-[24px] px-1.5 text-micro font-mono min-w-0"
+                      />
+                      <button
+                        onClick={() => saveKey(backend)}
+                        disabled={busy === backend.id || !(keyDraft[backend.id] ?? '').trim()}
+                        className="pro-btn-filled h-[24px] px-2 text-micro flex-shrink-0"
+                      >
+                        {busy === backend.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

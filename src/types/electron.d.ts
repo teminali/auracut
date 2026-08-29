@@ -331,6 +331,8 @@ export interface KerfElectronAPI {
     reveal: (path: string) => Promise<boolean>;
     /** Open it in whatever the OS considers the right application. */
     open: (path: string) => Promise<{ ok: boolean; error?: string }>;
+    /** Open a web URL in the user's default browser. */
+    openExternal: (url: string) => Promise<{ ok: boolean; error?: string }>;
   };
 
   media: {

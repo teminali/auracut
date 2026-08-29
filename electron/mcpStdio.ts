@@ -13,8 +13,38 @@
    original bridge spoke. Every response is written as a single line.
    ═══════════════════════════════════════════════════════════════════ */
 
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+
 const PORT = Number(process.env.KERF_RPC_PORT ?? 3888);
-const TOKEN = process.env.KERF_RPC_TOKEN ?? '';
+
+function findToken(): string {
+  if (process.env.KERF_RPC_TOKEN) return process.env.KERF_RPC_TOKEN;
+
+  const possiblePaths = [
+    path.join(os.homedir(), 'Library', 'Application Support', 'Kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
+    path.join(os.homedir(), 'Library', 'Application Support', 'kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
+    path.join(process.env.APPDATA ?? '', 'Kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
+    path.join(os.homedir(), '.config', 'Kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
+    path.join(os.homedir(), '.config', 'kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
+  ];
+
+  for (const file of possiblePaths) {
+    try {
+      const data = JSON.parse(fs.readFileSync(file, 'utf8')) as {
+        mcpServers?: { kerf?: { env?: { KERF_RPC_TOKEN?: string } } };
+      };
+      const envToken = data?.mcpServers?.kerf?.env?.KERF_RPC_TOKEN;
+      if (envToken) return envToken;
+    } catch {
+      /* try next */
+    }
+  }
+  return '';
+}
+
+const TOKEN = findToken();
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';

@@ -468,6 +468,16 @@ function registerAgentIpc() {
     return problem ? { ok: false, error: problem } : { ok: true };
   });
 
+  ipcMain.handle('shell:openExternal', async (_e, p: { url: string }) => {
+    if (!p?.url) return { ok: false, error: 'No URL was given.' };
+    try {
+      await shell.openExternal(p.url);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
   /* ── Which CLI drives the Copilot ── */
 
   /* ── Kerf Store session ──────────────────────────────────────────
