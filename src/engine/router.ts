@@ -1,6 +1,6 @@
 import { ContextEnvelope } from '../types/context';
 
-const GROQ_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
 const ROUTER_MODEL = 'qwen/qwen3.8-27b';
 
 export type RouteDecision = 'helper' | 'heavy';

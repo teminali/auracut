@@ -307,7 +307,7 @@ export const CopilotDrawer: React.FC = () => {
       // Route is helper -> setup Groq planner and fall through to built-in dispatcher
       configureModelEndpoint({
         url: 'https://api.groq.com/openai/v1/chat/completions',
-        apiKey: process.env.GROQ_API_KEY || '',
+        apiKey: import.meta.env.VITE_GROQ_API_KEY || '',
         model: 'qwen/qwen3.8-27b'
       });
     }

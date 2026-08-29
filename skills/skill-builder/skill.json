@@ -13,7 +13,7 @@
   "id": "skill-builder",
   "name": "Skill builder",
   "version": "1.0.0",
-  "summary": "Turns the open project into a reusable skill by working out what in it is structure and what is content, then asking for the material the skill needs to build something new.",
+  "summary": "Turns the open project into a reusable Template Skill, or interrogates the user to build an Analytical Skill.",
 
   "toolApi": 1,
 
@@ -22,7 +22,10 @@
     "create_skill",
     "add_skill_asset",
     "list_skills",
-    "describe_timeline"
+    "describe_timeline",
+    "analyze_reference_video",
+    "insert_clip",
+    "split_clip"
   ],
 
   "_theOneIdea": [

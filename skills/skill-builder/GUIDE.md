@@ -3,16 +3,15 @@
 Read this before calling `create_skill`. It is the method, and the method
 is mostly a conversation.
 
-## The one mistake
+## The two kinds of skill
 
-Every failed attempt at a skill fails the same way: **it rebuilds the
-video it was made from.** Somebody points the builder at a project they
-like, the builder writes down what the project contains, and the result
-is a saved project wearing a skill's clothes. Run it and you get the same
-video again.
+There are two fundamentally different paradigms for a skill: **Template Skills** and **Analytical Skills**.
 
-The difference between a project and a skill is not the file format. It
-is whether the CONTENT has been separated from the STRUCTURE.
+### 1. Template Skills
+These skills take **content** (e.g. raw footage) and impose **structure** (e.g. cuts, grades, tracks).
+Every failed attempt at a Template skill fails the same way: **it rebuilds the video it was made from.** Somebody points the builder at a project they like, the builder writes down what the project contains, and the result is a saved project wearing a skill's clothes. Run it and you get the same video again.
+
+The difference between a project and a Template skill is whether the CONTENT has been separated from the STRUCTURE.
 
 | | Keep it | Ask for it |
 |---|---|---|
@@ -27,38 +26,38 @@ is whether the CONTENT has been separated from the STRUCTURE.
 | The logo | | ❌ content, usually a shipped asset |
 | Brand colours | | ❌ content, usually a slot with a default |
 
-`inspect_project_for_skill` marks each asset with a `likelyRole`. That is
-a hint from how often the asset is used, not a decision. **You have to
-ask.** Only the author knows whether the music is "the sound of this
-brand" (ship it) or "what I happened to use" (slot it).
+`inspect_project_for_skill` marks each asset with a `likelyRole`. That is a hint from how often the asset is used, not a decision. **You have to ask.** Only the author knows whether the music is "the sound of this brand" (ship it) or "what I happened to use" (slot it).
+
+### 2. Analytical (Extractor) Skills
+These skills take raw **content** and *extract* the **structure** from it. For example, a `reverse-engineer-video` skill that takes a flat MP4, analyzes its visual cuts, and dynamically builds an editable timeline.
+Unlike Template Skills, these do not rely purely on `inspect_project_for_skill`. They rely on tools like `analyze_reference_video`, `insert_clip`, and `split_clip` to procedurally generate structure based on the user's content.
 
 ## The interrogation
 
-Work through these in order. Do not skip to `create_skill`; a manifest
-written without this conversation is the mistake above.
+Work through these in order. Do not skip to `create_skill`; a manifest written without this conversation is a mistake.
 
-**1. What does the new skill MAKE?**
+**1. Is this a Template Skill or an Analytical Skill?**
+Ask whether the skill imposes a fixed structure on new content (Template), or analyzes content to extract its structure (Analytical).
+
+**2. What does the new skill MAKE?**
 One line, for somebody who has never seen this project. "A 30-second
 product demo from a screen recording" is a purpose. "Something like this
 video" is not, and if that is the answer, keep asking.
 
-**2. Which assets are the subject, and which are the look?**
-Go through the asset list out loud. For each one: *if somebody else ran
-this skill, would they bring their own, or would they expect this one?*
-Their own → a slot. This one → an asset the skill ships with.
+**3. Which assets are the subject, and which are the look? (Template Skills Only)**
+Go through the asset list out loud. For each one: *if somebody else ran this skill, would they bring their own, or would they expect this one?* Their own → a slot. This one → an asset the skill ships with.
 
-**3. What must the person supply that this project did not need?**
+**4. What must the person supply that this project did not need?**
 The hardest question and the one that makes a skill general. This project
 had exactly what it had. A skill that only accepts the same shape of
 input is barely a skill. If it opens on a title card, does the next
 person supply their own, or a line of text you render into one? If it
 cuts to a face, what happens when there is no camera?
 
-**4. What should it refuse?**
-A skill that produces something bad rather than saying no is worse than
-one that says no. Write the refusals into `guide`.
+**5. What should it refuse?**
+A skill that produces something bad rather than saying no is worse than one that says no. Write the refusals into `guide`.
 
-**5. What does good output look like?**
+**6. What does good output look like?**
 Also into `guide`, so the next agent can tell whether it succeeded.
 
 ## How assets are standardised
