@@ -5,24 +5,16 @@
 
 import { useTimelineStore } from '../store/timelineStore';
 import { useProjectStore } from '../store/projectStore';
-import { Track, MediaAsset } from '../types/edl';
+import { Track, MediaAsset, createClip } from '../types/edl';
 
 export const STARTER_ID = 'starter:sample-demo';
 export const STARTER_NAME = 'Sample Demo (Reverse Engineered)';
 export const STARTER_DURATION_MS = 11500;
 
-const tracks: Track[] = [
-  {
-    "id": "track_0hnun943",
-    "type": "video",
-    "name": "Reconstructed Video",
-    "index": 0,
-    "muted": false,
-    "locked": false,
-    "clips": [
+const rawClips = [
       {
-        "id": "clip_wt7aa8hu",
-        "trackId": "track_0hnun943",
+        "id": "clip_nx6bnq07",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_0.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_0.jpg', import.meta.url).href,
@@ -41,66 +33,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_1jzmsj06",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_derduzpo",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_5bfu7k60",
-                    "propertyPath": "transform.x",
-                    "timeMs": 2000,
+                    "id": "kf_amztxhtw",
+                    "property": "positionX",
+                    "timeOffsetMs": 2000,
                     "value": 369,
                     "easing": "linear"
           },
           {
-                    "id": "kf_mzhe2b9r",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_jnr6bix4",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_mpq23t93",
-                    "propertyPath": "transform.y",
-                    "timeMs": 2000,
+                    "id": "kf_fhz5z37o",
+                    "property": "positionY",
+                    "timeOffsetMs": 2000,
                     "value": -386,
                     "easing": "linear"
           },
           {
-                    "id": "kf_bc96aey1",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_r414qvfr",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_w58pelre",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 2000,
+                    "id": "kf_65nqmtw6",
+                    "property": "scaleX",
+                    "timeOffsetMs": 2000,
                     "value": 1.5939999999999999,
                     "easing": "linear"
           },
           {
-                    "id": "kf_k32oqsdj",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_vvupjjn5",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_14a2y9xn",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 2000,
+                    "id": "kf_712drp8x",
+                    "property": "scaleY",
+                    "timeOffsetMs": 2000,
                     "value": 1.5939999999999999,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_k4n3c4dm",
-        "trackId": "track_0hnun943",
+        "id": "clip_4k9pjcxy",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_1.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_1.jpg', import.meta.url).href,
@@ -119,66 +111,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_q9npxevh",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_pyn31li7",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_o70vmg0t",
-                    "propertyPath": "transform.x",
-                    "timeMs": 1000,
+                    "id": "kf_j5usixjd",
+                    "property": "positionX",
+                    "timeOffsetMs": 1000,
                     "value": 9,
                     "easing": "linear"
           },
           {
-                    "id": "kf_uhedvao7",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_1hk2gazs",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_tp363fws",
-                    "propertyPath": "transform.y",
-                    "timeMs": 1000,
+                    "id": "kf_o48vxak9",
+                    "property": "positionY",
+                    "timeOffsetMs": 1000,
                     "value": -29,
                     "easing": "linear"
           },
           {
-                    "id": "kf_5xw6jij3",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_ix48zlgm",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_42b5tiox",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 1000,
+                    "id": "kf_dnwqxht7",
+                    "property": "scaleX",
+                    "timeOffsetMs": 1000,
                     "value": 1.026,
                     "easing": "linear"
           },
           {
-                    "id": "kf_z7v1ngdu",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_21xe2kci",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_2f54qkab",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 1000,
+                    "id": "kf_awxon1ov",
+                    "property": "scaleY",
+                    "timeOffsetMs": 1000,
                     "value": 1.026,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_dph469ww",
-        "trackId": "track_0hnun943",
+        "id": "clip_o2wqr7dn",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_2.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_2.jpg', import.meta.url).href,
@@ -198,8 +190,8 @@ const tracks: Track[] = [
         "keyframes": []
       },
       {
-        "id": "clip_l4wbh9cz",
-        "trackId": "track_0hnun943",
+        "id": "clip_cumet2xv",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_3.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_3.jpg', import.meta.url).href,
@@ -218,66 +210,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_hoepsdxr",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_bjhcv7bl",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_ji8b6hx3",
-                    "propertyPath": "transform.x",
-                    "timeMs": 533,
+                    "id": "kf_34xzdq56",
+                    "property": "positionX",
+                    "timeOffsetMs": 533,
                     "value": -3,
                     "easing": "linear"
           },
           {
-                    "id": "kf_xesu635v",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_lzudjhcr",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_1h73vms5",
-                    "propertyPath": "transform.y",
-                    "timeMs": 533,
+                    "id": "kf_sxppuxg9",
+                    "property": "positionY",
+                    "timeOffsetMs": 533,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_wmc1enr8",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_3mtp0uss",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_3ysevc54",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 533,
+                    "id": "kf_rofu12yk",
+                    "property": "scaleX",
+                    "timeOffsetMs": 533,
                     "value": 1.0045305,
                     "easing": "linear"
           },
           {
-                    "id": "kf_xyy3rgl1",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_qib0jvxp",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_9qxyo6fk",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 533,
+                    "id": "kf_zhishaed",
+                    "property": "scaleY",
+                    "timeOffsetMs": 533,
                     "value": 1.0045305,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_p2r16i3b",
-        "trackId": "track_0hnun943",
+        "id": "clip_pczak47o",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_4.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_4.jpg', import.meta.url).href,
@@ -296,66 +288,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_vq68oobq",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_6mejpw80",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_xgwutl78",
-                    "propertyPath": "transform.x",
-                    "timeMs": 467,
+                    "id": "kf_js979oak",
+                    "property": "positionX",
+                    "timeOffsetMs": 467,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_0ll2yif7",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_alcggk5x",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_irt4qjeq",
-                    "propertyPath": "transform.y",
-                    "timeMs": 467,
+                    "id": "kf_e1zxm0xf",
+                    "property": "positionY",
+                    "timeOffsetMs": 467,
                     "value": 12,
                     "easing": "linear"
           },
           {
-                    "id": "kf_mzijtyg4",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_hkriph0v",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_cjzzchgf",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 467,
+                    "id": "kf_1fsojtxe",
+                    "property": "scaleX",
+                    "timeOffsetMs": 467,
                     "value": 1.0097136,
                     "easing": "linear"
           },
           {
-                    "id": "kf_5whu3v4j",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_uzvl8wut",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_u0k4oxwc",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 467,
+                    "id": "kf_njxaiuxg",
+                    "property": "scaleY",
+                    "timeOffsetMs": 467,
                     "value": 1.0097136,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_r0j9ft5z",
-        "trackId": "track_0hnun943",
+        "id": "clip_hwtcsfmv",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_5.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_5.jpg', import.meta.url).href,
@@ -374,66 +366,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_ergs6aov",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_uarpf0q5",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_9l42efh0",
-                    "propertyPath": "transform.x",
-                    "timeMs": 500,
+                    "id": "kf_6ucrayey",
+                    "property": "positionX",
+                    "timeOffsetMs": 500,
                     "value": 2,
                     "easing": "linear"
           },
           {
-                    "id": "kf_lqvypvy9",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_0si7mpf2",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_56wt935e",
-                    "propertyPath": "transform.y",
-                    "timeMs": 500,
+                    "id": "kf_p04wz4ne",
+                    "property": "positionY",
+                    "timeOffsetMs": 500,
                     "value": -6,
                     "easing": "linear"
           },
           {
-                    "id": "kf_8a85kbqi",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_ssaqt6po",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_gprmmhgp",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 500,
+                    "id": "kf_56gk597o",
+                    "property": "scaleX",
+                    "timeOffsetMs": 500,
                     "value": 1.006,
                     "easing": "linear"
           },
           {
-                    "id": "kf_m64x6jcs",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_fxa6wjc2",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_l6qvua6k",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 500,
+                    "id": "kf_u394c7r1",
+                    "property": "scaleY",
+                    "timeOffsetMs": 500,
                     "value": 1.006,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_at69vjhl",
-        "trackId": "track_0hnun943",
+        "id": "clip_lc6hxh2g",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_6.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_6.jpg', import.meta.url).href,
@@ -452,66 +444,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_1611ymk7",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_51s6megm",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_glmtpu99",
-                    "propertyPath": "transform.x",
-                    "timeMs": 500,
+                    "id": "kf_uw1y2srj",
+                    "property": "positionX",
+                    "timeOffsetMs": 500,
                     "value": -668,
                     "easing": "linear"
           },
           {
-                    "id": "kf_10nhuhm5",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_6cjayz0w",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_1acb16pz",
-                    "propertyPath": "transform.y",
-                    "timeMs": 500,
+                    "id": "kf_rd3vebvu",
+                    "property": "positionY",
+                    "timeOffsetMs": 500,
                     "value": -943,
                     "easing": "linear"
           },
           {
-                    "id": "kf_6690wa55",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_ezedldd8",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_tl7s6zx3",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 500,
+                    "id": "kf_57rir6md",
+                    "property": "scaleX",
+                    "timeOffsetMs": 500,
                     "value": 2.1849,
                     "easing": "linear"
           },
           {
-                    "id": "kf_ul8axw7r",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_qifqxh50",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_3ntd3d9q",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 500,
+                    "id": "kf_dodgve7j",
+                    "property": "scaleY",
+                    "timeOffsetMs": 500,
                     "value": 2.1849,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_kgyqo2vc",
-        "trackId": "track_0hnun943",
+        "id": "clip_wwsdo8sk",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_7.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_7.jpg', import.meta.url).href,
@@ -531,8 +523,8 @@ const tracks: Track[] = [
         "keyframes": []
       },
       {
-        "id": "clip_i9ingplr",
-        "trackId": "track_0hnun943",
+        "id": "clip_93n7vzeb",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_8.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_8.jpg', import.meta.url).href,
@@ -552,8 +544,8 @@ const tracks: Track[] = [
         "keyframes": []
       },
       {
-        "id": "clip_6e6lwrro",
-        "trackId": "track_0hnun943",
+        "id": "clip_sd4ylhjj",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_9.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_9.jpg', import.meta.url).href,
@@ -572,66 +564,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_t6hs7jn3",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_ol7us0w1",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_0wbu0euu",
-                    "propertyPath": "transform.x",
-                    "timeMs": 333,
+                    "id": "kf_bliggmmt",
+                    "property": "positionX",
+                    "timeOffsetMs": 333,
                     "value": -2,
                     "easing": "linear"
           },
           {
-                    "id": "kf_3er8nfj9",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_ynb8oxy8",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_8xike82f",
-                    "propertyPath": "transform.y",
-                    "timeMs": 333,
+                    "id": "kf_y8hdm7yw",
+                    "property": "positionY",
+                    "timeOffsetMs": 333,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_bdbfdmby",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_2j5q9c7e",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_trngfnxb",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 333,
+                    "id": "kf_386dnez9",
+                    "property": "scaleX",
+                    "timeOffsetMs": 333,
                     "value": 1.002331,
                     "easing": "linear"
           },
           {
-                    "id": "kf_v1ews0ej",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_p5dcsmkp",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_r57d2e6g",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 333,
+                    "id": "kf_9p5lmyfq",
+                    "property": "scaleY",
+                    "timeOffsetMs": 333,
                     "value": 1.002331,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_a9zjk4di",
-        "trackId": "track_0hnun943",
+        "id": "clip_th714b4l",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_10.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_10.jpg', import.meta.url).href,
@@ -650,66 +642,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_911v3pu2",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_rq0h2p0j",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_hx3jrwip",
-                    "propertyPath": "transform.x",
-                    "timeMs": 500,
+                    "id": "kf_poa075qq",
+                    "property": "positionX",
+                    "timeOffsetMs": 500,
                     "value": -109,
                     "easing": "linear"
           },
           {
-                    "id": "kf_u0g6lusd",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_cmvsc0zg",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_6e3oc8q4",
-                    "propertyPath": "transform.y",
-                    "timeMs": 500,
+                    "id": "kf_831w5dou",
+                    "property": "positionY",
+                    "timeOffsetMs": 500,
                     "value": 106,
                     "easing": "linear"
           },
           {
-                    "id": "kf_ql4naxzv",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_e4hu6eeb",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_o4px0dva",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 500,
+                    "id": "kf_vrlxi12u",
+                    "property": "scaleX",
+                    "timeOffsetMs": 500,
                     "value": 1.1724999999999999,
                     "easing": "linear"
           },
           {
-                    "id": "kf_r3jpr3wm",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_m0am8snv",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_86bpskdj",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 500,
+                    "id": "kf_col0q541",
+                    "property": "scaleY",
+                    "timeOffsetMs": 500,
                     "value": 1.1724999999999999,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_m4zpj9ix",
-        "trackId": "track_0hnun943",
+        "id": "clip_i0jiuy14",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_11.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_11.jpg', import.meta.url).href,
@@ -728,66 +720,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_bfnikd02",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_27mttw5m",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_94bfcryt",
-                    "propertyPath": "transform.x",
-                    "timeMs": 500,
+                    "id": "kf_0uhyxapz",
+                    "property": "positionX",
+                    "timeOffsetMs": 500,
                     "value": 6,
                     "easing": "linear"
           },
           {
-                    "id": "kf_0epqoz8q",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_7d2qesvg",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_c5qucmia",
-                    "propertyPath": "transform.y",
-                    "timeMs": 500,
+                    "id": "kf_q5fsjbw9",
+                    "property": "positionY",
+                    "timeOffsetMs": 500,
                     "value": -30,
                     "easing": "linear"
           },
           {
-                    "id": "kf_5y058eep",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_5881sy48",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_27ixp4yh",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 500,
+                    "id": "kf_bx0v1mat",
+                    "property": "scaleX",
+                    "timeOffsetMs": 500,
                     "value": 1.0248,
                     "easing": "linear"
           },
           {
-                    "id": "kf_rqa76ys4",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_sy071s2f",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_mu32n5ic",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 500,
+                    "id": "kf_g7q6uh4m",
+                    "property": "scaleY",
+                    "timeOffsetMs": 500,
                     "value": 1.0248,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_rcrf9d51",
-        "trackId": "track_0hnun943",
+        "id": "clip_np1q7au7",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_12.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_12.jpg', import.meta.url).href,
@@ -807,8 +799,8 @@ const tracks: Track[] = [
         "keyframes": []
       },
       {
-        "id": "clip_jh1ohq8i",
-        "trackId": "track_0hnun943",
+        "id": "clip_af3983wd",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_13.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_13.jpg', import.meta.url).href,
@@ -827,66 +819,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_x7b0r7o8",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_5j3kmoad",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_juvcoaov",
-                    "propertyPath": "transform.x",
-                    "timeMs": 500,
+                    "id": "kf_sxo1frpr",
+                    "property": "positionX",
+                    "timeOffsetMs": 500,
                     "value": 15,
                     "easing": "linear"
           },
           {
-                    "id": "kf_b7zdjy50",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_ulx4cktf",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_werj458k",
-                    "propertyPath": "transform.y",
-                    "timeMs": 500,
+                    "id": "kf_37qyf75b",
+                    "property": "positionY",
+                    "timeOffsetMs": 500,
                     "value": -19,
                     "easing": "linear"
           },
           {
-                    "id": "kf_sxq0rdhh",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_k87xnade",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_9qznvjvw",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 500,
+                    "id": "kf_jy5tsh9q",
+                    "property": "scaleX",
+                    "timeOffsetMs": 500,
                     "value": 1.0254,
                     "easing": "linear"
           },
           {
-                    "id": "kf_t0d7nbpe",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_x0y23p9g",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_2va8omon",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 500,
+                    "id": "kf_jzi9gnks",
+                    "property": "scaleY",
+                    "timeOffsetMs": 500,
                     "value": 1.0254,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_u8q4dtxe",
-        "trackId": "track_0hnun943",
+        "id": "clip_zz6v9oex",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_14.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_14.jpg', import.meta.url).href,
@@ -905,66 +897,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_eco12c9p",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_z50hnkzo",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_vqws8dvy",
-                    "propertyPath": "transform.x",
-                    "timeMs": 133,
+                    "id": "kf_g6xbbv9r",
+                    "property": "positionX",
+                    "timeOffsetMs": 133,
                     "value": 15,
                     "easing": "linear"
           },
           {
-                    "id": "kf_esct4csl",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_zf5a7yif",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_rkq68xw7",
-                    "propertyPath": "transform.y",
-                    "timeMs": 133,
+                    "id": "kf_fktfqutv",
+                    "property": "positionY",
+                    "timeOffsetMs": 133,
                     "value": 120,
                     "easing": "linear"
           },
           {
-                    "id": "kf_vd4q6ppc",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_c1vfktxr",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_cfvrc0zw",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 133,
+                    "id": "kf_i4c4mu98",
+                    "property": "scaleX",
+                    "timeOffsetMs": 133,
                     "value": 1.0957866,
                     "easing": "linear"
           },
           {
-                    "id": "kf_pb56wb04",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_z2oc4lqm",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_cza8fwz4",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 133,
+                    "id": "kf_pqzydelp",
+                    "property": "scaleY",
+                    "timeOffsetMs": 133,
                     "value": 1.0957866,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_qjaosyhx",
-        "trackId": "track_0hnun943",
+        "id": "clip_sbbhkha2",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_15.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_15.jpg', import.meta.url).href,
@@ -983,66 +975,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_mx5ga0qg",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_8leyhoh2",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_447k4ldp",
-                    "propertyPath": "transform.x",
-                    "timeMs": 367,
+                    "id": "kf_5s8y0g09",
+                    "property": "positionX",
+                    "timeOffsetMs": 367,
                     "value": 29,
                     "easing": "linear"
           },
           {
-                    "id": "kf_c24us6os",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_8ez8c2mb",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_7cghrwmv",
-                    "propertyPath": "transform.y",
-                    "timeMs": 367,
+                    "id": "kf_njgunom5",
+                    "property": "positionY",
+                    "timeOffsetMs": 367,
                     "value": 46,
                     "easing": "linear"
           },
           {
-                    "id": "kf_5117oack",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_bf0dqr5z",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_pun5zpk3",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 367,
+                    "id": "kf_cvg5d9nz",
+                    "property": "scaleX",
+                    "timeOffsetMs": 367,
                     "value": 1.0544628,
                     "easing": "linear"
           },
           {
-                    "id": "kf_3t89arg8",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_t79q4f2o",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_xm0nm53n",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 367,
+                    "id": "kf_lv0r5jud",
+                    "property": "scaleY",
+                    "timeOffsetMs": 367,
                     "value": 1.0544628,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_5i9e1ftj",
-        "trackId": "track_0hnun943",
+        "id": "clip_8xm0s2ai",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_16.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_16.jpg', import.meta.url).href,
@@ -1061,66 +1053,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_tn0on8x9",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_3rhn8ece",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_q6o08te9",
-                    "propertyPath": "transform.x",
-                    "timeMs": 500,
+                    "id": "kf_wvtpnft2",
+                    "property": "positionX",
+                    "timeOffsetMs": 500,
                     "value": -6,
                     "easing": "linear"
           },
           {
-                    "id": "kf_xas83fuk",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_i8zaey3v",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_iwrh991q",
-                    "propertyPath": "transform.y",
-                    "timeMs": 500,
+                    "id": "kf_gp4r44l6",
+                    "property": "positionY",
+                    "timeOffsetMs": 500,
                     "value": 14,
                     "easing": "linear"
           },
           {
-                    "id": "kf_ljt2f3bm",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_4z44urd8",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_0bzjvuy5",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 500,
+                    "id": "kf_zu7uage4",
+                    "property": "scaleX",
+                    "timeOffsetMs": 500,
                     "value": 1.0137,
                     "easing": "linear"
           },
           {
-                    "id": "kf_0oqru8g4",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_v3il0zs4",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_v6friq94",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 500,
+                    "id": "kf_i52o4zcp",
+                    "property": "scaleY",
+                    "timeOffsetMs": 500,
                     "value": 1.0137,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_jaxr9t1b",
-        "trackId": "track_0hnun943",
+        "id": "clip_79sux120",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_17.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_17.jpg', import.meta.url).href,
@@ -1139,66 +1131,66 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_o57nq5nl",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_vedozblm",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_71o3j0bl",
-                    "propertyPath": "transform.x",
-                    "timeMs": 500,
+                    "id": "kf_o0sa9s52",
+                    "property": "positionX",
+                    "timeOffsetMs": 500,
                     "value": -15,
                     "easing": "linear"
           },
           {
-                    "id": "kf_i2le6ymu",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_43j743s7",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_9vzrklaj",
-                    "propertyPath": "transform.y",
-                    "timeMs": 500,
+                    "id": "kf_bbz94lzx",
+                    "property": "positionY",
+                    "timeOffsetMs": 500,
                     "value": -6,
                     "easing": "linear"
           },
           {
-                    "id": "kf_2d43z086",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_zckl80qv",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_7zc7wfwd",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 500,
+                    "id": "kf_8gixf6mf",
+                    "property": "scaleX",
+                    "timeOffsetMs": 500,
                     "value": 1.0212,
                     "easing": "linear"
           },
           {
-                    "id": "kf_cfw67b0h",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_fb0ngik5",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_2h8yle0l",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 500,
+                    "id": "kf_fapf3mws",
+                    "property": "scaleY",
+                    "timeOffsetMs": 500,
                     "value": 1.0212,
                     "easing": "linear"
           }
 ]
       },
       {
-        "id": "clip_ku4zj6sb",
-        "trackId": "track_0hnun943",
+        "id": "clip_3ajyt50m",
+        "trackId": "track_lm9jbvir",
         "type": "image",
         "name": "shot_18.jpg",
         "mediaUrl": new URL('../assets/brand_shots/shot_18.jpg', import.meta.url).href,
@@ -1217,64 +1209,78 @@ const tracks: Track[] = [
         },
         "keyframes": [
           {
-                    "id": "kf_vhnqhdit",
-                    "propertyPath": "transform.x",
-                    "timeMs": 0,
+                    "id": "kf_7kaytnmm",
+                    "property": "positionX",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_ufda13bu",
-                    "propertyPath": "transform.x",
-                    "timeMs": 1500,
+                    "id": "kf_6ccjf1hg",
+                    "property": "positionX",
+                    "timeOffsetMs": 1500,
                     "value": 18,
                     "easing": "linear"
           },
           {
-                    "id": "kf_vm3sdpen",
-                    "propertyPath": "transform.y",
-                    "timeMs": 0,
+                    "id": "kf_1159b5n8",
+                    "property": "positionY",
+                    "timeOffsetMs": 0,
                     "value": 0,
                     "easing": "linear"
           },
           {
-                    "id": "kf_yqy67k1g",
-                    "propertyPath": "transform.y",
-                    "timeMs": 1500,
+                    "id": "kf_ng5pe7s0",
+                    "property": "positionY",
+                    "timeOffsetMs": 1500,
                     "value": -24,
                     "easing": "linear"
           },
           {
-                    "id": "kf_e4083tx0",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 0,
+                    "id": "kf_12f78squ",
+                    "property": "scaleX",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_ssnfrywe",
-                    "propertyPath": "transform.scaleX",
-                    "timeMs": 1500,
+                    "id": "kf_l0l19kzb",
+                    "property": "scaleX",
+                    "timeOffsetMs": 1500,
                     "value": 1.03165,
                     "easing": "linear"
           },
           {
-                    "id": "kf_vaf3mh3n",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 0,
+                    "id": "kf_8aycenvx",
+                    "property": "scaleY",
+                    "timeOffsetMs": 0,
                     "value": 1,
                     "easing": "linear"
           },
           {
-                    "id": "kf_4adx9bxu",
-                    "propertyPath": "transform.scaleY",
-                    "timeMs": 1500,
+                    "id": "kf_wkitkbp1",
+                    "property": "scaleY",
+                    "timeOffsetMs": 1500,
                     "value": 1.03165,
                     "easing": "linear"
           }
 ]
       }
-    ]
+];
+
+const tracks: Track[] = [
+  {
+    "id": "track_41c0stok",
+    "type": "video",
+    "name": "Reconstructed Video",
+    "index": 0,
+    "muted": false,
+    "locked": false,
+    "solo": false,
+    "volume": 1,
+    "heightPx": 80,
+    "collapsed": false,
+    "clips": rawClips.map((c: any) => createClip(c))
   }
 ];
 
@@ -1519,7 +1525,8 @@ export function buildStarterProject(): void {
   project.setDurationMs(STARTER_DURATION_MS);
 
   // Load the project from the reverse engineered JSON
+  useTimelineStore.setState({ mediaPool: mediaPool });
   const store = useTimelineStore.getState();
-  store.loadProject(tracks, mediaPool);
+  store.loadProject(tracks, []);
   store.commit('Open starter project');
 }
