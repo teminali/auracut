@@ -420,6 +420,25 @@ export interface TimelineActions {
   addShapeLayer: (trackId: string, kind: ShapeKind, startTimeMs: number, durationMs?: number) => string;
   updateShapeStyle: (clipId: string, style: Partial<ShapeStyle>) => void;
   addTextLayer: (trackId: string, text: string, startTimeMs: number, durationMs?: number) => string;
+  /**
+   * Put a batch of already-built clips onto a track, as they are.
+   *
+   * Every other way in builds the clip for you — `insertClip` from a
+   * media asset, `addTextLayer` from a string — which is right when the
+   * caller has a thing and wants a default clip around it. It is the
+   * wrong shape when the caller has computed the whole clip: the
+   * kinetic caption planner produces one text clip per word carrying
+   * its own transform, its own keyframe list and its own motion blur,
+   * and reaching that through `addTextLayer` + N `patchClip` +
+   * 6N `addKeyframe` is a few thousand store writes and a different
+   * clip at the end of it.
+   *
+   * The clips are re-run through `createClip` on the way in, so a
+   * partially-specified one still lands complete, and their `trackId`
+   * is re-pinned to the track they are being put on rather than
+   * trusted.
+   */
+  addClips: (trackId: string, clips: Clip[]) => number;
   addAdjustmentLayer: (trackId: string, startTimeMs: number, durationMs?: number) => string;
 
   /* motion paths */
@@ -1268,6 +1287,22 @@ export const useTimelineStore = create<TimelineStore>()(
       if (!made) return null;
       get().commit('Duplicate clip');
       return copyId;
+    },
+
+    addClips: (trackId, clips) => {
+      if (clips.length === 0) return 0;
+      let added = 0;
+      set((s) => {
+        const track = s.tracks.find((t) => t.id === trackId);
+        if (!track || track.locked) return;
+        for (const clip of clips) {
+          track.clips.push(createClip({ ...clip, trackId: track.id }));
+          added += 1;
+        }
+        sortClips(track);
+      });
+      if (added > 0) get().commit(`Add ${added} clip${added === 1 ? '' : 's'}`);
+      return added;
     },
 
     insertClip: (trackId, asset, startTimeMs) => {

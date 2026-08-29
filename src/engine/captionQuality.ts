@@ -610,3 +610,206 @@ export function parseCleanupReply(
 
   return { cues: out, applied, rejected, refused: null };
 }
+
+/* ══ The review pass, before the words reach the timeline ════════════
+
+   `buildCleanupRequest` above is a SPELL-CHECK, and it is deliberately
+   timid: it is told to leave a line alone whenever it is unsure, and it
+   runs after the edit is already on screen. That is the right shape for
+   a transcript that is basically correct.
+
+   It is the wrong shape for the failure this pass exists for. On
+   code-switched Swahili-and-English narration the transcriber does not
+   produce misspellings, it produces the right language's PHONOLOGY with
+   the wrong words in it — "Trandakona yeksel", "semo, maneno, selzake"
+   — and a spell-checker told to leave uncertain lines alone leaves all
+   of them alone, correctly, and changes nothing.
+
+   Two things are different here and both matter:
+
+     · It runs BEFORE the captions are laid down, so a viewer never sees
+       the uncorrected pass. That costs the editor whatever the agent
+       CLI takes, which is why it is bounded, skippable, and reports
+       progress. `cleanCaptionsInBackground` remains for the case where
+       the words arrive after the edit.
+
+     · It also returns EMPHASIS. The captions are kinetic now — one word
+       at a time, sized by how much it carries — and choosing which word
+       that is, is a language judgement. `pickEmphasis` does it from
+       stop-word lists and word length and is fine; a model that has
+       just read the sentence is much better, and it is already reading
+       the sentence.
+
+   The safety rules from `parseCleanupReply` are not relaxed for any of
+   this. A line may still only be CORRECTED, never grown into a sentence
+   nobody said, and a reply that fails on a quarter of its lines is still
+   thrown away whole. Emphasis is separately refused if it names words
+   that are not in the line — a model that invents an emphasis word has
+   invented a word.                                                     */
+
+/** One line's review: the corrected text, and which of its words carry it. */
+export interface ReviewedCue {
+  text: string;
+  /**
+   * Indices into the corrected line's whitespace-split words, in the
+   * order they should appear on screen. Empty means "no opinion", and
+   * the deterministic picker decides.
+   */
+  emphasis: number[];
+  /** The one word the line turns on, as an index into `emphasis`. */
+  hero: number | null;
+}
+
+export interface ReviewRequest {
+  prompt: string;
+  indices: number[];
+}
+
+/**
+ * The review prompt: correct the words, then say which ones matter.
+ *
+ * Both jobs in one turn rather than two, because the second one needs
+ * exactly the context the first one just built, and because two agent
+ * CLI round trips is two minutes rather than one.
+ */
+export function buildReviewRequest(cues: SpeechCue[], language?: string): ReviewRequest {
+  const indices = cues.map((_, i) => i);
+  const lines = cues.map((c, i) => `${i}\t${c.text.replace(/\t/g, ' ')}`).join('\n');
+  const named = language && language !== 'auto'
+    ? `The narration is in "${language}", and it may be code-switched with English. `
+    : 'The narration may be code-switched between two languages. ';
+
+  const prompt = [
+    'You are reviewing the output of an on-device speech recogniser before it is burned',
+    'into a video as animated captions. Below are numbered lines, one per subtitle,',
+    'tab-separated as INDEX<TAB>TEXT.',
+    '',
+    `${named}Do TWO things for each line.`,
+    '',
+    '1. CORRECT the text. Fix misspelt words including proper nouns and technical terms,',
+    '   word boundaries the recogniser got wrong in both directions, capitalisation and',
+    '   punctuation, and agreement errors that are clearly transcription slips.',
+    '',
+    '   - Do NOT translate. Return the same language you were given. Where the speaker',
+    '     switched language mid-sentence, keep each word in the language it was said in.',
+    '   - Do NOT add, invent, complete or extend anything. A fragment stays a fragment.',
+    '   - Do NOT merge, split, reorder or renumber lines. One line in, one line out.',
+    '   - If you cannot tell what a line was meant to say, RETURN IT UNCHANGED. Leaving',
+    '     a line wrong is correct behaviour here; guessing is not.',
+    '',
+    '2. Choose which WORDS of the corrected line go on screen. The captions show a few',
+    '   words at a time at large size, not the whole sentence, so pick the words that',
+    '   carry the meaning, usually nouns, verbs and numbers. Rules:',
+    '',
+    '   - Between one and five words per line, in the order they are spoken.',
+    '   - Give them as ZERO-BASED indices into the CORRECTED line split on whitespace.',
+    '   - Name one of them as the "hero": the single word the line turns on. It is drawn',
+    '     largest and in colour.',
+    '   - Skip filler and hesitation entirely.',
+    '   - An empty list is allowed and means "you decide"; it is better than a guess.',
+    '',
+    'Reply with JSON only, no prose and no code fence: an array of objects',
+    '{"i": <index>, "text": "<corrected line>", "words": [<indices>], "hero": <index>}.',
+    'Include every line, even ones you did not change. "hero" must be one of "words",',
+    'or null.',
+    '',
+    lines,
+  ].join('\n');
+
+  return { prompt, indices };
+}
+
+export interface ReviewOutcome {
+  cues: SpeechCue[];
+  /** Per cue, in the same order. Absent entries mean "no opinion". */
+  reviewed: Map<number, ReviewedCue>;
+  corrected: number;
+  emphasised: number;
+  rejected: { i: number; text: string; why: string }[];
+  refused: string | null;
+}
+
+/**
+ * Take the review apart, and refuse anything that is not a review.
+ *
+ * The text half reuses `parseCleanupReply`'s rules exactly — growth
+ * ceiling, shrink floor, duplicate lines, the fatal share — by building
+ * the same shape and handing it over, so there is one definition of
+ * "this is a correction and not an invention" rather than two that
+ * drift.
+ *
+ * The emphasis half is checked separately and can fail on its own
+ * without costing the corrections: indices out of range, a hero that is
+ * not in its own word list, more than five words. When it fails the
+ * line simply has no opinion attached and `pickEmphasis` decides, which
+ * is the behaviour on a machine with no agent CLI at all.
+ */
+export function parseReviewReply(raw: string, cues: SpeechCue[]): ReviewOutcome {
+  const empty = (refused: string): ReviewOutcome => ({
+    cues, reviewed: new Map(), corrected: 0, emphasised: 0, rejected: [], refused,
+  });
+
+  const start = raw.indexOf('[');
+  const end = raw.lastIndexOf(']');
+  if (start < 0 || end <= start) return empty('The reply held no JSON array.');
+
+  let rows: unknown;
+  try {
+    rows = JSON.parse(raw.slice(start, end + 1));
+  } catch (error) {
+    return empty(`The reply was not valid JSON. ${(error as Error).message}`);
+  }
+  if (!Array.isArray(rows)) return empty('The reply was not an array.');
+
+  /* The text half, through the existing gate. */
+  const textOnly = JSON.stringify(
+    rows
+      .map((row) => row as { i?: unknown; text?: unknown })
+      .filter((r) => typeof r.i === 'number' && typeof r.text === 'string')
+      .map((r) => ({ i: r.i, text: r.text }))
+  );
+  const cleanup = parseCleanupReply(textOnly, cues);
+  if (cleanup.refused) return empty(cleanup.refused);
+
+  /* The emphasis half, against the CORRECTED text — the indices the
+     model gave are into the line it returned, not the one it was
+     given, and using the original here is off by however many words
+     the correction moved. */
+  const reviewed = new Map<number, ReviewedCue>();
+  let emphasised = 0;
+
+  for (const row of rows) {
+    const r = row as { i?: unknown; words?: unknown; hero?: unknown };
+    const i = typeof r.i === 'number' ? r.i : Number.NaN;
+    if (!Number.isInteger(i) || i < 0 || i >= cues.length) continue;
+
+    const line = cleanup.cues[i].text;
+    const total = line.split(/\s+/).filter((w) => w.length > 0).length;
+    if (!Array.isArray(r.words) || r.words.length === 0) continue;
+
+    const words = r.words
+      .filter((w): w is number => typeof w === 'number' && Number.isInteger(w))
+      .filter((w) => w >= 0 && w < total);
+    /* Out-of-range indices are a model that lost count, and a partial
+       list would silently drop the word the line was about. */
+    if (words.length !== r.words.length || words.length === 0 || words.length > 5) continue;
+
+    const unique = [...new Set(words)].sort((a, b) => a - b);
+    const heroWord = typeof r.hero === 'number' ? r.hero : null;
+    const hero = heroWord !== null && unique.includes(heroWord)
+      ? unique.indexOf(heroWord)
+      : null;
+
+    reviewed.set(i, { text: line, emphasis: unique, hero });
+    emphasised += 1;
+  }
+
+  return {
+    cues: cleanup.cues,
+    reviewed,
+    corrected: cleanup.applied,
+    emphasised,
+    rejected: cleanup.rejected,
+    refused: null,
+  };
+}

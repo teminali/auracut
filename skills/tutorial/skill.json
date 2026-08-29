@@ -12,8 +12,8 @@
 
   "id": "tutorial",
   "name": "Tutorial",
-  "version": "1.1.0",
-  "summary": "Turns a screen recording into a finished tutorial: hard cuts between framings, an inset frame on a light backdrop with an optional inner edge, the camera full frame over a spoken introduction and over pauses, captions.",
+  "version": "1.3.0",
+  "summary": "Turns a screen recording into a finished tutorial: eased moves between framings, an inset frame on a light backdrop with an optional inner edge, the camera full frame over a spoken introduction and over pauses, and the narration twice over as whole-sentence subtitles and as kinetic emphasis type.",
 
   "toolApi": 1,
 
@@ -95,7 +95,7 @@
       "kind": "number",
       "required": false,
       "default": 2.8,
-      "description": "How far the frame CUTS in on a click. 2.8 is the reference video's own figure, measured; 1.5 is a nudge, 3 is the ceiling."
+      "description": "How far the frame moves in on a click. 2.8 is the first reference video's own figure, measured; 1.5 is a nudge, 3 is the ceiling. How FAR, not how fast: the move is a 400ms glide eased at both ends, and this does not change that."
     },
     {
       "id": "language",
@@ -112,7 +112,31 @@
       "required": false,
       "default": true,
       "requiresSlot": "captions",
-      "description": "Spell-check the transcript with the agent CLI already configured in Kerf before the words go on screen: misspellings, word boundaries, punctuation, in the SAME language. It is only ever allowed to correct a line, never to rewrite one, and a reply that grows a line into a sentence nobody said is refused whole. This does NOT control the audit: repetition loops, non-speech markers and stutters are found and removed with no model at all, because those are deletions and a model asked to fill that hole will invent fluent narration instead."
+      "description": "Have the agent CLI already configured in Kerf read the transcript BEFORE any of it reaches the timeline. Two jobs in one turn: correct misspellings, word boundaries and punctuation in the SAME language, and choose which words of each line the kinetic captions put on screen. It is only ever allowed to correct a line, never to rewrite one, and a reply that grows a line into a sentence nobody said is refused whole; emphasis naming a word the line does not contain is refused separately, and the line then falls back to the deterministic picker. Bounded at 45 seconds, after which the edit is built with the transcriber's own words rather than making anybody wait. This does NOT control the audit: repetition loops, non-speech markers and stutters are found and removed with no model at all, because those are deletions and a model asked to fill that hole will invent fluent narration instead."
+    },
+    {
+      "id": "kineticCaptions",
+      "kind": "boolean",
+      "required": false,
+      "default": true,
+      "requiresSlot": "captions",
+      "description": "Draw the narration as kinetic emphasis type: a few large words at a time, stacking and scaling away as the next arrives, the word the line turns on in green. The design is copied from a measured reference; see `_design`. The whole-sentence subtitle track is laid down underneath either way, so nothing is lost by turning this off."
+    },
+    {
+      "id": "subtitlesHidden",
+      "kind": "boolean",
+      "required": false,
+      "default": false,
+      "requiresSlot": "kineticCaptions",
+      "description": "Mute the whole-sentence subtitle track so only the kinetic type is drawn. Off by default: a tutorial that shows only its emphasis words is a tutorial with no subtitles on it. The track is muted rather than removed either way, so it is still edited, still written out as the .srt beside a render, and one click in the track head brings it back."
+    },
+    {
+      "id": "captionFit",
+      "kind": "number",
+      "required": false,
+      "default": 0.42,
+      "requiresSlot": "kineticCaptions",
+      "description": "How much of the reference design's scale the kinetic type is drawn at. 1 is the reference exactly, which is sized for a title card with nothing behind it and covers a screen recording. Every ratio inside the design is preserved at any value: this scales the whole thing, it does not restyle it."
     },
     {
       "id": "backdrop",
@@ -158,6 +182,53 @@
     "nothing."
   ],
 
+  "_design": [
+    "The kinetic captions are a COPY, and the thing that makes it a copy",
+    "rather than an homage is that every number in it was measured off",
+    "the source rather than eyeballed from it.",
+    "",
+    "The source: a 12m47s CapCut tutorial whose first 5.1 seconds are the",
+    "finished piece and whose remaining twelve minutes are its author",
+    "building it a step at a time and saying out loud what he is doing.",
+    "So there are two independent records of the same design, and where",
+    "they disagree the measurement wins.",
+    "",
+    "What was measured, off 163 frames of the title sequence:",
+    "",
+    "  · the green, #4DCA39, as the largest cluster in a colour histogram",
+    "    on three separate frames, the same value each time;",
+    "  · the scale ANCHOR, by solving a uniform scale about an unknown",
+    "    centre from band geometry: x = 960 on a 1920 frame to the pixel,",
+    "    y at 0.716 frame heights above centre. One measured constant",
+    "    from which both the shrink and the drift fall out;",
+    "  · the type sizes, by converting each word's ink height through its",
+    "    own rendered ink/em ratio, which is what showed that the big",
+    "    words are sized to a WIDTH (0.549 of frame, +/-4% across three)",
+    "    and the small ones to a point size;",
+    "  · the easing, by fitting cubic beziers to the composition's scale",
+    "    across a move: [0.48, 0, 0.51, 1] at RMS 0.010, against 0.555",
+    "    for the expo-out curve this skill used to move on;",
+    "  · the move length, settle to settle between bit-identical frames;",
+    "  · that there is no letter tracking and no drop shadow at all.",
+    "",
+    "What was taken from the author's own words, because he reads them",
+    "off his own inspector on camera: the font (Visby CF Extra Bold), the",
+    "accent font (Trebuchet MS Bold Italic), the entry animations and",
+    "their durations (0.3s and 0.2s), and the restack scale (100 to 80).",
+    "",
+    "Two deliberate departures, both stated in the code beside the",
+    "constant they affect. The stack CLEARS between phrases, because the",
+    "source is one phrase across a title card and a tutorial is twenty",
+    "minutes over a screen recording. And the whole design is drawn at",
+    "`captionFit`, because at 1 it is sized to cover a frame that has",
+    "nothing behind it. Neither changes a ratio inside the design.",
+    "",
+    "One thing cannot be copied: Visby CF is a commercial font and cannot",
+    "ship inside anything. Poppins is bundled as the closest freely",
+    "licensed match and the skill looks for Visby first, so a machine",
+    "that has it renders the design exactly."
+  ],
+
   "recipe": [
     {
       "tool": "build_tutorial_from_recording",
@@ -168,7 +239,10 @@
         "backdrop": "{slot:backdrop}",
         "edge": "{slot:edge}",
         "language": "{slot:language}",
-        "cleanCaptions": "{slot:cleanCaptions}"
+        "cleanCaptions": "{slot:cleanCaptions}",
+        "kineticCaptions": "{slot:kineticCaptions}",
+        "subtitlesHidden": "{slot:subtitlesHidden}",
+        "captionFit": "{slot:captionFit}"
       }
     }
   ],
@@ -208,8 +282,8 @@
 
   "provenance": {
     "author": "kerf",
-    "builtWith": "Kerf 1.2.0",
-    "builtAt": "2026-08-27",
+    "builtWith": "Kerf 1.11.0",
+    "builtAt": "2026-08-29",
     "verifiedOn": "macOS arm64"
   },
 

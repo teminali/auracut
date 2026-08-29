@@ -61,61 +61,59 @@ function mountEditor(): void {
      which is the only one that holds the project. */
   registerToolBridge();
 
-  /* In development, expose the stores so the app can be driven from the console
-     (and from automated smoke tests) without adding hooks to components. */
-  if (import.meta.env.DEV) {
-    void Promise.all([
-      import('./store/timelineStore'),
-      import('./store/projectStore'),
-      import('./store/agentChatStore'),
-      import('./store/uiStore'),
-      import('./mcp/toolRegistry'),
-      import('./store/claudeAgentStore'),
-      import('./store/layoutStore'),
-      import('./store/recorderStore'),
-      import('./engine/liveStream'),
-      import('./store/recentsStore'),
-    ]).then(([timeline, project, chat, ui, mcp, agent, layout, recorder, live, recents]) => {
-      (window as any).__kerf = {
-        timeline: timeline.useTimelineStore,
-        project: project.useProjectStore,
-        chat: chat.useAgentChatStore,
-        ui: ui.useUiStore,
-        executeTool: mcp.executeTool,
-        tools: mcp.KERF_TOOLS,
-        agent: agent.useClaudeAgentStore,
-        /*
-          Which screen is showing lives here, and without it no automated
-          UI check could get off the home screen — `open_starter_project`
-          loads a project into the stores and does NOT navigate, so a test
-          that opened one and looked for the editor found the home screen
-          and measured nothing. Cost an hour of a render-count measurement
-          reading zero for the most boring possible reason.
-        */
-        layout: layout.useLayoutStore,
-        /* The recorder, so `verify_home` can prove the New project
-           chooser opens it without a real capture device. */
-        recorder: recorder.useRecorderStore,
-        /* The recents wall, so `verify_home` can put two projects on
-           it and prove the sort really orders them. A one-project wall
-           cannot be sorted wrong, so without this the sort check was a
-           green tick that could not fail. */
-        recents: recents.useRecentsStore,
-        /*
-          Live streaming, so `verify_stream` can run one end to end
-          against a real RTMP ingest with SYNTHETIC colour sources.
+  /* Expose the stores on window.__kerf so the app can be driven from the console
+     and from automated smoke tests via debug/eval without adding hooks to components. */
+  void Promise.all([
+    import('./store/timelineStore'),
+    import('./store/projectStore'),
+    import('./store/agentChatStore'),
+    import('./store/uiStore'),
+    import('./mcp/toolRegistry'),
+    import('./store/claudeAgentStore'),
+    import('./store/layoutStore'),
+    import('./store/recorderStore'),
+    import('./engine/liveStream'),
+    import('./store/recentsStore'),
+  ]).then(([timeline, project, chat, ui, mcp, agent, layout, recorder, live, recents]) => {
+    (window as any).__kerf = {
+      timeline: timeline.useTimelineStore,
+      project: project.useProjectStore,
+      chat: chat.useAgentChatStore,
+      ui: ui.useUiStore,
+      executeTool: mcp.executeTool,
+      tools: mcp.KERF_TOOLS,
+      agent: agent.useClaudeAgentStore,
+      /*
+        Which screen is showing lives here, and without it no automated
+        UI check could get off the home screen — `open_starter_project`
+        loads a project into the stores and does NOT navigate, so a test
+        that opened one and looked for the editor found the home screen
+        and measured nothing. Cost an hour of a render-count measurement
+        reading zero for the most boring possible reason.
+      */
+      layout: layout.useLayoutStore,
+      /* The recorder, so `verify_home` can prove the New project
+         chooser opens it without a real capture device. */
+      recorder: recorder.useRecorderStore,
+      /* The recents wall, so `verify_home` can put two projects on
+         it and prove the sort really orders them. A one-project wall
+         cannot be sorted wrong, so without this the sort check was a
+         green tick that could not fail. */
+      recents: recents.useRecentsStore,
+      /*
+        Live streaming, so `verify_stream` can run one end to end
+        against a real RTMP ingest with SYNTHETIC colour sources.
 
-          It is here rather than behind a tool because the thing that
-          has to be controlled is the SOURCES: a stream fed from the
-          real screen is a stream whose output nobody can assert
-          anything about. Given a green screen and a blue camera, every
-          claim the look makes becomes a measurement on the received
-          picture.
-        */
-        liveStream: live,
-      };
-    });
-  }
+        It is here rather than behind a tool because the thing that
+        has to be controlled is the SOURCES: a stream fed from the
+        real screen is a stream whose output nobody can assert
+        anything about. Given a green screen and a blue camera, every
+        claim the look makes becomes a measurement on the received
+        picture.
+      */
+      liveStream: live,
+    };
+  });
 
   root.render(
     <React.StrictMode>

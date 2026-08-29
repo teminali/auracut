@@ -154,7 +154,8 @@ export const ExportModal: React.FC = () => {
         kind: 'success',
         title: 'Export finished',
         // Say what actually landed on disk, not just where it was aimed.
-        detail: `${result.outputPath} · ${(result.bytes / 1024 / 1024).toFixed(1)} MB · ${result.frames} frames`,
+        detail: `${result.outputPath} · ${(result.bytes / 1024 / 1024).toFixed(1)} MB · ${result.frames} frames`
+          + (result.subtitlePaths?.length ? ` · ${result.subtitlePaths.length} subtitle files` : ''),
       });
     } catch (err) {
       setExportProgress(0, 'Failed', 'error', null);
@@ -486,6 +487,24 @@ const ExportDone: React.FC<{
       </p>
       {result.audioError && (
         <p className="text-micro text-spectrum-amber max-w-[360px]">{result.audioError}</p>
+      )}
+
+      {/*
+        Named rather than merely written. A subtitle file that appears
+        silently beside the video is one nobody uploads, because nobody
+        knows it is there — and being able to upload it is the entire
+        reason it is written.
+      */}
+      {result.subtitlePaths && result.subtitlePaths.length > 0 && (
+        <p className="text-micro text-spectrum-textFaint max-w-[360px]">
+          {result.subtitlePaths
+            .map((p) => (p.split(/[\\/]/).pop() ?? p).split('.').pop()?.toUpperCase())
+            .join(' and ')}
+          {' subtitles written beside it, for YouTube and the rest.'}
+        </p>
+      )}
+      {result.subtitleNote && (
+        <p className="text-micro text-spectrum-textFaint max-w-[360px]">{result.subtitleNote}</p>
       )}
 
       <div className="flex flex-wrap justify-center gap-2 pt-2">

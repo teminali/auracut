@@ -40,31 +40,48 @@
    Bouncing out and in over a two-second gap is the single thing that
    makes an auto-zoomed recording unwatchable.
 
-   The curve is an EXPO-OUT bezier, not an ease-in-out, and the
-   difference is most of the feel. `easeInOut` spends as long arriving
-   as it does leaving, which reads as a slow machine; expo-out is
-   almost all of the way there in the first third and then glides, which
-   reads as a camera operator who already knew where they were going.
-   The pull-out is the mirror of it, slower to leave and decisive at the
-   end.
+   The curve is an EXPO-OUT bezier by default, not an ease-in-out, and
+   the difference is most of the feel. `easeInOut` spends as long
+   arriving as it does leaving, which reads as a slow machine; expo-out
+   is almost all of the way there in the first third and then glides,
+   which reads as a camera operator who already knew where they were
+   going. The pull-out is the mirror of it, slower to leave and decisive
+   at the end.
+
+   That is right for a move you WATCH and wrong for a move you read
+   through. On a screen tutorial the frame is full of words, and a push
+   that is half-done in the first tenth of its duration relocates all of
+   them before the eye has registered that anything moved. `ZoomShape`
+   can therefore name its own curve, and `SMOOTH_SHAPE` names
+   `GLIDE_CURVE` — eased at both ends, fitted to the kinetic-typography
+   reference's own moves. See both for the numbers.
 
    And a small OVERSHOOT: the push goes 3% past its target and settles
    back over 140ms. It is the difference between a zoom that stops and a
    zoom that arrives. Optional, because on very dense text it can read
    as a wobble.
 
-   ── And a second grammar, which does not animate at all ────────────
+   ── And a second grammar, which thinks in FRAMINGS ─────────────────
 
-   `cutIn` swaps all of the above for the way the reference video edits:
-   hard CUTS between framings, a slow creep while each one is held, and
-   one animated move in the whole film — the pull back to rest at the
-   end. `planCuts` is that, `CUT_SHAPE` is its numbers, and every one of
+   `cutIn` swaps all of the above for the way the reference video edits.
+   It does not push in and pull out around each moment; it decides a
+   sequence of FRAMINGS, holds each with a slow creep, refuses to go
+   wide between two close shots unless the gap buys a whole rest shot,
+   and ends the film on one long move back to the framing it opened on.
+   `planCuts` is that, `CUT_SHAPE` is its numbers, and every one of
    those numbers was measured off the reference rather than chosen.
 
    The two are different edits rather than two settings of one, which is
-   why half of `ZoomShape` goes inert under `cutIn`: a push has a
-   duration and a curve and an overshoot to settle, and a cut has none
-   of the three.
+   why several fields of `ZoomShape` go inert under `cutIn`.
+
+   HOW the frame gets between two framings is a separate question from
+   which framings they are, and it is `transitionMs`. At 0 it is a hard
+   cut, which is what the reference does and what the skill shipped
+   first. Above 0 the same two framings are joined by a move of that
+   length on `curve`. `CUT_SHAPE` cuts; `SMOOTH_SHAPE` glides over
+   400ms; they plan identical framings. That split was made when the
+   tutorial skill needed to stop cutting: a screen recording is READ,
+   and a hard cut to 2.8x relocates every word in one frame.
 
    Everything lands as ordinary keyframes on the clip's own transform.
    No hidden state, no special clip type: the result is something the
@@ -666,6 +683,41 @@ export const SETTLE_CURVE: [number, number, number, number] = [0.33, 0, 0.2, 1];
 export const CLOSE_CURVE: [number, number, number, number] = [0.53, 0.47, 0, 1];
 
 /**
+ * Eased at BOTH ends, and the only curve here fitted to a move that a
+ * viewer was meant to find comfortable rather than dramatic.
+ *
+ * `PUSH_CURVE` is expo-out: it is 50% of the way there at 10% of the
+ * duration. That is a camera operator arriving, and on a screen
+ * tutorial it reads as a snap — the frame is simply somewhere else
+ * before the eye has registered that it moved.
+ *
+ * The kinetic-typography reference does the opposite deliberately, and
+ * stops twice to say so: "make sure that these keyframes are smooth…
+ * add an auto curve on that keyframe… this is gonna give us a much
+ * smoother motion than we had before". CapCut's "auto curve" eases
+ * both ends of the segment.
+ *
+ * Fitted rather than taken on trust. The composition's scale was read
+ * off seven consecutive frames of one restack move — the drawn width
+ * of the band that is shrinking, 1708 → 1680 → 1680 → 1612 → 1515 →
+ * 1393 → 1258 px across 2200–2400ms — and cubic beziers fitted to the
+ * resulting trajectory:
+ *
+ *     fitted            [0.48, 0,    0.51, 1]   RMS 0.010
+ *     strong ease-in-out[0.5,  0,    0.5,  1]   RMS 0.011
+ *     ease-in-out (CSS) [0.42, 0,    0.58, 1]   RMS 0.016
+ *     smoothstep        [0.33, 0,    0.67, 1]   RMS 0.032
+ *     PULL_CURVE        [0.45, 0,    0.15, 1]   RMS 0.189
+ *     CLOSE_CURVE       [0.53, 0.47, 0,    1]   RMS 0.331
+ *     PUSH_CURVE        [0.16, 1,    0.3,  1]   RMS 0.555
+ *
+ * The current push curve is fifty times further from it than the fit,
+ * which is not a matter of taste being different — they are different
+ * moves. This is the fit, to two places.
+ */
+export const GLIDE_CURVE: [number, number, number, number] = [0.48, 0, 0.51, 1];
+
+/**
  * One frame at 60fps, and it is NOT what makes a cut instantaneous.
  *
  * `hold` easing is: `applyEasing` returns 0 for the whole span, so the
@@ -696,14 +748,21 @@ export interface ZoomShape {
   /** How long the settle back from the overshoot takes. Ignored when `cutIn` is set. */
   settleMs: number;
   /**
-   * CUT to each framing instead of pushing into it.
+   * Use the FRAMING planner rather than the pushing one.
    *
-   * The two grammars are genuinely different edits rather than two
-   * settings of one, which is why half the fields above go inert here.
-   * A push is a move with a duration and a curve; a cut has neither, and
-   * everything that follows from that — no overshoot to settle, no
-   * pull-out between framings, one move in the whole film — changes with
-   * it. See `planCuts`.
+   * The two are genuinely different edits rather than two settings of
+   * one, which is why several fields above go inert here. `planZoom`
+   * pushes in and pulls back out around each moment. `planCuts` decides
+   * a sequence of FRAMINGS instead: it holds each one with a slow
+   * creep, refuses to go wide between two close shots unless the gap
+   * buys a whole rest shot, and ends the film on one long move back to
+   * the framing it opened on. Every one of those is measured off the
+   * reference; see `CUT_SHAPE`.
+   *
+   * The name is historical and now says less than it used to: whether
+   * the change of framing is a CUT or a MOVE is `transitionMs`, not
+   * this. `CUT_SHAPE` cuts, `SMOOTH_SHAPE` glides, and they plan
+   * exactly the same framings.
    */
   cutIn: boolean;
   /**
@@ -716,6 +775,31 @@ export interface ZoomShape {
    * `outMs`, which is what the pushing grammar uses.
    */
   closeMs: number;
+  /**
+   * Override the curve every push and pull is drawn on.
+   *
+   * Absent keeps `PUSH_CURVE` / `PULL_CURVE`, which are the shapes a
+   * camera move has. `GLIDE_CURVE` is what a move a viewer has to
+   * READ THROUGH has, and it is what the tutorial grammar uses. See
+   * `SMOOTH_SHAPE`.
+   */
+  curve?: [number, number, number, number];
+  /**
+   * How long the change of framing takes, under `cutIn`.
+   *
+   * 0 is a CUT: the outgoing framing carries `hold` easing, the two
+   * keyframes sit one frame apart, and the value jumps. Anything else
+   * is a MOVE of that length on `curve`, between the same two framings.
+   *
+   * This is the field that separates "which framings" from "how the
+   * frame gets between them", and separating them is what let the
+   * tutorial grammar stop cutting without giving up anything else. The
+   * drift under a held framing, the refusal to go wide between two
+   * close shots, and the one long closing move back to rest are all
+   * `planCuts`, all measured off the reference, and all unaffected by
+   * this.
+   */
+  transitionMs: number;
 }
 
 export const DEFAULT_SHAPE: ZoomShape = {
@@ -729,6 +813,7 @@ export const DEFAULT_SHAPE: ZoomShape = {
   cutIn: false,
   driftPctPerSec: 0,
   closeMs: 0,
+  transitionMs: 0,
 };
 
 /**
@@ -784,6 +869,57 @@ export const CUT_SHAPE: ZoomShape = {
   cutIn: true,
   driftPctPerSec: 3.0,
   closeMs: 2100,
+  /* 0 is the cut: two keyframes a frame apart with `hold` on the first.
+     Measured as 0 transition frames on all three of the reference's
+     cuts. See the mean-absolute-difference figures above. */
+  transitionMs: 0,
+};
+
+/**
+ * The third grammar: the same framings as `CUT_SHAPE`, MOVED to rather
+ * than cut to.
+ *
+ * A cut is the harder, more confident edit and it is what the first
+ * reference video does. It is also the edit that makes a screen
+ * tutorial tiring to watch, and for a reason that is specific to this
+ * kind of footage rather than a matter of taste: the viewer is READING
+ * the frame. A cut from wide to 2.8x close relocates every word on
+ * screen between one frame and the next, and the eye has to find its
+ * place again each time. Twenty of those in a two-minute take is
+ * twenty re-reads.
+ *
+ * So: the framings, the hold, the drift and the closing move are
+ * `CUT_SHAPE`'s, unchanged and still measured off that file — none of
+ * that is what was wrong. What changes is that the frame TRAVELS
+ * between them, on the curve the kinetic-typography reference uses for
+ * exactly the same reason. Its author keyframes every one of his moves
+ * with CapCut's "auto curve" and says why: "this is gonna give us a
+ * much smoother motion than we had before."
+ *
+ *   · **`inMs` / `outMs` 400.** Measured off that reference, settle to
+ *     settle — the gap between the last frame that is bit-identical to
+ *     its neighbour before a move and the first one after it: 200, 400
+ *     and 533ms across the three transitions where both ends are
+ *     unambiguous. Median 400.
+ *
+ *   · **`curve` GLIDE_CURVE**, fitted to that reference's own scale
+ *     trajectory at RMS 0.010. See the table on `GLIDE_CURVE` for what
+ *     the alternatives score.
+ *
+ *   · **`overshoot` 0.** The reference's composition moves have no
+ *     bounce in them at all. The bounce in that piece is on the WORDS
+ *     as they arrive, which is a different layer and is where this
+ *     skill puts it too.
+ *
+ *   · **`factor` 2.8, `holdMs` 2030, `driftPctPerSec` 3.0, `closeMs`
+ *     2100** — all `CUT_SHAPE`'s, all measured, all unchanged. How
+ *     close the frame gets and how long it stays are not what made it
+ *     hard to watch.
+ */
+export const SMOOTH_SHAPE: ZoomShape = {
+  ...CUT_SHAPE,
+  transitionMs: 400,
+  curve: GLIDE_CURVE,
 };
 
 /** One point on the planned move, before it becomes keyframes. */
@@ -820,6 +956,13 @@ export function planZoom(
   if (moments.length === 0) return [];
   if (shape.cutIn) return planCuts(moments, durationMs, shape, restByMs);
 
+  /* One curve for the whole plan when the shape names one. A move a
+     viewer reads through is eased at both ends; a camera move is not.
+     See `GLIDE_CURVE`. */
+  const pushCurve = shape.curve ?? PUSH_CURVE;
+  const pullCurve = shape.curve ?? PULL_CURVE;
+  const settleCurve = shape.curve ?? SETTLE_CURVE;
+
   const plan: Stop[] = [{ tMs: 0, factor: 1, x: 0.5, y: 0.5, easing: 'linear' }];
   const push = (stop: Stop) => {
     const last = plan[plan.length - 1];
@@ -848,14 +991,14 @@ export function planZoom(
     if (shape.overshoot > 0 && t1 + shape.settleMs < nextT0) {
       push({
         tMs: t1, factor: target * (1 + shape.overshoot), x: moment.x, y: moment.y,
-        easing: 'bezier', bezier: PUSH_CURVE,
+        easing: 'bezier', bezier: pushCurve,
       });
       push({
         tMs: t1 + shape.settleMs, factor: target, x: moment.x, y: moment.y,
-        easing: 'bezier', bezier: SETTLE_CURVE,
+        easing: 'bezier', bezier: settleCurve,
       });
     } else {
-      push({ tMs: t1, factor: target, x: moment.x, y: moment.y, easing: 'bezier', bezier: PUSH_CURVE });
+      push({ tMs: t1, factor: target, x: moment.x, y: moment.y, easing: 'bezier', bezier: pushCurve });
     }
 
     const arrived = plan[plan.length - 1].tMs;
@@ -872,7 +1015,7 @@ export function planZoom(
     if (nextT0 >= holdEnd + shape.outMs) {
       push({
         tMs: holdEnd + shape.outMs, factor: 1, x: 0.5, y: 0.5,
-        easing: 'bezier', bezier: PULL_CURVE,
+        easing: 'bezier', bezier: pullCurve,
       });
     }
   }
@@ -881,7 +1024,7 @@ export function planZoom(
   if (last.factor !== 1) {
     push({
       tMs: Math.min(Math.max(durationMs, last.tMs + 1), last.tMs + shape.outMs),
-      factor: 1, x: 0.5, y: 0.5, easing: 'bezier', bezier: PULL_CURVE,
+      factor: 1, x: 0.5, y: 0.5, easing: 'bezier', bezier: pullCurve,
     });
   }
 
@@ -931,13 +1074,32 @@ function planCuts(
     else plan.push(stop);
   };
 
+  /*
+    ── Cut or move, and NOTHING ELSE changes with it ────────────────
+
+    Every framing decision below is the same either way: which framings,
+    how long each is held, whether the frame is allowed to go wide in
+    between, the creep under a held shot, and the one long move home.
+    All measured off the reference, all untouched.
+
+    What `transitionMs` decides is the two lines that get from one
+    framing to the next. At 0 the outgoing stop carries `hold`, the two
+    keyframes sit one frame apart and the value jumps: a cut. Above 0
+    the outgoing stop carries the shape's curve and the gap is the move
+    itself.
+  */
+  const moveMs = shape.transitionMs > 0 ? shape.transitionMs : CUT_GAP_MS;
+  const leaving: Pick<Stop, 'easing' | 'bezier'> = shape.transitionMs > 0
+    ? { easing: 'bezier', bezier: shape.curve ?? GLIDE_CURVE }
+    : { easing: 'hold' };
+
   /** What a framing held for `spanMs` has crept to by the end of it. */
   const drifted = (factor: number, spanMs: number) =>
     factor * (1 + Math.min(MAX_DRIFT, Math.max(0, (shape.driftPctPerSec / 100) * (spanMs / 1000))));
 
   /**
    * Hold `from` until `untilMs`, drifting, and leave the last stop on
-   * `hold` so whatever comes next is a cut rather than a ramp.
+   * the easing that gets to whatever comes next.
    */
   const holdUntil = (from: Stop, untilMs: number) => {
     if (untilMs <= from.tMs) return from;
@@ -945,7 +1107,7 @@ function planCuts(
       tMs: untilMs,
       factor: drifted(from.factor, untilMs - from.tMs),
       x: from.x, y: from.y,
-      easing: 'hold',
+      ...leaving,
     };
     push(end);
     return end;
@@ -960,18 +1122,18 @@ function planCuts(
     const next = moments[i + 1];
     const target = shape.factor * SOURCE_STRENGTH[moment.source];
 
-    const cutAt = Math.max(current.tMs + CUT_GAP_MS, moment.atMs - shape.leadMs);
+    const cutAt = Math.max(current.tMs + moveMs, moment.atMs - shape.leadMs);
     const nextCutAt = next ? Math.max(0, next.atMs - shape.leadMs) : Infinity;
 
-    holdUntil(current, cutAt - CUT_GAP_MS);
+    holdUntil(current, cutAt - moveMs);
     current = { tMs: cutAt, factor: target, x: moment.x, y: moment.y, easing: 'linear' };
     push(current);
 
     /* Cut back to rest only when the gap buys a whole rest shot. */
     const holdEnd = cutAt + shape.holdMs + moment.spanMs;
-    if (nextCutAt - holdEnd >= shape.holdMs && holdEnd + CUT_GAP_MS < restByMs) {
+    if (nextCutAt - holdEnd >= shape.holdMs && holdEnd + moveMs < restByMs) {
       holdUntil(current, holdEnd);
-      current = { tMs: holdEnd + CUT_GAP_MS, factor: 1, x: 0.5, y: 0.5, easing: 'linear' };
+      current = { tMs: holdEnd + moveMs, factor: 1, x: 0.5, y: 0.5, easing: 'linear' };
       push(current);
     }
   }
@@ -988,13 +1150,15 @@ function planCuts(
     happened to leave it.
   */
   const closeMs = shape.closeMs > 0 ? shape.closeMs : shape.outMs;
-  const end = Math.max(current.tMs + CUT_GAP_MS, Math.min(restByMs, durationMs));
+  const end = Math.max(current.tMs + moveMs, Math.min(restByMs, durationMs));
   const startClose = Math.max(current.tMs, end - closeMs);
 
   if (startClose > current.tMs) {
     const held = holdUntil(current, startClose);
     /* `hold` would freeze the move that follows, so the launch stop
-       carries the measured curve instead. */
+       carries the measured curve instead. CLOSE_CURVE either way: it is
+       fitted to the reference's own closing move, which is the one move
+       that film has and is therefore the one move both grammars share. */
     plan[plan.length - 1] = { ...held, easing: 'bezier', bezier: CLOSE_CURVE };
   } else {
     plan[plan.length - 1] = { ...current, easing: 'bezier', bezier: CLOSE_CURVE };

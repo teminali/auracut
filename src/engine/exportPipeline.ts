@@ -17,6 +17,7 @@ import { renderTimelineFrame, undecodableSources } from './compositor';
 import { seekVideosForFrame } from './videoEngine';
 import { interpolateKeyframes } from './keyframeMath';
 import { createFrameEncoder, probeFrameFormat, FrameEncoder } from './frameEncoder';
+import { serializeCaptions, CaptionCue } from './captions';
 
 export type ExportResolution = '720p' | '1080p' | '1440p' | '4k';
 
@@ -110,6 +111,16 @@ export interface ExportResult {
   farm: { workers: number; chunks: number };
   /** Why the fast path was not taken, when it was asked for and refused. */
   engineNote?: string;
+  /**
+   * Subtitle files written beside the video, absolute paths.
+   *
+   * Empty when the timeline has no text track that reads as subtitles.
+   * See `subtitleCues` for what "reads as subtitles" means and why it
+   * is not simply "the first text track".
+   */
+  subtitlePaths?: string[];
+  /** Why no subtitles were written, when there was a reason worth saying. */
+  subtitleNote?: string;
   /** Where the render time went, so a slow one can be diagnosed. */
   timing?: {
     seekMs: number;
@@ -514,7 +525,11 @@ export async function ensureFontsLoaded(tracks: Track[]): Promise<void> {
     [...families].flatMap((family) =>
       /* Both weights the compositor commonly asks for. A face loaded at
          one weight does not bring its siblings with it. */
-      [400, 700].map((weight) =>
+      /* 800 as well as 400 and 700: the kinetic captions ask for 900,
+         which resolves to the 800 face, and a face loaded at 700 does
+         not bring its siblings with it — that is a render in the wrong
+         weight with no error anywhere. */
+      [400, 700, 800].map((weight) =>
         document.fonts.load(`${weight} 16px "${family}"`).catch(() => [])
       )
     )
@@ -619,6 +634,147 @@ export async function renderFrameSequence(spec: FrameSequenceSpec): Promise<void
  * `onProgress` receives 0..100 and a status line. Throws on failure —
  * an export that cannot produce a file must never report success.
  */
+/* ── Subtitles beside the video ──────────────────────────────────── */
+
+/**
+ * The text track that is a TRANSCRIPT, out of however many there are.
+ *
+ * Not "the first text track", and the difference matters as soon as the
+ * Tutorial skill has run: it leaves two of them. `T2 · Captions` is one
+ * clip per WORD — kinetic type, a few words at a time at 300px — and
+ * serialising that gives a subtitle file with one word per cue, which
+ * is worse than no subtitle file because it looks like it worked.
+ * `T1 · Subtitles` is the whole sentence and is the one to write.
+ *
+ * Chosen by MEASURING the clips rather than by matching the name, so it
+ * still works on a project whose tracks were renamed, on one built by
+ * hand, and on one whose captions were imported from an `.srt` in the
+ * first place. The mean words per clip separates the two cleanly: a
+ * kinetic track is 1.0 by construction and a sentence track is four or
+ * five.
+ *
+ * MUTED TRACKS COUNT, and that is the case this gets right that a
+ * "visible clips" rule would get exactly backwards. The Tutorial skill
+ * mutes the sentence track precisely BECAUSE the kinetic one is drawing
+ * the words on screen — so the track that must not be burned into the
+ * picture is the same track that must be written to the sidecar. A
+ * subtitle file is for a player to draw, not for the renderer to.
+ */
+export function subtitleCues(tracks: Track[]): { cues: CaptionCue[]; note?: string } {
+  const candidates = tracks
+    .filter((track) => track.type === 'text')
+    .map((track) => {
+      const clips = track.clips
+        .filter((clip) => typeof clip.textStyle?.text === 'string' && clip.textStyle.text.trim().length > 0)
+        .sort((a, b) => a.startTimeMs - b.startTimeMs);
+      const words = clips.reduce(
+        (n, clip) => n + (clip.textStyle!.text as string).trim().split(/\s+/).length,
+        0
+      );
+      return { track, clips, perClip: clips.length > 0 ? words / clips.length : 0 };
+    })
+    .filter((c) => c.clips.length > 0);
+
+  if (candidates.length === 0) return { cues: [] };
+
+  /*
+    Two words a clip is the floor. Below it the track is a kinetic
+    display or a set of title cards, and writing it out as subtitles
+    would produce a file that is technically valid and useless. Said in
+    the note rather than silently skipped, because "my export had no
+    captions" needs an answer.
+  */
+  const best = candidates.reduce((a, b) => (b.perClip > a.perClip ? b : a));
+  if (best.perClip < 2) {
+    return {
+      cues: [],
+      note:
+        `No subtitle file was written: the only text on this timeline averages `
+        + `${best.perClip.toFixed(1)} words a clip, which is a title or a kinetic caption `
+        + 'rather than a transcript.',
+    };
+  }
+
+  return {
+    cues: best.clips.map((clip, i) => ({
+      index: i + 1,
+      startMs: clip.startTimeMs,
+      endMs: clip.startTimeMs + clip.durationMs,
+      /* Line breaks the layout put there are the layout's, not the
+         transcript's: a subtitle player wraps to its own width. */
+      text: (clip.textStyle!.text as string).replace(/\s*\n\s*/g, ' ').trim(),
+      align: clip.textStyle!.align === 'center' ? undefined : clip.textStyle!.align,
+    })),
+  };
+}
+
+/**
+ * Write `.srt` and `.vtt` next to the rendered video.
+ *
+ * Both, because they are two lines of code apart and the two places
+ * this file is going want different ones: YouTube, Vimeo and every
+ * NLE take SRT; a `<video>` tag on the web takes WebVTT and nothing
+ * else. Naming them after the video means a player that looks for a
+ * sidecar finds it without being told.
+ *
+ * Cues are shifted by the export's own start, because a range export
+ * begins at `startMs` and a subtitle file that still carries the
+ * timeline's absolute times is silently three minutes out. Cues
+ * entirely outside the exported range are dropped rather than clamped
+ * to zero, where they would all pile up on the first frame.
+ *
+ * Failure is a NOTE. A video that rendered is not a failed export
+ * because a text file could not be written beside it.
+ */
+async function writeSubtitleSidecars(
+  tracks: Track[],
+  videoPath: string,
+  startMs: number,
+  durationMs: number
+): Promise<{ paths: string[]; note?: string }> {
+  const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+  if (!api?.project) return { paths: [] };
+
+  const found = subtitleCues(tracks);
+  if (found.cues.length === 0) return { paths: [], note: found.note };
+
+  const endMs = startMs + durationMs;
+  const windowed = found.cues
+    .filter((cue) => cue.endMs > startMs && cue.startMs < endMs)
+    .map((cue, i) => ({
+      ...cue,
+      index: i + 1,
+      startMs: Math.max(0, cue.startMs - startMs),
+      endMs: Math.max(1, Math.min(durationMs, cue.endMs - startMs)),
+    }));
+
+  if (windowed.length === 0) {
+    return { paths: [], note: 'No subtitle file was written: no captions fall inside the exported range.' };
+  }
+
+  const base = videoPath.replace(/\.[^./\\]+$/, '');
+  const paths: string[] = [];
+  const failures: string[] = [];
+
+  for (const format of ['srt', 'vtt'] as const) {
+    const target = `${base}.${format}`;
+    try {
+      const written = await api.project.write(target, serializeCaptions(windowed, format));
+      if (written.ok) paths.push(target);
+      else failures.push(`${format}: ${written.error ?? 'write refused'}`);
+    } catch (error) {
+      failures.push(`${format}: ${(error as Error).message}`);
+    }
+  }
+
+  return {
+    paths,
+    ...(failures.length > 0 && paths.length === 0
+      ? { note: `The subtitle files could not be written (${failures.join('; ')}).` }
+      : {}),
+  };
+}
+
 export async function runHardwareExport(
   tracks: Track[],
   project: ProjectSettings,
@@ -879,6 +1035,19 @@ export async function runHardwareExport(
     const result = await api.exporter.finish(sessionId, audioClips);
     if (!result.ok) throw new Error(result.error ?? 'Encoding failed.');
 
+    /*
+      The words, beside the picture. Every render with a transcript on
+      it gets an `.srt` and a `.vtt` named after the video, so what
+      comes out of Kerf can be uploaded somewhere with real captions on
+      it rather than only burned-in ones. Non-fatal: see the function.
+    */
+    onProgress(97, 'Writing subtitles…', {
+      frame: totalFrames, totalFrames, fps: 0, etaMs: 0, engine, phase: 'audio',
+    });
+    const subtitles = await writeSubtitleSidecars(
+      tracks, result.outputPath!, startMs, renderMs
+    );
+
     onProgress(100, `Wrote ${result.outputPath}`, {
       frame: totalFrames, totalFrames, fps: 0, etaMs: 0, engine, phase: 'done',
     });
@@ -899,6 +1068,8 @@ export async function runHardwareExport(
       engine,
       farm: { workers: plan.chunked ? plan.workers : 1, chunks: plan.chunked ? plan.chunks : 1 },
       ...(engineNote ? { engineNote } : {}),
+      ...(subtitles.paths.length > 0 ? { subtitlePaths: subtitles.paths } : {}),
+      ...(subtitles.note ? { subtitleNote: subtitles.note } : {}),
       timing: {
         seekMs: Math.round(timing.seekMs),
         compositeMs: Math.round(timing.compositeMs),

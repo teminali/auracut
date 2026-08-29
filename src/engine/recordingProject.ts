@@ -62,7 +62,7 @@ import { Take } from './screenCapture';
 import type { CursorSample } from '../types/electron';
 import {
   detectMoments, findQuietStretches, keepClearOfZooms, zoomKeyframes, pointerTravelTimes,
-  ZoomMoment, ZoomShape, QuietStretch, DEFAULT_SHAPE, CUT_SHAPE, DEFAULT_DETECT,
+  ZoomMoment, ZoomShape, QuietStretch, DEFAULT_SHAPE, CUT_SHAPE, SMOOTH_SHAPE, DEFAULT_DETECT,
 } from './cursorZoom';
 import {
   LookOptions, DEFAULT_LOOK, addBackdrop, applyScreenLook, addFades,
@@ -70,6 +70,7 @@ import {
 } from './cinematicLook';
 import { prepareSoundKit, placeSoundDesign, SoundOptions, DEFAULT_SOUND } from './recordingSound';
 import { reflowCues, balanceLines } from './captions';
+import { buildKineticCaptions, EmphasisWord } from './kineticCaptions';
 import { formatFileSize } from '../utils/time';
 
 /* ── Speech ─────────────────────────────────────────────────────── */
@@ -127,6 +128,38 @@ export interface AssembleOptions {
   captionStyle: Partial<ClipTextStyle>;
   /** Transcribed narration, in take time. Empty when it was not run. */
   speech: SpeechCue[];
+  /**
+   * Draw the narration as kinetic type as well as as subtitles.
+   *
+   * A SECOND track rather than a different style on the first one. See
+   * the comment where the two are created: the sentence track is what
+   * the film said and is what gets exported as an `.srt`; the kinetic
+   * track is what the speaker emphasised and is what the design is.
+   */
+  kineticCaptions: boolean;
+  /**
+   * Mute the whole-sentence track, leaving only the kinetic type drawn.
+   *
+   * OFF by default, so a finished tutorial carries readable subtitles
+   * as well as the emphasis type. Muting it is a one-click track
+   * control the user already has; this exists so a caller that wants
+   * only the kinetic look does not have to reach for it, and so the
+   * decision is recorded in the build rather than made by hand
+   * afterwards. Muted, never deleted, whichever way it is set.
+   */
+  subtitlesHidden: boolean;
+  /** How much of the reference's scale to draw at. See `STACK_FIT`. */
+  captionFit?: number;
+  /**
+   * Which words of each cue go on screen, when something better than
+   * the deterministic picker has chosen them. Keyed by cue index.
+   *
+   * The review pass in `captionQuality.ts` produces these, and it is
+   * much better at the choice than a stop-word list is because it has
+   * just read the sentence. Absent means `pickEmphasis` decides, which
+   * is what happens with no agent CLI installed.
+   */
+  emphasis?: Map<number, EmphasisWord[]>;
 }
 
 /**
@@ -275,6 +308,8 @@ export const RAW_ASSEMBLE: AssembleOptions = {
   captions: false,
   captionStyle: CAPTION_STYLE,
   speech: [],
+  kineticCaptions: false,
+  subtitlesHidden: false,
 };
 
 /**
@@ -282,15 +317,32 @@ export const RAW_ASSEMBLE: AssembleOptions = {
  *
  * `zoomShape` is the one field here that is not simply a switch, and it
  * is the whole difference between this and what the skill used to build.
- * `CUT_SHAPE` is the reference video's grammar — hard cuts between
- * framings, a slow creep under each one, and one long move back to rest
- * at the end — with every number in it measured off that file. The
- * comment on `CUT_SHAPE` is where the measurements are.
+ * It was `CUT_SHAPE` — the first reference video's grammar, hard cuts
+ * between framings — and it is now `SMOOTH_SHAPE`, which keeps every
+ * one of that file's measured numbers and MOVES between the framings
+ * instead of cutting.
+ *
+ * Why it changed, stated plainly because the old comment argued the
+ * other way and was not wrong about the reference: a cut is the more
+ * confident edit, and on a SCREEN recording it is the more tiring one.
+ * The viewer is reading the frame. A hard cut from wide to 2.8x close
+ * relocates every word on screen in one frame and the eye has to find
+ * its place again; twenty of those in a two-minute take is twenty
+ * re-reads. The kinetic-typography reference solves the same problem
+ * the same way and its author says so out loud while doing it —
+ * "make sure that these keyframes are smooth… this is gonna give us a
+ * much smoother motion than we had before". `GLIDE_CURVE` is that
+ * curve, fitted to his own footage.
+ *
+ * `kineticCaptions` and `subtitlesHidden` are the other change: the
+ * narration is drawn as emphasis type, and the whole-sentence track it
+ * is built from is laid down under it and muted. See where the two
+ * tracks are created.
  */
 export const TUTORIAL_ASSEMBLE: AssembleOptions = {
   ...RAW_ASSEMBLE,
   autoZoom: true,
-  zoomShape: CUT_SHAPE,
+  zoomShape: SMOOTH_SHAPE,
   motionBlur: true,
   markMoments: true,
   cinematic: true,
@@ -298,6 +350,10 @@ export const TUTORIAL_ASSEMBLE: AssembleOptions = {
   cameraOnIntro: true,
   sound: true,
   captions: true,
+  kineticCaptions: true,
+  /* Off: the sentence track is DRAWN alongside the kinetic type, and
+     muting it is one click in the track head. See the option. */
+  subtitlesHidden: false,
 };
 
 export const DEFAULT_ASSEMBLE = TUTORIAL_ASSEMBLE;
@@ -334,6 +390,8 @@ export interface AssembleReport {
   introductionMs: number;
   soundClips: number;
   captionLines: number;
+  /** Word clips on the kinetic track. 0 when it was not built. */
+  kineticWords: number;
   narrationDetached: boolean;
   /**
    * True when the transcript could not be waited for, so the camera cuts
@@ -938,8 +996,44 @@ export async function assembleRecording(
   const cameraTrack = take.camera && take.camera.url
     ? store().addTrack('video', 'V3 · Camera')
     : null;
-  const captionTrack = o.captions && o.speech.length > 0
-    ? store().addTrack('text', 'T1 · Captions')
+  /*
+    ── Two caption tracks, and both of them are the point ───────────
+
+    `T1 · Subtitles` is the WHOLE SENTENCE, every word of it, as
+    ordinary subtitle clips. `T2 · Captions` is the kinetic display —
+    a few words at a time at large size, one clip per word.
+
+    They are not alternatives and neither is a debug view of the other:
+
+      · The kinetic track is what the design is. It shows what the
+        speaker EMPHASISED, which is what the reference does and is the
+        reason the reference reads at a glance.
+
+      · The subtitle track is what the film SAID. It is what gets
+        written out as the `.srt` beside every export, so the video can
+        be uploaded somewhere with real captions on it; it is what a
+        viewer who cannot hear the audio needs; and it is the only copy
+        of the transcript that survives the user deleting a word clip
+        they did not like.
+
+    Losing either one loses something real, so both are laid down and
+    BOTH ARE DRAWN. That is the default and it is deliberate: a viewer
+    who cannot hear the audio needs the sentence, and a viewer scrubbing
+    past needs the emphasis, and a tutorial that shows only the second
+    is a tutorial with no subtitles on it.
+
+    `subtitlesHidden` mutes the sentence track for somebody who wants
+    only the kinetic look. It is off by default and it is a track
+    control the user already has in the timeline; it exists here so the
+    choice can be made at build time and recorded, rather than made by
+    hand on every take.
+  */
+  const hasSpeech = o.captions && o.speech.length > 0;
+  const subtitleTrack = hasSpeech
+    ? store().addTrack('text', 'T1 · Subtitles')
+    : null;
+  const captionTrack = hasSpeech && o.kineticCaptions
+    ? store().addTrack('text', 'T2 · Captions')
     : null;
   const gradeTrack = o.cinematic && (o.look.fadeInMs > 0 || o.look.fadeOutMs > 0)
     ? store().addTrack('video', 'V4 · Grade')
@@ -1177,7 +1271,9 @@ export async function assembleRecording(
   /* ── 8. Captions ────────────────────────────────────────────────── */
 
   let captionLines = 0;
-  if (captionTrack) {
+  let kineticWords = 0;
+
+  if (subtitleTrack) {
     /*
       Wrapped before they are placed, which nothing did before.
 
@@ -1200,7 +1296,7 @@ export async function assembleRecording(
     ).map((cue) => ({ ...cue, text: balanceLines(cue.text, CAPTION_MAX_CHARS) }));
 
     captionLines = store().importCaptions(wrapped, {
-      trackId: captionTrack,
+      trackId: subtitleTrack,
       /* Scaled to THIS canvas. See captionStyleFor: the style's numbers
          are pixels, and the canvas height comes out of the take. */
       style: captionStyleFor(settings.height, o.captionStyle),
@@ -1208,6 +1304,36 @@ export async function assembleRecording(
       /* From the frame height, not a constant. See CAPTION_BASELINE. */
       y: Math.round(settings.height * (CAPTION_BASELINE - 0.5)),
     });
+
+    /*
+      Muted rather than deleted when the kinetic track is carrying the
+      look. The words are still there, still editable, still exported as
+      an `.srt`, and one click in the track head brings them back — which
+      is the difference between a choice and a loss.
+    */
+    if (captionTrack && o.subtitlesHidden) {
+      store().setTrackMute(subtitleTrack, true);
+    }
+  }
+
+  if (captionTrack) {
+    const build = buildKineticCaptions(o.speech, captionTrack, {
+      frameWidth: settings.width,
+      frameHeight: settings.height,
+      emphasis: o.emphasis,
+      fit: o.captionFit,
+    });
+    /*
+      Straight onto the track rather than through `importCaptions`,
+      because these are not captions in that sense: each one carries its
+      own transform, its own keyframes and its own motion blur, and
+      `importCaptions` builds a subtitle chip at a fixed baseline.
+    */
+    if (build.clips.length > 0) {
+      store().addClips(captionTrack, build.clips);
+      kineticWords = build.words;
+    }
+    notes.push(...build.notes);
   }
 
   /* ── 9. Opening and closing ─────────────────────────────────────── */
@@ -1253,6 +1379,7 @@ export async function assembleRecording(
     introductionMs: introMs,
     soundClips,
     captionLines,
+    kineticWords,
     narrationDetached: Boolean(o.detachNarration && take.camera?.hasAudio && cameraClipId),
     notes,
   };

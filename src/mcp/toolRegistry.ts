@@ -42,7 +42,7 @@ import { loadFonts, isFontAvailable, fontsAreEnumerated } from '../engine/system
 import { renderSfx, SFX_CATALOGUE } from '../engine/sfxEngine';
 import { probeVideo, Take as RecorderTake } from '../engine/screenCapture';
 import { applyTutorialSkill, openTakeRaw } from '../engine/tutorialSkill';
-import { CUT_SHAPE as TUTORIAL_ZOOM_SHAPE } from '../engine/cursorZoom';
+import { SMOOTH_SHAPE as TUTORIAL_ZOOM_SHAPE } from '../engine/cursorZoom';
 import { DEFAULT_LOOK as DEFAULT_LOOK_OPTIONS } from '../engine/cinematicLook';
 import type { CursorSample as RecorderCursorSample, InputEvent as RecorderInputEvent } from '../types/electron';
 import { followToolCall } from '../engine/agentPresence';
@@ -4322,14 +4322,30 @@ defineTool({
     'of them and builds an EDIT: the screen inset on a backdrop with rounded corners, zooms ' +
     'pushed in on the real clicks as editable keyframes, the camera as an inset that takes ' +
     'the whole frame while the narrator is talking rather than doing, click ticks and zoom ' +
-    'air, the narration split onto its own track and transcribed into Inter Bold captions. ' +
+    'air, the narration split onto its own track and transcribed twice over: as whole-sentence ' +
+    'subtitles, and as kinetic emphasis type that puts a few large words on screen at a time. ' +
     'Nothing is baked: every part of it is a clip, a keyframe or a marker that can then be ' +
     'changed. Pass raw:true to lay the take down and stop.',
   schema: z.object({
     folder: z.string().describe('A take folder under Kerf Recordings, holding screen.mp4 and cursor.json'),
     raw: z.boolean().optional().describe('Just the clips: no zooms, no look, no sound, no captions'),
     captions: z.boolean().optional().describe('Transcribe the narration; default true. The words also place the camera cuts.'),
-    zoomStrength: z.number().min(1).max(3).optional().describe('How far the frame cuts in; default 2.8, measured off the reference video'),
+    zoomStrength: z.number().min(1).max(3).optional().describe(
+      'How far the frame moves in; default 2.8, measured off the reference video. How FAR, not '
+      + 'how fast: the move itself is a 400ms glide eased at both ends.'),
+    kineticCaptions: z.boolean().optional().describe(
+      'Draw the narration as kinetic emphasis type as well as as subtitles; default true. A few '
+      + 'large words at a time, stacking and scaling away, the key word in green. The '
+      + 'whole-sentence track is laid down underneath either way and is what gets written out '
+      + 'as the .srt beside a render, so nothing is lost by turning this off.'),
+    subtitlesHidden: z.boolean().optional().describe(
+      'Mute the whole-sentence subtitle track, leaving only the kinetic type drawn; default '
+      + 'false. The track is muted rather than removed either way, so it is still edited, still '
+      + 'exported as the .srt, and one click in the track head brings it back.'),
+    captionFit: z.number().min(0.15).max(1).optional().describe(
+      'How much of the reference design\'s scale the kinetic type is drawn at; default 0.42. '
+      + '1 is the reference exactly, which is sized for a title card and covers a screen '
+      + 'recording. Every ratio inside the design is preserved at any value.'),
     backdrop: z.string().optional().describe(
       'The light set (daylight, linen, blossom, lagoon, dusk), the dark set '
       + '(graphite, midnight, clay), or none. Default daylight.'),
@@ -4348,12 +4364,16 @@ defineTool({
       + 'screen while it does, and the words read as an introduction rather than as a demo.'),
     cameraCorner: z.enum(['bottom-right', 'bottom-left', 'top-right', 'top-left']).optional(),
     cleanCaptions: z.boolean().optional().describe(
-      'Spell-check the transcript with the configured agent CLI before it goes on screen; '
+      'Have the configured agent CLI read the transcript BEFORE any of it reaches the timeline; '
       + 'default true. It corrects misspellings, word boundaries and punctuation IN THE SAME '
-      + 'language, and a reply that rewrites a line rather than correcting it is refused rather '
-      + 'than applied. Only the model pass is optional: the transcript is audited for '
-      + 'repetition loops, non-speech markers and stutters either way, because those are '
-      + 'deletions rather than corrections and a model must never be asked to fill the hole.'),
+      + 'language, and it chooses which words of each line the kinetic captions put on screen, '
+      + 'which is a judgement about meaning rather than about word length. A reply that '
+      + 'rewrites a line rather than correcting it is refused rather than applied, and so is '
+      + 'emphasis naming a word the line does not contain. Bounded at 45s, after which the edit '
+      + 'is built with the transcriber\'s own words. Only the model pass is optional: the '
+      + 'transcript is audited for repetition loops, non-speech markers and stutters either '
+      + 'way, because those are deletions rather than corrections and a model must never be '
+      + 'asked to fill the hole.'),
   }),
   handler: async (args) => {
     const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
@@ -4523,10 +4543,13 @@ defineTool({
       captions: args.captions ?? true,
       ...(suppliedSpeech.length > 0 ? { speech: suppliedSpeech } : {}),
       /*
-        `CUT_SHAPE`, not `DEFAULT_SHAPE`. Spreading the pushing grammar
-        here would mean that passing zoomStrength quietly turned the cuts
-        back into pushes — one argument silently changing a different
-        thing from the one it names.
+        `SMOOTH_SHAPE`, not `DEFAULT_SHAPE`, and the reason is unchanged
+        from when this said `CUT_SHAPE`: spreading a different grammar
+        here would mean that passing zoomStrength quietly changed how
+        the frame moves as well as how far it goes, which is one
+        argument silently changing a different thing from the one it
+        names. The grammar itself moved from cutting to gliding; see
+        `SMOOTH_SHAPE`.
       */
       ...(args.zoomStrength ? { zoomShape: { ...TUTORIAL_ZOOM_SHAPE, factor: args.zoomStrength } } : {}),
       ...(backdrop || edge
@@ -4537,6 +4560,9 @@ defineTool({
       ...(args.language ? { language: args.language } : {}),
       ...(args.cameraCorner ? { cameraCorner: args.cameraCorner } : {}),
       ...(args.cleanCaptions !== undefined ? { cleanCaptions: args.cleanCaptions } : {}),
+      ...(args.kineticCaptions !== undefined ? { kineticCaptions: args.kineticCaptions } : {}),
+      ...(args.subtitlesHidden !== undefined ? { subtitlesHidden: args.subtitlesHidden } : {}),
+      ...(args.captionFit !== undefined ? { captionFit: args.captionFit } : {}),
     });
 
     /*

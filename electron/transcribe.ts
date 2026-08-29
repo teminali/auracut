@@ -59,6 +59,14 @@ export interface TranscribeResult {
    * So they come out as well as being taken out.
    */
   nonSpeech: { startMs: number; endMs: number; text: string }[];
+  /**
+   * Anything the model CHOICE has to say for itself.
+   *
+   * A model was fetched, or one could not be and the decode ran on a
+   * model that hears this language badly. Both are things the caption
+   * report has to be able to repeat, and neither is an error.
+   */
+  modelNotes?: string[];
 }
 
 export interface TranscribeFailure {
@@ -185,13 +193,83 @@ export function chooseBackend(language?: string): { backend: WhisperBackend; mod
   return { backend: null, model: null };
 }
 
+/* ══ Model size is a language decision ═══════════════════════════════
+
+   `small` is the right model for English narration and it is the wrong
+   model for most other languages, and the gap is not a few percent.
+
+   What this was measured on: 45 seconds of Swahili-with-English
+   code-switching, recorded in Kerf, decoded by `whisper-cli` with
+   `-l auto -mc 0`. `ggml-small` returned, in full:
+
+       "Trandakona yeksel."
+       "Skina Shidagani, lakini, tranda…"
+       "semo, maneno, selzake."
+       "Kwaangaliya truya iniini, lakini, kuna jamsing sana sasa, tanzana"
+
+   Those are not misspellings of what was said. They are not Swahili at
+   all — they are the decoder producing Swahili-shaped syllables, which
+   is what a model that has seen very little of a language does when it
+   is asked to produce that language. There is nothing downstream that
+   can repair it: `auditCaptions` sees plausible timings and distinct
+   lines and passes it, and a language model asked to spell-check it
+   invents fluent Swahili nobody said.
+
+   So the fix has to be here, at the only place that can still change
+   the answer, and it is a bigger model. Whisper's own published WER by
+   language puts Swahili in the bottom decile at every size, and the
+   drop from `small` to `large-v3` on the low-resource languages is the
+   largest single step in the family.
+
+   None of the languages Kerf offers in the `language` slot are in
+   Whisper's high-resource set except English, French, Spanish,
+   Portuguese and German — which is why those five keep `small` and the
+   rest do not.                                                        */
+
 /**
- * `.en` models first, then size.
+ * Languages `small` is good enough for, so nothing is downloaded for a
+ * take that does not need it.
+ *
+ * The list is the intersection of Whisper's own top-tier languages
+ * with the ones Kerf's `language` slot offers. Everything else — and
+ * `auto`, because an unknown language cannot be assumed to be an easy
+ * one — asks for the large model.
+ */
+const SMALL_IS_ENOUGH = new Set(['en', 'fr', 'es', 'pt', 'de', 'it', 'nl']);
+
+/** The model a language actually wants, before checking what is on disk. */
+export function modelWantedFor(language?: string): 'small' | 'large-v3' {
+  if (language === 'en') return 'small';
+  if (language && SMALL_IS_ENOUGH.has(language)) return 'small';
+  /*
+    `auto` included, deliberately. Detection runs INSIDE the decode, so
+    by the time the language is known the model has already been chosen
+    — and the case that needs the big model is exactly the case where
+    nobody set the language, because they did not know they had to.
+  */
+  return 'large-v3';
+}
+
+/**
+ * True when the language wants a model this machine does not have.
+ *
+ * Split out from `pickGgml` because it is the thing the UI has to be
+ * able to ask BEFORE a twelve-minute decode produces nonsense: the
+ * answer decides whether to offer a download, and asking it should not
+ * require starting a transcription.
+ */
+export function needsBetterModel(language?: string): boolean {
+  return modelWantedFor(language) === 'large-v3'
+    && !ggmlModels().some((m) => m.startsWith('large'));
+}
+
+/**
+ * `.en` models first for English, the largest model for everything else.
  *
  * The English-only weights are both faster and more accurate on English
- * than the multilingual ones of the same size, and narration for a
- * screen tutorial is overwhelmingly English. A multilingual model is
- * still picked when it is what is there.
+ * than the multilingual ones of the same size. For any other language
+ * the ordering inverts and size wins over everything, for the reason
+ * measured above.
  */
 function pickGgml(available: string[], preferred?: string, language?: string): string | null {
   if (preferred && available.includes(preferred)) return preferred;
@@ -203,8 +281,13 @@ function pickGgml(available: string[], preferred?: string, language?: string): s
   const order = english
     ? ['small.en', 'small', 'medium.en', 'medium', 'base.en', 'base',
       'large-v3', 'large-v2', 'large', 'tiny.en', 'tiny']
-    : ['small', 'medium', 'large-v3', 'large-v2', 'large', 'base', 'tiny',
-      'small.en', 'medium.en', 'base.en', 'tiny.en'];
+    : SMALL_IS_ENOUGH.has(language ?? '')
+      ? ['small', 'medium', 'large-v3', 'large-v2', 'large', 'base', 'tiny',
+        'small.en', 'medium.en', 'base.en', 'tiny.en']
+      /* Everything else: size first, and `small` only as a last resort
+         so a take still gets captions on a machine that is offline. */
+      : ['large-v3', 'large-v2', 'large', 'medium', 'small', 'base', 'tiny',
+        'small.en', 'medium.en', 'base.en', 'tiny.en'];
 
   for (const candidate of order) {
     if (available.includes(candidate)) return candidate;
@@ -554,6 +637,24 @@ export async function transcribeMedia(
     };
   }
 
+  /*
+    ── The model comes before the decode ────────────────────────────
+
+    Not after, and not as an offer. A `small` decode of a language it
+    cannot hear does not fail — it returns fluent-looking nonsense with
+    plausible timings that every check downstream passes. By the time
+    anybody can see it is wrong the twelve minutes are already spent,
+    and running it again with the right model costs them twice.
+
+    Skipped entirely for English and the other languages `small` is
+    good enough for, so the common case downloads nothing. Non-fatal
+    on every path: a machine with no network gets the old behaviour and
+    a note saying what it got.
+  */
+  const upgrade = await ensureModelFor(options.language, (percent, note) =>
+    options.onProgress?.(Math.min(14, Math.round(percent * 0.14)), note));
+  const modelNotes = upgrade.note ? [upgrade.note] : [];
+
   const chosen = chooseBackend(options.language);
   if (!chosen.backend) {
     return whisper()
@@ -691,6 +792,7 @@ export async function transcribeMedia(
       model,
       elapsedMs: Date.now() - startedAt,
       nonSpeech,
+      ...(modelNotes.length > 0 ? { modelNotes } : {}),
     };
   } catch (err) {
     cleanup();
@@ -936,7 +1038,10 @@ function ggmlNameFor(model: string, language?: string): string {
  * model is not a failure anybody sees at download time, it is a failure
  * at transcription time, days later, that looks like a broken app.
  */
-async function fetchGgmlModel(name: string): Promise<{ ok: boolean; message: string; log?: string }> {
+async function fetchGgmlModel(
+  name: string,
+  onProgress?: (percent: number, note: string) => void
+): Promise<{ ok: boolean; message: string; log?: string }> {
   const dir = path.join(os.homedir(), '.cache', 'whisper');
   const target = path.join(dir, `ggml-${name}.bin`);
   const partial = `${target}.part`;
@@ -948,17 +1053,101 @@ async function fetchGgmlModel(name: string): Promise<{ ok: boolean; message: str
     if (!response.ok || !response.body) {
       return { ok: false, message: `Could not download the ${name} model (HTTP ${response.status}).` };
     }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.byteLength < 1024 * 1024) {
+
+    /*
+      STREAMED, and that is not a tidiness preference.
+
+      This used to `await response.arrayBuffer()` and then write the
+      lot. `small` is 488MB and survives that; `large-v3` is 3.1GB, and
+      buffering 3.1GB into the main process to write it straight back
+      out is two copies of it resident at once in a process that is
+      also holding a video project. The streaming write also gives the
+      one thing a three-gigabyte download must have and the old one
+      could not: a percentage.
+    */
+    const total = Number(response.headers.get('content-length') ?? 0);
+    const out = fs.createWriteStream(partial);
+    let written = 0;
+    let lastReport = 0;
+
+    const reader = response.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      written += value.byteLength;
+      if (!out.write(Buffer.from(value))) {
+        await new Promise<void>((resolve) => out.once('drain', () => resolve()));
+      }
+      /* Once a percent, not once a chunk: this fires thousands of times
+         a second and every report crosses an IPC boundary. */
+      const percent = total > 0 ? Math.floor((written / total) * 100) : 0;
+      if (percent > lastReport) {
+        lastReport = percent;
+        onProgress?.(
+          percent,
+          `Downloading the ${name} speech model, ${percent}% of ${(total / 1e9).toFixed(1)}GB`
+        );
+      }
+    }
+    await new Promise<void>((resolve, reject) => {
+      out.end(() => resolve());
+      out.on('error', reject);
+    });
+
+    if (written < 1024 * 1024) {
+      fs.rmSync(partial, { force: true });
       return { ok: false, message: `The ${name} model came back too small to be real.` };
     }
-    fs.writeFileSync(partial, buffer);
+    /* Renamed only once complete, so an interrupted download is a
+       `.part` file that nothing will ever load rather than a truncated
+       model that fails days later looking like a broken app. */
     fs.renameSync(partial, target);
     return { ok: true, message: `Downloaded the ${name} model.` };
   } catch (err) {
     try { fs.rmSync(partial, { force: true }); } catch { /* nothing to remove */ }
     return { ok: false, message: `Could not download the ${name} model.`, log: (err as Error).message };
   }
+}
+
+/**
+ * Make sure the model this language actually needs is on disk.
+ *
+ * Called before the decode rather than offered afterwards, because
+ * afterwards is too late to be useful: the failure it prevents does not
+ * look like a failure, it looks like a finished transcript of words
+ * nobody said. See the measurement on `SMALL_IS_ENOUGH`.
+ *
+ * Every failure path is NON-FATAL and returns `false`: no network, a
+ * proxy, a full disk, a cancelled download. The decode then runs on
+ * whatever is there, which is what happened before this existed, and
+ * the caller says so in the report.
+ */
+export async function ensureModelFor(
+  language: string | undefined,
+  onProgress?: (percent: number, note: string) => void
+): Promise<{ fetched: boolean; model: string | null; note?: string }> {
+  if (!whisperCli()) return { fetched: false, model: null };
+  if (!needsBetterModel(language)) {
+    return { fetched: false, model: pickGgml(ggmlModels(), undefined, language) };
+  }
+
+  onProgress?.(0, 'Fetching a speech model that can hear this language');
+  const result = await fetchGgmlModel('large-v3', onProgress);
+  if (!result.ok) {
+    return {
+      fetched: false,
+      model: pickGgml(ggmlModels(), undefined, language),
+      note:
+        `${result.message} Falling back to the model already on this machine, which decodes `
+        + 'this language poorly — expect the captions to need correcting.',
+    };
+  }
+  return {
+    fetched: true,
+    model: 'large-v3',
+    note: 'Downloaded the large speech model, which is the one that can hear this language.',
+  };
 }
 
 export async function setupTranscription(model = 'small'): Promise<SetupResult> {

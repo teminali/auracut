@@ -21,6 +21,7 @@ import { describe, it, expect } from 'vitest';
 import {
   auditCaptions, repairCaptions, collapseStutter, normalise, findRepeat,
   buildCleanupRequest, parseCleanupReply,
+  buildReviewRequest, parseReviewReply,
   LOOP_RUN, STUTTER_RUN, PHRASE_RUN, STALL_RUN,
 } from './captionQuality';
 import { SpeechCue } from './recordingProject';
@@ -337,5 +338,118 @@ describe('normalising the way a reader would', () => {
 
   it('does not collapse two genuinely different lines', () => {
     expect(normalise('Payroll ni mwishua wiki.')).not.toBe(normalise('Payroll ni mwanzo wiki.'));
+  });
+});
+
+/* ── The review pass ────────────────────────────────────────────── */
+
+describe('parseReviewReply', () => {
+  const cues: SpeechCue[] = [
+    { startMs: 0, endMs: 2000, text: 'the encoder crashd on exprot' },
+    { startMs: 2000, endMs: 4000, text: 'so we fixd the pipeline' },
+  ];
+
+  it('takes the corrections and the emphasis together', () => {
+    const reply = JSON.stringify([
+      { i: 0, text: 'the encoder crashed on export', words: [1, 2], hero: 1 },
+      { i: 1, text: 'so we fixed the pipeline', words: [2, 4], hero: 4 },
+    ]);
+    const out = parseReviewReply(reply, cues);
+
+    expect(out.refused).toBeNull();
+    expect(out.corrected).toBe(2);
+    expect(out.emphasised).toBe(2);
+    expect(out.cues[0].text).toBe('the encoder crashed on export');
+    expect(out.reviewed.get(0)).toEqual({
+      text: 'the encoder crashed on export', emphasis: [1, 2], hero: 0,
+    });
+  });
+
+  it('reads the emphasis indices against the CORRECTED line, not the original', () => {
+    /*
+      The whole reason this is not two passes. A correction that changes
+      the word count shifts every index after it, and using the original
+      line here puts the emphasis on the wrong word with no error
+      anywhere.
+    */
+    const shifted: SpeechCue[] = [{ startMs: 0, endMs: 1000, text: 'the enco der crashed' }];
+    const reply = JSON.stringify([
+      { i: 0, text: 'the encoder crashed', words: [1, 2], hero: 1 },
+    ]);
+    const out = parseReviewReply(reply, shifted);
+    expect(out.cues[0].text).toBe('the encoder crashed');
+    /* Index 2 exists in the corrected 3-word line; in the original
+       4-word line it would have been "crashed" rather than out of range,
+       which is exactly how this fails silently. */
+    expect(out.reviewed.get(0)!.emphasis).toEqual([1, 2]);
+  });
+
+  it('refuses emphasis that names a word the line does not have', () => {
+    const reply = JSON.stringify([
+      { i: 0, text: 'the encoder crashed on export', words: [1, 99], hero: 1 },
+    ]);
+    const out = parseReviewReply(reply, cues);
+    /* The correction survives; only the emphasis is dropped, and the
+       deterministic picker then decides. */
+    expect(out.cues[0].text).toBe('the encoder crashed on export');
+    expect(out.reviewed.has(0)).toBe(false);
+  });
+
+  it('drops a hero that is not one of its own words', () => {
+    const reply = JSON.stringify([
+      { i: 0, text: 'the encoder crashed on export', words: [1, 2], hero: 4 },
+    ]);
+    const out = parseReviewReply(reply, cues);
+    expect(out.reviewed.get(0)!.hero).toBeNull();
+  });
+
+  it('still refuses a reply that grew a line into a sentence nobody said', () => {
+    /* The cleanup gate is not relaxed for the review. */
+    const reply = JSON.stringify([
+      {
+        i: 0,
+        text: 'The encoder crashed on export because the hardware pipeline ran out of '
+          + 'memory while writing the final frames of the sequence.',
+        words: [1], hero: 1,
+      },
+      { i: 1, text: 'so we fixed the pipeline', words: [2], hero: 2 },
+    ]);
+    const out = parseReviewReply(reply, cues);
+    expect(out.refused).toBeTruthy();
+    expect(out.cues).toEqual(cues);
+  });
+
+  it('is a no-op rather than a throw on a reply that is not JSON', () => {
+    const out = parseReviewReply('I could not do that.', cues);
+    expect(out.refused).toBeTruthy();
+    expect(out.cues).toEqual(cues);
+    expect(out.reviewed.size).toBe(0);
+  });
+
+  it('accepts a line with no opinion on emphasis', () => {
+    const reply = JSON.stringify([
+      { i: 0, text: 'the encoder crashed on export', words: [], hero: null },
+    ]);
+    const out = parseReviewReply(reply, cues);
+    expect(out.refused).toBeNull();
+    expect(out.corrected).toBe(1);
+    expect(out.reviewed.has(0)).toBe(false);
+  });
+});
+
+describe('buildReviewRequest', () => {
+  it('names the language and warns the model about code-switching', () => {
+    const { prompt } = buildReviewRequest(
+      [{ startMs: 0, endMs: 1, text: 'habari' }],
+      'sw'
+    );
+    expect(prompt).toContain('"sw"');
+    expect(prompt).toContain('code-switched');
+    expect(prompt).toContain('Do NOT translate');
+  });
+
+  it('still warns about code-switching when the language is unknown', () => {
+    const { prompt } = buildReviewRequest([{ startMs: 0, endMs: 1, text: 'hello' }]);
+    expect(prompt).toContain('code-switched');
   });
 });

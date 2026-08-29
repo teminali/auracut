@@ -225,6 +225,28 @@ def mask_for(img, channel):
     raise ValueError(channel)
 
 
+def words_per_clip(track):
+    """Mean words a clip on this track carries. 1.0 is kinetic type."""
+    texts = [c['name'] for c in track['clips'] if c.get('name')]
+    if not texts:
+        return 0.0
+    return sum(len(t.split()) for t in texts) / len(texts)
+
+
+def sentence_tracks(timeline):
+    """
+    The text tracks that hold SENTENCES rather than single words.
+
+    There are two now: whole-sentence subtitles, and the kinetic display
+    that puts one word per clip on screen. Told apart by measuring the
+    clips rather than by matching the track name, which is the same rule
+    the exporter uses to decide what goes in the `.srt` and is checked
+    the same way in `exportSubtitles.test.ts`.
+    """
+    return [t for t in timeline['tracks']
+            if t['type'] == 'text' and words_per_clip(t) >= 2]
+
+
 def share(img, channel):
     """Fraction of the frame where that channel dominates."""
     mask = mask_for(img, channel)
@@ -444,52 +466,84 @@ def main():
 
     # ── 9. The transitions, and they are the reference's ─────────────
     #
-    # The skill cuts between framings rather than pushing into them, and
-    # every number behind that decision was measured off
-    # `252d89a9da0a6a67df21c59e80013eb7.mp4` — see `CUT_SHAPE`. What is
-    # measured HERE is not that the numbers are right, it is that the
-    # rendered film has the property the numbers claim.
+    # THIS SECTION WAS REWRITTEN, and the old version passing is the
+    # reason it needed to be. It checked that the framing arrives on a
+    # hard CUT, which is what the skill used to do and what the first
+    # reference video does. The skill now GLIDES between the same
+    # framings, on a curve fitted to the kinetic-typography reference at
+    # RMS 0.010 — see `SMOOTH_SHAPE` and `GLIDE_CURVE`.
+    #
+    # The framings themselves did not change: `factor`, `holdMs`,
+    # `driftPctPerSec` and `closeMs` are still the numbers measured off
+    # `252d89a9da0a6a67df21c59e80013eb7.mp4`. What changed is how the
+    # frame gets between them, so what is measured here is the MOVE.
     #
     # The keyframes are read off the timeline rather than recomputed, so
-    # these render either side of the cut the build ACTUALLY made. A
-    # check that works out where the cut ought to be and looks there is
+    # these render either side of the move the build ACTUALLY made. A
+    # check that works out where the move ought to be and looks there is
     # checking its own arithmetic.
     scale_keys = sorted(
         (k for k in keys['keyframes'] if k['property'] == 'scaleX'),
         key=lambda k: k['timeOffsetMs'])
-    cuts = [
-        (a, b) for a, b in zip(scale_keys, scale_keys[1:])
-        if a['easing'] == 'hold' and b['value'] > a['value'] * 1.5
-    ]
-    check('the framing arrives on a cut, not on a push',
-          len(cuts) > 0,
-          f'{len(cuts)} hold-then-jump pairs among {len(scale_keys)} scale keyframes')
 
-    # Every check below runs whether or not a cut was found, and reports
+    # A push: a pair whose value climbs, with real time between them.
+    pushes = [
+        (a, b) for a, b in zip(scale_keys, scale_keys[1:])
+        if b['value'] > a['value'] * 1.5 and b['timeOffsetMs'] - a['timeOffsetMs'] > 100
+    ]
+    check('the framing is moved to rather than cut to',
+          len(pushes) > 0,
+          f'{len(pushes)} timed climbs among {len(scale_keys)} scale keyframes')
+
+    # And nothing anywhere is a cut. `hold` easing is what makes a
+    # keyframe pair instantaneous, and there must not be one left: a
+    # single stray hold is a frame that teleports in the middle of an
+    # otherwise smooth film, which is worse than a film that cuts
+    # throughout.
+    #
+    # The `>= 4` half was put here by the selftest, exactly as it was on
+    # the repetition-loop check below. Written as `len(holds) == 0`
+    # alone this PASSED on the raw build, where there are no zooms at all
+    # and therefore trivially no cutting ones: a check asserting that
+    # something did not happen, on a build where nothing happens.
+    # Requiring the keyframes to BE there makes it measure the grammar
+    # rather than the absence of one.
+    holds = [k for k in scale_keys if k['easing'] == 'hold']
+    check('and no framing anywhere still cuts',
+          len(holds) == 0 and len(scale_keys) >= 4,
+          f'{len(holds)} hold-eased of {len(scale_keys)} scale keyframes')
+
+    # Every check below runs whether or not a push was found, and reports
     # what it could not measure. Skipping them on the raw build would
     # leave them out of `results` entirely, and a check with no control is
     # a check nobody has shown measures anything.
-    held, arrived = cuts[0] if cuts else (None, None)
+    held, arrived = pushes[0] if pushes else (None, None)
 
-    # Three samples, one span apart: two before the cut and one after.
-    # The pair that straddles it must carry essentially all of the change,
-    # and the pair that does not must carry essentially none.
+    # The measurement that separates a move from a cut, and it is the
+    # same one used on the closing pull-back below: sample the MIDPOINT.
+    # A cut's midpoint equals one of its ends. A move's is between them,
+    # and an eased-both-ends move is near the middle rather than hard up
+    # against either side, which is what the viewer feels as smooth.
     if arrived is not None:
-        span = arrived['timeOffsetMs'] - held['timeOffsetMs']
-        lead = share(frame(held['timeOffsetMs'] - span), 'green')
-        pre = share(frame(held['timeOffsetMs']), 'green')
-        post = share(frame(arrived['timeOffsetMs']), 'green')
-        across, before = abs(post - pre), abs(pre - lead)
-        check('the whole transition happens inside one frame',
-              span <= math.ceil(1000 / 60) and across > 0.02 and across > before * 20,
-              f'green {lead * 100:.3f}% -> {pre * 100:.3f}% -> {post * 100:.3f}% '
-              f'across two {span}ms steps')
+        a_ms, b_ms = held['timeOffsetMs'], arrived['timeOffsetMs']
+        mid_ms = (a_ms + b_ms) // 2
+        a = share(frame(a_ms), 'green')
+        m = share(frame(mid_ms), 'green')
+        b = share(frame(b_ms), 'green')
+        travel = b - a
+        check('the push is in flight at its own midpoint, not already landed',
+              b_ms - a_ms >= 300 and travel > 0.02
+              and (m - a) > travel * 0.15 and (b - m) > travel * 0.15,
+              f'green {a * 100:.3f}% at {a_ms}ms, {m * 100:.3f}% at {mid_ms}ms, '
+              f'{b * 100:.3f}% at {b_ms}ms across a {b_ms - a_ms}ms move')
     else:
-        check('the whole transition happens inside one frame', False, 'no cut to measure')
+        check('the push is in flight at its own midpoint, not already landed',
+              False, 'no move to measure')
 
-    # The same measurement run the other way, on the one move the film
-    # does have. A cut's midpoint equals one end; a move's does not, and
-    # that difference is the whole of what was copied.
+    # The same measurement on the closing pull-back, which was the one
+    # move the film had when it cut and is now simply the last of
+    # several. Kept because it is the longest move in the film and so
+    # the one where a broken curve is most visible.
     close = scale_keys[-1] if scale_keys else None
     launch = scale_keys[-2] if len(scale_keys) > 1 else None
     if launch is not None and close['value'] < launch['value']:
@@ -499,16 +553,16 @@ def main():
         m = share(frame(mid_ms), 'red')
         b = share(frame(b_ms), 'red')
         travel = a - b
-        check('the closing pull-back is a move, not another cut',
+        check('the closing pull-back travels through its own midpoint',
               b_ms - a_ms > 400 and travel > 0.05
               and (a - m) > travel * 0.15 and (m - b) > travel * 0.15,
               f'the recording covers {a * 100:.1f}% of the frame at {a_ms}ms, '
               f'{m * 100:.1f}% at {mid_ms}ms, {b * 100:.1f}% at {b_ms}ms')
     else:
-        check('the closing pull-back is a move, not another cut', False,
+        check('the closing pull-back travels through its own midpoint', False,
               'no closing move in the keyframe track')
 
-    # Every one of the reference's four shots creeps. A cut edit whose
+    # Every one of the reference's four shots creeps. An edit whose
     # shots hold still is a slideshow, and this is the difference. 3%/s of
     # scale is 6.1% of AREA over a second, which is what the green
     # square's share of the frame measures.
@@ -645,7 +699,11 @@ def main():
     loop_rep = ok(call('build_tutorial_from_recording', opts), 'looped build')
 
     tl = ok(call('describe_timeline', {}), 'looped timeline')
-    caption_text = [c['name'] for t in tl['tracks'] if t['type'] == 'text' for c in t['clips']]
+    # The SENTENCE track only. There are two text tracks now and the
+    # kinetic one holds a clip per WORD, so a single surviving line would
+    # be counted once for each of its words and `repeats <= 1` would fail
+    # on a build that repaired the loop correctly.
+    caption_text = [c['name'] for t in sentence_tracks(tl) for c in t['clips']]
     repeats = sum(1 for n in caption_text if 'Tukazumu' in n)
     shutil.rmtree(folder, ignore_errors=True)
 
@@ -686,12 +744,126 @@ def main():
         opts['raw'] = True
     ok(call('build_tutorial_from_recording', opts), 'clean build')
     tl = ok(call('describe_timeline', {}), 'clean timeline')
-    kept = sum(1 for t in tl['tracks'] if t['type'] == 'text' for c in t['clips'])
+    kept = sum(1 for t in sentence_tracks(tl) for c in t['clips'])
     shutil.rmtree(folder, ignore_errors=True)
 
     check('and a clean transcript of the same shape is left alone',
           kept >= 13,
           f'{kept} caption clips from 13 distinct lines')
+
+    # ── 13. The kinetic captions ─────────────────────────────────────
+    #
+    # The design is a copy of a measured reference; `_design` in
+    # skill.json is where the measurements are. What is checked here is
+    # not that the numbers are right, it is that the timeline carries the
+    # structure they describe, and that the SENTENCE was not thrown away
+    # to get it.
+    #
+    # Driven from a supplied transcript rather than from Whisper, so it
+    # runs the same on a machine with no speech model on it at all.
+    lines = [
+        {'startMs': 400, 'endMs': 3200, 'text': 'The encoder crashed during the final export.'},
+        {'startMs': 3600, 'endMs': 6800, 'text': 'So we rewrote the pipeline from scratch.'},
+        {'startMs': 7200, 'endMs': 10400, 'text': 'Now it renders everything in parallel.'},
+    ]
+    folder = tempfile.mkdtemp(prefix='kerf-tutorial-kinetic-')
+    build_take(folder, transcript=lines)
+    opts = {'folder': folder, 'captions': True, 'cleanCaptions': False}
+    if SELFTEST:
+        opts['raw'] = True
+    kin_rep = ok(call('build_tutorial_from_recording', opts), 'kinetic build')
+    kin_tl = ok(call('describe_timeline', {}), 'kinetic timeline')
+    shutil.rmtree(folder, ignore_errors=True)
+
+    text_tracks = [t for t in kin_tl['tracks'] if t['type'] == 'text']
+    sentence = sentence_tracks(kin_tl)
+    kinetic = [t for t in text_tracks if t['clips'] and words_per_clip(t) < 2]
+
+    check('the narration is laid down twice: as sentences and as kinetic type',
+          len(sentence) >= 1 and len(kinetic) >= 1,
+          f'{len(text_tracks)} text tracks, words per clip '
+          + ', '.join(f'{words_per_clip(t):.1f}' for t in text_tracks))
+
+    # The half that is easy to lose. The kinetic track is the look, and
+    # a build that produced it by REPLACING the transcript would pass
+    # every visual check while destroying the only copy of what was said
+    # and the only thing an `.srt` can be written from.
+    said = ' '.join(c['name'] for t in sentence for c in t['clips']).lower()
+    check('and the whole sentence survives, not just the words on screen',
+          'crashed' in said and 'during' in said and 'final' in said,
+          f'sentence track carries {sum(len(t["clips"]) for t in sentence)} clips: '
+          f'"{said[:56]}..."' if said else 'nothing on the sentence track')
+
+    # Drawn by default. A tutorial that shows only the emphasis words is
+    # a tutorial with no subtitles on it, and somebody who cannot hear
+    # the audio needs the sentence rather than the three words of it
+    # that carried the emphasis.
+    check('the sentence track is drawn, not silently hidden',
+          bool(sentence) and not any(t.get('muted') for t in sentence),
+          ', '.join(f"{t['name']}: muted={t.get('muted')}" for t in sentence) or 'no sentence track')
+
+    # And muting it is a build option, not a manual step. Muted rather
+    # than removed is the point: the words are still edited, still
+    # exported as the `.srt`, and one click brings them back.
+    folder = tempfile.mkdtemp(prefix='kerf-tutorial-muted-')
+    build_take(folder, transcript=lines)
+    opts = {'folder': folder, 'captions': True, 'cleanCaptions': False, 'subtitlesHidden': True}
+    if SELFTEST:
+        opts['raw'] = True
+    ok(call('build_tutorial_from_recording', opts), 'muted build')
+    muted_tl = ok(call('describe_timeline', {}), 'muted timeline')
+    shutil.rmtree(folder, ignore_errors=True)
+    muted_sentence = sentence_tracks(muted_tl)
+
+    check('and asking for it muted mutes it rather than dropping the words',
+          bool(muted_sentence)
+          and all(t.get('muted') for t in muted_sentence)
+          and sum(len(t['clips']) for t in muted_sentence) >= 3,
+          ', '.join(f"{t['name']}: muted={t.get('muted')}, {len(t['clips'])} clips"
+                    for t in muted_sentence) or 'the sentence track was removed')
+
+    kin_clips = [c for t in kinetic for c in t['clips']]
+    check('the kinetic captions really are one word a clip',
+          len(kin_clips) >= 6 and all(len(c['name'].split()) == 1 for c in kin_clips),
+          f'{len(kin_clips)} word clips, '
+          f'longest "{max((c["name"] for c in kin_clips), key=len, default="")}"'
+          if kin_clips else 'no kinetic clips')
+
+    # Fewer than the transcript has, or nothing was emphasised: the
+    # point of the design is that it shows the words that carry the line,
+    # not the line.
+    spoken = sum(len(line['text'].split()) for line in lines)
+    check('and they are a selection rather than the whole transcript',
+          0 < len(kin_clips) < spoken,
+          f'{len(kin_clips)} words on screen out of {spoken} spoken')
+
+    # The move, read off the clips rather than rendered: a word that has
+    # another arriving after it carries eased scale and position keys, and
+    # the newest word of a phrase carries none at all.
+    with_keys = [c for c in kin_clips if c.get('keyframeCount', 0) > 0]
+    check('the stack move is editable keyframes on each word',
+          len(with_keys) >= 3,
+          f'{len(with_keys)} of {len(kin_clips)} word clips carry keyframes')
+
+    if with_keys:
+        kf = ok(call('list_keyframes', {'clipId': with_keys[0]['id']}), 'word keys')
+        eased = [k for k in kf['keyframes'] if k['easing'] == 'easeInOut']
+        scales = sorted((k for k in kf['keyframes'] if k['property'] == 'scaleX'),
+                        key=lambda k: k['timeOffsetMs'])
+        shrank = bool(scales) and scales[-1]['value'] < scales[0]['value'] * 0.95
+        check('and every one of them is eased at both ends, and shrinks the word',
+              len(eased) == len(kf['keyframes']) and shrank,
+              f"{len(eased)}/{len(kf['keyframes'])} eased, scale "
+              f"{scales[0]['value']:.2f} to {scales[-1]['value']:.2f}" if scales
+              else f"{len(eased)}/{len(kf['keyframes'])} eased, no scale keys")
+    else:
+        check('and every one of them is eased at both ends, and shrinks the word',
+              False, 'no keyframed word clips to read')
+
+    check('the build reports how many words reached the screen',
+          kin_rep.get('kineticWords', 0) == len(kin_clips),
+          f"kineticWords={kin_rep.get('kineticWords')} against {len(kin_clips)} on the timeline",
+          control=False)
 
 
 main()

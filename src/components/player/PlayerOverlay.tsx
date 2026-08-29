@@ -198,8 +198,13 @@ const PlayerStage: React.FC<Props> = ({ onOpenTimeline }) => {
   const displayW = Math.max(1, Math.round(project.width * scale));
   const displayH = Math.max(1, Math.round(project.height * scale));
 
-  const enterEditorOn = (tab: Parameters<typeof setActiveTab>[0]) => {
-    setActiveTab(tab);
+  /*
+    The one way out of the player and into the editor. `null` means
+    "leave the sidebar as it was", which is what the plain Open-timeline
+    button wants: it is asking for the editor, not for a panel.
+  */
+  const enterEditorOn = (tab: Parameters<typeof setActiveTab>[0] | null) => {
+    if (tab !== null) setActiveTab(tab);
     closePlayer();
     onOpenTimeline();
   };
@@ -345,7 +350,32 @@ const PlayerStage: React.FC<Props> = ({ onOpenTimeline }) => {
           <Sparkle className="w-4 h-4" /> Copilot
         </button>
 
-        <button onClick={onOpenTimeline} className="pro-btn-filled h-[30px] px-2.5 gap-1.5 text-ui-sm font-medium">
+        {/*
+          `enterEditorOn` rather than `onOpenTimeline` alone, and the
+          difference is the whole bug this had.
+
+          `onOpenTimeline` only clears `showHome`. Pressed from HOME
+          that is enough to be going on with — but pressed from inside
+          the EDITOR, where `showHome` is already false, it set a
+          boolean to the value it already had and nothing else: the
+          player stayed mounted at `z-index: 70` over the editor it had
+          just "opened", and the button read as dead.
+
+          Measured rather than reasoned about, because the markup looks
+          right either way. Driving the built app: click the button,
+          `.kp-root` is still in the document at 1512x916 afterwards and
+          `.editor-shell` is present underneath it. Every other door out
+          of the player — Escape, the back arrow, the five quick
+          actions — went through `closePlayer` already; this was the one
+          that did not.
+
+          `null` keeps whichever library tab was already open, because
+          "open timeline" is not a request to change the sidebar.
+        */}
+        <button
+          onClick={() => enterEditorOn(null)}
+          className="pro-btn-filled h-[30px] px-2.5 gap-1.5 text-ui-sm font-medium"
+        >
           <Rows3 className="w-4 h-4" /> Open timeline
         </button>
 

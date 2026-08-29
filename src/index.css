@@ -3,6 +3,69 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════
+   BUNDLED TYPE
+
+   Poppins, and it is here rather than on the Google Fonts link at
+   the top of index.html for a reason that only matters to a video
+   editor: a CDN font that fails to load is a page in a fallback
+   face, which you notice, but a CDN font that fails to load DURING
+   A RENDER is thirty thousand frames of the wrong typeface written
+   into a file, which you notice afterwards. Exports have to work
+   with the network unplugged.
+
+   Why this family: the Tutorial skill's kinetic captions are a copy
+   of a reference set in Visby CF Extra Bold, which is commercial and
+   cannot ship with anything. Poppins is the closest freely-licensed
+   match on the axes that carry that design — single-storey `a`,
+   single-storey `g`, circular `o`, flat terminals, tall x-height —
+   and differs visibly on one, the round dot on the `i` where Visby's
+   is square. See `HEADLINE_STACK` in `kineticCaptions.ts`, which
+   prefers the real thing when the machine has it.
+
+   Latin and Latin-Extended only, 700 and 800, four files and 26KB
+   total. Poppins is SIL Open Font License 1.1; the licence travels
+   in `src/assets/fonts/OFL.txt`.
+   ═══════════════════════════════════════════════════════════════ */
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('./assets/fonts/poppins-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('./assets/fonts/poppins-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('./assets/fonts/poppins-800-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Poppins';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url('./assets/fonts/poppins-800-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    TOKENS
    Anything a component needs to reference at runtime lives here as
    a custom property so JS-set inline styles stay in the same system.

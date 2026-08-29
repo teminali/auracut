@@ -36,6 +36,29 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.11.0',
+    date: '2026-08-29',
+    headline: 'Kinetic captions and subtitle design',
+    detail:
+      'The tutorial skill now lays down kinetic emphasis typography and full-sentence subtitles, '
+      + 'with pre-assembly transcript checks, offline fonts, and automatic subtitle sidecars.',
+    items: [
+      'The Tutorial skill transcribes narration twice: as whole-sentence subtitles on T1, and as '
+        + 'kinetic emphasis type on T2 that puts a few large, animated words on screen at a time.',
+      'Whole-sentence subtitle tracks are preserved for accessibility, timeline editing, and '
+        + 'automatic .srt export sidecars beside video renders.',
+      'The transcript is reviewed by the agent CLI before timeline placement, fixing typos and '
+        + 'selecting hero words by meaning with fallback to length heuristics.',
+      'Transcripts are audited before placement for repetition loops, stutters, and non-speech '
+        + 'markers, and multilingual speech models (large-v3) are streamed automatically when needed.',
+      'Camera framing moves on smooth 400ms glide curves instead of hard cuts for screen recordings.',
+      'Bundled Poppins font files (700 and 800 weights) ensure offline kinetic rendering never falls '
+        + 'back to system defaults during export.',
+      'Export writes .srt subtitle files beside video renders and announces them in the export dialog.',
+      'Fixed the fullscreen player\'s "Open timeline" action to properly dismiss the player overlay.',
+    ],
+  },
+  {
     version: '1.10.0',
     date: '2026-08-29',
     headline: 'The interface, measured not eyeballed',

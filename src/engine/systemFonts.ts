@@ -35,8 +35,16 @@ export interface FontOption {
   source: 'bundled' | 'system';
 }
 
-/** Shipped with the app, so they are present regardless of the OS. */
-const BUNDLED = ['Inter', 'JetBrains Mono'];
+/**
+ * Shipped with the app, so they are present regardless of the OS.
+ *
+ * Poppins is genuinely bundled — four woff2 subsets, 26KB, declared in
+ * `index.css` with `font-display: block` so a render never starts on a
+ * fallback face. It is here because the Tutorial skill's kinetic
+ * captions need a geometric sans with a single-storey `a` and there is
+ * no guarantee the machine has one; see `HEADLINE_STACK`.
+ */
+const BUNDLED = ['Inter', 'JetBrains Mono', 'Poppins'];
 
 /*
   Families worth probing when the full system list is unavailable.
@@ -56,6 +64,8 @@ const CANDIDATES = [
   // Common to most
   'Courier New', 'Georgia', 'Times New Roman', 'Trebuchet MS', 'Verdana',
   'Garamond', 'Bookman', 'Century Gothic', 'Rockwell',
+  // Geometric sans the kinetic caption stack looks for, in its order.
+  'Visby CF Extra Bold', 'Visby CF', 'Visby Round CF', 'Poppins', 'Montserrat',
   // Common Linux
   'DejaVu Sans', 'DejaVu Serif', 'Liberation Sans', 'Ubuntu', 'Cantarell',
   'Noto Sans', 'Noto Serif', 'FreeSans',

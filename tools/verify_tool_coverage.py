@@ -121,6 +121,16 @@ UI_ONLY = {
     'setSelectedTrackId': 'track selection is UI focus; every track tool takes an explicit trackId',
     'setAssetPeaks':      'internal waveform cache, filled by the audio decoder, not an edit',
     'insertClipObject':   'internal: re-inserts an existing clip object during undo and paste',
+    # Takes whole Clip objects, already built. Every tool that adds a
+    # clip does so from a description — an asset and a time, a string
+    # and a time — and validates it on the way in; this takes the
+    # finished article, transform, keyframe list and all. It exists for
+    # the kinetic caption planner, which computes one text clip per word
+    # and would otherwise reach the same result through addTextLayer
+    # plus N patchClip plus 6N addKeyframe. Exposing it would let an
+    # agent post a clip that no tool could have produced, which is a
+    # hole in the validation rather than a capability.
+    'addClips':           'internal: bulk insert of already-built Clip objects, bypassing every tool-level check',
     # Grouping looks like an editing capability and is not one outside
     # the mouse. `clip.groupId` is read in exactly one place —
     # ClipBlock.tsx's drag handler — so it makes clips move together

@@ -61,7 +61,9 @@ import {
 } from './recordingProject';
 import {
   auditCaptions, repairCaptions, buildCleanupRequest, parseCleanupReply, CaptionAudit,
+  buildReviewRequest, parseReviewReply,
 } from './captionQuality';
+import { EmphasisWord, WordTier, MAX_STACK } from './kineticCaptions';
 import { balanceLines } from './captions';
 
 /* ── Who this skill is, for the trial gate ──────────────────────── */
@@ -446,10 +448,50 @@ async function build(
     one input and not the other, and a hand-written transcript with a
     duplicated paragraph is a real thing.
   */
+  let emphasis: Map<number, EmphasisWord[]> | undefined;
+
   if (speech.length > 0) {
     const reviewed = auditAndRepairCaptions(speech);
     speech = reviewed.cues;
     notes.push(...reviewed.notes);
+  }
+
+  /*
+    ── The model reads the words BEFORE anybody else does ───────────
+
+    This is the step that used to run after the edit was on screen, and
+    moving it here is a deliberate reversal of the rule at the top of
+    this file. The rule was right about a SPELL-CHECK: nobody should
+    wait a minute to have three apostrophes fixed, and
+    `cleanCaptionsInBackground` still does exactly that for the path
+    where the words arrive after the edit.
+
+    It is wrong about the failure this exists for. On code-switched
+    narration the transcriber does not produce a transcript with typos
+    in it, it produces syllables — and captions are the one output of
+    this skill a viewer reads word by word. Laying nonsense down and
+    correcting it forty seconds later means the first thing the user
+    sees of their own tutorial is gibberish under their face. There is
+    no version of that which is better than waiting.
+
+    Bounded so the wait cannot become the experience: `REVIEW_TIMEOUT_MS`
+    past that and the edit is built with the words as they are and a
+    note saying so. Non-fatal on every path — no agent CLI, a refused
+    reply, a timeout, a reply that fails its own checks.
+
+    It also returns the EMPHASIS, which is the other half of why it is
+    here rather than after: the kinetic captions are built during
+    assembly, and which word of a sentence goes on screen at 300px is a
+    judgement the deterministic picker makes from word length. A model
+    that has just read the sentence makes it properly, and it cannot be
+    applied retroactively without rebuilding every word clip.
+  */
+  if (speech.length > 0 && o.cleanCaptions !== false) {
+    onProgress({ phase: 'transcribing', percent: 40, note: 'Checking the words before they go on screen' });
+    const review = await reviewCaptions(speech, o.language);
+    speech = review.cues;
+    emphasis = review.emphasis;
+    notes.push(...review.notes);
   }
 
   onProgress({ phase: 'building', percent: 45, note: 'Building the edit' });
@@ -458,6 +500,7 @@ async function build(
     ...TUTORIAL_ASSEMBLE,
     ...options,
     speech,
+    ...(emphasis ? { emphasis } : {}),
   });
 
   onProgress({ phase: 'done', percent: 100, note: 'Done' });
@@ -832,4 +875,155 @@ function addCaptionTrack(cues: SpeechCue[], style: Partial<ClipTextStyle>): numb
 /** The take, laid down and nothing else. */
 export async function openTakeRaw(take: Take): Promise<AssembleReport> {
   return assembleRecording(take, RAW_ASSEMBLE);
+}
+
+/* ── The review, before the words reach the timeline ────────────── */
+
+/**
+ * How long the agent CLI gets before the edit goes ahead without it.
+ *
+ * Measured against the thing it is trading off. The edit itself takes
+ * one to two seconds to assemble, and transcription on the fast backend
+ * takes 2.2 seconds for 92 seconds of narration — so the whole build is
+ * a few seconds, and a review that takes a minute would be 95% of the
+ * wait for a step nobody asked for by name.
+ *
+ * 45 seconds is what a reply to a hundred-odd short lines actually
+ * takes on the CLIs Kerf drives, plus headroom. Past it the words are
+ * used as they are: uncorrected captions on the timeline in three
+ * seconds beat corrected ones in four minutes, and the background
+ * spell-check can still fix them afterwards.
+ */
+export const REVIEW_TIMEOUT_MS = 45_000;
+
+export interface CaptionReviewOutcome {
+  cues: SpeechCue[];
+  emphasis?: Map<number, EmphasisWord[]>;
+  notes: string[];
+}
+
+/**
+ * Turn the review reply's word INDICES into drawable emphasis words.
+ *
+ * The model returns positions into the corrected line, which is the
+ * only thing it can return that survives the line being corrected. This
+ * is where they become text, and where the tiers are decided:
+ *
+ *   · the hero the model named is `emphasis` — green, and the biggest
+ *     thing in the frame;
+ *   · everything else is `major` or `normal` by length, on the same
+ *     five-character split `pickEmphasis` uses, so a stack built from a
+ *     model reply and one built without a model have the same rhythm.
+ *
+ * A word that comes back empty after punctuation is stripped is
+ * dropped rather than drawn, because the model counted a token that has
+ * no letters in it.
+ */
+function emphasisFrom(
+  line: string,
+  words: number[],
+  hero: number | null
+): EmphasisWord[] {
+  const tokens = line.split(/\s+/).filter((t) => t.length > 0);
+  const out: EmphasisWord[] = [];
+
+  words.slice(0, MAX_STACK).forEach((wordIndex, i) => {
+    const raw = tokens[wordIndex];
+    if (!raw) return;
+    const text = raw.replace(/^[^\p{L}\p{N}]+/u, '').replace(/[^\p{L}\p{N}!?']+$/u, '').trim();
+    if (text.length === 0) return;
+    const tier: WordTier = i === hero
+      ? 'emphasis'
+      : text.length >= 5 ? 'major' : 'normal';
+    out.push({ text, index: wordIndex, tier });
+  });
+
+  return out;
+}
+
+/**
+ * Correct the transcript and choose its emphasis words, in one turn.
+ *
+ * Every failure here is a NOTE and never an error, and the cues come
+ * back at least as good as they went in on all of them. The list is
+ * long on purpose — this is a language model reached through a CLI that
+ * may not be installed, over a network that may not be there, and the
+ * one outcome that must never happen is a build that fails because a
+ * spell-check did.
+ */
+export async function reviewCaptions(
+  cues: SpeechCue[],
+  language?: string
+): Promise<CaptionReviewOutcome> {
+  const api = window.electronAPI;
+  if (!api?.captions) return { cues, notes: [] };
+
+  const request = buildReviewRequest(cues, language);
+
+  let reply: { ok: boolean; text?: string; backend?: string; error?: string };
+  try {
+    /*
+      Raced rather than cancelled, because `captions.clean` has no
+      cancel: the CLI keeps running in main and its answer is dropped.
+      That is the right trade here — the process exits on its own and
+      the alternative is a build that hangs on it.
+    */
+    reply = await Promise.race([
+      api.captions.clean(request.prompt),
+      new Promise<{ ok: boolean; error: string }>((resolve) =>
+        setTimeout(
+          () => resolve({ ok: false, error: 'timeout' }),
+          REVIEW_TIMEOUT_MS
+        )
+      ),
+    ]);
+  } catch (error) {
+    return {
+      cues,
+      notes: [`The caption review did not run (${(error as Error).message}), so the words are `
+        + 'the transcriber’s own. They can be corrected from the Captions panel.'],
+    };
+  }
+
+  if (!reply.ok || !reply.text) {
+    const timedOut = reply.error === 'timeout';
+    return {
+      cues,
+      notes: [timedOut
+        ? `The caption review took longer than ${Math.round(REVIEW_TIMEOUT_MS / 1000)}s, so the `
+          + 'edit was built with the transcriber’s own words rather than making you wait. '
+          + 'The spell-check runs again in the background.'
+        : 'No agent CLI answered, so the captions are the transcriber’s own words and the '
+          + 'emphasis was chosen by word length rather than by meaning.'],
+    };
+  }
+
+  const outcome = parseReviewReply(reply.text, cues);
+  if (outcome.refused) {
+    return {
+      cues,
+      notes: [`The caption review was refused and none of it was used: ${outcome.refused}`],
+    };
+  }
+
+  const emphasis = new Map<number, EmphasisWord[]>();
+  outcome.reviewed.forEach((entry, index) => {
+    const words = emphasisFrom(entry.text, entry.emphasis, entry.hero);
+    if (words.length > 0) emphasis.set(index, words);
+  });
+
+  const notes: string[] = [];
+  if (outcome.corrected > 0 || emphasis.size > 0) {
+    notes.push(
+      `Captions reviewed with ${reply.backend ?? 'the agent CLI'} before they were placed: `
+      + `${outcome.corrected} line${outcome.corrected === 1 ? '' : 's'} corrected, `
+      + `${emphasis.size} phrase${emphasis.size === 1 ? '' : 's'} given their emphasis words.`
+      + (outcome.rejected.length > 0
+        ? ` ${outcome.rejected.length} suggested change${outcome.rejected.length === 1 ? ' was' : 's were'} `
+          + 'refused as invention rather than correction.'
+        : '')
+    );
+  }
+
+  return { cues: outcome.cues, emphasis: emphasis.size > 0 ? emphasis : undefined, notes };
 }
