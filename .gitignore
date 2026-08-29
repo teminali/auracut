@@ -38,3 +38,6 @@ __pycache__/
 # references. The .dc.html files and their CSS are the reference; these
 # are not.
 design-prototypes/*/uploads/
+# Design Doc writes a preview thumbnail beside the prototype; it is a
+# artifact of the editor, not part of the reference.
+design-prototypes/*/.thumbnail
