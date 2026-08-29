@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export type SidebarTab =
   | 'media' | 'audio' | 'text' | 'captions'
-  | 'transitions' | 'effects' | 'filters' | 'skills' | 'ai';
+  | 'transitions' | 'effects' | 'filters' | 'skills' | 'ai' | 'image';
 
 interface LayoutState {
   sidebarWidth: number;

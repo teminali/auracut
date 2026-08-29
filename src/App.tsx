@@ -17,6 +17,7 @@ import { EffectsPanel } from './components/sidebar/EffectsPanel';
 import { FiltersPanel } from './components/sidebar/FiltersPanel';
 import { SkillsPanel } from './components/sidebar/SkillsPanel';
 import { AiToolsPanel } from './components/sidebar/AiToolsPanel';
+import { ImageEditorPanel } from './components/sidebar/ImageEditorPanel';
 import { PreviewPlayer } from './components/preview/PreviewPlayer';
 import { InspectorPanel } from './components/inspector/InspectorPanel';
 import { Timeline } from './components/timeline/Timeline';
@@ -50,6 +51,7 @@ const PANELS = {
   filters: FiltersPanel,
   skills: SkillsPanel,
   ai: AiToolsPanel,
+  image: ImageEditorPanel,
 } as const;
 
 export const App: React.FC = () => {

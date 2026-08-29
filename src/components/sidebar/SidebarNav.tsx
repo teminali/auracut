@@ -15,7 +15,7 @@
 import React from 'react';
 import { useLayoutStore, SidebarTab } from '../../store/layoutStore';
 import {
-  FolderOpen, Music, Type, Subtitles, Layers, Sparkle, Sliders, Zap, Blocks,
+  FolderOpen, Music, Type, Subtitles, Layers, Sparkle, Sliders, Zap, Blocks, Image,
 } from '../ui/icons';
 
 interface TabItem {
@@ -38,6 +38,7 @@ const TABS: TabItem[] = [
   { id: 'filters', label: 'Colour', icon: Sliders, hotkey: '7' },
   { id: 'skills', label: 'Skills', icon: Blocks, hotkey: '8' },
   { id: 'ai', label: 'AI', icon: Sparkle, hotkey: '9' },
+  { id: 'image', label: 'Image', icon: Image, hotkey: '0' },
 ];
 
 export const SidebarNav: React.FC = () => {
