@@ -36,6 +36,18 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.11.5',
+    date: '2026-08-29',
+    headline: 'Antigravity starter messages & instant prompt launch',
+    detail:
+      'Launch Antigravity IDE directly with rich starter messages, custom prompt input, and instant clipboard transfer.',
+    items: [
+      'Interactive starter prompts (Describe timeline, Cut silence, Add kinetic captions, Cinematic grade, Beat sync) launch Antigravity in 1 click.',
+      'Type custom instructions directly in the Copilot drawer to copy them to the clipboard and focus Antigravity immediately.',
+      'Toast notification confirms message copying and provides ⌘V pasting guidance.',
+    ],
+  },
+  {
     version: '1.11.4',
     date: '2026-08-29',
     headline: 'Antigravity IDE connected view & 1-click launch',

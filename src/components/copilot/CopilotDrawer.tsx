@@ -44,6 +44,14 @@ const AGENT_LABELS: Record<string, string> = {
   cursor: 'Cursor Agent',
 };
 
+const ANTIGRAVITY_STARTERS = [
+  { label: 'Describe timeline', prompt: 'What is on my timeline right now? Describe the tracks, clips, and playhead position.' },
+  { label: 'Cut dialogue pauses', prompt: 'Detect silence in the audio and cut out dead air to make a fast-paced jump cut edit.' },
+  { label: 'Add kinetic captions', prompt: 'Transcribe dialogue and generate kinetic word-by-word highlight subtitles.' },
+  { label: 'Cinematic color grade', prompt: 'Apply a warm cinematic film grade with rich contrast across all video clips.' },
+  { label: 'Beat sync montage', prompt: 'Detect the audio beats and snap clip cuts and transitions to the rhythm.' },
+];
+
 const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <kbd className="px-1 h-[14px] inline-flex items-center rounded-squircle-2xs border border-line bg-spectrum-sunken font-mono text-micro text-spectrum-textDim">
     {children}
@@ -93,6 +101,17 @@ export const CopilotDrawer: React.FC = () => {
   const [gapLogOpen, setGapLogOpen] = useState(false);
   const [showMcpLog, setShowMcpLog] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [antigravityInput, setAntigravityInput] = useState('');
+  const [starterToast, setStarterToast] = useState<string | null>(null);
+
+  const handleLaunchAntigravity = (customPrompt?: string) => {
+    const text = (customPrompt ?? antigravityInput).trim();
+    const message = text || 'What is on my timeline right now?';
+    void window.electronAPI?.agents.openAntigravity(message);
+    setStarterToast('Starter message copied to clipboard! Paste in Antigravity chat with ⌘V.');
+    window.setTimeout(() => setStarterToast(null), 4500);
+    if (!customPrompt) setAntigravityInput('');
+  };
   /*
     A prompt typed while the agent is still working.
 
@@ -502,30 +521,58 @@ export const CopilotDrawer: React.FC = () => {
       {/* Thread */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-[96px] flex flex-col">
         {isAntigravity ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-4 my-auto animate-fade-in">
-            <div className="w-14 h-14 rounded-2xl bg-spectrum-accent/15 border border-spectrum-accent/30 flex items-center justify-center text-spectrum-accent shadow-glow">
-              <Sparkle className="w-7 h-7" />
-            </div>
-            <div className="space-y-1.5 max-w-sm">
+          <div className="flex-1 flex flex-col p-4 space-y-4 my-auto animate-fade-in max-w-md mx-auto w-full">
+            <div className="flex flex-col items-center text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-spectrum-accent/15 border border-spectrum-accent/30 flex items-center justify-center text-spectrum-accent shadow-glow">
+                <Sparkle className="w-6 h-6" />
+              </div>
               <div className="flex items-center justify-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-spectrum-green animate-pulse" />
                 <h3 className="text-ui-lg font-semibold text-spectrum-text">Antigravity IDE Connected</h3>
               </div>
               <p className="text-ui-sm text-spectrum-textDim leading-relaxed">
-                Your live timeline is connected over MCP on port 3888. Use Antigravity in your IDE to edit clips, add animations, analyze beats, and grade your footage directly for free.
+                Your live timeline is connected over MCP on port 3888. Click any starter prompt or type your own below to launch Antigravity with your message.
               </p>
             </div>
 
-            <button
-              onClick={() => void window.electronAPI?.agents.openAntigravity()}
-              className="pro-btn-filled px-4 h-9 gap-2 text-ui-sm font-semibold shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Open in Antigravity IDE
-            </button>
+            {/* Starter prompts list */}
+            <div className="space-y-1.5 pt-1">
+              <span className="text-micro font-semibold text-spectrum-textFaint uppercase tracking-wider block text-left px-0.5">
+                Starter Prompts
+              </span>
+              <div className="flex flex-col gap-1.5">
+                {ANTIGRAVITY_STARTERS.map((starter) => (
+                  <button
+                    key={starter.label}
+                    onClick={() => handleLaunchAntigravity(starter.prompt)}
+                    className="group flex items-start gap-2.5 p-2 rounded-squircle-xs border border-line bg-spectrum-card hover:bg-spectrum-cardHover hover:border-spectrum-accent/50 text-left transition-all"
+                  >
+                    <div className="p-1 rounded bg-spectrum-sunken text-spectrum-accent flex-shrink-0 mt-0.5">
+                      <Sparkle className="w-3 h-3" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-ui-sm font-medium text-spectrum-text group-hover:text-spectrum-accent transition-colors">
+                        {starter.label}
+                      </div>
+                      <div className="text-micro text-spectrum-textDim truncate">
+                        {starter.prompt}
+                      </div>
+                    </div>
+                    <ExternalLink className="w-3 h-3 text-spectrum-textFaint group-hover:text-spectrum-accent flex-shrink-0 mt-1" />
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            <div className="pt-2 text-micro text-spectrum-textFaint space-y-1">
-              <p>All 58 video editing tools are available live.</p>
+            {starterToast && (
+              <div className="p-2 rounded-squircle-xs bg-spectrum-green/15 border border-spectrum-green/30 text-spectrum-green text-micro flex items-center gap-1.5 animate-fade-in">
+                <Check className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{starterToast}</span>
+              </div>
+            )}
+
+            <div className="pt-2 text-center text-micro text-spectrum-textFaint space-y-0.5">
+              <p>58 video editing tools exposed live to Antigravity.</p>
               <p className="font-mono text-micro text-spectrum-accent/80">mcp__kerf__* · 127.0.0.1:3888</p>
             </div>
           </div>
@@ -608,17 +655,41 @@ export const CopilotDrawer: React.FC = () => {
 
       {/* Composer */}
       {isAntigravity ? (
-        <div className="p-3 border-t border-line bg-spectrum-sunken/30 text-center flex flex-col items-center gap-2 flex-shrink-0">
-          <p className="text-micro text-spectrum-textDim">
-            Chatting is active directly in Antigravity IDE.
-          </p>
-          <button
-            onClick={() => void window.electronAPI?.agents.openAntigravity()}
-            className="pro-btn h-7 px-3 text-micro gap-1.5 border border-line-strong hover:border-spectrum-accent"
-          >
-            <ExternalLink className="w-3 h-3" />
-            Switch to Antigravity IDE
-          </button>
+        <div className="p-2.5 border-t border-line bg-spectrum-sunken/40 space-y-2 flex-shrink-0">
+          <div className="pro-input flex items-end gap-1.5 p-1.5">
+            <textarea
+              value={antigravityInput}
+              onChange={(e) => setAntigravityInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleLaunchAntigravity();
+                }
+              }}
+              rows={1}
+              placeholder="Type a starter message for Antigravity (or pick above)…"
+              className="flex-1 bg-transparent outline-none text-ui text-spectrum-text placeholder:text-spectrum-textFaint resize-none max-h-24 min-w-0 leading-snug py-0.5"
+              onInput={(e) => {
+                const el = e.currentTarget;
+                el.style.height = 'auto';
+                el.style.height = `${Math.min(96, el.scrollHeight)}px`;
+              }}
+            />
+            <button
+              onClick={() => handleLaunchAntigravity()}
+              className="btn-primary h-7 px-3 rounded-full flex-shrink-0 text-micro font-medium gap-1 flex items-center"
+              title="Copy message & launch Antigravity IDE (Enter)"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>Launch</span>
+            </button>
+          </div>
+          <div className="flex items-center justify-between text-micro text-spectrum-textFaint px-1">
+            <span>Copies message & focuses Antigravity</span>
+            <div className="flex items-center gap-1">
+              <Kbd>⏎</Kbd><span>send</span>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="p-2 border-t border-line flex-shrink-0 space-y-2 max-h-[52vh] overflow-y-auto">

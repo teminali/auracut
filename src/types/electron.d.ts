@@ -465,7 +465,7 @@ export interface KerfElectronAPI {
     models: (id: string) => Promise<{ models: string[]; source: 'queried' | 'suggested'; selected: string }>;
     setModel: (id: string, model: string) => Promise<boolean>;
     signIn: (id: string) => Promise<{ ok: boolean; message: string }>;
-    openAntigravity: () => Promise<{ ok: boolean; message?: string }>;
+    openAntigravity: (prompt?: string) => Promise<{ ok: boolean; message?: string }>;
     onInstallProgress: (cb: (p: { id: string; line: string }) => void) => () => void;
   };
 

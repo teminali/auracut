@@ -272,7 +272,7 @@ export interface ElectronAPI {
     models: (id: string) => Promise<{ models: string[]; source: string; selected: string }>;
     setModel: (id: string, model: string) => Promise<boolean>;
     signIn: (id: string) => Promise<{ ok: boolean; message: string }>;
-    openAntigravity: () => Promise<{ ok: boolean; message?: string }>;
+    openAntigravity: (prompt?: string) => Promise<{ ok: boolean; message?: string }>;
     onInstallProgress: (cb: (p: { id: string; line: string }) => void) => () => void;
   };
 
@@ -489,7 +489,7 @@ const api: ElectronAPI = {
     models: (id) => ipcRenderer.invoke('agents:models', { id }),
     setModel: (id, model) => ipcRenderer.invoke('agents:setModel', { id, model }),
     signIn: (id) => ipcRenderer.invoke('agents:signIn', { id }),
-    openAntigravity: () => ipcRenderer.invoke('agents:openAntigravity'),
+    openAntigravity: (prompt) => ipcRenderer.invoke('agents:openAntigravity', { prompt }),
     onInstallProgress: (cb) => {
       const handler = (_e: unknown, p: { id: string; line: string }) => cb(p);
       ipcRenderer.on('agents:install-progress', handler);

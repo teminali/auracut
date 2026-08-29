@@ -552,7 +552,11 @@ function registerAgentIpc() {
     return { ok: false, message: `Run \`${command}\` in a terminal, then reopen Kerf.` };
   });
 
-  ipcMain.handle('agents:openAntigravity', async () => {
+  ipcMain.handle('agents:openAntigravity', async (_e, p?: { prompt?: string }) => {
+    if (p?.prompt) {
+      const { clipboard } = await import('electron');
+      clipboard.writeText(p.prompt);
+    }
     const { execFile } = await import('child_process');
     if (process.platform === 'darwin') {
       return new Promise<{ ok: boolean; message?: string }>((resolve) => {
