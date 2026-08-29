@@ -49,6 +49,14 @@ const KEY_PROVIDERS: Record<string, { label: string; url: string; free?: boolean
   },
 };
 
+const RANK_BADGES: Record<string, { badge: string; color: string; tooltip: string }> = {
+  claude: { badge: '#1 Heavy Tasks', color: 'bg-[#4c9dff]/15 text-[#4c9dff]', tooltip: 'Best for complex reasoning and architecture' },
+  antigravity: { badge: '#1 Agentic Editing', color: 'bg-[#a78bfa]/15 text-[#a78bfa]', tooltip: 'Best for autonomous video editing workflows' },
+  gemini: { badge: 'Fast Reasoning', color: 'bg-[#2fc98d]/15 text-[#2fc98d]', tooltip: 'Good balance of speed and intelligence' },
+  codex: { badge: 'Legacy', color: 'bg-[#3a3a3a] text-[#8a8a8a]', tooltip: 'Older generation code models' },
+  cursor: { badge: 'Code Assistant', color: 'bg-[#ff9a4d]/15 text-[#ff9a4d]', tooltip: 'Integrated code intelligence' }
+};
+
 interface Props {
   onClose: () => void;
   onSelected: (id: string) => void;
@@ -234,6 +242,15 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                   <div className="flex items-center gap-2">
                     <span className="text-ui-lg font-bold text-[#e8e8e8]">{backend.label}</span>
                     <span className="text-ui text-[#8a8a8a]">{backend.vendor}</span>
+
+                    {RANK_BADGES[backend.id] && (
+                      <span 
+                        className={`ml-1 text-micro font-semibold px-1.5 py-0.5 rounded-[2px] ${RANK_BADGES[backend.id].color}`}
+                        title={RANK_BADGES[backend.id].tooltip}
+                      >
+                        {RANK_BADGES[backend.id].badge}
+                      </span>
+                    )}
 
                     {isSelected && (
                       <Check className="w-3.5 h-3.5 text-[#e0854d] flex-shrink-0" />

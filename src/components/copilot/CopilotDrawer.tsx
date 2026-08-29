@@ -11,13 +11,15 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useProjectStore } from '../../store/projectStore';
 import { useAgentChatStore } from '../../store/agentChatStore';
 import { useLayoutStore } from '../../store/layoutStore';
+import { useUiStore } from '../../store/uiStore';
 import { useClaudeAgentStore } from '../../store/claudeAgentStore';
 import { useTimelineStore } from '../../store/timelineStore';
-import { QUICK_ACTIONS, hasModelEndpoint, AgentThoughtStep } from '../../engine/agentBridge';
+import { QUICK_ACTIONS, hasModelEndpoint, AgentThoughtStep, configureModelEndpoint } from '../../engine/agentBridge';
 import {
   runPreflight, buildEnvelope, captureCurrentFrame, summariseEnvelope,
   resolveAnnotationTargets,
 } from '../../engine/contextProtocol';
+import { routeIntent } from '../../engine/router';
 import { Annotation, CapturedFrame } from '../../types/context';
 import { McpActivityLog } from './McpActivityLog';
 import { ContextPreflight } from './ContextPreflight';
@@ -103,6 +105,8 @@ export const CopilotDrawer: React.FC = () => {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [antigravityInput, setAntigravityInput] = useState('');
   const [starterToast, setStarterToast] = useState<string | null>(null);
+  const [isRouting, setRouting] = useState(false);
+  const pushToast = useUiStore((s) => s.pushToast);
 
   const handleLaunchAntigravity = (customPrompt?: string) => {
     const text = (customPrompt ?? antigravityInput).trim();
@@ -280,10 +284,32 @@ export const CopilotDrawer: React.FC = () => {
     }
 
     if (ready) {
-      setInput('');
-      setHistoryIndex(-1);
-      await agent.send(text);
-      return;
+      setRouting(true);
+      const decision = await routeIntent(text);
+      setRouting(false);
+
+      if (decision.error) {
+        pushToast({
+          kind: 'error',
+          title: 'Helper Layer Failed',
+          detail: `Groq failed to route (${decision.error}). Safely falling back to Heavy model.`,
+          ttl: 8000,
+        });
+      }
+
+      if (decision.route === 'heavy') {
+        setInput('');
+        setHistoryIndex(-1);
+        await agent.send(text);
+        return;
+      }
+      
+      // Route is helper -> setup Groq planner and fall through to built-in dispatcher
+      configureModelEndpoint({
+        url: 'https://api.groq.com/openai/v1/chat/completions',
+        apiKey: process.env.GROQ_API_KEY || '',
+        model: 'qwen/qwen3.8-27b'
+      });
     }
 
     let liveFrame = frame;
@@ -327,6 +353,9 @@ export const CopilotDrawer: React.FC = () => {
     setInput('');
     setHistoryIndex(-1);
     await sendPrompt(text, envelope);
+    if (ready) {
+      configureModelEndpoint(null); // Reset back to avoid polluting non-ready state
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -781,7 +810,7 @@ export const CopilotDrawer: React.FC = () => {
             </div>
           )}
 
-          <div className="pro-input flex items-end gap-1.5 p-1.5">
+          <div className={`pro-input flex items-end gap-1.5 p-1.5 transition-all duration-300 ${isRouting ? 'border-spectrum-orange shadow-[0_0_12px_rgba(255,154,77,0.2)] bg-spectrum-orange/5' : ''}`}>
             <textarea
               ref={inputRef}
               value={input}
@@ -791,9 +820,11 @@ export const CopilotDrawer: React.FC = () => {
               placeholder={
                 busy
                   ? 'Working… ⌘⏎ to queue this next'
-                  : agentReady || !agentChecked
-                    ? 'Ask anything, or tell me what to change…'
-                    : 'Tell me what to change…'
+                  : isRouting
+                    ? '⚡ Routing with Qwen Helper...'
+                    : agentReady || !agentChecked
+                      ? 'Ask anything, or tell me what to change…'
+                      : 'Tell me what to change…'
               }
               className="flex-1 bg-transparent outline-none text-ui text-spectrum-text placeholder:text-spectrum-textFaint resize-none max-h-28 min-w-0 leading-snug py-0.5"
               onInput={(e) => {
@@ -825,6 +856,10 @@ export const CopilotDrawer: React.FC = () => {
               >
                 <Square className="w-3 h-3 fill-current" />
               </button>
+            ) : isRouting ? (
+              <div className="w-7 h-7 flex flex-shrink-0 items-center justify-center" title="Qwen Helper is routing your request...">
+                <Loader2 className="w-4 h-4 animate-spin text-spectrum-orange" />
+              </div>
             ) : (
               <button
                 onClick={submit}
