@@ -31,6 +31,7 @@ export const UpdateBanner: React.FC<{
 
 const AppUpdateBanner: React.FC = () => {
   const { status, sideload, quitForUpdate, openReleases } = useUpdater();
+  const pushToast = useUiStore((s) => s.pushToast);
   const [busy, setBusy] = React.useState(false);
   const [ready, setReady] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
@@ -41,22 +42,36 @@ const AppUpdateBanner: React.FC = () => {
     setFailed(null);
     const result = await sideload();
     setBusy(false);
-    if (result.ok) setReady(result.message);
-    else setFailed(result.message);
-  }, [sideload]);
+    if (result.ok) {
+      setReady(result.message);
+      pushToast({
+        kind: 'success',
+        title: `Kerf ${result.version ?? ''} installed`,
+        detail: 'Quit and reopen Kerf to launch the new version.',
+      });
+    } else {
+      setFailed(result.message);
+      pushToast({
+        kind: 'error',
+        title: 'Update failed',
+        detail: result.message,
+      });
+    }
+  }, [sideload, pushToast]);
 
   /*
     Shown ahead of everything else because it outlives the status that
     produced it: the bundle is already swapped, and somebody mid-edit
     should still find the restart when they are done.
   */
-  if (ready) {
+  if (status.state === 'ready' || ready) {
+    const readyVersion = status.state === 'ready' ? status.version : '';
     return (
       <Card
         tone="accent"
         icon={RefreshCw}
-        title="Update installed"
-        body={ready}
+        title={readyVersion ? `Kerf ${readyVersion} installed` : 'Update installed'}
+        body={ready ?? (readyVersion ? `Kerf ${readyVersion} is installed. Quit and reopen Kerf when you are ready.` : 'Update installed. Close and reopen Kerf to launch the new version.')}
         actionLabel="Quit Kerf"
         onAction={quitForUpdate}
       />

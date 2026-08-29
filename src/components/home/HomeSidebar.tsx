@@ -47,7 +47,7 @@ interface Props {
 }
 
 export const HomeSidebar: React.FC<Props> = ({ view, onView, onImport, onOpenMedia }) => (
-  <aside className="hp-rail flex flex-col items-center min-h-0 rise-in rise-1">
+  <aside className="hp-rail relative z-20 flex flex-col items-center min-h-0 rise-in rise-1">
     <nav className="flex flex-col items-center gap-1">
       <NavTile view={view} onView={onView} to="home" icon={HomeIcon} label="Home" />
       <NavTile view={view} onView={onView} to="projects" icon={Clapperboard} label="Projects" />
@@ -68,7 +68,7 @@ export const HomeSidebar: React.FC<Props> = ({ view, onView, onImport, onOpenMed
         where checking and rolling back live. Both render nothing to
         say when nothing has happened — which is why a 76px column can
         carry them: on an ordinary launch there is nothing here at all. */}
-    <div className="w-full px-1.5 pb-2.5 pt-3 space-y-2">
+    <div className="w-full px-1.5 pb-2.5 pt-3 space-y-2 relative z-30">
       <UpdateBanner kind="app" />
       <UpdateBanner kind="skill" onOpenSkills={() => onView('skills')} />
       <VersionFooter />

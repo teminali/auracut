@@ -65,7 +65,11 @@ export function useUpdater(): Updater {
 
   const sideload = useCallback(async (version?: string) => {
     if (!api) return { ok: false, message: 'Updating in place needs the desktop app.' };
-    return api.updater.sideload(version);
+    const result = await api.updater.sideload(version);
+    if (result.ok) {
+      setStatus({ state: 'ready', version: result.version ?? version ?? '' });
+    }
+    return result;
   }, [api]);
 
   const quitForUpdate = useCallback(() => { void api?.updater.quitForUpdate(); }, [api]);

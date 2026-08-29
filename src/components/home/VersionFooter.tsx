@@ -32,6 +32,7 @@
 
 import React from 'react';
 import { useUpdater } from '../../hooks/useUpdater';
+import { useUiStore } from '../../store/uiStore';
 import type { ReleaseOption } from '../../types/electron';
 import { compareVersions } from '../../utils/version';
 import { RefreshCw, Check, ChevronDown, Download, RotateCcw, AlertTriangle } from '../ui/icons';
@@ -44,12 +45,13 @@ const ROLLBACK_CHOICES = 3;
 
 export const VersionFooter: React.FC = () => {
   const { status, currentVersion, isDesktop, check, sideload, releases, quitForUpdate } = useUpdater();
+  const pushToast = useUiStore((s) => s.pushToast);
 
   const [open, setOpen] = React.useState(false);
   const [confirmed, setConfirmed] = React.useState(false);
   const [options, setOptions] = React.useState<ReleaseOption[] | null>(null);
   const [busy, setBusy] = React.useState<string | null>(null);
-  const [result, setResult] = React.useState<{ ok: boolean; message: string } | null>(null);
+  const [result, setResult] = React.useState<{ ok: boolean; message: string; version?: string } | null>(null);
   const [confirming, setConfirming] = React.useState<string | null>(null);
   const root = React.useRef<HTMLDivElement>(null);
 
@@ -93,9 +95,21 @@ export const VersionFooter: React.FC = () => {
     const outcome = await sideload(version);
     setBusy(null);
     setConfirming(null);
-    setResult({ ok: outcome.ok, message: outcome.message });
-    if (outcome.ok) setOpen(false);
-  }, [sideload]);
+    setResult({ ok: outcome.ok, message: outcome.message, version: outcome.version ?? version });
+    if (outcome.ok) {
+      pushToast({
+        kind: 'success',
+        title: `Kerf ${outcome.version ?? version ?? ''} installed`,
+        detail: 'Close and reopen Kerf when you are ready.',
+      });
+    } else {
+      pushToast({
+        kind: 'error',
+        title: 'Update failed',
+        detail: outcome.message,
+      });
+    }
+  }, [sideload, pushToast]);
 
   if (!isDesktop) {
     return (
@@ -106,6 +120,7 @@ export const VersionFooter: React.FC = () => {
   }
 
   const updateAvailable = status.state === 'available' || status.state === 'manual-only';
+  const isReady = status.state === 'ready' || result?.ok;
   const newer = updateAvailable ? status.version : null;
 
   /* The current build is excluded from the rollback list, and so is
@@ -116,7 +131,7 @@ export const VersionFooter: React.FC = () => {
     .slice(0, ROLLBACK_CHOICES);
 
   return (
-    <div className="px-1 relative" ref={root}>
+    <div className="px-1 relative z-30" ref={root}>
       <button
         onClick={() => setOpen((v) => !v)}
         /* The rail is 76px wide now, so this cannot spill onto two
@@ -130,13 +145,33 @@ export const VersionFooter: React.FC = () => {
         title={`Kerf ${currentVersion || ''} · version, updates and rollback`}
       >
         {currentVersion || '…'}
-        {newer && <span className="w-1.5 h-1.5 rounded-full bg-spectrum-accent flex-shrink-0" />}
+        {(newer || isReady) && (
+          <span
+            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+              isReady ? 'bg-spectrum-green' : 'bg-spectrum-accent'
+            }`}
+          />
+        )}
         <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
+      {/* When ready and menu is closed, show a dedicated action button so the user can easily restart */}
+      {!open && isReady && (
+        <div className="mt-1 px-0.5">
+          <button
+            onClick={quitForUpdate}
+            className="pro-btn-filled w-full h-[22px] text-micro gap-1 !text-spectrum-green !border-spectrum-green/30"
+            title="Update installed. Click to quit and restart Kerf."
+          >
+            <RefreshCw className="w-2.5 h-2.5" />
+            Quit to apply
+          </button>
+        </div>
+      )}
+
       {/* The confirmation, when a check found nothing, without opening
           anything. */}
-      {!open && confirmed && (
+      {!open && confirmed && !isReady && (
         <p className="text-micro text-spectrum-textDim flex items-center gap-1 mt-1">
           <Check className="w-3 h-3 text-spectrum-green flex-shrink-0" />
           Up to date
@@ -151,9 +186,19 @@ export const VersionFooter: React.FC = () => {
         <div
           role="menu"
           className="absolute bottom-full left-0 mb-2 w-[248px] surface-card
-                     rounded-squircle-lg p-1.5 shadow-lg z-30"
+                     rounded-squircle-lg p-1.5 shadow-2xl border border-line-strong z-50"
         >
-          {newer && (
+          {isReady && (
+            <MenuItem
+              icon={RefreshCw}
+              label="Quit Kerf to finish update"
+              tone="accent"
+              disabled={Boolean(busy)}
+              onClick={quitForUpdate}
+            />
+          )}
+
+          {!isReady && newer && (
             <MenuItem
               icon={Download}
               label={busy === 'latest' ? 'Updating…' : `Update to ${newer}`}

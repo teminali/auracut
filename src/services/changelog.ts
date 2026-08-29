@@ -36,6 +36,19 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.11.1',
+    date: '2026-08-29',
+    headline: 'Update feedback and dropdown layering',
+    detail:
+      'Fixed dropdown menu clipping in the home sidebar and added clear update notifications with a dedicated restart action.',
+    items: [
+      'Sidebar dropdown menu now layers cleanly on top of the main canvas with fixed z-index stacking.',
+      'The update menu now stays open on completion and offers a prominent "Quit Kerf to finish update" button.',
+      'A compact "Quit to apply" action button appears directly in the sidebar footer whenever an update is ready.',
+      'Instant toast notifications announce when an update is successfully downloaded and installed to disk.',
+    ],
+  },
+  {
     version: '1.11.0',
     date: '2026-08-29',
     headline: 'Kinetic captions and subtitle design',
