@@ -2061,15 +2061,17 @@
      ───────────────────────────────────────────────────────────── */
   .scrim {
     @apply fixed inset-0 z-50 flex items-center justify-center animate-fade-in;
-    background: rgba(3, 4, 6, 0.62);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(5, 6, 7, 0.72);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
   }
 
   .modal-shell {
-    @apply bg-spectrum-panel rounded-squircle-lg overflow-hidden animate-scale-in shadow-modal;
-    border: 1px solid var(--line-strong);
-    box-shadow: var(--lift-float);
+    @apply overflow-hidden animate-scale-in;
+    background: #232323;
+    border: 1px solid #3f3f3f;
+    border-radius: 4px;
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.6);
   }
 
   .kbd {

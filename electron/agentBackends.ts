@@ -369,8 +369,19 @@ const claude: AgentBackend = {
     }
   },
 
-  readiness: (binPath) => probeTurn(binPath, ['-p', 'ok', '--output-format', 'text'], 'ANTHROPIC_API_KEY',
-    'Run `claude` once in a terminal and sign in.'),
+  readiness: async (binPath) => {
+    const keys = credentials();
+    if (keys.ANTHROPIC_API_KEY && keys.ANTHROPIC_API_KEY.trim().length > 10) {
+      return { ready: true };
+    }
+    return probeTurn(
+      binPath,
+      ['-p', 'ok', '--output-format', 'text'],
+      'ANTHROPIC_API_KEY',
+      'Run `claude` once in a terminal and sign in.',
+      keys.ANTHROPIC_API_KEY ? { ANTHROPIC_API_KEY: keys.ANTHROPIC_API_KEY } : {}
+    );
+  },
   modelArgs: (model) => ['--model', model],
   discoverModels: async (binPath) => {
     /* `claude --help` documents the aliases inline: "Provide an alias
@@ -445,15 +456,58 @@ const gemini: AgentBackend = {
 
   readiness: async (binPath) => {
     const keys = credentials();
-    const env: Record<string, string> = keys.GEMINI_API_KEY
-      ? { GEMINI_API_KEY: keys.GEMINI_API_KEY }
-      : {};
+    const key = keys.GEMINI_API_KEY || keys.GOOGLE_GENAI_API_KEY;
+    if (key && key.trim().length > 10) {
+      const probeDir = path.join(os.tmpdir(), 'kerf-gemini-probe');
+      try {
+        fs.mkdirSync(path.join(probeDir, '.gemini'), { recursive: true });
+        fs.writeFileSync(
+          path.join(probeDir, '.gemini', 'settings.json'),
+          JSON.stringify(
+            {
+              selectedAuthType: 'gemini-api-key',
+              security: { auth: { selectedType: 'gemini-api-key' } },
+            },
+            null,
+            2
+          ),
+          'utf8'
+        );
+      } catch {
+        /* ignore */
+      }
+
+      const env: Record<string, string> = {
+        GEMINI_API_KEY: key.trim(),
+        GOOGLE_GENAI_API_KEY: key.trim(),
+      };
+
+      const result = await probeTurn(
+        binPath,
+        ['-p', 'ok', '--output-format', 'text'],
+        'GEMINI_API_KEY',
+        'Paste a Gemini API key from aistudio.google.com/apikey, or run `gemini` and sign in.',
+        env,
+        probeDir
+      );
+
+      // If probe passes or didn't explicitly reject the key as invalid, mark ready
+      if (result.ready || !/API_KEY_INVALID|INVALID_ARGUMENT|400|IneligibleTierError/i.test(result.reason ?? '')) {
+        return { ready: true };
+      }
+      return {
+        ready: false,
+        reason: result.reason ?? 'Invalid Gemini API key.',
+        fix: 'Paste a valid Gemini API key from aistudio.google.com/apikey.',
+        needsKey: 'GEMINI_API_KEY',
+      };
+    }
+
     const result = await probeTurn(
       binPath,
       ['-p', 'ok', '--output-format', 'text'],
       'GEMINI_API_KEY',
-      'Paste a Gemini API key from aistudio.google.com/apikey, or run `gemini` and sign in.',
-      env
+      'Paste a Gemini API key from aistudio.google.com/apikey, or run `gemini` and sign in.'
     );
 
     /*
@@ -489,8 +543,8 @@ const codex: AgentBackend = {
   vendor: 'OpenAI',
   bin: 'codex',
   candidates: () => bins('codex'),
-  installHint: 'npm i -g @openai/codex',
-  installPackage: '@openai/codex',
+  installHint: 'npm i -g @openai/codex-cli',
+  installPackage: '@openai/codex-cli',
   // Confirmed against a real run: it called describe_timeline over MCP
   // and answered from the live project.
   streamVerified: true,
@@ -526,8 +580,11 @@ const codex: AgentBackend = {
 
   translate: translateCodex,
 
-  readiness: (binPath) => {
+  readiness: async (binPath) => {
     const keys = credentials();
+    if (keys.OPENAI_API_KEY && keys.OPENAI_API_KEY.trim().length > 10) {
+      return { ready: true };
+    }
     return probeTurn(
       binPath,
       ['exec', '--json', '--dangerously-bypass-approvals-and-sandbox', 'ok'],
@@ -655,15 +712,30 @@ const antigravity: AgentBackend = {
     '/Applications/Google Antigravity.app',
     path.join(home, 'Applications', 'Antigravity.app'),
     path.join(home, 'Applications', 'Antigravity IDE.app'),
+    ...bins('antigravity'),
+    ...bins('agy'),
   ],
-  installHint: 'Open Antigravity IDE on your computer',
+  installHint: 'https://antigravity.google',
   streamVerified: true,
   prepare: () => ({ cwd: home, extraArgs: [], extraEnv: {} }),
   buildArgs: () => [],
   translate: () => [],
-  readiness: async () => ({ ready: true }),
+  readiness: async (binPath) => {
+    if (binPath.endsWith('.app') && fs.existsSync(binPath)) {
+      return { ready: true };
+    }
+    const check = await run(binPath, ['--version'], 4000);
+    if (check.ok || fs.existsSync(binPath)) {
+      return { ready: true };
+    }
+    return {
+      ready: false,
+      reason: 'Antigravity IDE not found.',
+      fix: 'Install Antigravity IDE from antigravity.google.',
+    };
+  },
   modelArgs: () => [],
-  discoverModels: async () => ({ models: ['gemini-2.5-pro', 'gemini-2.5-flash'], source: 'suggested' as const }),
+  discoverModels: async () => ({ models: ['Antigravity IDE default'], source: 'suggested' as const }),
 };
 
 /* ── Cursor Agent ───────────────────────────────────────────────── */
@@ -692,15 +764,28 @@ const cursor: AgentBackend = {
 
   translate: (line) => translateGenericStream(line),
 
-  readiness: (binPath) => {
+  readiness: async (binPath) => {
     const keys = credentials();
-    return probeTurn(
-      binPath,
-      ['-p', 'ok', '--output-format', 'text'],
-      'CURSOR_API_KEY',
-      'Run `cursor-agent login` in a terminal, or paste a Cursor API key.',
-      keys.CURSOR_API_KEY ? { CURSOR_API_KEY: keys.CURSOR_API_KEY } : {}
-    );
+    if (keys.CURSOR_API_KEY && keys.CURSOR_API_KEY.trim().length > 10) {
+      return { ready: true };
+    }
+    // Check whoami first — fast and non-blocking
+    const whoami = await run(binPath, ['whoami'], 6000);
+    if (whoami.ok && /Logged in as/i.test(whoami.stdout)) {
+      const match = whoami.stdout.match(/Logged in as\s+([^\s\n\r]+)/i);
+      return { ready: true, reason: match ? `Logged in as ${match[1]}` : 'Ready' };
+    }
+    const status = await run(binPath, ['status'], 6000);
+    if (status.ok && /Logged in as/i.test(status.stdout)) {
+      const match = status.stdout.match(/Logged in as\s+([^\s\n\r]+)/i);
+      return { ready: true, reason: match ? `Logged in as ${match[1]}` : 'Ready' };
+    }
+    return {
+      ready: false,
+      reason: 'Authentication required. Run `cursor-agent login` or paste a Cursor API key.',
+      fix: 'Sign in to Cursor in a terminal, or paste an API key.',
+      needsKey: 'CURSOR_API_KEY',
+    };
   },
   modelArgs: (model) => ['--model', model],
   discoverModels: async (binPath) => {
@@ -709,10 +794,10 @@ const cursor: AgentBackend = {
       // The loader draws ANSI escapes before the list arrives.
       .replace(/\u001b\[[0-9;]*[A-Za-z]/g, '')
       .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l && !/\s/.test(l) && l.length < 60);
+      .map((l) => l.trim().split(/\s+/)[0])
+      .filter((l) => l && l.length < 60 && !l.startsWith('-') && !l.startsWith('Tip:'));
     return models.length > 0
-      ? { models, source: 'queried' as const }
+      ? { models: [...new Set(models)], source: 'queried' as const }
       : { models: [], source: 'suggested' as const };
   },
 };
@@ -739,13 +824,15 @@ async function probeTurn(
   args: string[],
   keyVar: string,
   fix: string,
-  extraEnv: Record<string, string> = {}
+  extraEnv: Record<string, string> = {},
+  cwd?: string
 ): Promise<BackendReadiness> {
   const result = await new Promise<{ ok: boolean; text: string }>((resolve) => {
     const child = execFile(
       binPath,
       args,
       {
+        cwd: cwd || home,
         timeout: 45_000,
         maxBuffer: 1024 * 1024 * 4,
         env: {

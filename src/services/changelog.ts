@@ -38,7 +38,7 @@ export const CHANGELOG: Release[] = [
   {
     version: '1.11.5',
     date: '2026-08-29',
-    headline: 'Antigravity starter messages & instant prompt launch',
+    headline: 'Antigravity starter prompts & instant launch',
     detail:
       'Launch Antigravity IDE directly with rich starter messages, custom prompt input, and instant clipboard transfer.',
     items: [

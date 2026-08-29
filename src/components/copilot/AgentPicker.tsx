@@ -170,205 +170,212 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
     <div className="scrim" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="modal-shell w-[440px] max-w-[92vw]"
+        className="modal-shell w-[580px] max-w-[92vw] max-h-[88vh] flex flex-col"
         role="dialog"
         aria-modal="true"
         aria-label="Copilot agent"
       >
-        <div className="panel-header">
-          <span className="text-ui font-semibold text-spectrum-text">Copilot agent</span>
-          <button onClick={onClose} className="pro-btn w-6 h-6" aria-label="Close the agent picker">
-            <X className="w-3.5 h-3.5" />
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#141414] bg-[#232323] sticky top-0 z-10 flex-shrink-0">
+          <span className="text-ui-xl font-bold text-[#e8e8e8]">Copilot agent</span>
+          <button
+            onClick={onClose}
+            className="w-[26px] h-[24px] rounded-[2px] grid place-items-center text-[#989898] hover:text-[#e8e8e8] hover:bg-[#3a3a3a] transition-colors"
+            aria-label="Close the agent picker"
+          >
+            <X className="w-[15px] h-[15px]" />
           </button>
         </div>
 
-        <div className="p-2.5 space-y-2 max-h-[64vh] overflow-y-auto">
-          {/* Antigravity direct MCP connection indicator */}
-          <div className="rounded-squircle-xs border border-spectrum-accent/30 bg-spectrum-accent/[0.08] p-2.5 space-y-1">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-spectrum-green animate-pulse" />
-                <span className="text-ui-sm font-semibold text-spectrum-text">Antigravity IDE Agent</span>
-              </div>
-              <span className="text-micro font-mono text-spectrum-accent px-1.5 py-0.5 rounded bg-spectrum-accent/15">
-                MCP Live · Port 3888
-              </span>
-            </div>
-            <p className="text-micro text-spectrum-textDim leading-snug">
-              Connected! Chat directly with Antigravity in your IDE to edit this timeline with zero CLI setup and zero credit costs.
-            </p>
-          </div>
-
-          <p className="text-micro text-spectrum-textDim leading-relaxed px-0.5 pt-0.5">
-            Or configure a local CLI to drive the in-app Copilot drawer:
+        <div className="p-4 space-y-3.5 overflow-y-auto min-h-0 flex-1">
+          <p className="text-ui-sm text-[#a6a6a6] leading-relaxed">
+            Whichever you pick gets Kerf&apos;s 58 editing tools over MCP, plus its own file, shell and web access.
           </p>
 
           {loading && (
-            <div className="flex items-center gap-2 py-4 justify-center text-micro text-spectrum-textDim">
-              <Loader2 className="w-3 h-3 animate-spin" /> Looking for installed agents…
+            <div className="flex items-center gap-2 py-6 justify-center text-ui text-[#8a8a8a]">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Looking for installed agents…
             </div>
           )}
 
-          {backends.map((backend) => {
-            const isSelected = backend.id === selected;
-            const working = busy === backend.id;
+          <div className="flex flex-col gap-2.5">
+            {backends.map((backend) => {
+              const isSelected = backend.id === selected;
+              const working = busy === backend.id;
+              const isAntigravity = backend.id === 'antigravity';
 
-            return (
-              <div
-                key={backend.id}
-                className={`rounded-squircle-xs border p-2 transition-colors ${
-                  isSelected
-                    ? 'border-spectrum-accentLine bg-spectrum-accent/[0.07]'
-                    : 'border-line bg-spectrum-sunken/40'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => choose(backend)}
-                    disabled={!backend.checked || !backend.ready}
-                    className="flex-1 min-w-0 text-left disabled:cursor-not-allowed"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-ui-sm font-medium text-spectrum-text truncate">
-                        {backend.label}
+              const statusColor = !backend.checked
+                ? 'text-[#8a8a8a]'
+                : backend.ready
+                  ? 'text-[#9fc9ab]'
+                  : 'text-[#c98a7a]';
+
+              const statusText = !backend.checked
+                ? 'checking…'
+                : isAntigravity
+                  ? 'Connected via live MCP on port 3888'
+                  : backend.ready
+                    ? backend.version ?? backend.path ?? 'Ready'
+                    : backend.reason ?? 'Authentication required';
+
+              return (
+                <div
+                  key={backend.id}
+                  onClick={() => {
+                    if (backend.ready) void choose(backend);
+                  }}
+                  className={`p-3.5 rounded-[2px] transition-colors ${
+                    backend.ready ? 'cursor-pointer' : 'cursor-default'
+                  } ${
+                    isSelected
+                      ? 'bg-[#2b2520] border border-[#c9622f]'
+                      : 'bg-[#262626] border border-[#141414] hover:border-[#3a3a3a]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-ui-lg font-bold text-[#e8e8e8]">{backend.label}</span>
+                    <span className="text-ui text-[#8a8a8a]">{backend.vendor}</span>
+
+                    {isSelected && (
+                      <Check className="w-3.5 h-3.5 text-[#e0854d] flex-shrink-0" />
+                    )}
+
+                    {!backend.checked && (
+                      <Loader2 className="w-3 h-3 animate-spin text-[#8a8a8a] flex-shrink-0 ml-1" />
+                    )}
+
+                    {isAntigravity && (
+                      <span className="ml-2 font-mono text-micro font-semibold text-[#9fc9ab] px-1.5 py-0.5 rounded-[2px] bg-[#9fc9ab]/10 border border-[#9fc9ab]/25">
+                        MCP Live · Port 3888
                       </span>
-                      <span className="text-micro text-spectrum-textFaint">{backend.vendor}</span>
-                      {!backend.checked && (
-                        <Loader2 className="w-2.5 h-2.5 animate-spin text-spectrum-textFaint flex-shrink-0" />
-                      )}
-                      {isSelected && <Check className="w-3 h-3 text-spectrum-accent flex-shrink-0" />}
-                    </span>
-                    <span className="block text-micro font-mono text-spectrum-textFaint truncate mt-0.5">
-                      {!backend.checked
-                        ? 'checking…'
-                        : backend.ready
-                          ? backend.version ?? backend.path ?? 'ready'
-                          : backend.reason ?? 'not available'}
-                    </span>
-                  </button>
+                    )}
 
-                  {backend.id === 'antigravity' && (
-                    <button
-                      onClick={() => void window.electronAPI?.agents.openAntigravity()}
-                      className="pro-btn h-[24px] px-2 gap-1 text-micro flex-shrink-0 border border-line-strong hover:border-spectrum-accent"
-                      title="Bring Antigravity IDE to the foreground"
-                      aria-label="Bring Antigravity IDE to the foreground"
-                    >
-                      <ExternalLink className="w-2.5 h-2.5" /> Open IDE
-                    </button>
-                  )}
-
-                  {backend.checked && !backend.installed && backend.id !== 'antigravity' && (
-                    <button
-                      onClick={() => install(backend)}
-                      disabled={working}
-                      className="pro-btn-filled h-[24px] px-2 gap-1 text-micro flex-shrink-0"
-                      title={backend.installHint}
-                      aria-label={backend.installHint}
-                    >
-                      {working
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : <Download className="w-3 h-3" />}
-                      Install
-                    </button>
-                  )}
-
-                  {backend.checked && backend.installed && !backend.ready && (
-                    <button
-                      onClick={() => signIn(backend)}
-                      className="pro-btn-filled h-[24px] px-2 gap-1 text-micro flex-shrink-0"
-                      title={backend.fix}
-                      aria-label={backend.fix}
-                    >
-                      <LogIn className="w-3 h-3" /> Sign in
-                    </button>
-                  )}
-                </div>
-
-                {/* Model choice */}
-                {backend.ready && models[backend.id] && (
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    <span className="text-micro text-spectrum-textFaint flex-shrink-0 w-[34px]">Model</span>
-                    <input
-                      list={`models-${backend.id}`}
-                      value={models[backend.id].selected}
-                      onChange={(e) => pickModel(backend, e.target.value)}
-                      placeholder={`${backend.label} default`}
-                      className="pro-input flex-1 h-[22px] px-1.5 text-micro font-mono min-w-0"
-                    />
-                    <datalist id={`models-${backend.id}`}>
-                      {models[backend.id].models.map((m) => <option key={m} value={m} />)}
-                    </datalist>
-                    <span
-                      className="text-micro text-spectrum-textFaint flex-shrink-0"
-                      title={
-                        models[backend.id].source === 'queried'
-                          ? 'This list came from the CLI itself.'
-                          : 'Suggestions: any model name this CLI accepts will work.'
-                      }
-                    >
-                      {models[backend.id].source === 'queried' ? 'listed' : 'suggested'}
-                    </span>
-                  </div>
-                )}
-
-                {backend.ready && !backend.streamVerified && (
-                  <p className="mt-1.5 flex items-start gap-1 text-micro text-spectrum-amber/90 leading-snug">
-                    <AlertTriangle className="w-2.5 h-2.5 mt-[1px] flex-shrink-0" />
-                    Kerf has not verified how this CLI streams its output. Edits still work;
-                    the answer arrives without the step-by-step.
-                  </p>
-                )}
-
-                {backend.checked && !backend.ready && backend.fix && (
-                  <p className="mt-1.5 text-micro text-spectrum-textDim leading-snug">{backend.fix}</p>
-                )}
-
-                {/* When a key is what it needs, show quick link and paste input */}
-                {backend.checked && !backend.ready && backend.needsKey && (
-                  <div className="mt-2 space-y-1.5 pt-1 border-t border-line-soft">
-                    {KEY_PROVIDERS[backend.id] && (
-                      <div className="flex items-center justify-between">
+                    <div className="ml-auto flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                      {isAntigravity && (
                         <button
-                          type="button"
-                          onClick={() => openUrl(KEY_PROVIDERS[backend.id].url)}
-                          className="text-micro text-spectrum-accent hover:underline flex items-center gap-1 font-medium"
+                          onClick={() => void window.electronAPI?.agents.openAntigravity()}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#2d2d2d] border border-[#3f3f3f] text-ui font-semibold text-[#c4c4c4] hover:bg-[#333333] hover:text-[#e8e8e8] transition-colors"
+                          title="Bring Antigravity IDE to the foreground"
                         >
                           <ExternalLink className="w-3 h-3" />
-                          {KEY_PROVIDERS[backend.id].label}
+                          Open IDE
                         </button>
-                        {KEY_PROVIDERS[backend.id].free && (
-                          <span className="text-micro uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-spectrum-green/15 text-spectrum-green">
-                            100% Free Tier
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="password"
-                        value={keyDraft[backend.id] ?? ''}
-                        onChange={(e) => setKeyDraft((d) => ({ ...d, [backend.id]: e.target.value }))}
-                        onKeyDown={(e) => { if (e.key === 'Enter') void saveKey(backend); }}
-                        placeholder={backend.hasKey ? `${backend.needsKey} stored. Paste to replace` : backend.needsKey}
-                        className="pro-input flex-1 h-[24px] px-1.5 text-micro font-mono min-w-0"
-                      />
-                      <button
-                        onClick={() => saveKey(backend)}
-                        disabled={busy === backend.id || !(keyDraft[backend.id] ?? '').trim()}
-                        className="pro-btn-filled h-[24px] px-2 text-micro flex-shrink-0"
-                      >
-                        {busy === backend.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
-                      </button>
+                      )}
+
+                      {backend.checked && !backend.installed && !isAntigravity && (
+                        <button
+                          onClick={() => install(backend)}
+                          disabled={working}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#2d2d2d] border border-[#3f3f3f] text-ui font-semibold text-[#c4c4c4] hover:bg-[#333333] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
+                          title={backend.installHint}
+                        >
+                          {working ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+                          Install
+                        </button>
+                      )}
+
+                      {backend.checked && backend.installed && !backend.ready && (
+                        <button
+                          onClick={() => signIn(backend)}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#2d2d2d] border border-[#3f3f3f] text-ui font-semibold text-[#c4c4c4] hover:bg-[#333333] hover:text-[#e8e8e8] transition-colors"
+                          title={backend.fix}
+                        >
+                          <LogIn className="w-3 h-3" />
+                          Sign in
+                        </button>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            );
-          })}
+
+                  <div className={`font-mono text-ui-xs mt-1.5 leading-relaxed truncate ${statusColor}`}>
+                    {statusText}
+                  </div>
+
+                  {backend.checked && !backend.ready && backend.fix && (
+                    <div className="text-ui text-[#a6a6a6] mt-1 leading-snug">
+                      {backend.fix}
+                    </div>
+                  )}
+
+                  {/* Model Choice when ready */}
+                  {backend.ready && models[backend.id] && (
+                    <div
+                      className="flex items-center gap-2.5 mt-2.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="text-ui text-[#989898] flex-none">Model</span>
+                      <input
+                        list={`models-${backend.id}`}
+                        value={models[backend.id].selected}
+                        onChange={(e) => pickModel(backend, e.target.value)}
+                        placeholder={`${backend.label} default`}
+                        className="flex-1 px-2.5 py-1.5 rounded-[3px] bg-[#1a1a1a] border border-[#3a3a3a] font-mono text-ui-xs text-[#e8e8e8] placeholder-[#6b6b6b] outline-none focus:border-[#c9622f]"
+                      />
+                      <datalist id={`models-${backend.id}`}>
+                        {models[backend.id].models.map((m) => <option key={m} value={m} />)}
+                      </datalist>
+                      <span
+                        className="flex-none font-mono text-micro text-[#6b6b6b]"
+                        title={
+                          models[backend.id].source === 'queried'
+                            ? 'This list came from the CLI itself.'
+                            : 'Suggestions: any model name this CLI accepts will work.'
+                        }
+                      >
+                        {models[backend.id].source === 'queried' ? 'listed' : 'suggested'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Key provider quick link and key input */}
+                  {backend.checked && !backend.ready && backend.needsKey && (
+                    <div
+                      className="mt-2.5 pt-2 border-t border-[#1e1e1e] space-y-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {KEY_PROVIDERS[backend.id] && (
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() => openUrl(KEY_PROVIDERS[backend.id].url)}
+                            className="text-ui text-[#f0a173] hover:underline flex items-center gap-1 font-medium"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            {KEY_PROVIDERS[backend.id].label}
+                          </button>
+                          {KEY_PROVIDERS[backend.id].free && (
+                            <span className="text-micro uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-spectrum-green/15 text-spectrum-green">
+                              100% Free Tier
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="password"
+                          value={keyDraft[backend.id] ?? ''}
+                          onChange={(e) => setKeyDraft((d) => ({ ...d, [backend.id]: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === 'Enter') void saveKey(backend); }}
+                          placeholder={backend.hasKey ? `${backend.needsKey} stored. Paste to replace` : backend.needsKey}
+                          className="flex-1 px-2.5 py-1.5 rounded-[3px] bg-[#1a1a1a] border border-[#3a3a3a] font-mono text-ui-xs text-[#e8e8e8] placeholder-[#6b6b6b] outline-none focus:border-[#c9622f]"
+                        />
+                        <button
+                          onClick={() => saveKey(backend)}
+                          disabled={busy === backend.id || !(keyDraft[backend.id] ?? '').trim()}
+                          className="flex-none px-3.5 py-1.5 rounded-[3px] bg-[#2d2d2d] border border-[#3a3a3a] text-ui font-semibold text-[#8a8a8a] hover:text-[#e8e8e8] hover:bg-[#333333] transition-colors disabled:opacity-40"
+                        >
+                          {busy === backend.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           {progress && (
-            <pre className="text-micro font-mono text-spectrum-textFaint whitespace-pre-wrap break-all max-h-20 overflow-y-auto border-t border-line pt-1.5 mt-1">
+            <pre className="text-micro font-mono text-[#8a8a8a] whitespace-pre-wrap break-all max-h-20 overflow-y-auto border-t border-[#141414] pt-2 mt-2">
               {progress}
             </pre>
           )}

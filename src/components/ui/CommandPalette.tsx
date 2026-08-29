@@ -192,16 +192,16 @@ export const CommandPalette: React.FC = () => {
   };
 
   return (
-    <div className="scrim items-start pt-[12vh]" onClick={close}>
+    <div className="scrim items-start pt-[120px]" onClick={close}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="modal-shell w-[580px] max-w-[92vw] flex flex-col max-h-[62vh]"
+        className="modal-shell w-[580px] max-w-[92vw] flex flex-col max-h-[62vh] rounded-[2px] bg-[#232323] border border-[#3f3f3f] shadow-[0_16px_40px_rgba(0,0,0,0.6)] overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
       >
-        <div className="flex items-center gap-2 px-3 h-11 border-b border-line flex-shrink-0">
-          <Search className="w-4 h-4 text-spectrum-textDim flex-shrink-0" />
+        <div className="flex items-center gap-2.5 px-3.5 h-[46px] border-b border-[#141414] bg-[#232323] flex-shrink-0">
+          <Search className="w-[15px] h-[15px] text-[#6b6b6b] flex-shrink-0" />
           <input
             autoFocus
             value={query}
@@ -212,15 +212,20 @@ export const CommandPalette: React.FC = () => {
               if (e.key === 'Enter') { e.preventDefault(); runAt(cursor); }
               if (e.key === 'Escape') { e.preventDefault(); close(); }
             }}
-            placeholder="Search commands, effects, animations…"
-            className="flex-1 bg-transparent outline-none text-ui-lg text-spectrum-text placeholder:text-spectrum-textFaint"
+            placeholder="Search commands, clips, effects…"
+            className="flex-1 bg-transparent outline-none text-ui-lg text-[#e8e8e8] placeholder:text-[#6b6b6b]"
           />
-          <span className="kbd">esc</span>
+          <button
+            onClick={close}
+            className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-[#3a3a3a] text-[#b0b0b0] hover:text-[#e8e8e8] transition-colors"
+          >
+            esc
+          </button>
         </div>
 
-        <div ref={listRef} className="flex-1 overflow-y-auto py-1">
+        <div ref={listRef} className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
           {results.length === 0 ? (
-            <p className="px-3 py-6 text-center text-ui text-spectrum-textDim">
+            <p className="px-3 py-8 text-center text-ui-lg text-[#8a8a8a]">
               Nothing matches “{query}”.
             </p>
           ) : (
@@ -232,7 +237,7 @@ export const CommandPalette: React.FC = () => {
               return (
                 <React.Fragment key={cmd.id}>
                   {showGroup && (
-                    <div className="px-3 pt-2 pb-1 text-micro font-semibold text-spectrum-textFaint uppercase tracking-wider">
+                    <div className="px-2.5 pt-2 pb-1 text-micro font-bold font-mono tracking-[0.13em] text-[#6b6b6b] uppercase">
                       {cmd.group}
                     </div>
                   )}
@@ -240,15 +245,21 @@ export const CommandPalette: React.FC = () => {
                     data-index={index}
                     onMouseEnter={() => setCursor(index)}
                     onClick={() => runAt(index)}
-                    className={`w-full px-3 h-8 flex items-center gap-2.5 text-left transition-colors ${
-                      active ? 'bg-spectrum-accentSoft' : 'hover:bg-white/[0.03]'
+                    className={`w-full px-2.5 py-2 rounded-[3px] flex items-center gap-2.5 text-left transition-colors cursor-pointer ${
+                      active ? 'bg-[#2d2d2d]' : 'hover:bg-[#282828]'
                     }`}
                   >
-                    <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-spectrum-accent' : 'text-spectrum-textDim'}`} />
-                    <span className={`flex-1 text-ui truncate ${active ? 'text-spectrum-text' : 'text-spectrum-textMuted'}`}>
+                    <span className="w-[28px] h-[22px] rounded-[3px] bg-[#141414] text-[#c4c4c4] grid place-items-center flex-shrink-0">
+                      <Icon className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="flex-1 text-ui-lg text-[#e8e8e8] truncate">
                       {cmd.label}
                     </span>
-                    {cmd.shortcut && <span className="kbd flex-shrink-0">{cmd.shortcut}</span>}
+                    {cmd.shortcut ? (
+                      <span className="font-mono text-ui-xs text-[#6b6b6b] flex-shrink-0">{cmd.shortcut}</span>
+                    ) : (
+                      <span className="text-ui-xs text-[#6b6b6b] flex-shrink-0">{cmd.group}</span>
+                    )}
                   </button>
                 </React.Fragment>
               );
@@ -256,9 +267,9 @@ export const CommandPalette: React.FC = () => {
           )}
         </div>
 
-        <div className="px-3 h-8 border-t border-line flex items-center gap-3 text-micro text-spectrum-textFaint flex-shrink-0">
-          <span className="flex items-center gap-1"><span className="kbd">↑↓</span> navigate</span>
-          <span className="flex items-center gap-1"><span className="kbd">↵</span> run</span>
+        <div className="px-3 h-8 border-t border-[#141414] bg-[#1f1f1f] flex items-center gap-3 font-mono text-micro text-[#6b6b6b] flex-shrink-0">
+          <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded-[2px] bg-[#2d2d2d] text-[#8a8a8a]">↑↓</span> navigate</span>
+          <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded-[2px] bg-[#2d2d2d] text-[#8a8a8a]">↵</span> run</span>
           <span className="flex items-center gap-1 ml-auto"><CommandIcon className="w-2.5 h-2.5" /> {commands.length} commands</span>
         </div>
       </div>
