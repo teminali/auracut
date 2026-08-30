@@ -96,7 +96,7 @@ export const SettingsView: React.FC<{ onOpenAgentPicker: () => void }> = ({ onOp
     <div className="max-w-[720px] pb-4">
       <h1 className="text-[26px] font-semibold text-spectrum-text tracking-[-0.02em]">Settings</h1>
       <p className="text-ui-lg text-spectrum-textDim mt-1">
-        How Kerf talks to the tools it needs, and what it is allowed to see.
+        How FrontierCut talks to the tools it needs, and what it is allowed to see.
       </p>
 
       <Group title="The Copilot" icon={Sparkle}>
@@ -185,7 +185,7 @@ export const SettingsView: React.FC<{ onOpenAgentPicker: () => void }> = ({ onOp
       <Group title="Connections" icon={Server}>
         <Row
           label="Model Context Protocol"
-          value="Kerf’s 58 tools exposed live to Antigravity & external agents (Port 3888)"
+          value="FrontierCut’s 58 tools exposed live to Antigravity & external agents (Port 3888)"
           state="ok"
           actionLabel="Details"
           onAction={() => setMcpModalOpen(true)}
@@ -199,7 +199,7 @@ export const SettingsView: React.FC<{ onOpenAgentPicker: () => void }> = ({ onOp
           state={status.state === 'available' || status.state === 'manual-only' ? 'warn' : 'ok'}
           note={
             status.state === 'available' || status.state === 'manual-only'
-              ? `Kerf ${status.version} is available.`
+              ? `FrontierCut ${status.version} is available.`
               : undefined
           }
           actionLabel={status.state === 'checking' ? 'Checking…' : 'Check'}

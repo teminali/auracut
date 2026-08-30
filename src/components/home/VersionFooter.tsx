@@ -99,8 +99,8 @@ export const VersionFooter: React.FC = () => {
     if (outcome.ok) {
       pushToast({
         kind: 'success',
-        title: `Kerf ${outcome.version ?? version ?? ''} installed`,
-        detail: 'Close and reopen Kerf when you are ready.',
+        title: `FrontierCut ${outcome.version ?? version ?? ''} installed`,
+        detail: 'Close and reopen FrontierCut when you are ready.',
       });
     } else {
       pushToast({
@@ -191,7 +191,7 @@ export const VersionFooter: React.FC = () => {
           {isReady && (
             <MenuItem
               icon={RefreshCw}
-              label="Quit Kerf to finish update"
+              label="Quit FrontierCut to finish update"
               tone="accent"
               disabled={Boolean(busy)}
               onClick={quitForUpdate}

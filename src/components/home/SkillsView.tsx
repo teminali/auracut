@@ -48,7 +48,7 @@ type Scope = 'all' | 'bundled' | 'store';
 
 const SCOPES: { id: Scope; label: string }[] = [
   { id: 'all', label: 'All skills' },
-  { id: 'bundled', label: 'Included with Kerf' },
+  { id: 'bundled', label: 'Included with FrontierCut' },
   { id: 'store', label: 'From the store' },
 ];
 
@@ -251,7 +251,7 @@ export const SkillsView: React.FC = () => {
         {showBundled && (
           <section>
             <div className="flex items-center gap-2.5 h-[30px]">
-              <h3 className="text-ui-lg font-semibold text-spectrum-textMuted">Included with Kerf</h3>
+              <h3 className="text-ui-lg font-semibold text-spectrum-textMuted">Included with FrontierCut</h3>
               <span className="chip tabular">{bundled.length}</span>
             </div>
 
