@@ -1,0 +1,28 @@
+{
+  "texts": [
+    {
+      "text": "$649",
+      "x": -213.0,
+      "y": 0.0,
+      "width": 86,
+      "height": 32,
+      "confidence": 96
+    },
+    {
+      "text": "$614",
+      "x": -203.5,
+      "y": 241.5,
+      "width": 63,
+      "height": 25,
+      "confidence": 96
+    },
+    {
+      "text": "$202",
+      "x": 61.5,
+      "y": 241.5,
+      "width": 65,
+      "height": 25,
+      "confidence": 96
+    }
+  ]
+}

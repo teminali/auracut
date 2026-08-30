@@ -39,6 +39,7 @@ import {
 /** A keycap, so the hint line reads as keys rather than as punctuation. */
 /** Display names for the selectable backends. */
 const AGENT_LABELS: Record<string, string> = {
+  opencode: 'OpenCode Agent',
   antigravity: 'Antigravity IDE',
   claude: 'Claude Code',
   gemini: 'Gemini CLI',
@@ -821,7 +822,7 @@ export const CopilotDrawer: React.FC = () => {
                 busy
                   ? 'Working… ⌘⏎ to queue this next'
                   : isRouting
-                    ? '⚡ Routing with Qwen Helper...'
+                    ? 'Routing with Qwen Helper...'
                     : agentReady || !agentChecked
                       ? 'Ask anything, or tell me what to change…'
                       : 'Tell me what to change…'

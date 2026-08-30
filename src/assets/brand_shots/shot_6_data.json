@@ -1,0 +1,84 @@
+{
+  "texts": [
+    {
+      "text": "astropay_ok",
+      "x": 243.0,
+      "y": -158.0,
+      "width": 152,
+      "height": 24,
+      "confidence": 92
+    },
+    {
+      "text": "11",
+      "x": 170.5,
+      "y": -21.5,
+      "width": 21,
+      "height": 19,
+      "confidence": 88
+    },
+    {
+      "text": "posts",
+      "x": 171.5,
+      "y": 12.5,
+      "width": 63,
+      "height": 33,
+      "confidence": 96
+    },
+    {
+      "text": "followe",
+      "x": 317.0,
+      "y": 10.0,
+      "width": 86,
+      "height": 20,
+      "confidence": 92
+    },
+    {
+      "text": "AstroPay",
+      "x": -24.0,
+      "y": 114.0,
+      "width": 114,
+      "height": 24,
+      "confidence": 91
+    },
+    {
+      "text": "Send,",
+      "x": -47.0,
+      "y": 154.0,
+      "width": 66,
+      "height": 24,
+      "confidence": 96
+    },
+    {
+      "text": "spend,",
+      "x": 35.5,
+      "y": 155.0,
+      "width": 79,
+      "height": 24,
+      "confidence": 96
+    },
+    {
+      "text": "and",
+      "x": 106.0,
+      "y": 152.5,
+      "width": 42,
+      "height": 19,
+      "confidence": 96
+    },
+    {
+      "text": "save",
+      "x": 165.0,
+      "y": 154.5,
+      "width": 54,
+      "height": 15,
+      "confidence": 96
+    },
+    {
+      "text": "worldwide.",
+      "x": 266.5,
+      "y": 152.0,
+      "width": 129,
+      "height": 20,
+      "confidence": 96
+    }
+  ]
+}

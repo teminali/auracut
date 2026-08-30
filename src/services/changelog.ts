@@ -36,6 +36,19 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.5',
+    date: '2026-08-30',
+    headline: 'Native OpenCode Copilot & Brand Demo',
+    detail:
+      'Native OpenCode AI backend integration with local-first Devstral routing and reverse-engineered brand demo project.',
+    items: [
+      'Added OpenCode as a native first-class backend in the Copilot engine with automatic binary detection.',
+      'Support for local-first Devstral 24B execution at zero token cost with cloud escalation.',
+      'Bundled reverse-engineered Sample Brand Demo project timeline with multi-layer keyframed motion and audio tracks.',
+      'MCP stdio bridge resilience improvements for offline and detached editor states.',
+    ],
+  },
+  {
     version: '1.11.5',
     date: '2026-08-29',
     headline: 'Antigravity starter prompts & instant launch',

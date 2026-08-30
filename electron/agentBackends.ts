@@ -41,7 +41,7 @@ import {
   npmGlobalBinDirectory,
 } from '../src/services/agentPlatform';
 
-export type BackendId = 'antigravity' | 'claude' | 'gemini' | 'codex' | 'cursor';
+export type BackendId = 'opencode' | 'antigravity' | 'claude' | 'gemini' | 'codex' | 'cursor';
 
 /** One line of normalised agent output. Mirrors Claude Code stream-json. */
 export interface AgentEvent {
@@ -699,6 +699,82 @@ function translateCodex(line: string): AgentEvent[] {
   return [];
 }
 
+/* ── OpenCode Agent ─────────────────────────────────────────────── */
+
+const opencode: AgentBackend = {
+  id: 'opencode',
+  label: 'OpenCode Agent',
+  vendor: 'OpenCode AI',
+  bin: 'opencode',
+  candidates: () => [
+    path.join(home, '.opencode', 'bin', 'opencode'),
+    path.join(home, '.local', 'bin', 'opencode'),
+    ...bins('opencode'),
+  ],
+  installHint: 'npm i -g opencode-ai',
+  installPackage: 'opencode-ai',
+  streamVerified: true,
+
+  prepare: (mcp, sessionDir) => {
+    const workspace = path.join(sessionDir, 'opencode-workspace');
+    writeJson(path.join(workspace, 'opencode.json'), {
+      mcp: {
+        kerf: mcp,
+      },
+    });
+    return {
+      cwd: workspace,
+      extraArgs: [],
+      extraEnv: {
+        GATEWAY_ACCESS_TOKEN: process.env.GATEWAY_ACCESS_TOKEN,
+      },
+    };
+  },
+
+  buildArgs: (prompt, { systemPrompt, resumeId }) => {
+    const args = [
+      'run', prompt,
+      '--format', 'json',
+    ];
+    if (systemPrompt) args.push('--system-prompt', systemPrompt);
+    if (resumeId) args.push('--resume', resumeId);
+    return args;
+  },
+
+  translate: (line) => {
+    try {
+      const parsed = JSON.parse(line) as Record<string, unknown>;
+      if (parsed.type) return [parsed as AgentEvent];
+      return translateGenericStream(line);
+    } catch {
+      return [];
+    }
+  },
+
+  readiness: async (binPath) => {
+    const check = await run(binPath, ['--version'], 4000);
+    if (check.ok) {
+      return { ready: true };
+    }
+    return {
+      ready: false,
+      reason: 'OpenCode CLI is not installed.',
+      fix: 'Install OpenCode from opencode.ai or run `npm i -g opencode-ai`.',
+    };
+  },
+
+  modelArgs: (model) => ['--model', model],
+  discoverModels: async () => ({
+    models: [
+      'Devstral 24B (Local Loopback)',
+      'Gemini 3.7 Flash',
+      'Claude Sonnet 5',
+      'GPT-OSS 120B (Groq)',
+    ],
+    source: 'suggested' as const,
+  }),
+};
+
 /* ── Antigravity IDE ─────────────────────────────────────────────── */
 
 const antigravity: AgentBackend = {
@@ -1025,7 +1101,7 @@ function run(
   });
 }
 
-export const BACKENDS: AgentBackend[] = [antigravity, claude, gemini, codex, cursor];
+export const BACKENDS: AgentBackend[] = [opencode, antigravity, claude, gemini, codex, cursor];
 
 export function getBackend(id: BackendId): AgentBackend | undefined {
   return BACKENDS.find((b) => b.id === id);
@@ -1380,6 +1456,7 @@ export async function installBackend(
  */
 export function signInCommand(id: BackendId): string | null {
   switch (id) {
+    case 'opencode': return 'opencode auth';
     case 'claude': return 'claude';
     case 'gemini': return 'gemini';
     case 'codex': return 'codex login';

@@ -92,9 +92,17 @@ async function handle(request: JsonRpcRequest): Promise<void> {
       case 'notifications/initialized':
         return; // notification — no reply
 
-      case 'tools/list':
-        respond({ id, result: { tools: await rpc('tools/list') } });
+      case 'tools/list': {
+        let tools: unknown[] = [];
+        try {
+          tools = ((await rpc('tools/list')) as unknown[]) ?? [];
+        } catch {
+          // Kerf desktop app is not running; return empty list instead of failing MCP initialization
+          tools = [];
+        }
+        respond({ id, result: { tools } });
         return;
+      }
 
       case 'tools/call': {
         const result = (await rpc('tools/call', {

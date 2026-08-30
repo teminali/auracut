@@ -23,7 +23,7 @@ export type UpdateStatus =
 
 /** One selectable agent CLI, as main sees it. */
 export interface AgentBackendStatus {
-  id: 'antigravity' | 'claude' | 'gemini' | 'codex' | 'cursor';
+  id: 'opencode' | 'antigravity' | 'claude' | 'gemini' | 'codex' | 'cursor';
   label: string;
   vendor: string;
   installed: boolean;

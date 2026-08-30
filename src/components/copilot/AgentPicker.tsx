@@ -50,6 +50,7 @@ const KEY_PROVIDERS: Record<string, { label: string; url: string; free?: boolean
 };
 
 const RANK_BADGES: Record<string, { badge: string; color: string; tooltip: string }> = {
+  opencode: { badge: '#1 Local & Zero Cost', color: 'bg-[#22c55e]/15 text-[#22c55e]', tooltip: 'Sub-second local Devstral execution with smart cloud escalation' },
   claude: { badge: '#1 Heavy Tasks', color: 'bg-[#4c9dff]/15 text-[#4c9dff]', tooltip: 'Best for complex reasoning and architecture' },
   antigravity: { badge: '#1 Agentic Editing', color: 'bg-[#a78bfa]/15 text-[#a78bfa]', tooltip: 'Best for autonomous video editing workflows' },
   gemini: { badge: 'Fast Reasoning', color: 'bg-[#2fc98d]/15 text-[#2fc98d]', tooltip: 'Good balance of speed and intelligence' },
