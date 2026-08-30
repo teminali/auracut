@@ -39,7 +39,7 @@ import {
 /** A keycap, so the hint line reads as keys rather than as punctuation. */
 /** Display names for the selectable backends. */
 const AGENT_LABELS: Record<string, string> = {
-  opencode: 'OpenCode Agent',
+  opencode: 'Frontier Code',
   antigravity: 'Antigravity IDE',
   claude: 'Claude Code',
   gemini: 'Gemini CLI',

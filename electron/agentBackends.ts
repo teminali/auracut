@@ -703,8 +703,8 @@ function translateCodex(line: string): AgentEvent[] {
 
 const opencode: AgentBackend = {
   id: 'opencode',
-  label: 'OpenCode Agent',
-  vendor: 'OpenCode AI',
+  label: 'Frontier Code',
+  vendor: 'Frontier AI',
   bin: 'opencode',
   candidates: () => [
     path.join(home, '.opencode', 'bin', 'opencode'),
