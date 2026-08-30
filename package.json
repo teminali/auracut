@@ -7,10 +7,10 @@
     "email": "muhasibudigital@gmail.com"
   },
   "license": "MIT",
-  "homepage": "https://github.com/teminali/kerf",
+  "homepage": "https://github.com/teminali/frontierCut",
   "repository": {
     "type": "git",
-    "url": "https://github.com/teminali/kerf.git"
+    "url": "https://github.com/teminali/frontierCut.git"
   },
   "type": "module",
   "main": "dist-electron/main.cjs",
