@@ -36,6 +36,18 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.7',
+    date: '2026-08-31',
+    headline: 'Classic Clean Captions & FrontierCut Brand',
+    detail:
+      'Tutorial skill now defaults to clean classic subtitle typography, and in-app branding is fully updated to FrontierCut.',
+    items: [
+      'Removed distracting kinetic typography from tutorial skill assembly, preserving pristine classic subtitle legibility.',
+      'Updated in-app header, home view, and navigation identity to official FrontierCut branding and F logo mark.',
+      'Streamlined caption tracks and speech alignment for clean video production.',
+    ],
+  },
+  {
     version: '1.12.6',
     date: '2026-08-31',
     headline: 'Windows & Playback Performance Overhaul',

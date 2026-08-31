@@ -118,7 +118,7 @@
       "id": "kineticCaptions",
       "kind": "boolean",
       "required": false,
-      "default": true,
+      "default": false,
       "requiresSlot": "captions",
       "description": "Draw the narration as kinetic emphasis type: a few large words at a time, stacking and scaling away as the next arrives, the word the line turns on in green. The design is copied from a measured reference; see `_design`. The whole-sentence subtitle track is laid down underneath either way, so nothing is lost by turning this off."
     },

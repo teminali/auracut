@@ -350,9 +350,8 @@ export const TUTORIAL_ASSEMBLE: AssembleOptions = {
   cameraOnIntro: true,
   sound: true,
   captions: true,
-  kineticCaptions: true,
-  /* Off: the sentence track is DRAWN alongside the kinetic type, and
-     muting it is one click in the track head. See the option. */
+  /* Clean, classic whole-sentence captions only */
+  kineticCaptions: false,
   subtitlesHidden: false,
 };
 
