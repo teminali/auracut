@@ -161,13 +161,32 @@ function bitrateFor(width: number, height: number, fps: number): number {
  * before it asks you to choose. A list of "Device 1 / Device 2" is not a
  * choice anybody can make.
  */
-export async function listDevices(): Promise<{ cameras: DeviceOption[]; microphones: DeviceOption[] }> {
+export async function listDevices(promptIfEmpty = false): Promise<{ cameras: DeviceOption[]; microphones: DeviceOption[] }> {
   try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) {
+      return { cameras: [], microphones: [] };
+    }
+    let devices = await navigator.mediaDevices.enumerateDevices();
+    const hasLabels = devices.some((d) => Boolean(d.label));
+    if (!hasLabels && promptIfEmpty && navigator.mediaDevices.getUserMedia) {
+      try {
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        tempStream.getTracks().forEach((t) => t.stop());
+        devices = await navigator.mediaDevices.enumerateDevices();
+      } catch {
+        try {
+          const tempAudio = await navigator.mediaDevices.getUserMedia({ audio: true });
+          tempAudio.getTracks().forEach((t) => t.stop());
+          devices = await navigator.mediaDevices.enumerateDevices();
+        } catch {
+          // ignore prompt refusal
+        }
+      }
+    }
     const map = (kind: MediaDeviceKind) =>
       devices
         .filter((d) => d.kind === kind && d.deviceId)
-        .map((d, i) => ({ deviceId: d.deviceId, label: d.label || `${kind} ${i + 1}` }));
+        .map((d, i) => ({ deviceId: d.deviceId, label: d.label || `${kind === 'videoinput' ? 'Camera' : 'Microphone'} ${i + 1}` }));
     return { cameras: map('videoinput'), microphones: map('audioinput') };
   } catch {
     return { cameras: [], microphones: [] };
@@ -176,18 +195,43 @@ export async function listDevices(): Promise<{ cameras: DeviceOption[]; micropho
 
 /** A low-resolution camera stream for the studio's preview pane. */
 export async function previewCamera(deviceId: string): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({
-    video: { deviceId: { exact: deviceId }, width: { ideal: 640 }, height: { ideal: 360 } },
-    audio: false,
-  });
+  const isDefaultOrEmpty = !deviceId || deviceId === 'default' || deviceId.startsWith('default-');
+  const constraint: MediaTrackConstraints = isDefaultOrEmpty
+    ? { width: { ideal: 640 }, height: { ideal: 360 } }
+    : { deviceId: { ideal: deviceId }, width: { ideal: 640 }, height: { ideal: 360 } };
+
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      video: constraint,
+      audio: false,
+    });
+  } catch {
+    // Fall back to any available camera if specific deviceId is unavailable
+    return await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 360 } },
+      audio: false,
+    });
+  }
 }
 
 /** A microphone stream, for the studio's level meter. */
 export async function previewMicrophone(deviceId: string): Promise<MediaStream> {
-  return navigator.mediaDevices.getUserMedia({
-    audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true },
-    video: false,
-  });
+  const isDefaultOrEmpty = !deviceId || deviceId === 'default' || deviceId.startsWith('default-');
+  const constraint: MediaTrackConstraints = isDefaultOrEmpty
+    ? { echoCancellation: true, noiseSuppression: true }
+    : { deviceId: { ideal: deviceId }, echoCancellation: true, noiseSuppression: true };
+
+  try {
+    return await navigator.mediaDevices.getUserMedia({
+      audio: constraint,
+      video: false,
+    });
+  } catch {
+    return await navigator.mediaDevices.getUserMedia({
+      audio: true,
+      video: false,
+    });
+  }
 }
 
 /* ── Acquiring the capture streams ──────────────────────────────── */
@@ -454,15 +498,36 @@ export async function startCapture(
     let cameraVideo: MediaStreamTrack | null = null;
     if (settings.cameraDeviceId) {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            deviceId: { exact: settings.cameraDeviceId },
-            width: { ideal: Math.round((settings.cameraHeight * 16) / 9) },
-            height: { ideal: settings.cameraHeight },
-            frameRate: { ideal: 30 },
-          },
-          audio: false,
-        });
+        const isDefault = !settings.cameraDeviceId || settings.cameraDeviceId === 'default' || settings.cameraDeviceId.startsWith('default-');
+        const videoConstraint: MediaTrackConstraints = isDefault
+          ? {
+              width: { ideal: Math.round((settings.cameraHeight * 16) / 9) },
+              height: { ideal: settings.cameraHeight },
+              frameRate: { ideal: 30 },
+            }
+          : {
+              deviceId: { ideal: settings.cameraDeviceId },
+              width: { ideal: Math.round((settings.cameraHeight * 16) / 9) },
+              height: { ideal: settings.cameraHeight },
+              frameRate: { ideal: 30 },
+            };
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: videoConstraint,
+            audio: false,
+          });
+        } catch {
+          // Fall back to general camera if specific deviceId constraint failed
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: Math.round((settings.cameraHeight * 16) / 9) },
+              height: { ideal: settings.cameraHeight },
+              frameRate: { ideal: 30 },
+            },
+            audio: false,
+          });
+        }
         cameraVideo = stream.getVideoTracks()[0];
         openedTracks.push(cameraVideo);
       } catch (err) {
@@ -473,13 +538,18 @@ export async function startCapture(
     /* ── 3. The microphone ── */
     let mic: MediaStreamTrack | null = null;
     if (settings.micDeviceId) {
+      const isDefault = !settings.micDeviceId || settings.micDeviceId === 'default' || settings.micDeviceId.startsWith('default-');
       const shapes: { constraint: MediaTrackConstraints; note?: string }[] = [
-        {
-          constraint: {
-            deviceId: { exact: settings.micDeviceId },
-            echoCancellation: true, noiseSuppression: true, autoGainControl: true,
-          },
-        },
+        ...(isDefault
+          ? []
+          : [
+              {
+                constraint: {
+                  deviceId: { ideal: settings.micDeviceId },
+                  echoCancellation: true, noiseSuppression: true, autoGainControl: true,
+                },
+              },
+            ]),
         {
           constraint: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
           note: 'The microphone you picked was not there any more, so the take used this '

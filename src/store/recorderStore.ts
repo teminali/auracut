@@ -195,7 +195,7 @@ interface RecorderState {
   close: () => void;
 
   refreshSources: () => Promise<void>;
-  refreshDevices: () => Promise<void>;
+  refreshDevices: (prompt?: boolean) => Promise<void>;
   refreshPermissions: () => Promise<void>;
   requestPermission: (kind: 'camera' | 'microphone' | 'screen' | 'accessibility') => Promise<void>;
   /** Clear the stale grant and restart, so macOS asks again. */
@@ -323,26 +323,28 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     }));
   },
 
-  refreshDevices: async () => {
-    const { cameras, microphones } = await listDevices();
-    set((s) => ({
-      cameras,
-      microphones,
-      settings: {
-        ...s.settings,
-        /* A remembered device that has since been unplugged would fail
-           at `getUserMedia` with an exact-constraint error, which reads
-           as a bug rather than as "that webcam is not here any more". */
-        cameraDeviceId:
-          s.settings.cameraDeviceId && cameras.some((c) => c.deviceId === s.settings.cameraDeviceId)
-            ? s.settings.cameraDeviceId
-            : null,
-        micDeviceId:
-          s.settings.micDeviceId && microphones.some((m) => m.deviceId === s.settings.micDeviceId)
-            ? s.settings.micDeviceId
-            : (microphones[0]?.deviceId ?? null),
-      },
-    }));
+  refreshDevices: async (prompt = false) => {
+    const isWeb = typeof window !== 'undefined' && !window.electronAPI?.recorder;
+    const { cameras, microphones } = await listDevices(prompt || isWeb);
+    set((s) => {
+      const selectedCamera =
+        s.settings.cameraDeviceId && cameras.some((c) => c.deviceId === s.settings.cameraDeviceId)
+          ? s.settings.cameraDeviceId
+          : (cameras[0]?.deviceId ?? null);
+      const selectedMic =
+        s.settings.micDeviceId && microphones.some((m) => m.deviceId === s.settings.micDeviceId)
+          ? s.settings.micDeviceId
+          : (microphones[0]?.deviceId ?? null);
+      return {
+        cameras,
+        microphones,
+        settings: {
+          ...s.settings,
+          cameraDeviceId: selectedCamera,
+          micDeviceId: selectedMic,
+        },
+      };
+    });
   },
 
   refreshPermissions: async () => {
@@ -388,7 +390,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     }
     await get().refreshPermissions();
     // Labels only appear once access has been granted at least once.
-    await get().refreshDevices();
+    await get().refreshDevices(true);
   },
 
   /*

@@ -72,7 +72,21 @@ export const CaptureOptions: React.FC<Props> = ({
         emptyLabel="No camera"
         onChange={(id) => onChange('cameraDeviceId', id)}
       />
-      <CameraPreview deviceId={settings.cameraDeviceId} mirror={settings.mirrorCamera} />
+      {cameras.length === 0 && (
+        <button
+          type="button"
+          onClick={() => onRequestPermission('camera')}
+          className="w-full h-7 px-2 text-ui-xs rounded bg-spectrum-accent/15 text-spectrum-accent hover:bg-spectrum-accent/25 transition-colors font-medium flex items-center justify-center gap-1.5"
+        >
+          <Camera className="w-3.5 h-3.5" />
+          Enable Camera
+        </button>
+      )}
+      <CameraPreview
+        deviceId={settings.cameraDeviceId}
+        mirror={settings.mirrorCamera}
+        onEnable={() => onRequestPermission('camera')}
+      />
 
       {settings.cameraDeviceId && (
         <>
@@ -124,6 +138,16 @@ export const CaptureOptions: React.FC<Props> = ({
         emptyLabel="No microphone"
         onChange={(id) => onChange('micDeviceId', id)}
       />
+      {microphones.length === 0 && (
+        <button
+          type="button"
+          onClick={() => onRequestPermission('microphone')}
+          className="w-full h-7 px-2 text-ui-xs rounded bg-spectrum-accent/15 text-spectrum-accent hover:bg-spectrum-accent/25 transition-colors font-medium flex items-center justify-center gap-1.5"
+        >
+          <Mic className="w-3.5 h-3.5" />
+          Enable Microphone
+        </button>
+      )}
       <MicMeter deviceId={settings.micDeviceId} />
 
       <ToggleRow
@@ -434,8 +458,12 @@ const DeviceSelect: React.FC<{
   </select>
 );
 
-const CameraPreview: React.FC<{ deviceId: string | null; mirror?: boolean }> = ({
-  deviceId, mirror = true,
+const CameraPreview: React.FC<{
+  deviceId: string | null;
+  mirror?: boolean;
+  onEnable?: () => void;
+}> = ({
+  deviceId, mirror = true, onEnable,
 }) => {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -464,9 +492,17 @@ const CameraPreview: React.FC<{ deviceId: string | null; mirror?: boolean }> = (
 
   if (!deviceId) {
     return (
-      <div className="aspect-video rounded-squircle-sm bg-spectrum-sunken border border-line
-                      flex items-center justify-center">
+      <div
+        onClick={onEnable}
+        role="button"
+        tabIndex={0}
+        className="aspect-video rounded-squircle-sm bg-spectrum-sunken border border-line
+                   flex flex-col items-center justify-center gap-1 cursor-pointer
+                   hover:bg-white/[0.04] transition-colors p-2 text-center"
+        title="Click to enable camera"
+      >
         <VideoOff className="w-5 h-5 text-spectrum-textFaint" />
+        <span className="text-micro text-spectrum-textDim">Click to enable camera</span>
       </div>
     );
   }
