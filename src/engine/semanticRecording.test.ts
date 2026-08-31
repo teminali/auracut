@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { assembleRecording, alignToSpeech, detectIntroduction, detectOutro, DEMONSTRATION_MARKERS, OUTRO_MARKERS } from './recordingProject';
+import {
+  assembleRecording, alignToSpeech, detectIntroduction, detectOutro,
+  removeActivityFromTakeovers, DEMONSTRATION_MARKERS, OUTRO_MARKERS,
+} from './recordingProject';
 import { findQuietStretches, pointerTravelTimes } from './cursorZoom';
 import { Take } from './screenCapture';
 import { useTimelineStore } from '../store/timelineStore';
@@ -120,6 +123,27 @@ describe('Semantic Speech & Telemetry Camera Switching (End-to-End)', () => {
     for (const stretch of stretches) {
       expect(stretch.startMs < 10000 && stretch.endMs > 8000).toBe(false);
       expect(stretch.startMs < 22000 && stretch.endMs > 20000).toBe(false);
+    }
+  });
+
+  it('removeActivityFromTakeovers trims and removes any takeover that overlaps with cursor movement or clicks', () => {
+    const takeovers = [
+      { startMs: 5000, endMs: 15000 },
+      { startMs: 19000, endMs: 25000 },
+    ];
+    const cleaned = removeActivityFromTakeovers(
+      takeovers,
+      baseTake.events, // click at 10s and 21.5s
+      baseTake.cursor, // mouse moves at 8.5s-9.5s and 21s
+      []
+    );
+
+    // Active moments at 8.5s-10s (moves & click) and 20s-21.5s (moves & click) must never be covered
+    for (const stretch of cleaned) {
+      expect(stretch.startMs <= 9000 && stretch.endMs >= 9000).toBe(false);
+      expect(stretch.startMs <= 10000 && stretch.endMs >= 10000).toBe(false);
+      expect(stretch.startMs <= 20500 && stretch.endMs >= 20500).toBe(false);
+      expect(stretch.startMs <= 21500 && stretch.endMs >= 21500).toBe(false);
     }
   });
 });

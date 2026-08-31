@@ -746,17 +746,24 @@ export function detectIntroduction(
     );
   }
 
-  /* 1 — behaviour. WORK ends any opening, and work is sustained input
-         rather than a single event: see `workBurstMs`. */
-  const acted = [
-    ...events
-      .filter((e) => e.kind === 'click' || e.kind === 'rightclick' || e.kind === 'scroll' || e.kind === 'key')
-      .map((e) => e.tMs),
-    ...pointerTravelTimes(cursor, DEFAULT_DETECT.moveSpeed),
-  ].sort((a, b) => a - b);
+  /* 1 — behaviour. WORK ends any opening.
+         A lone window-focus click in the first 500ms is ignored if solitary,
+         but any mouse movement or interaction ends the intro. */
+  const userEvents = events
+    .filter((e) => e.kind === 'click' || e.kind === 'rightclick' || e.kind === 'scroll' || e.kind === 'key')
+    .map((e) => e.tMs);
+  const cursorTravel = pointerTravelTimes(cursor, DEFAULT_DETECT.moveSpeed);
+  const acted = [...userEvents, ...cursorTravel].sort((a, b) => a - b);
+
   let firstWork = Infinity;
-  for (let i = 0; i < acted.length - 1; i++) {
-    if (acted[i + 1] - acted[i] <= o.workBurstMs) { firstWork = acted[i]; break; }
+  for (let i = 0; i < acted.length; i++) {
+    const t = acted[i];
+    // Ignore lone initial focus click < 500ms if next event is far
+    if (i === 0 && t < 500 && !cursorTravel.includes(t) && (acted.length === 1 || acted[1] - t > o.workBurstMs)) {
+      continue;
+    }
+    firstWork = t;
+    break;
   }
 
   /* 2 — shape. Extend through the cues while they keep coming, nothing
@@ -877,6 +884,66 @@ export function detectOutro(
   if (acted.length > 0) return null;
 
   return { startMs, endMs };
+}
+
+/**
+ * Ensure NO takeover (fullscreen webcam) ever overlaps with any mouse movement, click, or interaction.
+ * Whenever mouse moves or clicks, the full screen recording must be visible.
+ */
+export function removeActivityFromTakeovers(
+  takeovers: QuietStretch[],
+  events: { tMs: number; kind: string }[],
+  cursor: CursorSample[] = [],
+  marks: number[] = [],
+  minTakeoverMs = MIN_TAKEOVER_MS
+): QuietStretch[] {
+  const mouseMoves = pointerTravelTimes(cursor, 0.02);
+  const userEvents = events
+    .filter((e) => e.kind === 'click' || e.kind === 'rightclick' || e.kind === 'scroll' || e.kind === 'key')
+    .map((e) => e.tMs);
+
+  const activeTimes = [
+    ...mouseMoves,
+    ...userEvents.filter((t, _idx, arr) => {
+      // Single isolated event < 500ms is just initial window focus
+      if (t < 500 && (arr.length === 1 || arr[1] - t > 1800)) return false;
+      return true;
+    }),
+    ...marks,
+  ].sort((a, b) => a - b);
+
+  if (activeTimes.length === 0) return takeovers;
+
+  const bufferMs = 250;
+  const result: QuietStretch[] = [];
+
+  for (const takeover of takeovers) {
+    let currentStart = takeover.startMs;
+    const end = takeover.endMs;
+
+    // Find all active moments that fall within or touch this takeover
+    const conflicts = activeTimes.filter((t) => t >= currentStart - bufferMs && t <= end + bufferMs);
+
+    if (conflicts.length === 0) {
+      result.push(takeover);
+      continue;
+    }
+
+    // Split / trim around every active moment
+    for (const conflict of conflicts) {
+      const segEnd = Math.max(currentStart, conflict - bufferMs);
+      if (segEnd - currentStart >= minTakeoverMs) {
+        result.push({ startMs: currentStart, endMs: segEnd });
+      }
+      currentStart = Math.max(currentStart, conflict + bufferMs);
+    }
+
+    if (end - currentStart >= minTakeoverMs) {
+      result.push({ startMs: currentStart, endMs: end });
+    }
+  }
+
+  return result;
 }
 
 /* ── Building it ────────────────────────────────────────────────── */
@@ -1014,6 +1081,9 @@ export async function assembleRecording(
       notes.push('The film closes with the camera taking full frame for the outro wrap-up.');
     }
   }
+
+  // Strict sanitation: whenever mouse moves or clicks, the full recording screen MUST be visible!
+  takeovers = removeActivityFromTakeovers(takeovers, take.events, take.cursor, take.marks);
 
   /* The only slow, file-writing part, and it happens before the
      transaction opens rather than inside it. */

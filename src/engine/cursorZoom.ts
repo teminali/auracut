@@ -516,16 +516,16 @@ export const DEFAULT_QUIET: QuietOptions = {
  * opening was called 38.5s long and swallowed a 14.6s stretch that
  * should have been its own camera cut.
  */
-export function pointerTravelTimes(cursor: CursorSample[], moveSpeed: number = 0.05): number[] {
+export function pointerTravelTimes(cursor: CursorSample[], moveSpeed: number = 0.03): number[] {
   const track = cursor.filter(inFrame).sort((a, b) => a.tMs - b.tMs);
   const out: number[] = [];
-  const threshold = Math.min(moveSpeed, 0.05);
+  const threshold = Math.min(moveSpeed, 0.02);
   for (let i = 1; i < track.length; i++) {
     const dt = (track[i].tMs - track[i - 1].tMs) / 1000;
     if (dt <= 0) continue;
     const dist = Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y);
     const speed = dist / dt;
-    if (speed > threshold || dist > 0.004) {
+    if (speed > threshold || dist > 0.002) {
       out.push(track[i].tMs);
       out.push(track[i - 1].tMs);
     }
