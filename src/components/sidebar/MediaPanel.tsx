@@ -16,7 +16,6 @@ export const MediaPanel: React.FC = () => {
   const removeMediaAsset = useTimelineStore((s) => s.removeMediaAsset);
   const insertClip = useTimelineStore((s) => s.insertClip);
   const selectedTrackId = useTimelineStore((s) => s.selectedTrackId);
-  const playheadMs = useTimelineStore((s) => s.playheadMs);
   const tracks = useTimelineStore((s) => s.tracks);
   const pushToast = useUiStore((s) => s.pushToast);
 
@@ -110,7 +109,7 @@ export const MediaPanel: React.FC = () => {
       asset.type === 'audio'
         ? tracks.find((t) => t.type === 'audio')?.id
         : tracks.find((t) => t.type === 'video')?.id;
-    insertClip(selectedTrackId ?? fallbackTrack ?? tracks[0].id, asset, playheadMs);
+    insertClip(selectedTrackId ?? fallbackTrack ?? tracks[0].id, asset, useTimelineStore.getState().playheadMs);
   };
 
   return (

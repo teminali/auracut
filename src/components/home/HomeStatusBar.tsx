@@ -45,8 +45,10 @@ export const HomeStatusBar: React.FC = () => {
   }, []);
 
   const platform =
-    typeof navigator !== 'undefined' && /Mac/.test(navigator.platform) ? 'macOS'
-      : typeof navigator !== 'undefined' && /Win/.test(navigator.platform) ? 'Windows'
+    window.electronAPI?.platform === 'darwin' || (typeof navigator !== 'undefined' && /Mac/.test(navigator.platform))
+      ? 'macOS'
+      : window.electronAPI?.platform === 'win32' || (typeof navigator !== 'undefined' && /Win/.test(navigator.platform))
+        ? 'Windows'
         : 'Linux';
 
   const agentReady = status !== null && status.installed;

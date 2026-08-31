@@ -23,7 +23,6 @@ const ALIGN_BUTTONS: { action: AlignAction; icon: React.ElementType; label: stri
 export const AlignmentBar: React.FC = () => {
   const project = useProjectStore((s) => s.project);
   const tracks = useTimelineStore((s) => s.tracks);
-  const playheadMs = useTimelineStore((s) => s.playheadMs);
   const selectedClipIds = useTimelineStore((s) => s.selectedClipIds);
   const updateClipsTransform = useTimelineStore((s) => s.updateClipsTransform);
   const updateClipTransform = useTimelineStore((s) => s.updateClipTransform);
@@ -43,7 +42,7 @@ export const AlignmentBar: React.FC = () => {
 
   if (selected.length === 0) return null;
 
-  const boxFor = (clip: Clip) => getClipBox(clip, project, playheadMs, getNaturalSize(clip));
+  const boxFor = (clip: Clip) => getClipBox(clip, project, useTimelineStore.getState().playheadMs, getNaturalSize(clip));
 
   const handleAlign = (action: AlignAction) => {
     const updates = selected.map((clip) => {

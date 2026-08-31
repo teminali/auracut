@@ -55,7 +55,7 @@ export const PlayheadHead: React.FC<{ pxPerMs: number; height: number }> = ({ px
     <div
       onPointerDown={onDown}
       style={{ transform: `translateX(${playheadMs * pxPerMs}px)`, height }}
-      className="absolute top-0 left-0 z-40 w-0 cursor-ew-resize"
+      className="absolute top-0 left-0 z-40 w-0 cursor-ew-resize will-change-transform"
     >
       <div className="absolute top-0 bottom-0 -left-3 w-6" />
       <svg
@@ -78,7 +78,7 @@ export const Playhead: React.FC<PlayheadProps> = ({ pxPerMs, height }) => {
     <div
       onPointerDown={onDown}
       style={{ transform: `translateX(${playheadMs * pxPerMs}px)`, height }}
-      className="absolute top-0 z-40 w-0 cursor-ew-resize"
+      className="absolute top-0 z-40 w-0 cursor-ew-resize will-change-transform"
     >
       {/* Wider invisible grab strip than the visible needle */}
       <div className="absolute top-0 bottom-0 -left-2 w-4" />

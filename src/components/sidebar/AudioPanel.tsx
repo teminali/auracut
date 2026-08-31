@@ -12,7 +12,6 @@ export const AudioPanel: React.FC = () => {
   const mediaPool = useTimelineStore((s) => s.mediaPool);
   const tracks = useTimelineStore((s) => s.tracks);
   const insertClip = useTimelineStore((s) => s.insertClip);
-  const playheadMs = useTimelineStore((s) => s.playheadMs);
   const markers = useTimelineStore((s) => s.markers);
   const pushToast = useUiStore((s) => s.pushToast);
 
@@ -115,7 +114,7 @@ export const AudioPanel: React.FC = () => {
               {audioAssets.map((asset) => (
                 <button
                   key={asset.id}
-                  onClick={() => insertClip(audioTrack?.id ?? tracks[0].id, asset, playheadMs)}
+                  onClick={() => insertClip(audioTrack?.id ?? tracks[0].id, asset, useTimelineStore.getState().playheadMs)}
                   className="card-interactive w-full p-2 flex items-center gap-2 group text-left"
                 >
                   <span className="w-8 h-8 rounded-squircle-xs bg-lane-audio/15 border border-lane-audio/25 flex items-center justify-center flex-shrink-0">

@@ -89,7 +89,6 @@ export const CopilotDrawer: React.FC = () => {
 
   /* The protocol depends on live editor state, so subscribe to the bits
      that can invalidate a pre-flight. */
-  const playheadMs = useTimelineStore((s) => s.playheadMs);
   const isPlaying = useTimelineStore((s) => s.isPlaying);
   const selectedClipIds = useTimelineStore((s) => s.selectedClipIds);
   const tracks = useTimelineStore((s) => s.tracks);
@@ -165,17 +164,24 @@ export const CopilotDrawer: React.FC = () => {
      Compositing and JPEG-encoding a full frame is not cheap, so this waits
      for scrubbing to settle rather than re-encoding on every pointer move. */
   useEffect(() => {
-    if (!frameAttached || isPlaying) return;
+    if (!isOpen || !frameAttached || isPlaying) return;
 
-    const timer = window.setTimeout(() => {
-      setFrame(captureCurrentFrame());
-      // Marks were drawn against a different moment — re-resolve what they hit.
-      setAnnotations((prev) => prev.map((a) => ({ ...a, targets: resolveAnnotationTargets(a) })));
-    }, 180);
+    let timer: number | null = null;
+    const unsub = useTimelineStore.subscribe((state, prevState) => {
+      if (state.playheadMs !== prevState.playheadMs) {
+        if (timer) window.clearTimeout(timer);
+        timer = window.setTimeout(() => {
+          setFrame(captureCurrentFrame());
+          setAnnotations((prev) => prev.map((a) => ({ ...a, targets: resolveAnnotationTargets(a) })));
+        }, 180);
+      }
+    });
 
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playheadMs, frameAttached, isPlaying, tracks]);
+    return () => {
+      unsub();
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [isOpen, frameAttached, isPlaying, tracks]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -226,7 +232,7 @@ export const CopilotDrawer: React.FC = () => {
       }),
     // Editor state is read inside runPreflight, so list the triggers explicitly.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [input, annotations, frame, frameAttached, attachFrame, playheadMs, isPlaying, selectedClipIds, tracks]
+    [input, annotations, frame, frameAttached, attachFrame, isPlaying, selectedClipIds, tracks]
   );
 
   if (!isOpen) return null;

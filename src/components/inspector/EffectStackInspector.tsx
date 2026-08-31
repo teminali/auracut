@@ -118,7 +118,8 @@ const EffectRow: React.FC<{
   const setEffectIntensity = useTimelineStore((s) => s.setEffectIntensity);
   const addEffectKeyframe = useTimelineStore((s) => s.addEffectKeyframe);
   const removeEffectKeyframe = useTimelineStore((s) => s.removeEffectKeyframe);
-  const playheadMs = useTimelineStore((s) => s.playheadMs);
+  const hasKeyframes = (effect.keyframes?.length ?? 0) > 0;
+  const playheadMs = useTimelineStore((s) => (hasKeyframes ? s.playheadMs : 0));
   const commit = useTimelineStore((s) => s.commit);
 
   const def = getEffectDefinition(effect.type);

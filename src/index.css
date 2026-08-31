@@ -1481,16 +1481,22 @@
    reserves a gutter so the macOS traffic lights never collide with UI.
    ═══════════════════════════════════════════════════════════════ */
 @layer components {
-  .titlebar-drag {
+  /*
+    The header doubles as the OS titlebar on macOS (hiddenInset).
+    On Windows/Linux where the window has native frames (titleBarStyle: 'default'),
+    -webkit-app-region: drag causes Chromium and DWM to perform expensive hit-testing
+    on every mousemove across the client area. Scoping to macOS eliminates this lag.
+  */
+  .platform-darwin .titlebar-drag {
     -webkit-app-region: drag;
   }
 
   /* Anything interactive inside the drag region must opt back out. */
-  .titlebar-drag button,
-  .titlebar-drag input,
-  .titlebar-drag select,
-  .titlebar-drag a,
-  .titlebar-no-drag {
+  .platform-darwin .titlebar-drag button,
+  .platform-darwin .titlebar-drag input,
+  .platform-darwin .titlebar-drag select,
+  .platform-darwin .titlebar-drag a,
+  .platform-darwin .titlebar-no-drag {
     -webkit-app-region: no-drag;
   }
 

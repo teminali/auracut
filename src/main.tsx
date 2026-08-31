@@ -8,6 +8,23 @@ import './index.css';
 
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 
+// Apply platform class to document.documentElement for styling and drag behavior
+const detectedPlatform =
+  window.electronAPI?.platform ||
+  (typeof navigator !== 'undefined' && /Win/.test(navigator.platform)
+    ? 'win32'
+    : typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
+      ? 'darwin'
+      : 'linux');
+
+if (detectedPlatform === 'darwin') {
+  document.documentElement.classList.add('platform-darwin');
+} else if (detectedPlatform === 'win32') {
+  document.documentElement.classList.add('platform-win');
+} else {
+  document.documentElement.classList.add('platform-linux');
+}
+
 /* Before anything renders, and in BOTH windows: a throw during the first
    render should be recorded rather than leaving a black rectangle. The
    recorder bar is the window nobody is looking at while it matters. */

@@ -65,6 +65,27 @@ import {
 */
 app.commandLine.appendSwitch('disable-features', 'MacWebContentsOcclusion');
 
+/*
+  Hardware acceleration and GPU rasterization switches.
+  Chromium on Windows frequently disables GPU rasterization for complex
+  2D canvas, WebGL shaders, DirectComposition, and hardware-accelerated video
+  decoding without explicit switches, falling back to SwiftShader software
+  rendering which pegs CPU at 100% and drops timeline playback to 2-10 FPS.
+*/
+app.commandLine.appendSwitch('ignore-gpu-blocklist');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('enable-native-gpu-memory-buffers');
+app.commandLine.appendSwitch('enable-accelerated-2d-canvas');
+app.commandLine.appendSwitch('enable-accelerated-video-decode');
+app.commandLine.appendSwitch(
+  'enable-features',
+  'CanvasOopRasterization,VaapiVideoDecoder,VaapiVideoEncoder,AcceleratedVideoDecode,AcceleratedVideoEncode'
+);
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('high-dpi-support', '1');
+}
+
 let mainWindow: BrowserWindow | null = null;
 
 /*

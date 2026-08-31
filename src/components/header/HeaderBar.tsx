@@ -28,7 +28,6 @@ import { StatusDot } from '../ui/Primitives';
 const Divider: React.FC = () => <div className="w-px h-4 bg-line flex-shrink-0" />;
 
 export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => {
-  const playheadMs = useTimelineStore((s) => s.playheadMs);
   const historyIndex = useTimelineStore((s) => s.historyIndex);
   const historyLength = useTimelineStore((s) => s.history.length);
   const lastLabel = useTimelineStore((s) => s.history[s.historyIndex]?.label);
@@ -217,15 +216,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         </div>
 
         {/* The master readout: current position bright, total dimmed. */}
-        <div className="well h-[26px] px-2.5 flex items-center gap-1.5 font-mono flex-shrink-0">
-          <span className="text-ui font-semibold text-spectrum-text tabular tracking-tight">
-            {formatTimecode(playheadMs, project.fps)}
-          </span>
-          <span className="text-spectrum-textFaint">/</span>
-          <span className="text-ui-xs text-spectrum-textDim tabular">
-            {formatTimecode(project.durationMs, project.fps)}
-          </span>
-        </div>
+        <HeaderTimecodeReadout fps={project.fps} durationMs={project.durationMs} />
       </div>
 
       {/* ── Actions ── */}
@@ -296,3 +287,20 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
     </header>
   );
 };
+
+const HeaderTimecodeReadout: React.FC<{ fps: number; durationMs: number }> = React.memo(
+  ({ fps, durationMs }) => {
+    const playheadMs = useTimelineStore((s) => s.playheadMs);
+    return (
+      <div className="well h-[26px] px-2.5 flex items-center gap-1.5 font-mono flex-shrink-0">
+        <span className="text-ui font-semibold text-spectrum-text tabular tracking-tight">
+          {formatTimecode(playheadMs, fps)}
+        </span>
+        <span className="text-spectrum-textFaint">/</span>
+        <span className="text-ui-xs text-spectrum-textDim tabular">
+          {formatTimecode(durationMs, fps)}
+        </span>
+      </div>
+    );
+  }
+);

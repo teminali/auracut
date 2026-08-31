@@ -18,7 +18,6 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
   const rippleEditMode = useTimelineStore((s) => s.rippleEditMode);
   const zoomLevel = useTimelineStore((s) => s.zoomLevel);
   const markerCount = useTimelineStore((s) => s.markers.length);
-  const playheadMs = useTimelineStore((s) => s.playheadMs);
 
   const splitAtPlayhead = useTimelineStore((s) => s.splitAtPlayhead);
   const deleteSelected = useTimelineStore((s) => s.deleteSelected);
@@ -38,12 +37,8 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
   const pushToast = useUiStore((s) => s.pushToast);
   const project = useProjectStore((s) => s.project);
 
-  /* One pixel is worth this many milliseconds at the current zoom, and
-     the playhead is on this frame. Both derived from the same scale
-     the lanes and the ruler use, so a readout cannot disagree with the
-     picture beside it. */
+  /* One pixel is worth this many milliseconds at the current zoom. */
   const pxPerMs = BASE_PX_PER_MS * zoomLevel;
-  const frameAtPlayhead = Math.floor((playheadMs / 1000) * project.fps);
 
   const hasSelection = selectedClipIds.length > 0;
   const primaryId = selectedClipIds[0];
@@ -208,12 +203,18 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
           </span>
           <span className="text-micro text-spectrum-textFaint">ms/px</span>
           <span className="w-px h-3 bg-line" />
-          <span className="text-ui-xs text-spectrum-textDim tabular">f{frameAtPlayhead}</span>
+          <PlayheadFrameBadge fps={project.fps} />
         </span>
       </div>
     </div>
   );
 };
+
+const PlayheadFrameBadge: React.FC<{ fps: number }> = React.memo(({ fps }) => {
+  const playheadMs = useTimelineStore((s) => s.playheadMs);
+  const frameAtPlayhead = Math.floor((playheadMs / 1000) * fps);
+  return <span className="text-ui-xs text-spectrum-textDim tabular">f{frameAtPlayhead}</span>;
+});
 
 /* ── Buttons ────────────────────────────────────────────────────── */
 

@@ -36,6 +36,19 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.6',
+    date: '2026-08-31',
+    headline: 'Windows & Playback Performance Overhaul',
+    detail:
+      'Hardware GPU rasterization, zero-copy video decoding, eliminated drag lag, and decoupled 60 FPS playback re-renders.',
+    items: [
+      'Configured Chromium GPU hardware acceleration switches and OOP rasterization on Windows to eliminate software rendering lag.',
+      'Scoped titlebar drag regions to macOS, eliminating continuous mousemove hit-testing lag on Windows.',
+      'Decoupled React component tree from 60 FPS playback loop, preventing full-tree reconciliation during timeline playback.',
+      'Optimized backend binary survey with fast asynchronous filesystem scanning.',
+    ],
+  },
+  {
     version: '1.12.5',
     date: '2026-08-30',
     headline: 'Native OpenCode Copilot & Brand Demo',

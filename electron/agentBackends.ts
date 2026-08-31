@@ -1135,6 +1135,23 @@ export function findBackendBinary(backend: AgentBackend): string | null {
     }
   }
 
+  // Fast direct filesystem scan along agentPath() before spawning any subshell
+  const searchDirs = agentPath().split(path.delimiter).filter(Boolean);
+  const extensions = process.platform === 'win32' ? ['.cmd', '.exe', '.bat', ''] : [''];
+  for (const dir of searchDirs) {
+    for (const ext of extensions) {
+      const full = path.join(dir, `${backend.bin}${ext}`);
+      try {
+        if (fs.existsSync(full)) {
+          pathCache.set(backend.id, full);
+          return full;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   try {
     const found = process.platform === 'win32'
       ? execFileSync('where.exe', [backend.bin], {

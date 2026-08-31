@@ -25,7 +25,8 @@ const MASK_SHAPES = [
 ] as const;
 
 export const TransformInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
-  const playheadMs = useTimelineStore((s) => s.playheadMs);
+  const hasKeyframes = clip.keyframes.length > 0;
+  const playheadMs = useTimelineStore((s) => (hasKeyframes ? s.playheadMs : 0));
   const updateClipTransform = useTimelineStore((s) => s.updateClipTransform);
   const updateClipMask = useTimelineStore((s) => s.updateClipMask);
   const setClipBlendMode = useTimelineStore((s) => s.setClipBlendMode);

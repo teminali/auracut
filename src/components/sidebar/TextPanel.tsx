@@ -42,7 +42,6 @@ export const TextPanel: React.FC = () => {
   const addShapeLayer = useTimelineStore((s) => s.addShapeLayer);
   const addAdjustmentLayer = useTimelineStore((s) => s.addAdjustmentLayer);
   const patchClip = useTimelineStore((s) => s.patchClip);
-  const playheadMs = useTimelineStore((s) => s.playheadMs);
   const selectedTrackId = useTimelineStore((s) => s.selectedTrackId);
   const tracks = useTimelineStore((s) => s.tracks);
 
@@ -50,6 +49,7 @@ export const TextPanel: React.FC = () => {
   const overlayTrackId = tracks.find((t) => t.type === 'overlay')?.id ?? selectedTrackId ?? tracks[0]?.id ?? '';
 
   const addTitle = (preset: typeof TITLE_PRESETS[number]) => {
+    const playheadMs = useTimelineStore.getState().playheadMs;
     const id = addTextLayer(textTrackId, preset.text, playheadMs, 4000);
     const patch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(preset.style)) patch[`textStyle.${k}`] = v;
@@ -130,7 +130,7 @@ export const TextPanel: React.FC = () => {
               return (
                 <button
                   key={shape.kind}
-                  onClick={() => addShapeLayer(overlayTrackId, shape.kind, playheadMs)}
+                  onClick={() => addShapeLayer(overlayTrackId, shape.kind, useTimelineStore.getState().playheadMs)}
                   className="card-interactive h-14 flex flex-col items-center justify-center gap-1 group"
                   title={`Add ${shape.label}`}
                 
@@ -149,7 +149,7 @@ export const TextPanel: React.FC = () => {
         {/* Utility layers are not assets to browse, so a search never hides them. */}
         <Section title="Utility layers" icon={Layers}>
           <button
-            onClick={() => addAdjustmentLayer(overlayTrackId, playheadMs)}
+            onClick={() => addAdjustmentLayer(overlayTrackId, useTimelineStore.getState().playheadMs)}
             className="card-interactive w-full p-2 flex items-center justify-between gap-2 group text-left"
           >
             <span className="min-w-0">

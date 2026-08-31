@@ -59,7 +59,13 @@ interface DragSession {
 const SNAP_THRESHOLD_PX = 7;
 const MIN_SIZE_CANVAS = 24;
 
-export const TransformGizmo: React.FC<TransformGizmoProps> = ({ viewport, stageRef }) => {
+export const TransformGizmo: React.FC<TransformGizmoProps> = (props) => {
+  const hasSelection = useTimelineStore((s) => s.selectedClipIds.length > 0);
+  if (!hasSelection) return null;
+  return <ActiveTransformGizmo {...props} />;
+};
+
+const ActiveTransformGizmo: React.FC<TransformGizmoProps> = ({ viewport, stageRef }) => {
   const project = useProjectStore((s) => s.project);
 
   const tracks = useTimelineStore((s) => s.tracks);
