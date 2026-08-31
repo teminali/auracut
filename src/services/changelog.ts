@@ -36,6 +36,18 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.13',
+    date: '2026-08-31',
+    headline: 'Speech Model Prompts & Live Update Bars',
+    detail:
+      'Interactive speech model install prompts during recording review, 1-click auto-transcribe workflow, and real-time update download progress bars.',
+    items: [
+      'Interactive Speech Model Prompts: when finishing a recording with narration without an installed Whisper model, FrontierCut prompts with 1-click install & transcribe or skip options instead of silently omitting subtitles.',
+      'Real-Time Update Progress Display: live download percentage and progress bars across the launcher promotion banner, left navigation rail, and version footer.',
+      'Auto-Edit Integration: seamlessly downloads the recommended local model and proceeds directly into transcription, polishing, and speech-synced camera framing.',
+    ],
+  },
+  {
     version: '1.12.12',
     date: '2026-08-31',
     headline: 'Unified Dialogs & Hardware-Smart Packages',
