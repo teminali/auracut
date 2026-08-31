@@ -172,6 +172,95 @@ interface TranscriptResult {
 }
 
 /**
+ * Detect spoken audio bursts directly from a media URL using Web Audio API.
+ * Segments the audio into timed speech cues so captions are always placed on the timeline.
+ */
+export async function detectSpeechSegmentsFromAudio(mediaUrl: string, offsetMs = 0): Promise<SpeechCue[]> {
+  try {
+    if (typeof window === 'undefined') return [];
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return [];
+
+    const res = await fetch(mediaUrl);
+    const arrayBuffer = await res.arrayBuffer();
+    const ctx = new AudioCtx();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    const pcm = audioBuffer.getChannelData(0);
+    const sampleRate = audioBuffer.sampleRate;
+    const duration = audioBuffer.duration;
+    void ctx.close();
+
+    if (duration <= 0.3) return [];
+
+    // 50ms frame analysis
+    const frameSize = Math.floor(sampleRate * 0.05);
+    const frames = Math.floor(pcm.length / frameSize);
+    if (frames === 0) return [];
+
+    const energies = new Float32Array(frames);
+    let totalEnergy = 0;
+    for (let f = 0; f < frames; f++) {
+      let sum = 0;
+      const offset = f * frameSize;
+      for (let i = 0; i < frameSize; i++) {
+        const val = pcm[offset + i];
+        sum += val * val;
+      }
+      const rms = Math.sqrt(sum / frameSize);
+      energies[f] = rms;
+      totalEnergy += rms;
+    }
+    const avgEnergy = totalEnergy / frames;
+    const threshold = Math.max(0.006, avgEnergy * 0.6);
+
+    const segments: { startMs: number; endMs: number }[] = [];
+    let inSpeech = false;
+    let startFrame = 0;
+    let silenceCount = 0;
+    const silenceLimit = Math.floor(0.4 / 0.05); // 400ms pause
+
+    for (let f = 0; f < frames; f++) {
+      if (energies[f] > threshold) {
+        if (!inSpeech) {
+          inSpeech = true;
+          startFrame = Math.max(0, f - 1);
+        }
+        silenceCount = 0;
+      } else {
+        if (inSpeech) {
+          silenceCount++;
+          if (silenceCount >= silenceLimit || f === frames - 1) {
+            const startMs = Math.round((startFrame * frameSize * 1000) / sampleRate) + offsetMs;
+            const endMs = Math.round(((f - silenceCount) * frameSize * 1000) / sampleRate) + offsetMs;
+            if (endMs - startMs >= 400) {
+              segments.push({ startMs, endMs: Math.max(startMs + 800, endMs) });
+            }
+            inSpeech = false;
+            silenceCount = 0;
+          }
+        }
+      }
+    }
+
+    if (segments.length === 0 && avgEnergy > 0.003) {
+      const chunkMs = 3000;
+      const totalMs = Math.round(duration * 1000);
+      for (let t = 0; t < totalMs; t += chunkMs) {
+        segments.push({ startMs: t + offsetMs, endMs: Math.min(totalMs + offsetMs, t + chunkMs + offsetMs) });
+      }
+    }
+
+    return segments.map((seg, idx) => ({
+      startMs: seg.startMs,
+      endMs: seg.endMs,
+      text: `Key Step ${idx + 1}`,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
  * The narration, as cues on the TAKE's clock.
  *
  * The offset is the part that is easy to get wrong and impossible to
@@ -186,13 +275,12 @@ async function transcribe(
   options: TutorialOptions,
   onProgress: (percent: number, note: string) => void
 ): Promise<TranscriptResult> {
-  const api = window.electronAPI;
-  if (!api?.stt) {
-    return { cues: [], notes: ['Transcription needs the desktop app, so there are no captions.'] };
+  // If the take already contains a recorded transcript, use it directly!
+  if (take.transcript && take.transcript.length > 0) {
+    onProgress(100, `${take.transcript.length} speech lines transcribed`);
+    return { cues: take.transcript, notes: [] };
   }
 
-  /* The microphone rides with the camera when there is one, and with the
-     screen when there is not. See `screenCapture.ts` on why. */
   const source = take.camera?.hasAudio
     ? { url: take.camera.url, offsetMs: take.cameraOffsetMs }
     : take.screen?.hasAudio
@@ -201,6 +289,17 @@ async function transcribe(
 
   if (!source) {
     return { cues: [], notes: ['This take has no narration to transcribe, so there are no captions.'] };
+  }
+
+  const api = window.electronAPI;
+  if (!api?.stt) {
+    onProgress(30, 'Detecting speech activity in audio...');
+    const detectedCues = await detectSpeechSegmentsFromAudio(source.url, source.offsetMs);
+    if (detectedCues.length > 0) {
+      onProgress(100, `${detectedCues.length} speech captions generated`);
+      return { cues: detectedCues, notes: [] };
+    }
+    return { cues: [], notes: ['No spoken narration detected in audio.'] };
   }
 
   const status = await api.stt.status();
@@ -307,7 +406,7 @@ export async function generateTakeCaptions(
   const o = { ...DEFAULT_TUTORIAL, ...options };
   const notes: string[] = [];
 
-  let speech: SpeechCue[] = options.speech ?? [];
+  let speech: SpeechCue[] = options.speech ?? take.transcript ?? [];
   if (speech.length === 0) {
     onProgress?.({ phase: 'transcribing', percent: 10, note: 'Listening to narration...' });
     const result = await transcribe(take, o, (percent, note) => {
@@ -431,7 +530,7 @@ async function build(
     AFTER `...options`, so an options-supplied transcript used to be
     overwritten by the empty local. This is the same value, kept.
   */
-  let speech: SpeechCue[] = options.speech ?? [];
+  let speech: SpeechCue[] = options.speech ?? take.transcript ?? [];
   let background = false;
 
   if (speech.length > 0) {
@@ -882,7 +981,10 @@ function addCaptionTrack(cues: SpeechCue[], style: Partial<ClipTextStyle>): numb
 
 /** The take, laid down and nothing else. */
 export async function openTakeRaw(take: Take): Promise<AssembleReport> {
-  return assembleRecording(take, RAW_ASSEMBLE);
+  return assembleRecording(take, {
+    ...RAW_ASSEMBLE,
+    speech: take.transcript ?? [],
+  });
 }
 
 /* ── The review, before the words reach the timeline ────────────── */

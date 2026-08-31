@@ -429,6 +429,8 @@ interface Session {
   webChunks?: Record<'screen' | 'camera', Blob[]>;
   cursorSamples?: CursorSample[];
   inputEvents?: InputEvent[];
+  speechCues?: import('./recordingProject').SpeechCue[];
+  speechRecognition?: any;
   startedWallTime?: number;
   onMouseMove?: (e: MouseEvent) => void;
   onClick?: (e: MouseEvent) => void;
@@ -609,6 +611,8 @@ export async function startCapture(
     const webChunks: Record<'screen' | 'camera', Blob[]> = { screen: [], camera: [] };
     const cursorSamples: CursorSample[] = [];
     const inputEvents: InputEvent[] = [];
+    const speechCues: import('./recordingProject').SpeechCue[] = [];
+    let speechRecognition: any = null;
     const startWallTime = performance.now();
 
     let onMouseMove: ((e: MouseEvent) => void) | undefined;
@@ -616,6 +620,47 @@ export async function startCapture(
 
     if (isWeb) {
       if (typeof window !== 'undefined') {
+        const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRec) {
+          try {
+            const rec = new SpeechRec();
+            rec.continuous = true;
+            rec.interimResults = false;
+            rec.lang = navigator.language || 'en-US';
+            let cueStartMs = 0;
+            rec.onstart = () => {
+              cueStartMs = Math.max(0, Math.round(performance.now() - startWallTime));
+            };
+            rec.onresult = (event: any) => {
+              const nowMs = Math.max(cueStartMs + 600, Math.round(performance.now() - startWallTime));
+              for (let i = event.resultIndex; i < event.results.length; ++i) {
+                const res = event.results[i];
+                if (res.isFinal) {
+                  const text = res[0]?.transcript?.trim();
+                  if (text) {
+                    speechCues.push({
+                      startMs: cueStartMs,
+                      endMs: nowMs,
+                      text,
+                    });
+                    cueStartMs = nowMs;
+                  }
+                }
+              }
+            };
+            rec.onerror = () => {};
+            rec.onend = () => {
+              if (session && (session.phase === 'recording' || session.phase === 'paused')) {
+                try { rec.start(); } catch {}
+              }
+            };
+            try {
+              rec.start();
+              speechRecognition = rec;
+            } catch {}
+          } catch {}
+        }
+
         onMouseMove = (e: MouseEvent) => {
           cursorSamples.push({
             tMs: Math.round(performance.now() - startWallTime),
@@ -728,6 +773,8 @@ export async function startCapture(
       webChunks,
       cursorSamples,
       inputEvents,
+      speechCues,
+      speechRecognition,
       startedWallTime: startWallTime,
       onMouseMove,
       onClick,
@@ -807,6 +854,9 @@ export async function stopCapture(): Promise<{ ok: true; take: Take } | { ok: fa
   void current.audioContext?.close();
 
   if (current.isWeb && typeof window !== 'undefined') {
+    if (current.speechRecognition) {
+      try { current.speechRecognition.stop(); } catch {}
+    }
     if (current.onMouseMove) window.removeEventListener('mousemove', current.onMouseMove);
     if (current.onClick) window.removeEventListener('click', current.onClick);
 
@@ -853,6 +903,7 @@ export async function stopCapture(): Promise<{ ok: true; take: Take } | { ok: fa
       cursorTracked: (current.cursorSamples?.length ?? 0) > 0,
       input: { ok: true, source: 'cursor-only', reason: 'ready', message: 'Web Browser Capture' },
       warnings: current.warnings,
+      transcript: current.speechCues && current.speechCues.length > 0 ? current.speechCues : undefined,
     };
 
     session = null;
