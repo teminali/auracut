@@ -516,14 +516,19 @@ export const DEFAULT_QUIET: QuietOptions = {
  * opening was called 38.5s long and swallowed a 14.6s stretch that
  * should have been its own camera cut.
  */
-export function pointerTravelTimes(cursor: CursorSample[], moveSpeed: number): number[] {
+export function pointerTravelTimes(cursor: CursorSample[], moveSpeed: number = 0.05): number[] {
   const track = cursor.filter(inFrame).sort((a, b) => a.tMs - b.tMs);
   const out: number[] = [];
+  const threshold = Math.min(moveSpeed, 0.05);
   for (let i = 1; i < track.length; i++) {
     const dt = (track[i].tMs - track[i - 1].tMs) / 1000;
     if (dt <= 0) continue;
-    const speed = Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y) / dt;
-    if (speed > moveSpeed) out.push(track[i].tMs);
+    const dist = Math.hypot(track[i].x - track[i - 1].x, track[i].y - track[i - 1].y);
+    const speed = dist / dt;
+    if (speed > threshold || dist > 0.004) {
+      out.push(track[i].tMs);
+      out.push(track[i - 1].tMs);
+    }
   }
   return out;
 }
@@ -554,22 +559,13 @@ export function findQuietStretches(
 ): QuietStretch[] {
   const o = { ...DEFAULT_QUIET, ...DEFAULT_DETECT, ...options };
 
-  /*
-    BOTH signals, always, and this used to be either/or.
+  // If there are zero cursor samples AND zero events recorded,
+  // we cannot assume the screen is quiet (e.g. untracked window capture or unpermitted input hook).
+  // Without telemetry, we do NOT manufacture full-take quiet stretches.
+  if (input.events.length === 0 && input.cursor.length === 0 && input.marks.length === 0) {
+    return [];
+  }
 
-    The old rule was: real input if there is any, and otherwise pointer
-    travel. Which meant that on a machine WITH the input hook — the good
-    case — the pointer was ignored completely, and a person moving the
-    mouse around a dashboard pointing at things without clicking counted
-    as a quiet screen. The camera would take the frame over exactly the
-    moment they were showing you something.
-
-    Reported from a real take: "detect when I'm explaining stuff rather
-    than instructing things on the dashboard, where my mouse has not
-    moved." A moving pointer IS activity, whether or not it clicks. The
-    fallback reasoning stands and is unchanged: without the hook, pointer
-    travel is the only signal there is.
-  */
   const activity: number[] = [];
   for (const event of input.events) activity.push(event.tMs);
   activity.push(...pointerTravelTimes(input.cursor, o.moveSpeed));

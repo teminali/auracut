@@ -381,49 +381,16 @@ async function build(
       + 'transcribing it again.'
     );
   } else if (o.transcribe) {
-    /*
-      ── Wait for the words, or not, decided by which Whisper is here ──
-
-      The transcript is worth waiting for: it is the only signal in a
-      take that knows where a SENTENCE ends, and two edits are better
-      for having it before the build rather than after. The camera cuts
-      land between sentences instead of mid-word, and a stretch with no
-      speech in it is left alone, because a static face over dead air is
-      worse than a static screen.
-
-      Whether waiting is reasonable is not a matter of taste, it is a
-      property of the machine. Measured on the same 92 seconds of
-      narration with the same small model:
-
-          whisper.cpp, Metal      2.2 seconds
-          Python whisper, CPU     769 seconds
-
-      So: with the fast backend the words come first, and with the slow
-      one they arrive afterwards on their own track. Nobody is asked to
-      choose, and the report says which happened.
-    */
-    const status = await window.electronAPI?.stt.status();
-    if (status?.fast) {
-      onProgress({ phase: 'transcribing', percent: 10, note: 'Listening to the narration' });
-      const result = await transcribe(take, o, (percent, note) => {
-        /*
-          `transcribe` ends by reporting 100 and the word "Done", which
-          is true of transcription and reads as a lie about the build:
-          the studio showed "Done" beside a bar a third of the way
-          along. What is done here is the listening, and the next thing
-          is the edit.
-        */
-        onProgress({
-          phase: 'transcribing',
-          percent: 10 + Math.round(percent * 0.3),
-          note: percent >= 100 ? 'Heard it, building the edit' : note,
-        });
+    onProgress({ phase: 'transcribing', percent: 10, note: 'Listening to narration...' });
+    const result = await transcribe(take, o, (percent, note) => {
+      onProgress({
+        phase: 'transcribing',
+        percent: 10 + Math.round(percent * 0.35),
+        note: percent >= 100 ? 'Narration transcribed, processing words...' : (note || 'Transcribing speech...'),
       });
-      speech = result.cues;
-      notes.push(...result.notes);
-    } else {
-      background = true;
-    }
+    });
+    speech = result.cues;
+    notes.push(...result.notes);
   }
 
   /*

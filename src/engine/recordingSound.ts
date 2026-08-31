@@ -95,7 +95,7 @@ export async function prepareSoundKit(
   need: { clicks: boolean; whooshes: boolean }
 ): Promise<SoundKit> {
   const notes: string[] = [];
-  const api = window.electronAPI;
+  const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
   if (!api?.recorder) {
     return { notes: ['Sound design needs the desktop app, so none was added.'] };
   }

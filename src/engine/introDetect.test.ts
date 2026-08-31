@@ -12,7 +12,7 @@
   and every one of them is a take somebody would plausibly record.
 */
 import { describe, it, expect } from 'vitest';
-import { detectIntroduction, alignToSpeech, SpeechCue } from './recordingProject';
+import { detectIntroduction, alignToSpeech, detectOutro, SpeechCue } from './recordingProject';
 
 /** Cues laid end to end from `startMs`, each `perMs` long with a small gap. */
 const say = (startMs: number, lines: string[], perMs = 1800, gapMs = 120): SpeechCue[] =>
@@ -287,10 +287,35 @@ describe('deciding a stretch is somebody explaining', () => {
       [cue(10000, 11200)])).toBeNull();
   });
 
-  it('passes the stretch straight through when there is no transcript', () => {
-    /* No words is not evidence against; it is no evidence. The pointer
-       track is then all there is. */
+  it('refuses the stretch when there is no transcript to prevent accidental full-screen takeover', () => {
+    /* Without speech cues, we never cut to full-screen webcam; camera remains in PiP demonstration view. */
     const out = alignToSpeech({ startMs: 10000, endMs: 20000 }, []);
-    expect(out).toEqual({ startMs: 10000, endMs: 20000 });
+    expect(out).toBeNull();
+  });
+
+  it('refuses the stretch when the speaker is describing UI demonstrations or pointing at the screen', () => {
+    const out = alignToSpeech(
+      { startMs: 10000, endMs: 20000 },
+      [cue(10500, 19500, 'Now click on this button and open the settings window right here.')]
+    );
+    expect(out).toBeNull();
+  });
+
+  it('accepts the stretch when the speaker is explaining concepts without UI demonstration words', () => {
+    const out = alignToSpeech(
+      { startMs: 10000, endMs: 20000 },
+      [cue(10500, 19500, 'This architecture allows agents to communicate cleanly without overhead.')]
+    );
+    expect(out).toEqual({ startMs: 10500, endMs: 19500 });
+  });
+
+  it('detects spoken outro wrap-up when speaker says goodbye or thanks at the end with no mouse action', () => {
+    const outro = detectOutro(
+      [cue(50000, 58000, 'Thank you so much for watching everyone, see you in the next video!')],
+      [],
+      [],
+      60000
+    );
+    expect(outro).toEqual({ startMs: 50000, endMs: 58000 });
   });
 });

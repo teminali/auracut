@@ -499,16 +499,68 @@ const MIN_SPOKEN_SHARE = 0.5;
  * on it. Cutting to a face halfway through a word is the one edit
  * everybody notices.
  */
+/**
+ * Phrases indicating active demonstration, UI actions, or pointing at the screen.
+ * When speech in a stretch contains demonstration markers, the camera MUST NOT take over full screen.
+ */
+export const DEMONSTRATION_MARKERS = new RegExp(
+  "\\b("
+  + "here you (can )?see|as you can see|you'?ll see (here|there)|over (here|there)|on the (left|right|top|bottom)"
+  + "|down (here|there)|up (here|there)|this (screen|page|window|button|tab|menu|dropdown|field|input|box|file|folder|icon)"
+  + "|right (here|now|there)|click(ing|ed|s)? (on|the|this|here)?|double[- ]click|press(ing|ed)?|type(ing|d)?|enter(ing|ed)?"
+  + "|select(ing|ed)?|choose|drag(ging)?|scroll(ing)?|open(ing|ed)? (the|this|a)?|navigate to|switch to"
+  + "|run(ning)? (this|the|a)?|command|terminal|code|line|function|file|folder|directory"
+  + "|let'?s type|let'?s click|let'?s open|look at (this|the|my)"
+  + ")\\b",
+  'i'
+);
+
+/**
+ * Phrases indicating an outro or conclusion.
+ */
+export const OUTRO_MARKERS = new RegExp(
+  "\\b("
+  + "thank(s| you)? (for watching|everyone|all|so much)"
+  + "|that'?s (all|it|everything|how you|wrap|how to)"
+  + "|hope (this|you) (helped|enjoyed|found this useful|liked)"
+  + "|don'?t forget to|like and subscribe|leave a comment|see you in the next (one|video)"
+  + "|until next time|goodbye|bye|catch you later"
+  + "|in summary|to wrap up|to conclude"
+  + ")\\b",
+  'i'
+);
+
+/**
+ * Trim a quiet stretch to the speech that covers it.
+ *
+ * A stretch where nobody is moving the mouse is not automatically a
+ * face: if nobody is TALKING either, cutting to the camera gives you a
+ * silent face looking at a screen they are not touching, which is worse
+ * than the static screen.
+ *
+ * So the stretch is moved inward to the first and last spoken cues
+ * inside it, and dropped if:
+ *   1. There is no speech transcript at all (speech.length === 0).
+ *   2. The speaker is actively demonstrating/describing UI actions.
+ *   3. Less than `MIN_SPOKEN_SHARE` of it is spoken.
+ */
 export function alignToSpeech(
   stretch: QuietStretch,
   speech: SpeechCue[]
 ): QuietStretch | null {
-  if (speech.length === 0) return stretch;
+  // If there is NO transcribed speech, we NEVER cut to full-screen webcam blindly.
+  // Silence / lack of speech transcript requires the camera to remain in PiP inset.
+  if (!speech || speech.length === 0) return null;
 
   const covering = speech
     .filter((cue) => cue.endMs > stretch.startMs && cue.startMs < stretch.endMs)
     .sort((a, b) => a.startMs - b.startMs);
   if (covering.length === 0) return null;
+
+  // Check if ANY cue in this stretch is demonstrating UI actions or pointing at the screen.
+  // If so, the viewer needs to see the screen, so the camera stays in PiP inset!
+  const hasDemoSpeech = covering.some((cue) => DEMONSTRATION_MARKERS.test(cue.text));
+  if (hasDemoSpeech) return null;
 
   const first = covering[0];
   const last = covering[covering.length - 1];
@@ -797,6 +849,36 @@ export function detectIntroduction(
   };
 }
 
+/**
+ * An ending spoken wrap-up / outro, with the camera on it.
+ */
+export function detectOutro(
+  speech: SpeechCue[],
+  events: { tMs: number; kind: string }[],
+  cursor: CursorSample[] = [],
+  durationMs: number
+): QuietStretch | null {
+  if (!speech || speech.length === 0 || durationMs < 6000) return null;
+  const lastCues = speech.filter((c) => c.endMs >= durationMs - 15000 && c.startMs <= durationMs);
+  if (lastCues.length === 0) return null;
+
+  const fullText = lastCues.map((c) => c.text).join(' ');
+  if (!OUTRO_MARKERS.test(fullText)) return null;
+
+  const startMs = lastCues[0].startMs;
+  const endMs = Math.min(durationMs, lastCues[lastCues.length - 1].endMs);
+  if (endMs - startMs < MIN_TAKEOVER_MS) return null;
+
+  // Check if any mouse activity or keystrokes occurred during this outro
+  const acted = [
+    ...events.filter((e) => e.tMs >= startMs && e.tMs <= endMs),
+    ...pointerTravelTimes(cursor.filter((c) => c.tMs >= startMs && c.tMs <= endMs), 0.05),
+  ];
+  if (acted.length > 0) return null;
+
+  return { startMs, endMs };
+}
+
 /* ── Building it ────────────────────────────────────────────────── */
 
 let takeSeq = 0;
@@ -921,6 +1003,15 @@ export async function assembleRecording(
         `${before - moments.length} zoom${before - moments.length === 1 ? '' : 's'} fell inside the `
         + 'introduction and were dropped: the camera is covering the screen there.'
       );
+    }
+  }
+
+  // Detect outro wrap-up
+  if (take.camera && cameraFill.ok && o.speech.length > 0) {
+    const outro = detectOutro(o.speech, take.events, take.cursor, take.durationMs);
+    if (outro && !takeovers.some((t) => t.endMs >= outro.startMs)) {
+      takeovers.push(outro);
+      notes.push('The film closes with the camera taking full frame for the outro wrap-up.');
     }
   }
 

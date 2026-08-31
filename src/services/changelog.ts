@@ -36,6 +36,20 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.11',
+    date: '2026-08-31',
+    headline: 'Semantic Speech Camera & Subtitle AI Polish',
+    detail:
+      'Intelligent speech semantics and mouse telemetry veto to switch between full-screen webcam and demonstration screen views, with mandatory pre-assembly Whisper transcription and LLM subtitle polish.',
+    items: [
+      'Mouse Movement & Click Telemetry Veto: pointer activity and clicks strictly prevent full-screen webcam takeover, keeping the screen in focus when interacting.',
+      'Semantic Speech Classification: demonstration markers ("click here", "open settings", "in terminal") keep camera in PiP inset, while conceptual talks and intros smoothly expand the webcam.',
+      'Mandatory Pre-Assembly Transcription: speech is always transcribed and analyzed before layout decisions, preventing accidental full-screen overlays over silence.',
+      'AI & Deterministic Subtitle Cleanup: automated repetition loop removal, stutter collapse, and LLM text polishing with word-level hero emphasis sync.',
+      'Outro Wrap-up Detection: closing remarks with idle screen automatically switch to full-screen webcam for a clean finish.',
+    ],
+  },
+  {
     version: '1.12.10',
     date: '2026-08-31',
     headline: 'Camera Mirroring, Bounds & A/V Sync',
