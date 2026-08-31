@@ -222,18 +222,8 @@ export const DEFAULT_LOOK: LookOptions = {
     read as an object resting on something rather than as a video with a
     border.
   */
-  insetPct: 84,
-  /*
-    2.6% of the canvas height, so ~28px at 1080p.
-
-    Not measured off the reference: its surface is in perspective in
-    every frame where the outline shows, so the arc there is a projection
-    of the tilt rather than a radius (HANDOVER §7c). This is set against
-    the light backdrops instead, where the corner is now visible against
-    something rather than lost against near-black, and 1.8% read as a
-    square-cornered screenshot.
-  */
-  cornerPct: 2.6,
+  insetPct: 88,
+  cornerPct: 1.8,
   /*
     Off by default, and this is a consequence of the light set.
 

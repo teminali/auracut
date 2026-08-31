@@ -336,8 +336,13 @@ async function toMp4(input: string, tryCopy: boolean): Promise<RemuxResult> {
   }
 
   const output = input.replace(/\.webm$/, '.mp4');
-  const base = ['-y', '-nostdin', '-fflags', '+genpts', '-i', input];
-  const tail = ['-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', output];
+  const base = ['-y', '-nostdin', '-fflags', '+genpts', '-avoid_negative_ts', 'make_zero', '-i', input];
+  const tail = [
+    '-c:a', 'aac', '-b:a', '192k',
+    '-af', 'aresample=async=1:first_pts=0',
+    '-movflags', '+faststart',
+    output,
+  ];
 
   if (tryCopy) {
     const copied = await runFfmpeg(bin, [...base, '-c:v', 'copy', ...tail]);
@@ -347,7 +352,13 @@ async function toMp4(input: string, tryCopy: boolean): Promise<RemuxResult> {
   }
 
   const encoded = await runFfmpeg(bin, [
-    ...base, '-c:v', 'libx264', '-crf', '18', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', ...tail,
+    ...base,
+    '-c:v', 'libx264',
+    '-crf', '18',
+    '-preset', 'veryfast',
+    '-pix_fmt', 'yuv420p',
+    '-fps_mode', 'cfr',
+    ...tail,
   ]);
   if (encoded.ok && fs.existsSync(output) && fs.statSync(output).size > 0) {
     return { ok: true, path: output, raw: false };

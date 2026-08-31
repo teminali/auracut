@@ -293,6 +293,9 @@ async function acquireScreen(settings: CaptureSettings): Promise<{
 /** Sum two live audio tracks into one, for the case where they share a file. */
 function mixAudio(tracks: MediaStreamTrack[]): { track: MediaStreamTrack; context: AudioContext } {
   const context = new AudioContext();
+  if (context.state === 'suspended') {
+    void context.resume();
+  }
   const destination = context.createMediaStreamDestination();
   for (const track of tracks) {
     context.createMediaStreamSource(new MediaStream([track])).connect(destination);

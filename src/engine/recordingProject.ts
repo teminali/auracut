@@ -1104,10 +1104,10 @@ export async function assembleRecording(
             restScale,
             canvasWidth: settings.width,
             canvasHeight: settings.height,
-            /* Only with a backdrop behind the picture. Without one the
-               vacated edge would show the project's black background,
-               which reads as a rendering fault rather than as framing. */
-            edgeOverhang: o.cinematic && o.look.backdrop !== 'none' ? 0.16 : 0,
+            /* Keep the zoomed frame strictly inside the canvas bounds so
+               content near edges (like typed numbers, tabs, sidebars)
+               remains fully visible across all screen sizes and resolutions. */
+            edgeOverhang: 0,
           },
           o.zoomShape,
           /*
@@ -1257,6 +1257,13 @@ export async function assembleRecording(
       } else if (detached.error) {
         notes.push(detached.error);
       }
+    }
+  } else if (o.detachNarration && screen.hasAudio) {
+    const detached = store().detachAudio(screenClipId);
+    if (detached.ok && detached.audioTrackId) {
+      store().renameTrack(detached.audioTrackId, 'A1 · Narration');
+    } else if (detached.error) {
+      notes.push(detached.error);
     }
   }
 
