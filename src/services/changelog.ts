@@ -36,6 +36,19 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.12',
+    date: '2026-08-31',
+    headline: 'Unified Dialogs & Hardware-Smart Packages',
+    detail:
+      'Unified StandardModal architecture shared with the MCP dialog, intelligent device hardware detection with tailored Whisper model recommendations, and HomeScreen package alerts.',
+    items: [
+      'StandardModal Reusable Dialog: extracted a unified standard dialog container featuring live metrics banners, categorized views, and search filters.',
+      'Hardware-Smart AI Model Recommendations: automatically profiles CPU architecture, core counts, and RAM to recommend optimal Whisper models (Tiny, Base, Small, Medium, Large v3).',
+      'HomeScreen Reachability & Alerts: Packages manager is accessible from anywhere with interactive recommendation banners and notification dots.',
+      'Strict Z-Index Hierarchy: established layer stacking levels preventing canvas transform bounding boxes and gizmos from overlapping modals.',
+    ],
+  },
+  {
     version: '1.12.11',
     date: '2026-08-31',
     headline: 'Semantic Speech Camera & Subtitle AI Polish',
