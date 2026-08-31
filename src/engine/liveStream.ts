@@ -86,6 +86,7 @@ export interface LiveStreamOptions {
   look?: Partial<LookOptions>;
   cameraCorner?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   cameraSizePct?: number;
+  mirrorCamera?: boolean;
   /** Force software encoding in ffmpeg. */
   software?: boolean;
 }
@@ -149,7 +150,8 @@ function buildLiveProject(
   look: LookOptions,
   cameraNatural: { width: number; height: number } | null,
   cameraCorner: NonNullable<LiveStreamOptions['cameraCorner']>,
-  cameraSizePct: number
+  cameraSizePct: number,
+  mirrorCamera = true
 ): { screenClipId: string; cameraClipId: string | null } {
   const settings: ProjectSettings = {
     ...project().project,
@@ -177,9 +179,6 @@ function buildLiveProject(
     url: SCREEN_SOURCE,
     thumbnailUrl: '',
     durationMs: LIVE_DURATION_MS,
-    /* Not a size: a live capture has no file. The media pool shows this
-       verbatim, and "Live" tells somebody looking at it more than a dash
-       would. */
     fileSizeFormatted: 'Live',
     codec: 'live',
   };
@@ -190,7 +189,7 @@ function buildLiveProject(
   applyScreenLook(screenClipId, settings, look);
 
   let cameraClipId: string | null = null;
-  if (cameraTrack) {
+  if (cameraTrack && cameraNatural) {
     const cameraAsset: MediaAsset = {
       id: 'media_live_camera',
       name: 'Camera (live)',
@@ -198,21 +197,12 @@ function buildLiveProject(
       url: CAMERA_SOURCE,
       thumbnailUrl: '',
       durationMs: LIVE_DURATION_MS,
-      /* Not a size: a live capture has no file. The media pool shows this
-       verbatim, and "Live" tells somebody looking at it more than a dash
-       would. */
-    fileSizeFormatted: 'Live',
+      fileSizeFormatted: 'Live',
       codec: 'live',
     };
     store().addMediaAsset(cameraAsset);
     cameraClipId = store().insertClip(cameraTrack, cameraAsset, 0);
 
-    /*
-      The same geometry the recorder uses, called the same way. It sizes
-      the inset from the SOURCE's aspect ratio and scales both axes by
-      one factor, which is why it exists: a 4:3 webcam given separate x
-      and y scales comes out stretched and nothing reports it.
-    */
     const inserted = store().tracks
       .find((t) => t.id === cameraTrack)!.clips
       .find((c) => c.id === cameraClipId)!;
@@ -231,7 +221,10 @@ function buildLiveProject(
       { cornerRadiusPx: Math.round(settings.height * 0.022) },
       { name: 'Camera', muteAudio: true }
     );
-    store().patchClip(cameraClipId, patch.properties);
+    store().patchClip(cameraClipId, {
+      ...patch.properties,
+      'transform.flipH': mirrorCamera !== false,
+    });
   }
 
   store().commitTransaction('Live stream');
@@ -275,7 +268,8 @@ export async function startLiveStream(o: LiveStreamOptions): Promise<LiveSession
       ? { width: cameraEl.videoWidth, height: cameraEl.videoHeight }
       : null,
     o.cameraCorner ?? 'bottom-right',
-    o.cameraSizePct ?? 24
+    o.cameraSizePct ?? 24,
+    o.mirrorCamera ?? true
   );
 
   /* ── The surface that is encoded ── */

@@ -45,6 +45,7 @@ export interface StickySettings {
   maxWidth: number;
   cameraDeviceId: string | null;
   cameraHeight: 720 | 1080;
+  mirrorCamera: boolean;
   micDeviceId: string | null;
   systemAudio: boolean;
   countdownSec: 0 | 3 | 5;
@@ -101,6 +102,7 @@ const DEFAULT_STICKY: StickySettings = {
      that makes the best feature in the skill unreachable is the wrong
      default. `ideal` rather than `exact`, so a 720p webcam still works. */
   cameraHeight: 1080,
+  mirrorCamera: true,
   micDeviceId: null,
   systemAudio: true,
   countdownSec: 3,
@@ -373,6 +375,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
       detachNarration: s.detachNarration,
       cameraSizePct: s.cameraSizePct,
       cameraCorner: s.cameraCorner,
+      mirrorCamera: s.mirrorCamera,
       markMoments: true,
       cinematic: s.cinematic,
       look: { ...DEFAULT_LOOK, backdrop: s.backdrop, insetPct: s.insetPct },

@@ -72,10 +72,16 @@ export const CaptureOptions: React.FC<Props> = ({
         emptyLabel="No camera"
         onChange={(id) => onChange('cameraDeviceId', id)}
       />
-      <CameraPreview deviceId={settings.cameraDeviceId} />
+      <CameraPreview deviceId={settings.cameraDeviceId} mirror={settings.mirrorCamera} />
 
       {settings.cameraDeviceId && (
         <>
+          <ToggleRow
+            label="Mirror camera"
+            checked={settings.mirrorCamera}
+            onChange={(v) => onChange('mirrorCamera', v)}
+            hint="Flip horizontally like a mirror"
+          />
           <SegmentedControl
             value={String(settings.cameraHeight) as '720' | '1080'}
             options={[{ value: '720', label: '720p' }, { value: '1080', label: '1080p' }]}
@@ -428,7 +434,9 @@ const DeviceSelect: React.FC<{
   </select>
 );
 
-const CameraPreview: React.FC<{ deviceId: string | null }> = ({ deviceId }) => {
+const CameraPreview: React.FC<{ deviceId: string | null; mirror?: boolean }> = ({
+  deviceId, mirror = true,
+}) => {
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -465,7 +473,14 @@ const CameraPreview: React.FC<{ deviceId: string | null }> = ({ deviceId }) => {
 
   return (
     <div className="aspect-video rounded-squircle-sm bg-black border border-line overflow-hidden relative">
-      <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        className="w-full h-full object-cover transition-transform duration-200"
+        style={{ transform: mirror ? 'scaleX(-1)' : 'none' }}
+      />
       {error && (
         <span className="absolute inset-0 flex items-center justify-center px-3 text-center
                          text-micro text-spectrum-red bg-black/70">

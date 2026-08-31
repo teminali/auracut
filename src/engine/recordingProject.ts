@@ -97,6 +97,8 @@ export interface AssembleOptions {
   detachNarration: boolean;
   cameraSizePct: number;
   cameraCorner: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
+  /** Flip webcam horizontally so moving right moves right on screen like a mirror. */
+  mirrorCamera: boolean;
 
   /* motion */
   autoZoom: boolean;
@@ -295,6 +297,7 @@ export const RAW_ASSEMBLE: AssembleOptions = {
   detachNarration: true,
   cameraSizePct: 24,
   cameraCorner: 'bottom-right',
+  mirrorCamera: true,
   autoZoom: false,
   zoomShape: DEFAULT_SHAPE,
   motionBlur: false,
@@ -1207,7 +1210,10 @@ export async function assembleRecording(
         { name: 'Camera', startTimeMs: take.cameraOffsetMs, muteAudio: false }
       );
       notes.push(...patch.warnings);
-      store().patchClip(cameraClipId, patch.properties);
+      store().patchClip(cameraClipId, {
+        ...patch.properties,
+        'transform.flipH': o.mirrorCamera !== false,
+      });
 
       /*
         Everything the camera does, as ONE keyframe track.
