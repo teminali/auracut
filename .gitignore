@@ -29,6 +29,9 @@ yarn-error.log*
 *.p12
 *.mobileprovision
 
+# Public release distribution repo
+releases-portal/
+
 # Python bytecode from tools/
 __pycache__/
 *.pyc

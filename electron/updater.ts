@@ -42,7 +42,7 @@ type AutoUpdater = typeof electronUpdater.autoUpdater;
 let cached: AutoUpdater | null = null;
 const updater = (): AutoUpdater => (cached ??= electronUpdater.autoUpdater);
 
-export const RELEASES_URL = 'https://github.com/teminali/kerf/releases/latest';
+export const RELEASES_URL = 'https://github.com/teminali/frontiercut-releases/releases/latest';
 
 /** Everything the renderer is allowed to know about update state. */
 export type UpdateStatus =
@@ -263,7 +263,7 @@ export async function listReleases(limit = 4): Promise<ReleaseOption[]> {
   }
 
   const res = await fetch(
-    'https://api.github.com/repos/teminali/kerf/releases?per_page=15',
+    'https://api.github.com/repos/teminali/frontiercut-releases/releases?per_page=15',
     { headers: { Accept: 'application/vnd.github+json' } }
   );
   if (!res.ok) throw new Error(`GitHub answered ${res.status} when asked for the releases.`);
@@ -314,8 +314,8 @@ async function sideloadUpdate(version?: string): Promise<SideloadResult> {
 
   try {
     const base = version
-      ? `https://github.com/teminali/kerf/releases/download/v${encodeURIComponent(version)}`
-      : 'https://github.com/teminali/kerf/releases/latest/download';
+      ? `https://github.com/teminali/frontiercut-releases/releases/download/v${encodeURIComponent(version)}`
+      : 'https://github.com/teminali/frontiercut-releases/releases/latest/download';
     const want = parseFeed(await fetchText(`${base}/latest-mac.yml`), process.arch);
     publish({ state: 'downloading', version: want.version, percent: 0, bytesPerSecond: 0 });
 
