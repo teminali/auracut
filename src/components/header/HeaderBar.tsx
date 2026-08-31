@@ -106,12 +106,12 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         >
           <div
             className="w-[22px] h-[22px] rounded-squircle-xs flex items-center justify-center shadow-raised"
-            style={{ background: 'linear-gradient(145deg,#eb9b81,#c4603f)' }}
+            style={{ background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)' }}
           >
-            {/* The kerf: two bars and the cut between them. */}
+            {/* The FrontierCut F mark */}
             <KerfMark className="w-[13px] h-[13px]" />
           </div>
-          <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">Kerf</span>
+          <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">FrontierCut</span>
         </button>
 
         <Divider />

@@ -541,7 +541,7 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
       return { ok: false, message: 'Only macOS keeps a grant that can go stale like this.' };
     }
     return new Promise<{ ok: boolean; message: string }>((resolve) => {
-      execFile('tccutil', ['reset', 'ScreenCapture', 'com.kerf.editor'], (err, _out, stderr) => {
+      execFile('tccutil', ['reset', 'ScreenCapture', 'com.frontiercut.editor'], (err, _out, stderr) => {
         if (err) {
           resolve({
             ok: false,
@@ -551,7 +551,7 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
         }
         resolve({
           ok: true,
-          message: 'Cleared. Kerf will ask for screen recording again when it restarts.',
+          message: 'Cleared. FrontierCut will ask for screen recording again when it restarts.',
         });
       });
     });

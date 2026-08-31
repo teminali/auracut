@@ -98,7 +98,7 @@ export const AccountView: React.FC<{ onOpenSkills: () => void }> = ({ onOpenSkil
           <UserCircle className="w-9 h-9 text-spectrum-textFaint" />
           <p className="text-ui-lg font-medium text-spectrum-text">Not signed in</p>
           <p className="text-ui-sm text-spectrum-textDim max-w-[380px] leading-snug">
-            Kerf edits, records and exports without an account. Signing in is what licenses the
+            FrontierCut edits, records and exports without an account. Signing in is what licenses the
             paid skills to this machine, and what carries them to the next one.
           </p>
           <button onClick={() => setSignInOpen(true)} className="btn-primary h-8 px-4 mt-1 text-ui">

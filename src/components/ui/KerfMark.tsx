@@ -1,19 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════════
-   The Kerf mark.
+   The FrontierCut mark.
 
-   A K, cut. The stem and the two arms are the letter; the gap between
-   them is the kerf — the slit a blade leaves. So the mark says the name
-   and the idea at once, rather than being an abstract shape that has to
-   be explained.
+   An F, cut. The vertical stem and the two horizontal bars form the F;
+   the clean gap between them is the cut — the blade slit that defines
+   the editor.
 
    Drawn as strokes rather than a raster so it holds at 16px in a title
-   bar and at 1024px in an app icon, and so the kerf stays a crisp,
-   even gap at every size.
+   bar and at 1024px in an app icon, and stays crisp at every size.
    ═══════════════════════════════════════════════════════════════════ */
 
 import React from 'react';
 
-export const KerfMark: React.FC<{ className?: string; color?: string }> = ({
+export const FrontierCutMark: React.FC<{ className?: string; color?: string }> = ({
   className,
   color = '#fff',
 }) => (
@@ -25,11 +23,16 @@ export const KerfMark: React.FC<{ className?: string; color?: string }> = ({
       strokeLinejoin="round"
       fill="none"
     >
-      {/* Stem */}
+      {/* Stem of F */}
       <path d="M6.2 3.9 V20.1" />
-      {/* Arm and leg, held clear of the stem — that clearance is the kerf. */}
-      <path d="M10.9 12 L18.3 4.4" />
-      <path d="M10.9 12 L18.6 19.9" />
+      {/* Top bar of F, held clear of the stem by the cut */}
+      <path d="M11.2 5.5 H19.2" />
+      {/* Mid bar of F, held clear of the stem by the cut */}
+      <path d="M11.2 12.2 H16.5" />
     </g>
   </svg>
 );
+
+/** Alias for backward compatibility */
+export const KerfMark = FrontierCutMark;
+

@@ -197,7 +197,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
 
         <div className="p-4 space-y-3.5 overflow-y-auto min-h-0 flex-1">
           <p className="text-ui-sm text-[#a6a6a6] leading-relaxed">
-            Whichever you pick gets Kerf&apos;s 58 editing tools over MCP, plus its own file, shell and web access.
+            Whichever you pick gets FrontierCut&apos;s 58 editing tools over MCP, plus its own file, shell and web access.
           </p>
 
           {loading && (

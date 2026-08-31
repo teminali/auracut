@@ -104,7 +104,7 @@ export const CaptureOptions: React.FC<Props> = ({
 
       {permissions?.camera === 'denied' && (
         <PermissionNote
-          text="Camera access is off for Kerf."
+          text="Camera access is off for FrontierCut."
           action="Open settings"
           onAction={() => onRequestPermission('camera')}
         />
@@ -140,7 +140,7 @@ export const CaptureOptions: React.FC<Props> = ({
 
       {permissions?.microphone === 'denied' && (
         <PermissionNote
-          text="Microphone access is off for Kerf."
+          text="Microphone access is off for FrontierCut."
           action="Open settings"
           onAction={() => onRequestPermission('microphone')}
         />
@@ -181,7 +181,7 @@ export const CaptureOptions: React.FC<Props> = ({
       </Row>
 
       <ToggleRow
-        label="Hide Kerf while recording"
+        label="Hide FrontierCut while recording"
         checked={settings.hideWindow}
         onChange={(v) => onChange('hideWindow', v)}
         hint="A floating bar stays, and it is kept out of the capture"
@@ -234,7 +234,7 @@ export const CaptureOptions: React.FC<Props> = ({
 
       {permissions?.input?.reason === 'needs-accessibility' && (
         <PermissionNote
-          text="Turn Kerf on under Accessibility for zooms on real clicks."
+          text="Turn FrontierCut on under Accessibility for zooms on real clicks."
           action="Open settings"
           onAction={() => onRequestPermission('accessibility')}
         />

@@ -79,7 +79,7 @@ export const HomeTopBar: React.FC<Props> = ({
       <span className="hp-brand-mark w-[26px] h-[26px] rounded-squircle-xs flex items-center justify-center flex-shrink-0">
         <KerfMark className="w-[15px] h-[15px]" />
       </span>
-      <span className="text-ui-lg font-semibold text-spectrum-text tracking-tight flex-shrink-0">Kerf</span>
+      <span className="text-ui-lg font-semibold text-spectrum-text tracking-tight flex-shrink-0">FrontierCut</span>
       <span className="w-px h-4 bg-line flex-shrink-0" />
       <span className="text-ui-lg text-spectrum-textMuted truncate">{viewLabel}</span>
 

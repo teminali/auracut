@@ -232,7 +232,7 @@ ipcMain.handle('dialog:openMedia', async () => {
 ipcMain.handle('dialog:saveExport', async (_, defaultName: string) => {
   if (!mainWindow) return null;
   const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: defaultName || 'Kerf_Render_Master.mp4',
+    defaultPath: defaultName || 'FrontierCut_Render_Master.mp4',
     filters: [
       { name: 'MP4 Video (H.264 / HEVC)', extensions: ['mp4'] },
       { name: 'Apple ProRes 422', extensions: ['mov'] },
@@ -570,7 +570,7 @@ function registerAgentIpc() {
       ]);
       return { ok: true, message: `Opened Terminal running \`${command}\`.` };
     }
-    return { ok: false, message: `Run \`${command}\` in a terminal, then reopen Kerf.` };
+    return { ok: false, message: `Run \`${command}\` in a terminal, then reopen FrontierCut.` };
   });
 
   ipcMain.handle('agents:openAntigravity', async (_e, p?: { prompt?: string }) => {
@@ -646,7 +646,7 @@ app.whenReady().then(async () => {
     ? await preparePermissionsForBuild({
       file: permissionResetStateFile(app.getPath('userData')),
       version: app.getVersion(),
-      bundleId: 'com.kerf.editor',
+      bundleId: 'com.frontiercut.editor',
       reset: resetTccService,
     })
     : null;
@@ -701,12 +701,12 @@ app.whenReady().then(async () => {
       if (!mainWindow) return;
       void dialog.showMessageBox(mainWindow, {
         type: 'warning',
-        title: 'Kerf could not refresh macOS permissions',
+        title: 'FrontierCut could not refresh macOS permissions',
         message: 'Screen recording permissions still need to be refreshed.',
         detail:
-          `${failures}\n\nKerf will retry automatically on every fresh launch. `
-          + 'You can also run “tccutil reset ScreenCapture com.kerf.editor” in Terminal, '
-          + 'then close and reopen Kerf.',
+          `${failures}\n\nFrontierCut will retry automatically on every fresh launch. `
+          + 'You can also run “tccutil reset ScreenCapture com.frontiercut.editor” in Terminal, '
+          + 'then close and reopen FrontierCut.',
         buttons: ['OK'],
       });
     });

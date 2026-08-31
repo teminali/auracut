@@ -73,7 +73,7 @@ export const UpdateIndicator: React.FC = () => {
       return (
         <div
           className="h-[26px] px-2 rounded-squircle-xs bg-spectrum-card flex items-center gap-2 text-ui-xs text-spectrum-textMuted"
-          title={`Downloading Kerf ${status.version}`}
+          title={`Downloading FrontierCut ${status.version}`}
         >
           <Download className="w-3 h-3 flex-shrink-0" />
           <div className="w-14 h-[3px] rounded-full bg-spectrum-sunken overflow-hidden">
@@ -91,8 +91,8 @@ export const UpdateIndicator: React.FC = () => {
         <button
           onClick={install}
           className="btn-primary h-[26px] px-2.5 gap-1.5 text-ui-xs"
-          title={`Kerf ${status.version} is ready. Click to restart and update`}
-            aria-label={`Kerf ${status.version} is ready. Click to restart and update`}
+          title={`FrontierCut ${status.version} is ready. Click to restart and update`}
+            aria-label={`FrontierCut ${status.version} is ready. Click to restart and update`}
         >
           <RefreshCw className="w-3 h-3" />
           Restart to update
@@ -102,9 +102,9 @@ export const UpdateIndicator: React.FC = () => {
     /*
       An update exists and Squirrel will not install it.
 
-      Kerf can still do the swap itself — see `sideloadUpdate` in
+      FrontierCut can still do the swap itself — see `sideloadUpdate` in
       `electron/updater.ts` for what that verifies and, more importantly,
-      what it does not. When the bundle is somewhere Kerf cannot write,
+      what it does not. When the bundle is somewhere FrontierCut cannot write,
       `canSideload` is false and this falls back to the download page,
       which is what this branch always used to do.
     */
@@ -115,12 +115,12 @@ export const UpdateIndicator: React.FC = () => {
           disabled={busy}
           className="h-[26px] px-2.5 rounded-squircle-xs border border-spectrum-accentLine bg-spectrum-accentSoft text-spectrum-accent text-ui-xs font-medium flex items-center gap-1.5 disabled:opacity-60"
           title={
-            `Download Kerf ${status.version} and replace this copy. This build is not `
+            `Download FrontierCut ${status.version} and replace this copy. This build is not `
             + 'code-signed, so the download is checked against the checksum the release '
             + 'publishes rather than against a signature, and macOS will ask for screen '
             + 'recording again afterwards because an unsigned update always invalidates it.'
           }
-          aria-label={`Update to Kerf ${status.version}`}
+          aria-label={`Update to FrontierCut ${status.version}`}
         >
           <Download className="w-3 h-3" />
           {busy ? 'Updating…' : `Update to ${status.version}`}
@@ -130,10 +130,10 @@ export const UpdateIndicator: React.FC = () => {
           onClick={openReleases}
           className="h-[26px] px-2.5 rounded-squircle-xs border border-spectrum-accentLine bg-spectrum-accentSoft text-spectrum-accent text-ui-xs font-medium flex items-center gap-1.5"
           title={
-            `Kerf ${status.version} is available, and this copy is not somewhere Kerf can `
+            `FrontierCut ${status.version} is available, and this copy is not somewhere FrontierCut can `
             + 'replace it. Open the download page.'
           }
-          aria-label={`Kerf ${status.version} is available. Open the download page.`}
+          aria-label={`FrontierCut ${status.version} is available. Open the download page.`}
         >
           <ExternalLink className="w-3 h-3" />
           Get {status.version}

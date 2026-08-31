@@ -62,7 +62,7 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <p className="text-ui-sm text-spectrum-textDim text-center py-8 leading-relaxed">
               Nothing recorded yet.
               <br />
-              When the Copilot hits something Kerf cannot do, it lands here.
+              When the Copilot hits something FrontierCut cannot do, it lands here.
             </p>
           ) : (
             sorted.map((gap) => (

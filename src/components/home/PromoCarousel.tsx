@@ -82,7 +82,7 @@ export const PromoCarousel: React.FC = () => {
       kicker: 'Ready',
       title: 'Update installed',
       body: installed,
-      actionLabel: 'Quit Kerf',
+      actionLabel: 'Quit FrontierCut',
       onAction: quitForUpdate,
       icon: Download,
     });
@@ -90,10 +90,10 @@ export const PromoCarousel: React.FC = () => {
     slides.push({
       id: 'update',
       kicker: 'Update',
-      title: `Kerf ${newVersion} is available`,
+      title: `FrontierCut ${newVersion} is available`,
       body: failed ?? (canSideload
         ? 'Install it now and restart when you are ready.'
-        : 'This copy is not somewhere Kerf can replace it, so the download page is the way in.'),
+        : 'This copy is not somewhere FrontierCut can replace it, so the download page is the way in.'),
       actionLabel: canSideload ? (busy ? 'Updating…' : 'Update now') : 'Open downloads',
       onAction: canSideload ? () => void install() : openReleases,
       actionIcon: canSideload ? undefined : ExternalLink,
