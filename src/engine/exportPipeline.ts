@@ -306,7 +306,11 @@ function collectAudioClips(tracks: Track[]) {
     if (anySolo && !track.solo) continue;
 
     for (const clip of track.clips) {
-      const audible = Boolean(clip.mediaUrl) && (track.type === 'audio' || clip.type === 'video');
+      const isStaticGraphic =
+        clip.type === 'sticker' ||
+        clip.type === 'adjustment' ||
+        Boolean(clip.mediaUrl && /\.(jpg|jpeg|png|webp|gif|svg|bmp|avif)$/i.test(clip.mediaUrl));
+      const audible = Boolean(clip.mediaUrl) && !isStaticGraphic && (track.type === 'audio' || clip.type === 'video');
       if (!audible || clip.hidden) continue;
 
       const volume = clip.audio.volume * track.volume;
@@ -958,7 +962,28 @@ export async function runHardwareExport(
     onProgress(92, 'Mixing audio…', {
       frame: totalFrames, totalFrames, fps: 0, etaMs: null, engine, phase: 'audio',
     });
-    const audioClips = windowAudioClips(collectAudioClips(tracks), startMs, renderMs);
+    const rawAudioClips = windowAudioClips(collectAudioClips(tracks), startMs, renderMs);
+
+    // Materialize any in-memory blob: or data: URLs to temp files so FFmpeg can open them
+    const audioClips = await Promise.all(
+      rawAudioClips.map(async (c) => {
+        if (c.mediaUrl.startsWith('blob:') || c.mediaUrl.startsWith('data:')) {
+          try {
+            const resp = await fetch(c.mediaUrl);
+            const buf = await resp.arrayBuffer();
+            const ext = c.mediaUrl.includes('audio/mp3') ? 'mp3' : 'wav';
+            const tempPath = await api.media?.writeTemp(`audio_${Date.now().toString(36)}.${ext}`, new Uint8Array(buf));
+            if (tempPath) {
+              return { ...c, mediaUrl: tempPath };
+            }
+          } catch (err) {
+            console.warn('Failed to materialize blob audio for export:', err);
+          }
+        }
+        return c;
+      })
+    );
+
     const result = await api.exporter.finish(sessionId, audioClips);
     if (!result.ok) throw new Error(result.error ?? 'Encoding failed.');
 

@@ -427,18 +427,33 @@ export interface AudioMixReport {
 }
 
 /** Can ffmpeg actually open this? Cheap, and the answer decides the mix. */
-function probeSource(ff: string, source: string): Promise<string | null> {
+function probeSource(ff: string, source: string): Promise<{ ok: boolean; hasAudio: boolean; error?: string }> {
   return new Promise((resolve) => {
     execFile(
       ff,
-      ['-nostdin', '-v', 'error', '-i', source, '-t', '0.1', '-f', 'null', '-'],
+      ['-nostdin', '-v', 'error', '-i', source, '-map', '0:a:0', '-t', '0.01', '-f', 'null', '-'],
       { timeout: 30_000, maxBuffer: 1024 * 512 },
       (err, _out, stderr) => {
         const text = (stderr || '').trim();
-        // ffmpeg reports an unopenable input on stderr while still exiting 0,
-        // so the exit code alone is not the answer.
+        if (!err && !text) {
+          resolve({ ok: true, hasAudio: true });
+          return;
+        }
+        if (/matches no streams|Stream map '' matches no streams|does not contain any stream/i.test(text)) {
+          // Media has no audio stream (e.g. image or silent video)
+          resolve({ ok: true, hasAudio: false });
+          return;
+        }
         const broke = Boolean(err) || /Error opening input|Invalid data|No such file|Protocol not found|Server returned/i.test(text);
-        resolve(broke ? (text.split('\n').find((l) => /Error|Invalid|No such|Server/i.test(l)) ?? 'unreadable') : null);
+        if (broke) {
+          resolve({
+            ok: false,
+            hasAudio: false,
+            error: text.split('\n').find((l) => /Error|Invalid|No such|Server/i.test(l)) ?? 'unreadable',
+          });
+          return;
+        }
+        resolve({ ok: true, hasAudio: false });
       }
     );
   });
@@ -646,7 +661,10 @@ function mixArgsFor(clips: ExportClipAudio[], outPath: string): string[] {
 
 function runMix(ff: string, args: string[], outPath: string): Promise<string | null> {
   return new Promise((resolve) => {
-    execFile(ff, args, { timeout: 900_000, maxBuffer: 1024 * 1024 * 16 }, (err) => {
+    execFile(ff, args, { timeout: 900_000, maxBuffer: 1024 * 1024 * 16 }, (err, _stdout, stderr) => {
+      if (err) {
+        console.warn('runMix failed:', (stderr || '').slice(-600));
+      }
       resolve(err || !fs.existsSync(outPath) ? null : outPath);
     });
   });
@@ -658,32 +676,31 @@ function runMix(ff: string, args: string[], outPath: string): Promise<string | n
  * One unreadable source used to silence the ENTIRE render: the mix threw,
  * the failure was swallowed as "audio is not worth failing a render over",
  * and the export returned `ok: true, hasAudio: false`. The user asked for
- * a video with sound, got a silent file, and was told it worked. The seed
- * project reproduced it every time — its music URL 403s to ffmpeg.
+ * a video with sound, got a silent file, and was told it worked.
  *
- * Failing the whole render is still the wrong answer. Dropping the one bad
- * source, keeping the rest, and REPORTING the loss is the right one.
+ * Robust audio pipeline:
+ *  1. Probes which clips actually have valid audio streams.
+ *  2. Silently excludes clips that have no audio stream (e.g. photos/images, silent clips).
+ *  3. Mixes all valid audio streams and reports any unreadable sources.
  */
 async function buildAudioMix(clips: ExportClipAudio[], outPath: string): Promise<AudioMixReport> {
   const ff = ffmpeg();
   if (!ff) return { path: null, included: 0, dropped: [], error: 'ffmpeg was not found.' };
   if (clips.length === 0) return { path: null, included: 0, dropped: [] };
 
-  // Optimistic first: when every source is readable this costs nothing.
-  const first = await runMix(ff, mixArgsFor(clips, outPath), outPath);
-  if (first) return { path: first, included: clips.length, dropped: [] };
-
-  // Something failed. Find out which sources, rather than guessing.
-  const sources = clips.map((c) =>
-    ffmpegSource(c.mediaUrl)
-  );
-  const reasons = await Promise.all(sources.map((src) => probeSource(ff, src)));
+  const resolvedSources = clips.map((c) => ffmpegSource(c.mediaUrl));
+  const probeResults = await Promise.all(resolvedSources.map((src) => probeSource(ff, src)));
 
   const dropped: { source: string; reason: string }[] = [];
   const usable: ExportClipAudio[] = [];
+
   clips.forEach((clip, i) => {
-    if (reasons[i]) dropped.push({ source: sources[i], reason: reasons[i]! });
-    else usable.push(clip);
+    const p = probeResults[i];
+    if (p.hasAudio) {
+      usable.push(clip);
+    } else if (!p.ok) {
+      dropped.push({ source: resolvedSources[i], reason: p.error || 'unreadable audio' });
+    }
   });
 
   if (usable.length === 0) {
@@ -691,14 +708,14 @@ async function buildAudioMix(clips: ExportClipAudio[], outPath: string): Promise
       path: null,
       included: 0,
       dropped,
-      error: dropped.length ? undefined : 'The audio mix failed for a reason no source explains.',
+      error: dropped.length ? undefined : undefined,
     };
   }
 
-  const retry = await runMix(ff, mixArgsFor(usable, outPath), outPath);
-  return retry
-    ? { path: retry, included: usable.length, dropped }
-    : { path: null, included: 0, dropped, error: 'The audio mix failed even after dropping unreadable sources.' };
+  const mix = await runMix(ff, mixArgsFor(usable, outPath), outPath);
+  return mix
+    ? { path: mix, included: usable.length, dropped }
+    : { path: null, included: 0, dropped, error: 'The audio mix failed during FFmpeg filtergraph rendering.' };
 }
 
 /**

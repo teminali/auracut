@@ -72,7 +72,12 @@ export const MediaPanel: React.FC = () => {
     if (list.length === 0) return;
 
     for (const file of list) {
-      const url = URL.createObjectURL(file);
+      const realPath = (file as any).path || (file as File & { path?: string }).path;
+      const url = realPath
+        ? (realPath.startsWith('file://')
+            ? realPath
+            : (realPath.startsWith('/') ? `file://${realPath}` : `file:///${realPath.replace(/\\/g, '/')}`))
+        : URL.createObjectURL(file);
       const type = file.type.startsWith('video')
         ? 'video'
         : file.type.startsWith('audio')

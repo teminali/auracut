@@ -3,28 +3,20 @@
 
    ffmpeg is a separate OS process. It does not share the renderer's idea
    of where things are, and it does not share Electron's patched `fs`
-   either — which is the part that bites.
+   either.
 
-   Two conversions, and both were learned the hard way:
-
-   1. `file://` URLs need decoding to a plain path. ffmpeg will accept
-      some file: URLs, but not percent-encoded ones, and a project whose
-      media sits in a folder with a space in its name is not exotic.
-
-   2. **Paths through `app.asar` have to be redirected.** asar is a
-      virtual filesystem that only Electron's patched `fs` understands.
-      To every other process on the machine `app.asar` is a single file,
-      so a path *through* it fails with "Not a directory" — which reads
-      like a corrupt path rather than a packaging problem, and cost a
-      packaged build that played its music in the app and exported it
-      silent. electron-builder puts a real copy under
-      `app.asar.unpacked` for anything listed in `asarUnpack`; this is
-      what points at that copy.
-
-   Dev never sees either problem: there is no asar and the URL is an
-   http:// one the dev server is happily serving. Which is the usual
-   shape of a packaged-only bug.
+   Conversions:
+   1. `file://` URLs are safely translated using Node's `fileURLToPath`,
+      handling spaces, percent-encoding, and Windows drive letters correctly.
+   2. Paths inside `app.asar` are checked in `app.asar.unpacked`. If not
+      unpacked, the bytes are extracted from the archive to a temp file
+      so ffmpeg can open and read them directly.
    ═══════════════════════════════════════════════════════════════════ */
+
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 /** A path or URL ffmpeg — a separate process — can actually open. */
 export function ffmpegSource(mediaUrl: string): string {
@@ -32,17 +24,52 @@ export function ffmpegSource(mediaUrl: string): string {
 
   if (source.startsWith('file://')) {
     try {
-      source = decodeURIComponent(source.replace('file://', ''));
+      source = fileURLToPath(source);
     } catch {
-      source = source.replace('file://', '');
+      try {
+        source = decodeURIComponent(source.replace(/^file:\/\//, ''));
+      } catch {
+        source = source.replace(/^file:\/\//, '');
+      }
+      if (process.platform === 'win32' && /^\/[a-zA-Z]:/.test(source)) {
+        source = source.slice(1);
+      }
     }
   }
 
-  // Leave remote URLs alone; only local paths can be inside the archive.
-  if (/^[a-z][a-z0-9+.-]*:/i.test(source)) return source;
+  // Leave remote URLs alone (http/https/rtmp); only local paths can be inside the archive.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(source) && !/^[a-zA-Z]:[/\\]/.test(source)) {
+    return source;
+  }
 
-  if (source.includes('app.asar') && !source.includes('app.asar.unpacked')) {
-    source = source.replace('app.asar', 'app.asar.unpacked');
+  // On Windows, normalize slashes if it's a local file path
+  if (process.platform === 'win32' && /^\/[a-zA-Z]:/.test(source)) {
+    source = source.slice(1);
+  }
+
+  // If path is inside app.asar, check if an unpacked copy exists
+  if (source.includes('app.asar')) {
+    const unpackedPath = source.replace('app.asar', 'app.asar.unpacked');
+    if (fs.existsSync(unpackedPath)) {
+      return unpackedPath;
+    }
+    // If not unpacked on disk, extract it from the asar archive to a temp file so ffmpeg can read it
+    try {
+      if (fs.existsSync(source)) {
+        const tempDir = path.join(os.tmpdir(), 'frontiercut-media');
+        fs.mkdirSync(tempDir, { recursive: true });
+        const ext = path.extname(source) || '.tmp';
+        const extractedPath = path.join(tempDir, `${Date.now().toString(36)}_${path.basename(source, ext)}${ext}`);
+        if (!fs.existsSync(extractedPath)) {
+          const buf = fs.readFileSync(source);
+          fs.writeFileSync(extractedPath, buf);
+        }
+        return extractedPath;
+      }
+    } catch {
+      // fallback to unpacked path
+      return unpackedPath;
+    }
   }
 
   return source;
