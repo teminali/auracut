@@ -122,6 +122,17 @@ export interface FrameEncoder {
 */
 const CHUNK_FLUSH_BYTES = 1_000_000;
 
+export const fastYield = (): Promise<void> =>
+  new Promise((resolve) => {
+    if (typeof MessageChannel !== 'undefined') {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = () => resolve();
+      ch.port2.postMessage(null);
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+
 function queueLimit(width: number, height: number): number {
   const megapixels = (width * height) / 1_000_000;
   if (megapixels > 6) return 4;    // 4K
@@ -339,7 +350,7 @@ export async function createFrameEncoder(
       /* Two independent backlogs, and waiting on the wrong one is the
          same as not waiting at all. */
       while (encoder.encodeQueueSize > maxQueue && !failure) {
-        await new Promise<void>((r) => { setTimeout(r, 1); });
+        await fastYield();
       }
       if (pendingBytes >= CHUNK_FLUSH_BYTES) await flushPending();
       else await writing;

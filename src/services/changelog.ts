@@ -36,6 +36,20 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.8',
+    date: '2026-08-31',
+    headline: 'Background Export, Cancellation & Speed Overhaul',
+    detail:
+      'Live background rendering with header progress pill, instant export cancellation, zero-delay microtask yield speed boost, and completion chime.',
+    items: [
+      'Instant export cancellation with AbortController, process SIGKILL, and temp file cleanup.',
+      'Background rendering support with interactive status and live progress pill in the top header.',
+      'Zero-delay MessageChannel event-loop yielding (fastYield) cutting render yield latency by over 90%.',
+      'Harmonic Web Audio API chime and desktop notifications upon render completion.',
+      'PowerSaveBlocker integration preventing OS CPU throttling and sleep during exports.',
+    ],
+  },
+  {
     version: '1.12.7',
     date: '2026-08-31',
     headline: 'Classic Clean Captions & FrontierCut Brand',

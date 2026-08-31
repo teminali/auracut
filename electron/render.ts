@@ -26,7 +26,7 @@
 
 import { ffmpegSource } from './mediaPath';
 import { spawn, execFile } from 'child_process';
-import { app } from 'electron';
+import { app, powerSaveBlocker } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { ffmpeg } from './transcribe';
@@ -123,6 +123,26 @@ interface Session {
 
 const sessions = new Map<string, Session>();
 let counter = 0;
+let activePowerBlockerId: number | null = null;
+
+function acquirePowerLock(): void {
+  if (activePowerBlockerId === null) {
+    try {
+      activePowerBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+    } catch { /* ignore */ }
+  }
+}
+
+function releasePowerLock(): void {
+  if (sessions.size === 0 && activePowerBlockerId !== null) {
+    try {
+      if (powerSaveBlocker.isStarted(activePowerBlockerId)) {
+        powerSaveBlocker.stop(activePowerBlockerId);
+      }
+    } catch { /* ignore */ }
+    activePowerBlockerId = null;
+  }
+}
 
 function encoderArgs(options: StartExportOptions): string[] {
   const { codec, hardware, bitrateMbps } = options;
@@ -246,6 +266,7 @@ export function startExport(options: StartExportOptions): { sessionId: string } 
   });
 
   sessions.set(id, session);
+  acquirePowerLock();
   return { sessionId: id };
 }
 
@@ -735,6 +756,7 @@ export async function finishExport(
 
   const cleanup = () => {
     sessions.delete(sessionId);
+    releasePowerLock();
     try { fs.rmSync(workDir, { recursive: true, force: true }); } catch { /* best effort */ }
   };
 
@@ -862,4 +884,5 @@ export function cancelExport(sessionId: string): void {
   try { session.proc.stdin?.end(); session.proc.kill('SIGKILL'); } catch { /* already gone */ }
   try { fs.rmSync(path.dirname(session.videoPath), { recursive: true, force: true }); } catch { /* best effort */ }
   sessions.delete(sessionId);
+  releasePowerLock();
 }

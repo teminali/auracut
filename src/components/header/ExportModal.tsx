@@ -4,6 +4,7 @@ import { useTimelineStore, getContentEndMs } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import { runHardwareExport, ExportResolution, ExportResult } from '../../engine/exportPipeline';
 import { formatDuration } from '../../utils/time';
+import { notifyExportComplete } from '../../utils/soundEffects';
 import { SegmentedControl, ToggleRow, Section } from '../ui/Controls';
 import {
   X, Download, Check, Film, Zap, Cpu, Layers, FolderOpen, ExternalLink,
@@ -25,28 +26,12 @@ const CODECS = [
 
 /*
   The two encoders, in the user's terms rather than the pipeline's.
-
-  `fast` is WebCodecs: the frame goes from the canvas to the platform
-  encoder and ffmpeg stream-copies the result, so nothing is read back,
-  compressed to JPEG, or encoded a second time. `precise` is the original
-  path — JPEG stills into libx264 at `-crf 18`, which is quality-targeted
-  rather than bitrate-targeted and is the only way to get ProRes.
-
-  Named for what they DO, not which library they use. "Hardware" would be
-  the wrong word: the ffmpeg path can use VideoToolbox too.
 */
 const ENGINES = [
   { value: 'auto', label: 'Fast', hint: 'Hardware encode, nothing re-encoded' },
   { value: 'ffmpeg', label: 'Precise', hint: 'Constant quality, slower' },
 ] as const;
 
-/*
-  More windows is SLOWER, and the control says so rather than implying
-  otherwise. Chromium decodes video in the shared GPU process, so extra
-  render windows queue onto one decoder instead of getting their own.
-  Measured on 900 frames of 1080p: one window 7889ms, four windows
-  47488ms. `Auto` is one window.
-*/
 const WORKER_CHOICES = [
   { value: 'auto', label: 'Auto', hint: 'One window. The fastest option on every project measured' },
   { value: '2', label: '2', hint: 'Two windows. Slower unless the render is compositing-bound' },
@@ -83,6 +68,7 @@ export const ExportModal: React.FC = () => {
   const setIsExporting = useProjectStore((s) => s.setIsExporting);
   const setExportProgress = useProjectStore((s) => s.setExportProgress);
   const setLastExportPath = useProjectStore((s) => s.setLastExportPath);
+  const setActiveExportCancelHandler = useProjectStore((s) => s.setActiveExportCancelHandler);
 
   const tracks = useTimelineStore((s) => s.tracks);
   const inPointMs = useTimelineStore((s) => s.inPointMs);
@@ -95,6 +81,29 @@ export const ExportModal: React.FC = () => {
   const [workerChoice, setWorkerChoice] = useState<'2' | '4' | 'auto'>('auto');
   const [rangeOnly, setRangeOnly] = useState(false);
   const [done, setDone] = useState<ExportResult | null>(null);
+
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleCancelExport = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+    setIsExporting(false);
+    setExportProgress(0, 'Cancelled', 'idle', null);
+    pushToast({ kind: 'info', title: 'Export cancelled' });
+  };
+
+  const handleMinimize = () => {
+    setOpen(false);
+    if (isExporting) {
+      pushToast({
+        kind: 'info',
+        title: 'Export running in background',
+        detail: 'Track progress in the top bar.',
+      });
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -116,14 +125,13 @@ export const ExportModal: React.FC = () => {
     setIsExporting(true);
     setExportProgress(0, 'Preparing…', 'preparing', null);
 
+    const abort = new AbortController();
+    abortRef.current = abort;
+    setActiveExportCancelHandler(() => {
+      abort.abort();
+    });
+
     try {
-      /*
-        `rangeOnly` used to reach nothing but a label. `exportDuration`
-        was computed right here, shown as the hint under the checkbox,
-        and then dropped — the export ran 0 -> project.durationMs
-        whatever the box said. Ticking it changed the text and not the
-        file.
-      */
       const range = rangeOnly && hasRange
         ? { startMs: inPointMs ?? 0, durationMs: exportDuration }
         : {};
@@ -138,6 +146,7 @@ export const ExportModal: React.FC = () => {
           engine: fastAvailable ? engine : 'ffmpeg',
           ...(workerChoice === 'auto' ? {} : { workers: Number(workerChoice) }),
           ...range,
+          signal: abort.signal,
         },
         (progress, statusText, detail) =>
           setExportProgress(
@@ -145,28 +154,41 @@ export const ExportModal: React.FC = () => {
             statusText,
             detail?.phase === 'audio' ? 'muxing' : 'rendering',
             detail ? (detail as ExportTelemetry) : undefined
-          )
+          ),
+        abort.signal
       );
+
       setLastExportPath(result.outputPath);
       setDone(result);
       setExportProgress(100, 'Complete', 'done', null);
+
+      // Trigger success audio chime and desktop notification
+      const fileName = result.outputPath.split(/[\\/]/).pop() ?? result.outputPath;
+      notifyExportComplete('FrontierCut Export Complete', `${fileName} (${(result.bytes / 1024 / 1024).toFixed(1)} MB)`);
+
       pushToast({
         kind: 'success',
         title: 'Export finished',
-        // Say what actually landed on disk, not just where it was aimed.
         detail: `${result.outputPath} · ${(result.bytes / 1024 / 1024).toFixed(1)} MB · ${result.frames} frames`
           + (result.subtitlePaths?.length ? ` · ${result.subtitlePaths.length} subtitle files` : ''),
       });
     } catch (err) {
-      setExportProgress(0, 'Failed', 'error', null);
-      pushToast({ kind: 'error', title: 'Export failed', detail: (err as Error).message });
+      if (abort.signal.aborted || (err as Error).name === 'AbortError' || /cancel|abort/i.test((err as Error).message)) {
+        setExportProgress(0, 'Cancelled', 'idle', null);
+        pushToast({ kind: 'info', title: 'Export cancelled' });
+      } else {
+        setExportProgress(0, 'Failed', 'error', null);
+        pushToast({ kind: 'error', title: 'Export failed', detail: (err as Error).message });
+      }
     } finally {
+      abortRef.current = null;
+      setActiveExportCancelHandler(null);
       setIsExporting(false);
     }
   };
 
   return (
-    <div className="scrim" onClick={() => !isExporting && setOpen(false)}>
+    <div className="scrim" onClick={() => (isExporting ? handleMinimize() : setOpen(false))}>
       <div
         onClick={(e) => e.stopPropagation()}
         className={`modal-shell max-w-[92vw] ${isExporting || done ? 'w-[520px]' : 'w-[460px]'}`}
@@ -178,12 +200,17 @@ export const ExportModal: React.FC = () => {
           <div className="flex items-center gap-2">
             <Download className="w-3.5 h-3.5 text-spectrum-accent" />
             <span className="text-ui font-semibold text-spectrum-text">Export</span>
+            {isExporting && (
+              <span className="px-1.5 py-0.5 rounded text-micro bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse font-mono">
+                Rendering
+              </span>
+            )}
           </div>
           <button
-            onClick={() => setOpen(false)}
-            disabled={isExporting}
+            onClick={() => (isExporting ? handleMinimize() : setOpen(false))}
             className="pro-btn w-6 h-6"
-            aria-label="Close the export dialog"
+            title={isExporting ? 'Minimize to background' : 'Close'}
+            aria-label={isExporting ? 'Minimize to background' : 'Close the export dialog'}
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -200,6 +227,8 @@ export const ExportModal: React.FC = () => {
             progress={exportProgress}
             statusText={exportStatusText}
             telemetry={telemetry}
+            onCancel={handleCancelExport}
+            onMinimize={handleMinimize}
           />
         ) : (
           <>
@@ -328,7 +357,9 @@ const ExportRunning: React.FC<{
   progress: number;
   statusText: string;
   telemetry: ExportTelemetry | null;
-}> = ({ progress, statusText, telemetry }) => {
+  onCancel: () => void;
+  onMinimize: () => void;
+}> = ({ progress, statusText, telemetry, onCancel, onMinimize }) => {
   const lanes = telemetry?.lanes ?? [];
   const phase: 'render' | 'audio' | 'write' =
     progress >= 96 ? 'write' : progress >= 92 ? 'audio' : 'render';
@@ -403,6 +434,27 @@ const ExportRunning: React.FC<{
         <PhaseChip label="Audio" state={phase === 'audio' ? 'live' : phase === 'write' ? 'done' : 'todo'} />
         <PhaseChip label="Write" state={phase === 'write' ? 'live' : 'todo'} />
         <span className="text-micro text-spectrum-textFaint truncate ml-auto">{statusText}</span>
+      </div>
+
+      <div className="flex items-center justify-between pt-3 border-t border-line">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="pro-btn-filled h-8 px-3 text-ui text-spectrum-textMuted hover:text-red-400 hover:border-red-500/30 transition-colors flex items-center gap-1.5"
+          title="Cancel this export"
+        >
+          <X className="w-3.5 h-3.5" />
+          Cancel export
+        </button>
+        <button
+          type="button"
+          onClick={onMinimize}
+          className="btn-primary h-8 px-3.5 text-ui flex items-center gap-1.5"
+          title="Keep exporting in the background and continue editing"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Continue in background
+        </button>
       </div>
     </div>
   );

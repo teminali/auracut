@@ -51,12 +51,16 @@ interface ProjectState {
     telemetry?: ExportTelemetry | null
   ) => void;
   setLastExportPath: (path: string | null) => void;
+  cancelActiveExport: () => void;
+  setActiveExportCancelHandler: (fn: (() => void) | null) => void;
   toggleCopilot: () => void;
   setCopilotOpen: (open: boolean) => void;
   setMcpModalOpen: (open: boolean) => void;
   setExportModalOpen: (open: boolean) => void;
   loadProjectSettings: (settings: ProjectSettings) => void;
 }
+
+let activeExportCancelFn: (() => void) | null = null;
 
 const touch = (p: ProjectSettings): ProjectSettings => ({ ...p, updatedAt: Date.now() });
 
@@ -100,6 +104,17 @@ export const useProjectStore = create<ProjectState>((set) => ({
       exportTelemetry: telemetry === undefined ? s.exportTelemetry : telemetry,
     })),
   setLastExportPath: (lastExportPath) => set({ lastExportPath }),
+
+  cancelActiveExport: () => {
+    if (activeExportCancelFn) {
+      try { activeExportCancelFn(); } catch { /* ignore */ }
+    }
+    set({ isExporting: false, exportPhase: 'idle', exportStatusText: 'Export cancelled' });
+  },
+
+  setActiveExportCancelHandler: (fn) => {
+    activeExportCancelFn = fn;
+  },
 
   toggleCopilot: () => set((s) => ({ isCopilotOpen: !s.isCopilotOpen })),
   setCopilotOpen: (isCopilotOpen) => set({ isCopilotOpen }),

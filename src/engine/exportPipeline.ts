@@ -16,7 +16,7 @@ import { Track, ProjectSettings, Clip } from '../types/edl';
 import { renderTimelineFrame, undecodableSources } from './compositor';
 import { seekVideosForFrame } from './videoEngine';
 import { interpolateKeyframes } from './keyframeMath';
-import { createFrameEncoder, probeFrameFormat, FrameEncoder } from './frameEncoder';
+import { createFrameEncoder, probeFrameFormat, FrameEncoder, fastYield } from './frameEncoder';
 import { serializeCaptions, CaptionCue } from './captions';
 
 export type ExportResolution = '720p' | '1080p' | '1440p' | '4k';
@@ -33,37 +33,18 @@ export interface ExportConfig {
   durationMs?: number;
   /**
    * Where the render STARTS on the timeline. Defaults to 0.
-   *
-   * `durationMs` alone could only ever shorten a render from the front,
-   * so the timeline's in/out points had nowhere to land: `ExportConfig`
-   * had no field for them, `runHardwareExport` always rendered frame 0
-   * to `durationMs`, and the ExportModal's "range only" checkbox
-   * computed a duration that fed a LABEL and never reached the encoder.
-   * A 1000-2000ms range still wrote all 60 frames from zero.
    */
   startMs?: number;
   /**
    * Which encoder produces the picture.
-   *
-   * `auto` uses WebCodecs when the platform will take the codec — the
-   * canvas goes to the hardware encoder and ffmpeg stream-copies the
-   * result, so the frame is never read back, never compressed to JPEG,
-   * and never encoded twice. `ffmpeg` forces the original path: JPEG
-   * stills over the bridge into libx264/libx265 at `-crf 18`.
-   *
-   * The difference is not only speed. WebCodecs is bitrate-targeted and
-   * ffmpeg's default here is quality-targeted, so `ffmpeg` remains the
-   * honest choice for a master, and it is the only path for ProRes.
    */
   engine?: 'auto' | 'ffmpeg';
   /**
    * How many hidden windows render at once.
-   *
-   * Absent means "ask the machine" — half its cores, capped at four.
-   * `1` keeps the whole render in the editor window, which is the old
-   * behaviour and the one to reach for when something looks wrong.
    */
   workers?: number;
+  /** Optional cancellation signal to immediately abort export. */
+  signal?: AbortSignal;
 }
 
 /** Live numbers for the export UI, alongside the percentage. */
@@ -480,6 +461,8 @@ export interface FrameSequenceSpec {
    * call site. Receives frames finished so far.
    */
   onProgress: (framesDone: number) => void;
+  /** Optional cancellation signal to immediately abort export. */
+  signal?: AbortSignal;
 }
 
 /** ~12 progress updates a second, whatever the render rate. */
@@ -548,7 +531,7 @@ export async function ensureFontsLoaded(tracks: Track[]): Promise<void> {
 export async function renderFrameSequence(spec: FrameSequenceSpec): Promise<void> {
   const {
     tracks, project, width, height, fps, startMs, totalFrames,
-    canvas, ctx, encoder, sendJpeg, timing, onProgress,
+    canvas, ctx, encoder, sendJpeg, timing, onProgress, signal,
   } = spec;
 
   const firstFrame = spec.firstFrame ?? 0;
@@ -556,6 +539,10 @@ export async function renderFrameSequence(spec: FrameSequenceSpec): Promise<void
   let lastReportAt = 0;
 
   for (let frame = 0; frame < totalFrames; frame++) {
+    if (signal?.aborted) {
+      throw new DOMException('Export cancelled by user', 'AbortError');
+    }
+
     /*
       Counted from the start of the RENDER, not of this chunk. See
       `firstFrame` above: the alternative put one frame of a farmed
@@ -573,6 +560,10 @@ export async function renderFrameSequence(spec: FrameSequenceSpec): Promise<void
     let t0 = performance.now();
     await seekVideosForFrame(tracks, timestampMs);
     timing.seekMs += performance.now() - t0;
+
+    if (signal?.aborted) {
+      throw new DOMException('Export cancelled by user', 'AbortError');
+    }
 
     t0 = performance.now();
     renderTimelineFrame(ctx, tracks, project, timestampMs, width, height);
@@ -622,8 +613,8 @@ export async function renderFrameSequence(spec: FrameSequenceSpec): Promise<void
     if (now - lastReportAt >= PROGRESS_INTERVAL_MS || frame === totalFrames - 1) {
       onProgress(frame + 1);
       lastReportAt = now;
-      // Let the UI paint; without this the window locks for the whole render.
-      await new Promise((r) => setTimeout(r, 0));
+      // Fast microtask event-loop yield
+      await fastYield();
     }
   }
 }
@@ -779,8 +770,14 @@ export async function runHardwareExport(
   tracks: Track[],
   project: ProjectSettings,
   config: ExportConfig,
-  onProgress: (progressPct: number, statusText: string, detail?: ExportProgressDetail) => void
+  onProgress: (progressPct: number, statusText: string, detail?: ExportProgressDetail) => void,
+  externalSignal?: AbortSignal
 ): Promise<ExportResult> {
+  const signal = config.signal ?? externalSignal;
+  if (signal?.aborted) {
+    throw new DOMException('Export cancelled by user', 'AbortError');
+  }
+
   const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
   if (!api?.exporter) {
     throw new Error('Export needs the desktop app. A browser cannot write video files.');
@@ -809,6 +806,8 @@ export async function runHardwareExport(
   */
   onProgress(1, 'Decoding video sources…');
   await ensureFontsLoaded(tracks);
+  if (signal?.aborted) throw new DOMException('Export cancelled by user', 'AbortError');
+
   const undecodable = await undecodableSources(tracks);
   if (undecodable.length > 0) {
     throw new Error(
@@ -825,42 +824,6 @@ export async function runHardwareExport(
     encoder is configured against its exact size and the fallback path
     reads the same surface.
   */
-
-  /*
-    Render at the EXPORT resolution, not the project's. The compositor
-    works in project pixels, so scaling here would resample twice; giving
-    it the output size directly keeps one resampling step.
-  */
-  /*
-    ONE canvas, and deliberately NOT `willReadFrequently`.
-
-    That flag was set here with the reasoning "every frame is read back
-    for JPEG encoding, so keep the surface on the CPU" — which sounds
-    right and is backwards. Measured on the starter project, 345 frames
-    at 1080p:
-
-        willReadFrequently: true    encode 13,435ms   total 14,786ms
-        willReadFrequently: false   encode  4,883ms   total  6,233ms
-
-    A CPU-backed canvas pushes compositing through software rasterisation
-    and gives `toBlob` no fast path to take. 2.4x, for removing a flag.
-
-    A ring of canvases with the encodes issued together was tried and
-    removed: at ring sizes 1, 4 and 8 the render took 6277ms, 6210ms and
-    6318ms. `toBlob` serialises inside Chromium however many are in
-    flight, so the ring bought nothing and cost 66MB at 1080p. If frame
-    encoding is ever worth parallelising it needs OffscreenCanvas in
-    workers, or WebCodecs, not more canvases on this thread.
-
-    It is WebCodecs, and `frameEncoder.ts` is it. `toBlob` is no longer
-    on the hot path at all when the platform will take the codec.
-  */
-  /*
-    Built lazily, because a chunked render never draws in THIS window —
-    the workers each have their own — and `canvas.width = 3840` allocates
-    the backing store whether or not anything is ever drawn on it. 33MB
-    held for the length of a 4K render, for a surface nobody touches.
-  */
   let surface: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null = null;
   const editorCanvas = () => {
     if (surface) return surface;
@@ -873,26 +836,11 @@ export async function runHardwareExport(
     return surface;
   };
 
-  /*
-    Build the hardware encoder BEFORE opening the ffmpeg session, because
-    what ffmpeg is told to expect on its stdin depends on whether this
-    succeeded. Asking for `-f h264` and then sending JPEGs produces a
-    file of the right length full of nothing.
-  */
   const encoderOptions = {
     width, height, fps: config.fps, codec: config.codec,
     bitrateMbps: config.bitrateMbps, hardware: config.hardware ?? true,
   };
 
-  /*
-    Decide the format ONCE, in front, before anything is opened.
-
-    ffmpeg is told what to expect on its stdin at the moment the session
-    starts, and every render window then has to produce exactly that. A
-    worker that probed for itself and fell back would send JPEG stills
-    into a pipe reading h264 — a file of the right length containing
-    nothing at all.
-  */
   let engineNote: string | undefined;
   let frameFormat: 'jpeg' | 'h264' | 'hevc' = 'jpeg';
 
@@ -906,16 +854,12 @@ export async function runHardwareExport(
 
   const engine: 'webcodecs' | 'ffmpeg' = frameFormat === 'jpeg' ? 'ffmpeg' : 'webcodecs';
 
-  /*
-    How the work is split. `planFarm` in main owns the arithmetic; asking
-    it rather than repeating it here is what keeps the renderer's idea of
-    "how many chunks" and the farm's from drifting apart.
-  */
   const plan = api.exporter.plan
     ? await api.exporter.plan({ totalFrames, fps: config.fps, workers: config.workers })
     : { workers: 1, chunks: 1, chunked: false, reason: '' };
 
   onProgress(2, plan.chunked ? `Opening ${plan.workers} render windows…` : 'Starting encoder…');
+  if (signal?.aborted) throw new DOMException('Export cancelled by user', 'AbortError');
 
   const started = await api.exporter.start({
     width, height, fps: config.fps, codec: config.codec,
@@ -925,12 +869,12 @@ export async function runHardwareExport(
   if (!started.sessionId) throw new Error(started.error ?? 'Could not start the encoder.');
   const sessionId = started.sessionId;
 
-  /*
-    The encoder in THIS window, built only when this window is the one
-    doing the rendering. In farm mode each worker builds its own and the
-    editor's canvas is never touched — which is also why the UI stays
-    responsive during a chunked render.
-  */
+  // Active abort hook
+  const onAbort = () => {
+    try { void api.exporter?.cancel(sessionId); } catch { /* ignore */ }
+  };
+  signal?.addEventListener('abort', onAbort, { once: true });
+
   let frameEncoder: FrameEncoder | null = null;
   if (!plan.chunked && frameFormat !== 'jpeg') {
     const built = await createFrameEncoder({
@@ -939,26 +883,15 @@ export async function runHardwareExport(
     });
     frameEncoder = built.encoder;
     if (!built.encoder) {
-      /* The probe said yes and the build said no. Rare, and it must not
-         become a silent JPEG render into an h264 pipe. */
+      signal?.removeEventListener('abort', onAbort);
       await api.exporter.cancel(sessionId);
       throw new Error(`The encoder could not start: ${(built as { reason: string }).reason}`);
     }
   }
 
-  /*
-    Where the time actually goes. The handover has listed a performance
-    pass as "currently unmeasured" since the export was built, and the
-    first question about a slow render — is it compositing, encoding, or
-    the bridge? — had no answer. Four counters cost nothing and the
-    result carries them back.
-  */
   const timing = { seekMs: 0, compositeMs: 0, encodeMs: 0, writeMs: 0 };
-
   const renderBeganAt = performance.now();
 
-  /* One reporter for both paths, so the numbers mean the same thing
-     whether one window rendered or four did. */
   const reportFrames = (
     done: number,
     lanes?: { worker: number; chunk: number; frames: number; totalFrames: number }[]
@@ -978,13 +911,9 @@ export async function runHardwareExport(
   };
 
   try {
+    if (signal?.aborted) throw new DOMException('Export cancelled by user', 'AbortError');
+
     if (plan.chunked) {
-      /*
-        The farm. Main opens the windows, hands each a slice, and joins
-        the chunk files in timeline order when they are all in. This
-        window does no compositing at all while it runs, which is why the
-        editor stays usable during a long render.
-      */
       const stopListening = api.exporter.onChunkProgress?.((p) =>
         reportFrames(p.frames, p.lanes)
       );
@@ -994,8 +923,6 @@ export async function runHardwareExport(
           width, height, fps: config.fps, codec: config.codec,
           hardware: config.hardware, bitrateMbps: config.bitrateMbps,
           frameFormat,
-          /* Plain JSON across the bridge — the workers rebuild nothing,
-             they render exactly these clips. */
           project, tracks,
           startMs, totalFrames,
           workers: plan.workers,
@@ -1013,20 +940,20 @@ export async function runHardwareExport(
         sendJpeg: (bytes) => api.exporter!.frame(sessionId, bytes),
         timing,
         onProgress: (done) => reportFrames(done),
+        signal,
       });
     }
 
-    /*
-      Drain the encoder before asking ffmpeg to close the file. Frames
-      are still inside the hardware at this point: closing the pipe first
-      truncates the render by however deep the queue happened to be.
-    */
+    if (signal?.aborted) throw new DOMException('Export cancelled by user', 'AbortError');
+
     if (frameEncoder) {
       onProgress(90, 'Finishing the last frames…', {
         frame: totalFrames, totalFrames, fps: 0, etaMs: 0, engine, phase: 'rendering',
       });
       await frameEncoder.finish();
     }
+
+    if (signal?.aborted) throw new DOMException('Export cancelled by user', 'AbortError');
 
     onProgress(92, 'Mixing audio…', {
       frame: totalFrames, totalFrames, fps: 0, etaMs: null, engine, phase: 'audio',
@@ -1035,12 +962,6 @@ export async function runHardwareExport(
     const result = await api.exporter.finish(sessionId, audioClips);
     if (!result.ok) throw new Error(result.error ?? 'Encoding failed.');
 
-    /*
-      The words, beside the picture. Every render with a transcript on
-      it gets an `.srt` and a `.vtt` named after the video, so what
-      comes out of Kerf can be uploaded somewhere with real captions on
-      it rather than only burned-in ones. Non-fatal: see the function.
-    */
     onProgress(97, 'Writing subtitles…', {
       frame: totalFrames, totalFrames, fps: 0, etaMs: 0, engine, phase: 'audio',
     });
@@ -1052,12 +973,13 @@ export async function runHardwareExport(
       frame: totalFrames, totalFrames, fps: 0, etaMs: 0, engine, phase: 'done',
     });
 
+    signal?.removeEventListener('abort', onAbort);
+
     return {
       outputPath: result.outputPath!,
       frames: result.frames ?? totalFrames,
       hasAudio: Boolean(result.hasAudio),
       audio: result.audio,
-      /* Same fact in one line, for callers that only want to print it. */
       ...(audioSummary(result.audio, result.audioError) ? { audioError: audioSummary(result.audio, result.audioError) } : {}),
       bytes: result.bytes ?? 0,
       elapsedMs: Date.now() - startedAt,
@@ -1082,6 +1004,7 @@ export async function runHardwareExport(
       },
     };
   } catch (err) {
+    signal?.removeEventListener('abort', onAbort);
     frameEncoder?.close();
     await api.exporter.cancel(sessionId);
     throw err;

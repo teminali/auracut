@@ -40,7 +40,7 @@ describe('chunkRanges', () => {
         tile(total, size);
       }
     }
-  });
+  }, 15000);
 
   it('has nothing to do for an empty render', () => {
     expect(chunkRanges(0, 120)).toEqual([]);

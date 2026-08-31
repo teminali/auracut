@@ -38,6 +38,9 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
   const isCopilotOpen = useProjectStore((s) => s.isCopilotOpen);
   const setCopilotOpen = useProjectStore((s) => s.setCopilotOpen);
   const setExportModalOpen = useProjectStore((s) => s.setExportModalOpen);
+  const isExporting = useProjectStore((s) => s.isExporting);
+  const exportProgress = useProjectStore((s) => s.exportProgress);
+  const cancelActiveExport = useProjectStore((s) => s.cancelActiveExport);
   const setMcpModalOpen = useProjectStore((s) => s.setMcpModalOpen);
   const setAspectRatio = useProjectStore((s) => s.setAspectRatio);
   const setProjectName = useProjectStore((s) => s.setProjectName);
@@ -279,10 +282,34 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           Copilot
         </button>
 
-        <button onClick={() => setExportModalOpen(true)} className="btn-primary h-[26px] px-3 gap-1.5 text-ui-sm">
-          <Download className="w-[15px] h-[15px]" />
-          Export
-        </button>
+        {isExporting ? (
+          <div className="flex items-center gap-1 bg-spectrum-surfaceSoft border border-blue-500/40 rounded-md pl-2.5 pr-1 h-[26px] shadow-sm">
+            <button
+              onClick={() => setExportModalOpen(true)}
+              className="flex items-center gap-1.5 text-ui-xs font-mono font-medium text-blue-400 hover:text-blue-300 transition-colors"
+              title="Click to expand export progress"
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              <span>Exporting {Math.round(exportProgress)}%</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                cancelActiveExport();
+              }}
+              className="w-5 h-5 rounded flex items-center justify-center text-spectrum-textMuted hover:text-red-400 hover:bg-red-500/15 transition-colors ml-0.5"
+              title="Cancel export"
+              aria-label="Cancel export"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setExportModalOpen(true)} className="btn-primary h-[26px] px-3 gap-1.5 text-ui-sm">
+            <Download className="w-[15px] h-[15px]" />
+            Export
+          </button>
+        )}
       </div>
     </header>
   );
