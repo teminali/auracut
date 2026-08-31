@@ -86,7 +86,7 @@ asarUnpack:
 publish:
   provider: github
   owner: teminali
-  repo: frontiercut-releases
+  repo: frontierCut
   # Must stay `release`. This value is copied into app-update.yml, where
   # electron-updater uses it to decide which releases to consider — and
   # `draft` would make the shipped app look for drafts, which needs an
