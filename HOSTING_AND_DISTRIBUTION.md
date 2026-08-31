@@ -38,10 +38,10 @@ Releases are compiled natively on target operating systems using GitHub Actions 
 ### Matrix Strategy:
 | Platform | Target Architecture | Package Format | Runner OS | Output File |
 | :--- | :--- | :--- | :--- | :--- |
-| **macOS (Apple Silicon)** | `arm64` (M1/M2/M3/M4) | DMG / ZIP | `macos-14` | `Kerf-1.12.6-macOS-arm64.dmg` |
-| **macOS (Intel)** | `x64` (Intel Core) | DMG / ZIP | `macos-13` / `macos-14` | `Kerf-1.12.6-macOS-x64.dmg` |
-| **Windows** | `x64` (64-bit) | NSIS Setup EXE | `windows-latest` | `Kerf-Setup-1.12.6-Windows-x64.exe` |
-| **Linux** | `x64` (`x86_64`) | AppImage | `ubuntu-latest` | `Kerf-1.12.6-Linux-x86_64.AppImage` |
+| **macOS (Apple Silicon)** | `arm64` (M1/M2/M3/M4) | DMG / ZIP | `macos-14` | `FrontierCut-1.12.6-macOS-arm64.dmg` |
+| **macOS (Intel)** | `x64` (Intel Core) | DMG / ZIP | `macos-13` / `macos-14` | `FrontierCut-1.12.6-macOS-x64.dmg` |
+| **Windows** | `x64` (64-bit) | NSIS Setup EXE | `windows-latest` | `FrontierCut-Setup-1.12.6-Windows-x64.exe` |
+| **Linux** | `x64` (`x86_64`) | AppImage | `ubuntu-latest` | `FrontierCut-1.12.6-Linux-x86_64.AppImage` |
 
 ### Package Configuration (`electron-builder.yml`):
 - **Native Modules**: `uiohook-napi` is N-API ABI-stable and prebuilt across platforms; `npmRebuild: false` avoids unnecessary C++ compilation steps on CI runners.

@@ -73,10 +73,10 @@ jobs:
 
           | You have | Download |
           |---|---|
-          | A Mac with Apple silicon (M1 and later) | \`Kerf-${version}-macOS-arm64.dmg\` |
-          | A Mac with an Intel processor | \`Kerf-${version}-macOS-x64.dmg\` |
-          | Windows | \`Kerf-Setup-${version}-Windows-x64.exe\` |
-          | Linux | \`Kerf-${version}-Linux-x86_64.AppImage\` |
+          | A Mac with Apple silicon (M1 and later) | \`FrontierCut-${version}-macOS-arm64.dmg\` |
+          | A Mac with an Intel processor | \`FrontierCut-${version}-macOS-x64.dmg\` |
+          | Windows | \`FrontierCut-Setup-${version}-Windows-x64.exe\` |
+          | Linux | \`FrontierCut-${version}-Linux-x86_64.AppImage\` |
 
           Not sure which Mac you have: Apple menu -> About This Mac.
           The \`.zip\` files are what the in-app updater downloads; you

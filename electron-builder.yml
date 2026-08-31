@@ -8,9 +8,9 @@
 # repo or the app will never see a new version.
 # ═══════════════════════════════════════════════════════════════════
 
-appId: com.kerf.editor
-productName: Kerf
-copyright: Copyright © 2026 Kerf
+appId: com.frontiercut.editor
+productName: FrontierCut
+copyright: Copyright © 2026 FrontierCut
 
 directories:
   output: release
@@ -193,7 +193,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: Kerf
+  shortcutName: FrontierCut
 
 # ── Linux (AppImage rides along for free) ──────────────────────────
 linux:
