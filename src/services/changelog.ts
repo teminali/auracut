@@ -36,6 +36,20 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.10',
+    date: '2026-08-31',
+    headline: 'Camera Mirroring, Bounds & A/V Sync',
+    detail:
+      'Native camera horizontal mirroring toggle, strict screen boundary preservation during auto-zoom across compact and high-DPI displays, and frame-accurate audio/video synchronization on Windows.',
+    items: [
+      'Webcam Horizontal Mirroring: added natural selfie-mode mirroring by default in live preview, recording pipeline, and stream composer with user toggle switch.',
+      'Screen Edge Clamping: clamped auto-zoom translations strictly to footage boundaries, preventing left/right window text and tabs from clipping off-screen on laptops (1366x768 and above).',
+      'Windows Voiceover Sync: added PTS normalization (-avoid_negative_ts make_zero, -af aresample=async=1) and CFR encoding to eliminate startup audio drift.',
+      'AudioContext Auto-Resume: ensured Web Audio initialization unblocks immediately without input delay.',
+      'Clean Dynamic Inset: optimized default cinematic inset and corner radius for crisp framing across all screen sizes.',
+    ],
+  },
+  {
     version: '1.12.9',
     date: '2026-08-31',
     headline: 'Package Manager & 1-Click Auto Install',
