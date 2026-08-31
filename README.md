@@ -1,8 +1,8 @@
-# Kerf
+# FrontierCut
 
-An open-source, non-linear video editor for the desktop, with the Model
-Context Protocol wired through the whole application. Every edit the UI can
-make, an agent can make too, through the same store.
+A professional, non-linear desktop AI video editor with native Model
+Context Protocol (MCP) integration. Every edit the UI can make, an agent
+can make too, through the same store.
 
 macOS · Windows · Linux · Electron + React + TypeScript
 

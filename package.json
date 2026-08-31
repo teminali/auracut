@@ -1,17 +1,14 @@
 {
   "name": "frontiercut",
   "version": "1.12.9",
-  "description": "FrontierCut \u2014 open-source AI video editor with full Model Context Protocol (MCP) integration",
+  "private": true,
+  "description": "FrontierCut — professional AI video editor with full Model Context Protocol (MCP) integration",
   "author": {
     "name": "teminali",
     "email": "muhasibudigital@gmail.com"
   },
-  "license": "MIT",
-  "homepage": "https://github.com/teminali/frontierCut",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/teminali/frontierCut.git"
-  },
+  "license": "Proprietary",
+  "homepage": "https://teminali.github.io/frontiercut-releases/",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
