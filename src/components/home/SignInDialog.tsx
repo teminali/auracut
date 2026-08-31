@@ -33,7 +33,7 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
   const close = () => { cancel(); onClose(); };
 
   return (
-    <div className="scrim !z-[100]" onClick={close}>
+    <div className="scrim" onClick={close}>
       <div
         className="modal-shell w-[420px] max-w-[92vw]"
         onClick={(event) => event.stopPropagation()}

@@ -1242,7 +1242,7 @@
   .kp-root {
     position: fixed;
     inset: 0;
-    z-index: 70;
+    z-index: 900;
     display: flex;
     overflow: hidden;
     background: #000;
@@ -2066,10 +2066,14 @@
      OVERLAYS
      ───────────────────────────────────────────────────────────── */
   .scrim {
-    @apply fixed inset-0 z-50 flex items-center justify-center animate-fade-in;
+    @apply fixed inset-0 z-[1000] flex items-center justify-center animate-fade-in;
     background: rgba(5, 6, 7, 0.72);
     backdrop-filter: blur(7px);
     -webkit-backdrop-filter: blur(7px);
+  }
+
+  .z-modal {
+    z-index: 1000;
   }
 
   .modal-shell {

@@ -192,7 +192,7 @@ export const CommandPalette: React.FC = () => {
   };
 
   return (
-    <div className="scrim items-start pt-[120px]" onClick={close}>
+    <div className="scrim !z-[1100] items-start pt-[120px]" onClick={close}>
       <div
         onClick={(e) => e.stopPropagation()}
         className="modal-shell w-[580px] max-w-[92vw] flex flex-col max-h-[62vh] rounded-[2px] bg-[#232323] border border-[#3f3f3f] shadow-[0_16px_40px_rgba(0,0,0,0.6)] overflow-hidden"

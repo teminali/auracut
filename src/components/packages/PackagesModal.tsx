@@ -56,7 +56,7 @@ export const PackagesModal: React.FC = () => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="packages-modal-title"
-      className="fixed inset-0 z-modal flex items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in p-4"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 backdrop-blur-md animate-fade-in p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget && !isAnyDownloading) {
           setModalOpen(false);

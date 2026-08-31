@@ -41,7 +41,7 @@ export const ContextMenu: React.FC = () => {
     <div
       ref={ref}
       style={{ left: position.x, top: position.y }}
-      className="fixed z-[80] min-w-[196px] py-1 rounded-squircle-sm bg-spectrum-panel border border-line-strong shadow-pop animate-scale-in"
+      className="fixed z-[1200] min-w-[196px] py-1 rounded-squircle-sm bg-spectrum-panel border border-line-strong shadow-pop animate-scale-in"
     >
       {menu.items.map((item) => {
         const Icon = item.icon;

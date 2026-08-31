@@ -59,7 +59,7 @@ export const BuySheet: React.FC<Props> = ({ skill, onClose }) => {
   const busy = purchase.phase === 'creating' || purchase.phase === 'awaiting_pin';
 
   return (
-    <div className="scrim !z-[100]" onClick={() => { if (!busy) close(); }}>
+    <div className="scrim" onClick={() => { if (!busy) close(); }}>
       <div
         className="modal-shell w-[420px] max-w-[92vw]"
         onClick={(event) => event.stopPropagation()}

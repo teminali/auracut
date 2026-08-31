@@ -320,7 +320,7 @@ const ActiveTransformGizmo: React.FC<TransformGizmoProps> = ({ viewport, stageRe
       {/* ── Selection frame ── */}
       <div
         className="absolute pointer-events-none"
-        style={{ ...frameStyle, zIndex: 40 }}
+        style={{ ...frameStyle, zIndex: 20 }}
       >
         {/* Body: grabbing anywhere inside moves the layer */}
         <div
@@ -396,7 +396,7 @@ const ActiveTransformGizmo: React.FC<TransformGizmoProps> = ({ viewport, stageRe
       {/* ── Live readout ── */}
       {dragMode && (
         <div
-          className="absolute pointer-events-none z-50 px-2 py-1 rounded-squircle-xs bg-spectrum-panel/95 backdrop-blur border border-line-strong shadow-pop font-mono text-micro text-spectrum-text whitespace-nowrap"
+          className="absolute pointer-events-none z-20 px-2 py-1 rounded-squircle-xs bg-spectrum-panel/95 backdrop-blur border border-line-strong shadow-pop font-mono text-micro text-spectrum-text whitespace-nowrap"
           style={{
             left: Math.min(...corners.map((c) => c.x)) ,
             top: Math.max(...corners.map((c) => c.y)) + 10,
@@ -442,7 +442,7 @@ const SmartGuideLayer: React.FC<SmartGuideLayerProps> = ({ guides, spacing, view
   if (guides.length === 0 && spacing.length === 0) return null;
 
   return (
-    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 45 }}>
+    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 15 }}>
       {guides.map((guide, i) => {
         const color = GUIDE_COLORS[guide.kind] ?? '#ff2d78';
         // Extend a little past the aligned objects so the line reads clearly.
