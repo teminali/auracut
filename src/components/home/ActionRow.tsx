@@ -296,14 +296,20 @@ const StartTile: React.FC<{
   hint: string;
   note?: string;
 }> = ({ hook, onClick, icon: Icon, title, detail, hint, note }) => (
-  <button data-home={hook} onClick={onClick} className="hp-tile group" title={note}>
-    <span className="flex items-start justify-between gap-2">
-      <span className="hp-tile-mark">
+  <button
+    data-home={hook}
+    onClick={onClick}
+    className="hp-tile group relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow-sm text-left"
+    title={note}
+  >
+    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+    <span className="flex items-start justify-between gap-2 relative z-10">
+      <span className="hp-tile-mark transition-transform duration-200 group-hover:scale-105">
         <Icon className="w-[18px] h-[18px]" weight="duotone" />
       </span>
-      <span className="hp-tile-hint">{hint}</span>
+      <span className="hp-tile-hint font-mono text-ui-xs tracking-wider px-1.5 py-0.5 rounded-[4px] bg-white/[0.06] text-spectrum-textDim group-hover:text-spectrum-text group-hover:bg-white/[0.1] transition-colors">{hint}</span>
     </span>
-    <span className="block text-ui-lg font-semibold text-spectrum-text mt-3">{title}</span>
-    <span className="block text-ui-sm text-spectrum-textDim mt-0.5">{detail}</span>
+    <span className="block text-ui-lg font-semibold text-spectrum-text mt-3 tracking-tight group-hover:text-white transition-colors relative z-10">{title}</span>
+    <span className="block text-ui-sm text-spectrum-textDim mt-0.5 group-hover:text-spectrum-textMuted transition-colors relative z-10">{detail}</span>
   </button>
 );

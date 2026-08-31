@@ -239,16 +239,24 @@ const Carousel: React.FC<{ slides: Slide[] }> = ({ slides }) => {
       )}
 
       {/* Keyed on the slide, so React remounts it and the entrance runs. */}
-      <div key={active.id} className="promo-slide">
-        <span className="promo-icon">
+      <div key={active.id} className="promo-slide flex items-center gap-3 min-w-0 flex-1">
+        <span className="promo-icon flex-shrink-0 w-8 h-8 rounded-squircle-xs bg-[#f0a173]/15 border border-[#f0a173]/30 flex items-center justify-center text-[#f0a173]">
           <Icon className="w-4 h-4" />
         </span>
-        <div className="min-w-0 flex-1">
-          <span className="promo-kicker">{active.kicker}</span>
-          <p className="promo-title">{active.title}</p>
-          <p className="promo-body">{active.body}</p>
+        <div className="min-w-0 flex-1 flex flex-col justify-center gap-0.5">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <span className="promo-kicker uppercase font-mono text-ui-xs tracking-wider px-1.5 py-0.5 rounded-[4px] bg-[#f0a173]/20 text-[#f0a173] font-bold flex-shrink-0">
+              {active.kicker}
+            </span>
+            <p className="promo-title text-ui font-semibold text-white truncate min-w-0">
+              {active.title}
+            </p>
+          </div>
+          <p className="promo-body text-ui-xs text-spectrum-textMuted truncate min-w-0">
+            {active.body}
+          </p>
           {active.progressPercent !== undefined && (
-            <div className="w-full max-w-[280px] h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden border border-[#3a3a3a] mt-2">
+            <div className="w-full max-w-[280px] h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden border border-[#3a3a3a] mt-1">
               <div
                 className="h-full bg-[#f0a173] transition-all duration-150"
                 style={{ width: `${active.progressPercent}%` }}
@@ -256,7 +264,11 @@ const Carousel: React.FC<{ slides: Slide[] }> = ({ slides }) => {
             </div>
           )}
         </div>
-        <button onClick={active.onAction} disabled={active.busy} className="promo-action">
+        <button
+          onClick={active.onAction}
+          disabled={active.busy}
+          className="promo-action h-7 px-3 rounded-squircle-xs bg-[#f08b46] hover:bg-[#ff9654] text-white font-medium text-ui-xs flex items-center gap-1.5 flex-shrink-0 shadow-sm transition-all hover:scale-[1.02]"
+        >
           {ActionIcon && <ActionIcon className="w-3.5 h-3.5" />}
           {active.actionLabel}
         </button>

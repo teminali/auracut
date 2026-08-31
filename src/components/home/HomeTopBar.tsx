@@ -89,7 +89,8 @@ export const HomeTopBar: React.FC<Props> = ({
       <div className="flex-1" />
 
       <div className="flex items-center gap-2">
-        <div className="hp-command-cluster">
+        {/* Spotlight Command Bar */}
+        <div className="hp-command-cluster h-[28px]">
           <button
             onClick={onOpenAgentPicker}
             className="hp-command-agent"
@@ -103,82 +104,81 @@ export const HomeTopBar: React.FC<Props> = ({
           </button>
           <button
             onClick={openCommandPalette}
-            className="hp-command-main"
+            className="hp-command-main px-2.5 gap-2"
             title="Command palette (⌘K)"
             aria-label="Command palette"
           >
             <Command className="w-3.5 h-3.5" />
-            <span className="hidden lg:inline">Commands</span>
-            <span className="kbd hidden lg:inline-flex">⌘K</span>
+            <span className="text-ui-xs text-spectrum-textMuted hidden xl:inline">Search & Commands</span>
+            <span className="kbd hidden sm:inline-flex">⌘K</span>
           </button>
         </div>
 
-        <button
-          onClick={() => setShortcutsOpen(true)}
-          className="pro-btn w-[28px] h-[28px]"
-          title="Keyboard shortcuts (?)"
-          aria-label="Keyboard shortcuts"
-        >
-          <Keyboard className="w-4 h-4" />
-        </button>
+        {/* Compact Utility Capsule: MCP + Packages + Shortcuts */}
+        <div className="h-[28px] rounded-squircle-xs bg-white/[0.03] border border-white/[0.08] p-0.5 flex items-center gap-0.5">
+          <button
+            onClick={() => setMcpModalOpen(true)}
+            className="h-[22px] px-2 rounded-[3px] hover:bg-white/[0.06] text-ui-xs font-mono tracking-wide text-spectrum-textMuted hover:text-spectrum-text flex items-center gap-1.5 transition-colors"
+            title="MCP server & tools"
+            aria-label="MCP server and tools"
+          >
+            <StatusDot state="on" className="animate-pulse-ring" />
+            MCP
+          </button>
 
-        <button
-          onClick={() => setMcpModalOpen(true)}
-          className="pro-btn-filled h-[28px] px-2.5 gap-1.5 text-ui-sm font-mono tracking-wide"
-          title="MCP server & tools"
-          aria-label="MCP server and tools"
-        >
-          <StatusDot state="on" className="animate-pulse-ring" />
-          MCP
-        </button>
+          <span className="w-px h-3 bg-white/[0.08]" />
 
-        <button
-          onClick={() => usePackagesStore.getState().setModalOpen(true)}
-          className="pro-btn-filled h-[28px] px-2.5 gap-1.5 text-ui-sm font-medium"
-          title={coreReady ? 'Packages & Models Manager' : 'Recommended packages available for your machine. Click to install.'}
-          aria-label="Packages & Models Manager"
-        >
-          <Package className="w-4 h-4 text-spectrum-accent" /> Packages
-          {!coreReady && (
-            <span className="w-1.5 h-1.5 rounded-full bg-[#f0a173] animate-pulse" />
-          )}
-        </button>
+          <button
+            onClick={() => usePackagesStore.getState().setModalOpen(true)}
+            className="h-[22px] px-2 rounded-[3px] hover:bg-white/[0.06] text-ui-xs font-medium text-spectrum-textMuted hover:text-spectrum-text flex items-center gap-1.5 transition-colors relative"
+            title={coreReady ? 'Packages & Models Manager' : 'Recommended packages available. Click to install.'}
+            aria-label="Packages & Models Manager"
+          >
+            <Package className="w-3.5 h-3.5 text-spectrum-accent" />
+            <span>Packages</span>
+            {!coreReady && (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#f0a173] animate-pulse" />
+            )}
+          </button>
 
+          <span className="w-px h-3 bg-white/[0.08]" />
+
+          <button
+            onClick={() => setShortcutsOpen(true)}
+            className="w-[22px] h-[22px] rounded-[3px] hover:bg-white/[0.06] text-spectrum-textDim hover:text-spectrum-text flex items-center justify-center transition-colors"
+            title="Keyboard shortcuts (?)"
+            aria-label="Keyboard shortcuts"
+          >
+            <Keyboard className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* AI Copilot Action */}
         <button
           onClick={onOpenCopilot}
-          className="pro-btn-filled h-[28px] px-2.5 gap-1.5 text-ui-sm font-medium"
+          className="h-[28px] px-2.5 rounded-squircle-xs bg-gradient-to-r from-[#f08b46]/20 to-[#f0a173]/10 hover:from-[#f08b46]/30 hover:to-[#f0a173]/20 border border-[#f08b46]/35 text-ui-xs font-semibold text-[#f0a173] hover:text-white flex items-center gap-1.5 transition-all"
           title="AI Copilot (⌘J)"
           aria-label="AI Copilot"
         >
-          <Sparkle className="w-4 h-4" /> Copilot
+          <Sparkle className="w-3.5 h-3.5" weight="fill" />
+          <span>Copilot</span>
+          <span className="kbd hidden sm:inline-flex !h-3.5 !px-1 !bg-white/10 !border-white/10 text-white/70">⌘J</span>
         </button>
 
-        {/* ── The account ──────────────────────────────────────────
-            Three states again, and for the same reason: `unknown`
-            means the 0600 session file has not been read yet, and a
-            "Sign in" button shown during that window is the app
-            claiming to know something it has not looked up. It shows
-            nothing until it knows. */}
+        {/* ── Account ── */}
         {authStatus === 'signed_out' && (
           <button
             onClick={() => setSignInOpen(true)}
-            className="pro-btn-filled h-[28px] px-3 ml-0.5 text-ui-sm"
+            className="h-[28px] px-2.5 rounded-squircle-xs bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-ui-xs font-medium text-spectrum-text transition-colors"
           >
             Sign in
           </button>
         )}
 
-        {/*
-          Identity, and only identity. The sign-out button that used to
-          sit beside this is in the Account view now: a destructive
-          action one pixel from an avatar, with no confirmation and no
-          context, was the worst place in the app for it. The avatar is
-          the way there.
-        */}
         {authStatus === 'signed_in' && (
           <button
             onClick={onOpenAccount}
-            className="ml-1 rounded-full"
+            className="ml-0.5 rounded-full ring-1 ring-white/15 hover:ring-spectrum-accent transition-all"
             title={`Account · ${user?.email ?? 'signed in'}`}
             aria-label="Open your account"
           >
@@ -186,12 +186,11 @@ export const HomeTopBar: React.FC<Props> = ({
               <img
                 src={user.avatarUrl}
                 alt=""
-                className="w-7 h-7 rounded-full object-cover ring-1 ring-inset ring-white/12"
+                className="w-6 h-6 rounded-full object-cover"
               />
             ) : (
               <span
-                className="w-7 h-7 rounded-full flex items-center justify-center text-ui-sm font-semibold
-                           text-white/90 ring-1 ring-inset ring-white/12"
+                className="w-6 h-6 rounded-full flex items-center justify-center text-ui-xs font-semibold text-white/90"
                 style={{ background: 'linear-gradient(148deg,#f0a78e,#d0714d)' }}
               >
                 {(user?.name ?? user?.email ?? '?').slice(0, 1).toUpperCase()}
