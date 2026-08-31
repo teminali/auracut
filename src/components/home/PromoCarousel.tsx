@@ -239,26 +239,23 @@ const Carousel: React.FC<{ slides: Slide[] }> = ({ slides }) => {
       )}
 
       {/* Keyed on the slide, so React remounts it and the entrance runs. */}
-      <div key={active.id} className="promo-slide flex items-center gap-3 min-w-0 flex-1">
-        <span className="promo-icon flex-shrink-0 w-8 h-8 rounded-squircle-xs bg-[#f0a173]/15 border border-[#f0a173]/30 flex items-center justify-center text-[#f0a173]">
-          <Icon className="w-4 h-4" />
+      <div key={active.id} className="promo-slide flex items-center gap-3.5 min-w-0 flex-1">
+        <span className="promo-icon flex-shrink-0 w-9 h-9 rounded-lg bg-white flex items-center justify-center text-[#091a30] shadow-md">
+          <Icon className="w-5 h-5" weight="bold" />
         </span>
-        <div className="min-w-0 flex-1 flex flex-col justify-center gap-0.5">
-          <div className="flex items-center gap-2 min-w-0 flex-wrap">
-            <span className="promo-kicker uppercase font-mono text-ui-xs tracking-wider px-1.5 py-0.5 rounded-[4px] bg-[#f0a173]/20 text-[#f0a173] font-bold flex-shrink-0">
-              {active.kicker}
-            </span>
+        <div className="min-w-0 flex-1 flex flex-col justify-center">
+          <div className="flex items-center gap-2 min-w-0">
             <p className="promo-title text-ui font-semibold text-white truncate min-w-0">
               {active.title}
             </p>
           </div>
-          <p className="promo-body text-ui-xs text-spectrum-textMuted truncate min-w-0">
+          <p className="promo-body text-ui-xs text-[#93c5fd] truncate min-w-0 mt-0.5">
             {active.body}
           </p>
           {active.progressPercent !== undefined && (
-            <div className="w-full max-w-[280px] h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden border border-[#3a3a3a] mt-1">
+            <div className="w-full max-w-[280px] h-1.5 rounded-full bg-[#0a1829] overflow-hidden border border-[#1d4ed8]/40 mt-1.5">
               <div
-                className="h-full bg-[#f0a173] transition-all duration-150"
+                className="h-full bg-[#38bdf8] transition-all duration-150"
                 style={{ width: `${active.progressPercent}%` }}
               />
             </div>
@@ -267,10 +264,11 @@ const Carousel: React.FC<{ slides: Slide[] }> = ({ slides }) => {
         <button
           onClick={active.onAction}
           disabled={active.busy}
-          className="promo-action h-7 px-3 rounded-squircle-xs bg-[#f08b46] hover:bg-[#ff9654] text-white font-medium text-ui-xs flex items-center gap-1.5 flex-shrink-0 shadow-sm transition-all hover:scale-[1.02]"
+          className="promo-action text-white hover:text-[#38bdf8] text-ui-sm font-medium flex items-center gap-1.5 transition-all group flex-shrink-0 cursor-pointer bg-transparent border-0 shadow-none !h-auto !px-2"
         >
-          {ActionIcon && <ActionIcon className="w-3.5 h-3.5" />}
-          {active.actionLabel}
+          {ActionIcon && <ActionIcon className="w-3.5 h-3.5 text-[#93c5fd] group-hover:text-[#38bdf8]" />}
+          <span>{active.actionLabel}</span>
+          <ChevronRight className="w-4 h-4 text-white group-hover:text-[#38bdf8] transition-transform group-hover:translate-x-1" />
         </button>
       </div>
 

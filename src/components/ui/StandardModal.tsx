@@ -84,19 +84,23 @@ export const StandardModal: React.FC<StandardModalProps> = ({
     <div className="scrim" onClick={onClose} role="presentation">
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`modal-shell ${maxWidth} max-w-[94vw] ${maxHeight} flex flex-col rounded-[3px] bg-[#232323] border border-[#3f3f3f] shadow-[0_18px_44px_rgba(0,0,0,0.6)] overflow-hidden`}
+        className={`modal-shell ${maxWidth} max-w-[94vw] ${maxHeight} flex flex-col rounded-2xl bg-[#11141a] border border-[#232936] shadow-[0_24px_64px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] overflow-hidden`}
         role="dialog"
         aria-modal="true"
         aria-label={title}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#141414] bg-[#232323] sticky top-0 z-10 flex-shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {Icon && <Icon className="w-4 h-4 flex-shrink-0" style={{ color: iconColor }} />}
-            <span className="text-ui-xl font-bold text-[#e8e8e8] truncate">{title}</span>
+        <div className="flex items-center justify-between px-6 py-4.5 border-b border-white/[0.06] bg-[#11141a] sticky top-0 z-10 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            {Icon && (
+              <span className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+                <Icon className="w-4 h-4" style={{ color: iconColor }} />
+              </span>
+            )}
+            <span className="text-[17px] font-semibold text-white tracking-tight truncate">{title}</span>
             {badge && (
               <span
-                className={`font-mono text-micro font-semibold px-1.5 py-0.5 rounded-[2px] border flex items-center gap-1.5 flex-shrink-0 ${badgeColorClass}`}
+                className={`font-mono text-ui-xs font-semibold px-2 py-0.5 rounded-[4px] border flex items-center gap-1.5 flex-shrink-0 ${badgeColorClass}`}
               >
                 {badge.pulse && (
                   <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${badgeDotClass}`} />
@@ -109,10 +113,10 @@ export const StandardModal: React.FC<StandardModalProps> = ({
             {headerActions}
             <button
               onClick={onClose}
-              className="w-[26px] h-[24px] rounded-[2px] grid place-items-center text-[#989898] hover:text-[#e8e8e8] hover:bg-[#3a3a3a] transition-colors"
+              className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors"
               aria-label="Close dialog"
             >
-              <X className="w-[15px] h-[15px]" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -120,19 +124,19 @@ export const StandardModal: React.FC<StandardModalProps> = ({
         {/* Stats Row */}
         {stats && stats.length > 0 && (
           <div
-            className={`grid grid-cols-${Math.min(stats.length, 4)} gap-2.5 p-3.5 border-b border-[#141414] bg-[#1a1a1a] flex-shrink-0`}
+            className={`grid grid-cols-${Math.min(stats.length, 4)} gap-3 p-4 border-b border-[#232936] bg-[#0b0e13] flex-shrink-0`}
             style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}
           >
             {stats.map((stat, i) => (
-              <div key={i} className="p-2.5 rounded-[2px] bg-[#262626] border border-[#141414] text-center min-w-0">
-                <span className="block text-display font-bold text-[#e8e8e8] font-mono tabular-nums truncate">
+              <div key={i} className="p-3 rounded-lg bg-[#11141a] border border-[#232936] text-center min-w-0">
+                <span className="block text-ui-xl font-bold text-white font-mono tabular-nums truncate">
                   {stat.value}
                 </span>
-                <span className="block font-mono text-micro font-bold text-[#8a8a8a] uppercase tracking-wider mt-0.5 truncate">
+                <span className="block font-mono text-ui-xs font-bold text-[#848d9a] uppercase tracking-wider mt-0.5 truncate">
                   {stat.label}
                 </span>
                 {stat.hint && (
-                  <span className="block text-micro text-[#6b6b6b] truncate mt-0.5 font-mono">
+                  <span className="block text-ui-xs text-[#64748b] truncate mt-0.5 font-mono">
                     {stat.hint}
                   </span>
                 )}
@@ -143,23 +147,23 @@ export const StandardModal: React.FC<StandardModalProps> = ({
 
         {/* Tab Row */}
         {tabs && tabs.length > 0 && (
-          <div className="flex items-center gap-4 px-4 border-b border-[#141414] bg-[#232323] flex-shrink-0">
+          <div className="flex items-center gap-6 px-6 border-b border-[#232936] bg-[#11141a] flex-shrink-0">
             {tabs.map((tab) => {
               const active = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   onClick={() => onTabChange?.(tab.id)}
-                  className={`relative h-9 px-1 text-ui-lg font-semibold transition-colors flex items-center gap-1.5 ${
-                    active ? 'text-[#e8e8e8]' : 'text-[#8a8a8a] hover:text-[#c4c4c4]'
+                  className={`relative h-10 px-1 text-ui font-semibold transition-colors flex items-center gap-1.5 ${
+                    active ? 'text-white' : 'text-[#848d9a] hover:text-white'
                   }`}
                 >
                   {tab.label}
                   {tab.count !== undefined && (
-                    <span className="font-mono text-micro opacity-70">({tab.count})</span>
+                    <span className="font-mono text-ui-xs opacity-70">({tab.count})</span>
                   )}
                   {active && (
-                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#c9622f] rounded-t" />
+                    <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#f97316] rounded-t" />
                   )}
                 </button>
               );
@@ -169,25 +173,25 @@ export const StandardModal: React.FC<StandardModalProps> = ({
 
         {/* Search Row */}
         {onSearchChange && (
-          <div className="p-3 border-b border-[#141414] bg-[#1f1f1f] flex-shrink-0">
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-[3px] bg-[#141414] border border-[#3a3a3a]">
-              <Search className="w-3.5 h-3.5 text-[#6b6b6b] flex-shrink-0" />
+          <div className="p-4 border-b border-[#232936] bg-[#0b0e13] flex-shrink-0">
+            <div className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-[#11141a] border border-[#232936] focus-within:border-[#f97316] transition-colors">
+              <Search className="w-4 h-4 text-[#64748b] flex-shrink-0" />
               <input
                 value={searchQuery ?? ''}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={searchPlaceholder}
-                className="flex-1 bg-transparent outline-none text-ui-sm text-[#e8e8e8] placeholder:text-[#6b6b6b]"
+                className="flex-1 bg-transparent outline-none text-ui-sm text-white placeholder:text-[#64748b]"
               />
             </div>
           </div>
         )}
 
         {/* Main Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="px-4 h-9 border-t border-[#141414] bg-[#1a1a1a] flex items-center gap-3 font-mono text-ui-xs text-[#6b6b6b] flex-shrink-0">
+          <div className="px-6 py-3 border-t border-[#232936] bg-[#0b0e13] flex items-center gap-3 font-mono text-ui-xs text-[#848d9a] flex-shrink-0">
             {footer}
           </div>
         )}

@@ -83,28 +83,28 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
       }
     >
       {tab === 'tools' ? (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {grouped.map(([category, list]) => (
             <div key={category}>
-              <h3 className="font-mono text-micro font-bold tracking-[0.13em] text-[#989898] uppercase mb-2">
+              <h3 className="font-mono text-ui-xs font-bold tracking-[0.13em] text-[#848d9a] uppercase mb-3">
                 {category}
               </h3>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {list.map((tool) => (
                   <div
                     key={tool.name}
-                    className="p-3 rounded-[2px] bg-[#262626] border border-[#141414] hover:border-[#3a3a3a] transition-colors"
+                    className="p-4 rounded-xl bg-[#0e1218] border border-[#232936] hover:border-[#384252] transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <code className="text-ui-sm font-mono font-semibold text-[#f0a173]">{tool.name}</code>
+                      <code className="text-ui-sm font-mono font-semibold text-[#f97316]">{tool.name}</code>
                       <button
                         onClick={() => navigator.clipboard?.writeText(tool.name)}
-                        className="px-2 py-0.5 rounded-[2px] bg-[#1a1a1a] border border-[#3a3a3a] font-mono text-micro text-[#8a8a8a] hover:text-[#e8e8e8] hover:bg-[#2d2d2d] transition-colors"
+                        className="px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.08] font-mono text-ui-xs text-[#94a3b8] hover:text-white hover:bg-white/[0.08] transition-colors"
                       >
                         copy
                       </button>
                     </div>
-                    <p className="text-ui text-[#a6a6a6] mt-1.5 leading-relaxed">{tool.description}</p>
+                    <p className="text-ui text-[#94a3b8] mt-1.5 leading-relaxed">{tool.description}</p>
                   </div>
                 ))}
               </div>
@@ -112,19 +112,19 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
           ))}
         </div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           {logs.length === 0 ? (
-            <p className="text-ui-sm text-[#8a8a8a] text-center py-8">No tool calls logged yet.</p>
+            <p className="text-ui text-[#64748b] text-center py-8">No tool calls logged yet.</p>
           ) : (
             logs.map((log) => {
               const isErr = log.status === 'error';
               const errMsg = isErr ? (log.result?.error || log.result?.message || 'Tool call failed') : null;
               return (
-                <div key={log.id} className="p-3 rounded-[2px] bg-[#262626] border border-[#141414] font-mono text-ui-xs">
+                <div key={log.id} className="p-3.5 rounded-xl bg-[#0e1218] border border-[#232936] font-mono text-ui-xs">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-[#e8e8e8]">{log.toolName}</span>
+                    <span className="font-bold text-white">{log.toolName}</span>
                     <span
-                      className={`text-micro px-1.5 py-0.5 rounded-[2px] ${
+                      className={`text-ui-xs px-2 py-0.5 rounded-[4px] font-semibold ${
                         isErr ? 'bg-[#c98a7a]/15 text-[#c98a7a]' : 'bg-[#9fc9ab]/15 text-[#9fc9ab]'
                       }`}
                     >
@@ -132,7 +132,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
                       {log.durationMs !== undefined ? ` · ${log.durationMs}ms` : ''}
                     </span>
                   </div>
-                  {errMsg && <p className="text-[#c98a7a] mt-1 text-micro">{errMsg}</p>}
+                  {errMsg && <p className="text-[#c98a7a] mt-1.5 text-ui-xs">{errMsg}</p>}
                 </div>
               );
             })

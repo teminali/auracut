@@ -69,30 +69,32 @@ export const ShortcutsOverlay: React.FC = () => {
     <div className="scrim" onClick={() => setOpen(false)}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="modal-shell w-[720px] max-w-[92vw] max-h-[82vh] flex flex-col"
+        className="modal-shell w-[720px] max-w-[92vw] max-h-[82vh] flex flex-col rounded-2xl bg-[#11141a] border border-[#232936] shadow-[0_24px_64px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Keyboard shortcuts"
       >
-        <div className="panel-header">
-          <div className="flex items-center gap-2">
-            <Keyboard className="w-3.5 h-3.5 text-spectrum-accent" />
-            <span className="text-ui font-semibold text-spectrum-text">Keyboard shortcuts</span>
+        <div className="panel-header px-6 py-4.5 border-b border-white/[0.06] bg-[#11141a] flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+              <Keyboard className="w-4 h-4 text-[#f97316]" />
+            </span>
+            <span className="text-[17px] font-semibold text-white tracking-tight">Keyboard shortcuts</span>
           </div>
-          <button onClick={() => setOpen(false)} className="pro-btn w-6 h-6" aria-label="Close the shortcuts sheet">
-            <X className="w-3.5 h-3.5" />
+          <button onClick={() => setOpen(false)} className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors" aria-label="Close the shortcuts sheet">
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-x-6 gap-y-4">
+        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-2 gap-x-8 gap-y-6">
           {GROUPS.map((group) => (
             <div key={group.title}>
-              <h3 className="section-label mb-2">{group.title}</h3>
-              <div className="space-y-1">
+              <h3 className="text-ui-xs font-bold text-white uppercase tracking-wider mb-3">{group.title}</h3>
+              <div className="space-y-2">
                 {group.items.map(([keys, label]) => (
-                  <div key={keys} className="flex items-center justify-between gap-3 py-0.5">
-                    <span className="text-ui text-spectrum-textMuted truncate">{label}</span>
-                    <span className="kbd !h-5 !px-1.5 !text-micro flex-shrink-0 whitespace-nowrap">{keys}</span>
+                  <div key={keys} className="flex items-center justify-between gap-3 py-1 border-b border-white/[0.03]">
+                    <span className="text-ui-sm text-[#94a3b8] truncate">{label}</span>
+                    <span className="font-mono text-ui-xs px-2 py-0.5 rounded-[4px] bg-[#0b0e13] border border-[#232936] text-[#e2e8f0] flex-shrink-0 whitespace-nowrap">{keys}</span>
                   </div>
                 ))}
               </div>

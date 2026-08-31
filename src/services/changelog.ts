@@ -36,6 +36,18 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.14',
+    date: '2026-09-01',
+    headline: 'Groq Console UI Design & Modal System',
+    detail:
+      'Refined design system featuring exact Groq console aesthetics across action cards, announcement carousel banners, glowing orange action buttons, and frosted dark dialog modals.',
+    items: [
+      'Groq Console Action Cards: Start Something grid redesigned with vibrant individual border glows (Cyan, Amber, Blue, Slate), top-left line icons, keyboard shortcut tags, and animated chevrons.',
+      'Groq Announcement Banner: Replica of Google Workspace Connectors announcement banner styling with deep sapphire gradient backdrop, icon squircle, and right-aligned link chevron.',
+      'Groq Dialog Modal System: Completely overhauled all modals and dialogs (New Project, Sign In, Packages, Shortcuts, Export, MCP, and Agent Picker) with 16px rounded corners, deep slate surfaces, and glowing orange action buttons.',
+    ],
+  },
+  {
     version: '1.12.13',
     date: '2026-08-31',
     headline: 'Speech Model Prompts & Live Update Bars',

@@ -219,28 +219,30 @@ export const ExportModal: React.FC = () => {
     <div className="scrim" onClick={() => (isExporting ? handleMinimize() : setOpen(false))}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`modal-shell max-w-[92vw] ${isExporting || done ? 'w-[520px]' : 'w-[460px]'}`}
+        className={`modal-shell max-w-[92vw] rounded-2xl bg-[#11141a] border border-[#232936] shadow-[0_24px_64px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] overflow-hidden ${isExporting || done ? 'w-[520px]' : 'w-[480px]'}`}
         role="dialog"
         aria-modal="true"
         aria-label="Export"
       >
-        <div className="panel-header">
-          <div className="flex items-center gap-2">
-            <Download className="w-3.5 h-3.5 text-spectrum-accent" />
-            <span className="text-ui font-semibold text-spectrum-text">Export</span>
+        <div className="panel-header px-6 py-4.5 border-b border-white/[0.06] bg-[#11141a] flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+              <Download className="w-4 h-4 text-[#f97316]" />
+            </span>
+            <span className="text-[17px] font-semibold text-white tracking-tight">Export</span>
             {isExporting && (
-              <span className="px-1.5 py-0.5 rounded text-micro bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse font-mono">
+              <span className="px-2 py-0.5 rounded-[4px] text-ui-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse font-mono">
                 Rendering
               </span>
             )}
           </div>
           <button
             onClick={() => (isExporting ? handleMinimize() : setOpen(false))}
-            className="pro-btn w-6 h-6"
+            className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors"
             title={isExporting ? 'Minimize to background' : 'Close'}
             aria-label={isExporting ? 'Minimize to background' : 'Close the export dialog'}
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -397,12 +399,12 @@ export const ExportModal: React.FC = () => {
               </Section>
             </div>
 
-            <div className="p-3 border-t border-line flex items-center justify-end gap-2">
-              <button onClick={() => setOpen(false)} className="pro-btn-filled h-8 px-3 text-ui">
+            <div className="p-4 px-6 border-t border-[#232936] bg-[#0b0e13] flex items-center justify-end gap-3">
+              <button onClick={() => setOpen(false)} className="pro-btn-filled h-9 px-4 rounded-lg text-ui font-medium bg-[#0e1218] border border-[#232936] hover:border-[#384252] text-white">
                 Cancel
               </button>
-              <button onClick={start} className="btn-primary h-8 px-4 gap-1.5 text-ui">
-                <Download className="w-3.5 h-3.5" />
+              <button onClick={start} className="btn-primary h-9 px-5 rounded-lg gap-2 text-ui font-medium">
+                <Download className="w-4 h-4" />
                 Start export
               </button>
             </div>

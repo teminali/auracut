@@ -179,34 +179,34 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
     <div className="scrim" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="modal-shell w-[580px] max-w-[92vw] max-h-[88vh] flex flex-col"
+        className="modal-shell w-[600px] max-w-[92vw] max-h-[88vh] flex flex-col rounded-2xl bg-[#11141a] border border-[#232936] shadow-[0_24px_64px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Copilot agent"
       >
-        <div className="flex items-center justify-between px-4 py-3.5 border-b border-[#141414] bg-[#232323] sticky top-0 z-10 flex-shrink-0">
-          <span className="text-ui-xl font-bold text-[#e8e8e8]">Copilot agent</span>
+        <div className="flex items-center justify-between px-6 py-4.5 border-b border-white/[0.06] bg-[#11141a] sticky top-0 z-10 flex-shrink-0">
+          <span className="text-[17px] font-semibold text-white tracking-tight">Copilot agent</span>
           <button
             onClick={onClose}
-            className="w-[26px] h-[24px] rounded-[2px] grid place-items-center text-[#989898] hover:text-[#e8e8e8] hover:bg-[#3a3a3a] transition-colors"
+            className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors"
             aria-label="Close the agent picker"
           >
-            <X className="w-[15px] h-[15px]" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-4 space-y-3.5 overflow-y-auto min-h-0 flex-1">
-          <p className="text-ui-sm text-[#a6a6a6] leading-relaxed">
+        <div className="p-6 space-y-4 overflow-y-auto min-h-0 flex-1">
+          <p className="text-ui text-[#94a3b8] leading-relaxed">
             Whichever you pick gets FrontierCut&apos;s 58 editing tools over MCP, plus its own file, shell and web access.
           </p>
 
           {loading && (
             <div className="flex items-center gap-2 py-6 justify-center text-ui text-[#8a8a8a]">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Looking for installed agents…
+              <Loader2 className="w-4 h-4 animate-spin text-[#f97316]" /> Looking for installed agents…
             </div>
           )}
 
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-3">
             {backends.map((backend) => {
               const isSelected = backend.id === selected;
               const working = busy === backend.id;
@@ -232,17 +232,17 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                   onClick={() => {
                     if (backend.ready) void choose(backend);
                   }}
-                  className={`p-3.5 rounded-[2px] transition-colors ${
+                  className={`p-4 rounded-xl transition-all ${
                     backend.ready ? 'cursor-pointer' : 'cursor-default'
                   } ${
                     isSelected
-                      ? 'bg-[#2b2520] border border-[#c9622f]'
-                      : 'bg-[#262626] border border-[#141414] hover:border-[#3a3a3a]'
+                      ? 'bg-[#1c1410] border border-[#f97316]/75 shadow-[0_0_16px_rgba(249,115,22,0.15)]'
+                      : 'bg-[#0e1218] hover:bg-[#121720] border border-[#232936] hover:border-[#384252]'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-ui-lg font-bold text-[#e8e8e8]">{backend.label}</span>
-                    <span className="text-ui text-[#8a8a8a]">{backend.vendor}</span>
+                    <span className="text-ui-lg font-bold text-white">{backend.label}</span>
+                    <span className="text-ui text-[#848d9a]">{backend.vendor}</span>
 
                     {RANK_BADGES[backend.id] && (
                       <span 

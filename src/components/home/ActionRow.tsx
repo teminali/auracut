@@ -50,7 +50,7 @@ import { useAgentChatStore } from '../../store/agentChatStore';
 import { buildActivity, resolutionLabel } from './homeActivity';
 import { projectArtwork } from './projectArtwork';
 import { formatDuration } from '../../utils/time';
-import { Plus, Sparkle, Film, Video, FolderOpen, RotateCcw, X, Play, Download } from '../ui/icons';
+import { Plus, Sparkle, Film, Video, FolderOpen, RotateCcw, X, Play, Download, ChevronRight } from '../ui/icons';
 
 interface Props {
   onNewProject: () => void;
@@ -242,7 +242,6 @@ export const ActionRow: React.FC<Props> = ({
       {/* ── The four ways in ── */}
       <div className={`${mostRecent ? 'mt-0' : 'mt-5'} rise-in rise-2`}>
         <p className="hp-kicker">Start something</p>
-
         <div className="hp-start-grid mt-3">
           <StartTile
             hook="new-project"
@@ -251,6 +250,7 @@ export const ActionRow: React.FC<Props> = ({
             title="New project"
             detail="Blank timeline"
             hint="⌘N"
+            variant="cyan"
           />
           <StartTile
             onClick={onRecord}
@@ -258,6 +258,7 @@ export const ActionRow: React.FC<Props> = ({
             title="Record screen"
             detail="Capture and cut"
             hint="⇧R"
+            variant="amber"
           />
           <StartTile
             hook="copilot"
@@ -267,6 +268,7 @@ export const ActionRow: React.FC<Props> = ({
             detail="Describe the edit"
             hint="⌘J"
             note={copilotNote}
+            variant="blue"
           />
           <StartTile
             onClick={onOpenFile}
@@ -274,6 +276,7 @@ export const ActionRow: React.FC<Props> = ({
             title="Open a project"
             detail="Browse folder"
             hint="⌘O"
+            variant="slate"
           />
         </div>
       </div>
@@ -281,35 +284,49 @@ export const ActionRow: React.FC<Props> = ({
   );
 };
 
-/* One tile, four times, so the set cannot drift in the details nobody
-   checks. Icon top-left, name, then what pressing it actually does —
-   the reference's anatomy, on Kerf's surfaces. */
+const VARIANT_STYLES = {
+  cyan: 'border-[#0284c7]/50 hover:border-[#0284c7] hover:shadow-[0_0_24px_rgba(2,132,199,0.18)]',
+  amber: 'border-[#f59e0b]/60 hover:border-[#f59e0b] hover:shadow-[0_0_24px_rgba(245,158,11,0.22)]',
+  blue: 'border-[#38bdf8]/50 hover:border-[#38bdf8] hover:shadow-[0_0_24px_rgba(56,189,248,0.18)]',
+  slate: 'border-[#334155]/70 hover:border-[#64748b] hover:shadow-[0_0_24px_rgba(100,116,139,0.18)]',
+};
+
+/* Groq Console styled interactive launch card */
 const StartTile: React.FC<{
   hook?: string;
   onClick: () => void;
   icon: React.ElementType;
   title: string;
   detail: string;
-  /* The binding this tile actually has. Every one of these is
-     registered in `HomeScreen` — the chip exists because the shortcut
-     does, not the other way round. */
   hint: string;
   note?: string;
-}> = ({ hook, onClick, icon: Icon, title, detail, hint, note }) => (
+  variant?: 'cyan' | 'amber' | 'blue' | 'slate';
+}> = ({ hook, onClick, icon: Icon, title, detail, hint, note, variant = 'slate' }) => (
   <button
     data-home={hook}
     onClick={onClick}
-    className="hp-tile group relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow-sm text-left"
+    className={`rounded-[14px] p-5 min-h-[145px] bg-[#0e1218] hover:bg-[#121720] border transition-all duration-200 group text-left relative flex flex-col justify-between ${VARIANT_STYLES[variant]}`}
     title={note}
   >
-    <div className="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-    <span className="flex items-start justify-between gap-2 relative z-10">
-      <span className="hp-tile-mark transition-transform duration-200 group-hover:scale-105">
-        <Icon className="w-[18px] h-[18px]" weight="duotone" />
+    <div className="flex items-start justify-between gap-2 w-full">
+      <span className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-white/90 group-hover:text-white transition-colors">
+        <Icon className="w-5 h-5" />
       </span>
-      <span className="hp-tile-hint font-mono text-ui-xs tracking-wider px-1.5 py-0.5 rounded-[4px] bg-white/[0.06] text-spectrum-textDim group-hover:text-spectrum-text group-hover:bg-white/[0.1] transition-colors">{hint}</span>
-    </span>
-    <span className="block text-ui-lg font-semibold text-spectrum-text mt-3 tracking-tight group-hover:text-white transition-colors relative z-10">{title}</span>
-    <span className="block text-ui-sm text-spectrum-textDim mt-0.5 group-hover:text-spectrum-textMuted transition-colors relative z-10">{detail}</span>
+      <span className="font-mono text-ui-xs tracking-wider px-1.5 py-0.5 rounded-[4px] bg-white/[0.04] border border-white/[0.06] text-[#64748b] group-hover:text-white/70 transition-colors">
+        {hint}
+      </span>
+    </div>
+
+    <div className="flex items-end justify-between gap-2 w-full mt-4">
+      <div className="min-w-0 flex-1">
+        <span className="block text-ui-lg font-semibold text-white tracking-tight group-hover:text-white transition-colors">
+          {title}
+        </span>
+        <span className="block text-ui-xs text-[#94a3b8] mt-1 truncate">
+          {detail}
+        </span>
+      </div>
+      <ChevronRight className="w-4 h-4 text-[#64748b] group-hover:text-white transition-all group-hover:translate-x-1 flex-shrink-0 mb-0.5" />
+    </div>
   </button>
 );
