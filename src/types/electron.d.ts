@@ -226,6 +226,36 @@ export interface KerfElectronAPI {
     }>;
   };
 
+  packages: {
+    status: () => Promise<{
+      ready: boolean;
+      binDir: string;
+      packages: Record<string, {
+        id: string;
+        name: string;
+        category: 'core' | 'ai-stt' | 'ai-agent';
+        installed: boolean;
+        version?: string;
+        path?: string;
+        sizeMb?: number;
+        description: string;
+        requiredFor: string[];
+      }>;
+      os: { platform: string; arch: string };
+    }>;
+    install: (pkgId: string) => Promise<{ ok: boolean; error?: string }>;
+    installAll: () => Promise<{ ok: boolean; errors?: string[] }>;
+    onProgress: (cb: (p: {
+      pkgId: string;
+      name: string;
+      percent: number;
+      transferredBytes: number;
+      totalBytes: number;
+      status: 'downloading' | 'extracting' | 'installing' | 'completed' | 'error';
+      error?: string;
+    }) => void) => () => void;
+  };
+
   stt: {
     status: () => Promise<{
       ffmpeg: string | null;

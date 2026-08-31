@@ -18,8 +18,9 @@ import { formatTimecode } from '../../utils/time';
 import { serializeProject, deserializeProject } from '../../engine/projectIO';
 import { UpdateIndicator } from './UpdateIndicator';
 import { KerfMark } from '../ui/KerfMark';
+import { usePackagesStore } from '../../store/packagesStore';
 import {
-  Sparkle, Download, Undo2, Redo2, Command, Save, FolderOpen, Keyboard, X,
+  Sparkle, Download, Undo2, Redo2, Command, Save, FolderOpen, Keyboard, X, Package,
 } from '../ui/icons';
 import { useRecorderStore } from '../../store/recorderStore';
 import { StatusDot } from '../ui/Primitives';
@@ -42,6 +43,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
   const exportProgress = useProjectStore((s) => s.exportProgress);
   const cancelActiveExport = useProjectStore((s) => s.cancelActiveExport);
   const setMcpModalOpen = useProjectStore((s) => s.setMcpModalOpen);
+  const setPackagesModalOpen = usePackagesStore((s) => s.setModalOpen);
   const setAspectRatio = useProjectStore((s) => s.setAspectRatio);
   const setProjectName = useProjectStore((s) => s.setProjectName);
   const setFps = useProjectStore((s) => s.setFps);
@@ -257,10 +259,20 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           onClick={() => setMcpModalOpen(true)}
           className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs font-mono tracking-wide"
           title="MCP server & tools"
-        
-            aria-label="MCP server & tools">
+          aria-label="MCP server & tools"
+        >
           <StatusDot state="on" className="animate-pulse-ring" />
           MCP
+        </button>
+
+        <button
+          onClick={() => setPackagesModalOpen(true)}
+          className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs"
+          title="Packages & Models Manager"
+          aria-label="Packages & Models Manager"
+        >
+          <Package className="w-3 h-3 text-spectrum-accent" />
+          <span className="hidden xl:inline">Packages</span>
         </button>
 
         <Divider />

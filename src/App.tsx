@@ -25,6 +25,7 @@ import { CopilotDrawer } from './components/copilot/CopilotDrawer';
 import { RecorderStudio } from './components/recorder/RecorderStudio';
 import { PlayerOverlay } from './components/player/PlayerOverlay';
 import { ExportModal } from './components/header/ExportModal';
+import { PackagesModal } from './components/packages/PackagesModal';
 import { CommandPalette } from './components/ui/CommandPalette';
 import { ContextMenu } from './components/ui/ContextMenu';
 import { ShortcutsOverlay } from './components/ui/ShortcutsOverlay';
@@ -295,6 +296,7 @@ export const App: React.FC = () => {
       <RecorderStudio onEnterEditor={() => setShowHome(false)} />
       <PlayerOverlay onOpenTimeline={() => setShowHome(false)} />
       <ExportModal />
+      <PackagesModal />
       {isMcpModalOpen && <McpStatusModal onClose={() => setMcpModalOpen(false)} />}
       <CommandPalette />
       <ShortcutsOverlay />

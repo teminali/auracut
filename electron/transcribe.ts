@@ -16,6 +16,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { ffmpegSource } from './mediaPath';
+import { findBinary } from './packageManager';
 import { execFile, execFileSync, spawn } from 'child_process';
 import { app } from 'electron';
 import path from 'path';
@@ -80,39 +81,6 @@ export interface TranscribeFailure {
    A GUI app launched from Finder gets a minimal PATH without Homebrew
    or a Python framework bin, so bare names will not resolve.          */
 
-function findBinary(name: string, extra: string[] = []): string | null {
-  const candidates = [
-    ...extra,
-    `/opt/homebrew/bin/${name}`,
-    `/usr/local/bin/${name}`,
-    `/usr/bin/${name}`,
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      fs.accessSync(candidate, fs.constants.X_OK);
-      return candidate;
-    } catch {
-      /* keep looking */
-    }
-  }
-
-  try {
-    const shell = process.env.SHELL || '/bin/zsh';
-    const found = execFileSync(shell, ['-lic', `command -v ${name}`], {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    })
-      .trim()
-      .split('\n')
-      .pop();
-    return found && fs.existsSync(found) ? found : null;
-  } catch {
-    return null;
-  }
-}
-
 const PYTHON_FRAMEWORK_BINS = [
   '/Library/Frameworks/Python.framework/Versions/3.12/bin/whisper',
   '/Library/Frameworks/Python.framework/Versions/3.11/bin/whisper',
@@ -121,46 +89,27 @@ const PYTHON_FRAMEWORK_BINS = [
 
 let ffmpegPath: string | null | undefined;
 let whisperPath: string | null | undefined;
+let cliPath: string | null | undefined;
+
+export function clearBinaryCache(): void {
+  ffmpegPath = undefined;
+  whisperPath = undefined;
+  cliPath = undefined;
+}
 
 export function ffmpeg(): string | null {
-  if (ffmpegPath === undefined) ffmpegPath = findBinary('ffmpeg');
-  return ffmpegPath;
+  return findBinary('ffmpeg');
 }
 
 export function whisper(): string | null {
-  if (whisperPath === undefined) whisperPath = findBinary('whisper', PYTHON_FRAMEWORK_BINS);
-  return whisperPath;
+  return findBinary('whisper', PYTHON_FRAMEWORK_BINS);
 }
-
-/* ══ Which Whisper ═══════════════════════════════════════════════════
-
-   There are two, they are not interchangeable, and the difference is
-   two orders of magnitude rather than a preference.
-
-   `whisper`     the reference Python implementation. Runs on the CPU in
-                 FP32 and says so on every launch: `FP16 is not supported
-                 on CPU; using FP32 instead`. Measured on this machine,
-                 92 seconds of narration with `small`: 12 minutes 49.
-                 Models are `.pt` files.
-
-   `whisper-cli` whisper.cpp, which on Apple Silicon runs the same
-                 weights through Metal. Models are `.bin` (GGML) files
-                 and are a separate download.
-
-   whisper.cpp is preferred when it is present AND has a model, and the
-   Python one is the fallback rather than the other way round, because
-   the fallback is the slow path and a slow path should never be the
-   default. Everything downstream sees one shape: `transcribeMedia`
-   returns the same segments either way.                              */
-
-export type WhisperBackend = 'whisper.cpp' | 'python' | null;
-
-let cliPath: string | null | undefined;
 
 export function whisperCli(): string | null {
-  if (cliPath === undefined) cliPath = findBinary('whisper-cli');
-  return cliPath;
+  return findBinary('whisper-cli');
 }
+
+export type WhisperBackend = 'whisper.cpp' | 'python' | null;
 
 /** GGML models on disk, as whisper.cpp names them. */
 export function ggmlModels(): string[] {
@@ -633,7 +582,7 @@ export async function transcribeMedia(
     return {
       ok: false,
       reason: 'no-ffmpeg',
-      message: 'ffmpeg was not found. Install it with `brew install ffmpeg` to enable transcription.',
+      message: 'FFmpeg was not found. Download it with 1-click in the Packages & Models manager.',
     };
   }
 
@@ -662,16 +611,13 @@ export async function transcribeMedia(
         ok: false,
         reason: 'no-model',
         message:
-          'No Whisper model is downloaded. Install whisper.cpp (`brew install whisper-cpp`) and a '
-          + 'GGML model for the fast path, or run `whisper --model small <any audio file>` once '
-          + 'while online for the slow one.',
+          'No Whisper model is downloaded. Download the Base or Small model in the Packages & Models manager to enable transcription.',
       }
       : {
         ok: false,
         reason: 'no-whisper',
         message:
-          'No Whisper was found. `brew install whisper-cpp` gives the Metal-accelerated one, '
-          + 'which is what this is built for; `pip install -U openai-whisper` gives the CPU one.',
+          'Whisper speech recognition engine is not installed. Download speech models in the Packages & Models manager.',
       };
   }
   const model = chosen.model!;
@@ -855,7 +801,7 @@ export async function analyzeAudio(
     return {
       ok: false,
       reason: 'no-ffmpeg',
-      message: 'ffmpeg was not found. Install it with `brew install ffmpeg` to analyse audio.',
+      message: 'FFmpeg was not found. Download it with 1-click in the Packages & Models manager to analyse audio.',
     };
   }
 

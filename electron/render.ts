@@ -176,7 +176,7 @@ function encoderArgs(options: StartExportOptions): string[] {
 
 export function startExport(options: StartExportOptions): { sessionId: string } | { error: string } {
   const ff = ffmpeg();
-  if (!ff) return { error: 'ffmpeg was not found. Install it with `brew install ffmpeg` to export.' };
+  if (!ff) return { error: 'FFmpeg is not installed. Download it automatically with 1-click in the Packages & Models manager or in the Export window.' };
 
   /*
     Accept either an absolute path or a bare filename. Only main knows

@@ -32,9 +32,10 @@ import { useClaudeAgentStore } from '../../store/claudeAgentStore';
 import { useAccountStore } from '../../store/accountStore';
 import { useUiStore } from '../../store/uiStore';
 import { useProjectStore } from '../../store/projectStore';
+import { usePackagesStore } from '../../store/packagesStore';
 import { SignInDialog } from './SignInDialog';
 import { KerfMark } from '../ui/KerfMark';
-import { Keyboard, Command, Sparkle } from '../ui/icons';
+import { Keyboard, Command, Sparkle, Package } from '../ui/icons';
 import { StatusDot } from '../ui/Primitives';
 
 interface Props {
@@ -127,6 +128,15 @@ export const HomeTopBar: React.FC<Props> = ({
         >
           <StatusDot state="on" className="animate-pulse-ring" />
           MCP
+        </button>
+
+        <button
+          onClick={() => usePackagesStore.getState().setModalOpen(true)}
+          className="pro-btn-filled h-[28px] px-2.5 gap-1.5 text-ui-sm font-medium"
+          title="Packages & Models Manager"
+          aria-label="Packages & Models Manager"
+        >
+          <Package className="w-4 h-4 text-spectrum-accent" /> Packages
         </button>
 
         <button

@@ -36,6 +36,20 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.12.9',
+    date: '2026-08-31',
+    headline: 'Cross-Platform Package Manager & 1-Click Auto Install',
+    detail:
+      'In-app standalone package and AI model manager with 1-click automatic downloading of FFmpeg, FFprobe, and Whisper speech models across Windows, macOS, and Linux.',
+    items: [
+      'In-App Packages & Models Manager: survey, download, and manage FFmpeg, FFprobe, and Whisper speech models with 1-click.',
+      'Auto-Download on Export: interactive 1-click installer inside the Export dialog when FFmpeg is missing, resuming export instantly.',
+      'Cross-Platform Binary Isolation: binaries install to internal user directory without requiring brew, chocolatey, or root permissions.',
+      'Native Windows Branding: fixed window titles and system menu bars to display FrontierCut.',
+      'Eliminated platform-specific brew install error messages across export, screen recording, and transcription.',
+    ],
+  },
+  {
     version: '1.12.8',
     date: '2026-08-31',
     headline: 'Background Export, Cancellation & Speed Overhaul',

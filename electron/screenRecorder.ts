@@ -331,8 +331,7 @@ async function toMp4(input: string, tryCopy: boolean): Promise<RemuxResult> {
       ok: false,
       path: input,
       raw: true,
-      error: 'ffmpeg was not found, so the take is still a .webm. It will play, but scrubbing '
-        + 'it will be slow. Install ffmpeg (`brew install ffmpeg`) and re-import the file.',
+      error: 'FFmpeg was not found, so the take is still a .webm. Download FFmpeg in the Packages & Models manager and re-import the file.',
     };
   }
 

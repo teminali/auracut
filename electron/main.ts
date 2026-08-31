@@ -36,10 +36,16 @@ import {
   modelsFor, setModel,
 } from './agentBackends';
 import {
+  initAppBinPath, getPackagesStatus, installPackage, installAllCorePackages, onPackageProgress,
+} from './packageManager';
+import {
   permissionResetStateFile,
   preparePermissionsForBuild,
   resetTccService,
 } from '../src/services/permissionReset';
+
+initAppBinPath();
+app.setName('FrontierCut');
 
 /*
   This file is bundled to CommonJS (`main.cjs`), so `__dirname` is native
@@ -98,6 +104,7 @@ let currentScreen: 'home' | 'editor' = 'home';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
+    title: 'FrontierCut',
     width: 1440,
     height: 900,
     minWidth: 1024,
@@ -278,6 +285,17 @@ function registerAgentIpc() {
   ipcMain.handle('stt:status', () => transcriberStatus());
   /* Abandon a transcription in flight. A long take must not be a trap. */
   ipcMain.handle('stt:cancel', () => cancelTranscription());
+
+  /* ══ Cross-Platform Package & Model Manager ═══════════════════════ */
+  ipcMain.handle('packages:status', () => getPackagesStatus());
+  ipcMain.handle('packages:install', (_e, p: { pkgId: string }) => installPackage(p.pkgId));
+  ipcMain.handle('packages:installAll', () => installAllCorePackages());
+
+  onPackageProgress((progress) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('packages:progress', progress);
+    }
+  });
 
   ipcMain.handle(
     'stt:transcribe',

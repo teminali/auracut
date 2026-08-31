@@ -5,9 +5,10 @@ import { useUiStore } from '../../store/uiStore';
 import { runHardwareExport, ExportResolution, ExportResult } from '../../engine/exportPipeline';
 import { formatDuration } from '../../utils/time';
 import { notifyExportComplete } from '../../utils/soundEffects';
+import { usePackagesStore } from '../../store/packagesStore';
 import { SegmentedControl, ToggleRow, Section } from '../ui/Controls';
 import {
-  X, Download, Check, Film, Zap, Cpu, Layers, FolderOpen, ExternalLink,
+  X, Download, Check, Film, Zap, Cpu, Layers, FolderOpen, ExternalLink, RefreshCw, AlertTriangle, Package,
 } from '../ui/icons';
 
 /* The short edge — the long edge follows the project's aspect ratio. */
@@ -75,6 +76,24 @@ export const ExportModal: React.FC = () => {
   const outPointMs = useTimelineStore((s) => s.outPointMs);
   const pushToast = useUiStore((s) => s.pushToast);
 
+  const packages = usePackagesStore((s) => s.packages);
+  const downloads = usePackagesStore((s) => s.downloads);
+  const installPackage = usePackagesStore((s) => s.installPackage);
+  const checkStatus = usePackagesStore((s) => s.checkStatus);
+  const setPackagesModalOpen = usePackagesStore((s) => s.setModalOpen);
+
+  useEffect(() => {
+    if (isOpen) {
+      void checkStatus();
+    }
+  }, [isOpen, checkStatus]);
+
+  const ffmpegInstalled = packages.ffmpeg?.installed ?? true;
+  const ffmpegDownload = downloads.ffmpeg;
+  const isFfmpegDownloading =
+    ffmpegDownload &&
+    (ffmpegDownload.status === 'downloading' || ffmpegDownload.status === 'extracting');
+
   const [resolution, setResolution] = useState<ExportResolution>('1080p');
   const [codec, setCodec] = useState<'h264' | 'hevc' | 'prores'>('h264');
   const [engine, setEngine] = useState<'auto' | 'ffmpeg'>('auto');
@@ -121,6 +140,15 @@ export const ExportModal: React.FC = () => {
   const fastAvailable = codec !== 'prores';
 
   const start = async () => {
+    if (!ffmpegInstalled) {
+      pushToast({ kind: 'info', title: 'Downloading FFmpeg engine...' });
+      const r = await installPackage('ffmpeg');
+      if (!r.ok) {
+        pushToast({ kind: 'error', title: 'Failed to download FFmpeg', detail: r.error });
+        return;
+      }
+    }
+
     setDone(null);
     setIsExporting(true);
     setExportProgress(0, 'Preparing…', 'preparing', null);
@@ -233,6 +261,47 @@ export const ExportModal: React.FC = () => {
         ) : (
           <>
             <div className="max-h-[54vh] overflow-y-auto">
+              {!ffmpegInstalled && (
+                <div className="m-3 p-3 rounded-input bg-spectrum-accentSoft border border-spectrum-accentLine flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5 text-ui-sm font-semibold text-spectrum-text">
+                        <Package className="w-4 h-4 text-spectrum-accent" />
+                        <span>FFmpeg Video Engine Required</span>
+                      </div>
+                      <p className="text-micro text-spectrum-textMuted">
+                        FrontierCut requires standalone FFmpeg to render and mix videos on Windows, macOS, and Linux.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => void installPackage('ffmpeg')}
+                      disabled={isFfmpegDownloading}
+                      className="px-3 py-1.5 rounded-input text-ui-xs font-medium bg-spectrum-accent hover:opacity-90 text-black transition-all flex items-center gap-1.5 shrink-0 shadow-sm disabled:opacity-50"
+                    >
+                      {isFfmpegDownloading ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>{ffmpegDownload.percent}%</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-3.5 h-3.5" />
+                          <span>1-Click Install</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {isFfmpegDownloading && (
+                    <div className="w-full h-1.5 bg-black/40 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-spectrum-accent transition-all duration-200"
+                        style={{ width: `${Math.max(5, ffmpegDownload.percent)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
               <Section title="Presets" icon={Film}>
                 <div className="grid grid-cols-3 gap-1.5">
                   {PLATFORM_PRESETS.map((preset) => (

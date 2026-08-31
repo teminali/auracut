@@ -111,6 +111,22 @@ export interface ElectronAPI {
     }>;
   };
 
+  /** Cross-platform Package & Model Manager (FFmpeg, Whisper, Speech Models). */
+  packages: {
+    status: () => Promise<any>;
+    install: (pkgId: string) => Promise<{ ok: boolean; error?: string }>;
+    installAll: () => Promise<{ ok: boolean; errors?: string[] }>;
+    onProgress: (cb: (p: {
+      pkgId: string;
+      name: string;
+      percent: number;
+      transferredBytes: number;
+      totalBytes: number;
+      status: string;
+      error?: string;
+    }) => void) => () => void;
+  };
+
   /** On-device speech-to-text (ffmpeg + Whisper, run in main). */
   stt: {
     status: () => Promise<{ ffmpeg: string | null; whisper: string | null; models: string[]; ready: boolean }>;
@@ -516,6 +532,17 @@ const api: ElectronAPI = {
     remove: (id: string) => ipcRenderer.invoke('userSkills:delete', { id }),
     addAsset: (id: string, source: string, as?: string) =>
       ipcRenderer.invoke('userSkills:addAsset', { id, source, as }),
+  },
+
+  packages: {
+    status: () => ipcRenderer.invoke('packages:status'),
+    install: (pkgId: string) => ipcRenderer.invoke('packages:install', { pkgId }),
+    installAll: () => ipcRenderer.invoke('packages:installAll'),
+    onProgress: (cb: (p: any) => void) => {
+      const handler = (_e: unknown, progress: any) => cb(progress);
+      ipcRenderer.on('packages:progress', handler);
+      return () => ipcRenderer.removeListener('packages:progress', handler);
+    },
   },
 
   updater: {
