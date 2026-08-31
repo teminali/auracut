@@ -109,6 +109,7 @@ export interface Take {
   /** Whether zooms will be placed on real input or inferred. */
   input: InputCaptureStatus;
   warnings: string[];
+  transcript?: import('./recordingProject').SpeechCue[];
 }
 
 /* ── Container choice ───────────────────────────────────────────── */
@@ -210,6 +211,24 @@ async function acquireScreen(settings: CaptureSettings): Promise<{
   systemAudio: MediaStreamTrack | null;
   warning?: string;
 }> {
+  const isWeb = typeof window === 'undefined' || !window.electronAPI?.recorder || settings.sourceId?.startsWith('web:');
+  if (isWeb) {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      throw new Error('Screen capture is not supported in this browser.');
+    }
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        frameRate: settings.fps,
+        ...(settings.maxWidth > 0 ? { width: { max: settings.maxWidth } } : {}),
+      },
+      audio: Boolean(settings.systemAudio),
+    });
+    return {
+      video: stream.getVideoTracks()[0],
+      systemAudio: stream.getAudioTracks()[0] ?? null,
+    };
+  }
+
   const mandatory: Record<string, string | number> = {
     chromeMediaSource: 'desktop',
     chromeMediaSourceId: settings.sourceId,
@@ -350,20 +369,9 @@ interface Session {
   fps: 30 | 60;
   recorders: Recorder[];
   tracks: MediaStreamTrack[];
-  /**
-   * The same captures, named, for a SECOND consumer.
-   *
-   * `tracks` is the bag everything opened goes into so it can all be
-   * stopped together, and it cannot say which track is the camera. A
-   * live stream needs to know, because it composites them. Holding the
-   * references costs nothing: the recorders already have them, and a
-   * track can feed any number of consumers at once, which is exactly
-   * what lets a stream exist without the recording being touched.
-   */
   live: {
     screen: MediaStreamTrack | null;
     camera: MediaStreamTrack | null;
-    /** The mixed programme audio the camera recorder is already given. */
     audio: MediaStreamTrack | null;
   };
   audioContext: AudioContext | null;
@@ -372,8 +380,14 @@ interface Session {
   warnings: string[];
   shortcuts: string[];
   watchdog: number | null;
-  /** Set when a recorder produced nothing. Surfaced while the take runs. */
   fault: string | null;
+  isWeb?: boolean;
+  webChunks?: Record<'screen' | 'camera', Blob[]>;
+  cursorSamples?: CursorSample[];
+  inputEvents?: InputEvent[];
+  startedWallTime?: number;
+  onMouseMove?: (e: MouseEvent) => void;
+  onClick?: (e: MouseEvent) => void;
 }
 
 let session: Session | null = null;
@@ -387,16 +401,6 @@ const TIMESLICE_MS = 3000;
 
 /**
  * How long to wait before deciding a recorder is producing nothing.
- *
- * Two timeslices and a little. A MediaRecorder that is working has
- * emitted twice by then; one that never will has emitted nothing, and
- * that difference is worth catching in six seconds rather than in
- * twenty-seven minutes.
- *
- * This exists because of a failure that produced NO error of any kind:
- * `onstart` fired, `onerror` never did, and `ondataavailable` simply
- * never ran. Nothing in the MediaRecorder API reports that state, so it
- * has to be measured.
  */
 const SILENCE_GRACE_MS = 6500;
 
@@ -417,20 +421,14 @@ export async function startCapture(
 ): Promise<StartOutcome> {
   if (session) return { ok: false, error: 'A recording is already running.', warnings: [], shortcuts: [], cursorTracked: false };
 
-  const api = window.electronAPI;
-  if (!api?.recorder) {
-    return {
-      ok: false,
-      error: 'Recording needs the desktop app. This is running in a browser, which cannot capture a screen.',
-      warnings: [], shortcuts: [], cursorTracked: false,
-    };
-  }
+  const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+  const isWeb = !api?.recorder;
 
   const { mime, copyable } = pickMime();
   if (!mime) {
     return {
       ok: false,
-      error: 'This build has no WebM recorder, so nothing can be captured.',
+      error: 'This browser or build has no WebM recorder, so nothing can be captured.',
       warnings: [], shortcuts: [], cursorTracked: false,
     };
   }
@@ -475,18 +473,6 @@ export async function startCapture(
     /* ── 3. The microphone ── */
     let mic: MediaStreamTrack | null = null;
     if (settings.micDeviceId) {
-      /*
-        The remembered device first, the system default second.
-
-        `deviceId: { exact }` fails outright with "Requested device not
-        found" when the id no longer resolves, and ids do stop resolving:
-        they are scoped to the page's origin and are re-minted when
-        permission state changes, so a microphone chosen before the
-        permission prompt is answered can be gone by the time recording
-        starts. Losing the narration of a whole take over a stale
-        identifier is not a trade worth making, so an exact miss falls
-        back to whatever the machine considers its default and says so.
-      */
       const shapes: { constraint: MediaTrackConstraints; note?: string }[] = [
         {
           constraint: {
@@ -529,7 +515,6 @@ export async function startCapture(
       cameraTracks.push(mic);
       if (screen.systemAudio) screenTracks.push(screen.systemAudio);
     } else if (mic && screen.systemAudio) {
-      // No camera to carry the voice, so both sounds share the screen file.
       const mixed = mixAudio([screen.systemAudio, mic]);
       audioContext = mixed.context;
       screenTracks.push(mixed.track);
@@ -539,25 +524,72 @@ export async function startCapture(
       screenTracks.push(screen.systemAudio);
     }
 
-    /* ── 5. Open the files ── */
-    const streams: ('screen' | 'camera')[] = cameraTracks.length > 0 ? ['screen', 'camera'] : ['screen'];
-    const begun = await api.recorder.begin({
-      streams,
-      displayId: settings.sourceKind === 'screen' ? settings.displayId : null,
-      hideWindow: settings.hideWindow,
-    });
-    if (!begun.ok) {
-      bail();
-      return { ok: false, error: begun.error, warnings, shortcuts: [], cursorTracked: false };
-    }
-    if (!begun.cursorTracked) {
-      warnings.push(
-        'A single window was captured, so the pointer cannot be located inside the frame. '
-        + 'Auto zoom is off for this take.'
-      );
-    }
-    if (!begun.barHiddenFromCapture) {
-      warnings.push('On this platform the recording bar cannot be hidden from the capture, so it will appear in the take.');
+    /* ── 5. Open the files or set up Web memory recording ── */
+    let sessionId = `web_take_${Date.now()}`;
+    let dir = 'web_capture';
+    let cursorTracked = true;
+    let inputStatus: InputCaptureStatus = {
+      ok: true,
+      source: 'cursor-only',
+      reason: 'ready',
+      message: 'Browser Display & Pointer Telemetry',
+    };
+    let shortcuts: string[] = [];
+
+    const webChunks: Record<'screen' | 'camera', Blob[]> = { screen: [], camera: [] };
+    const cursorSamples: CursorSample[] = [];
+    const inputEvents: InputEvent[] = [];
+    const startWallTime = performance.now();
+
+    let onMouseMove: ((e: MouseEvent) => void) | undefined;
+    let onClick: ((e: MouseEvent) => void) | undefined;
+
+    if (isWeb) {
+      if (typeof window !== 'undefined') {
+        onMouseMove = (e: MouseEvent) => {
+          cursorSamples.push({
+            tMs: Math.round(performance.now() - startWallTime),
+            x: Math.min(1, Math.max(0, e.clientX / Math.max(1, window.innerWidth))),
+            y: Math.min(1, Math.max(0, e.clientY / Math.max(1, window.innerHeight))),
+          });
+        };
+        onClick = (e: MouseEvent) => {
+          inputEvents.push({
+            tMs: Math.round(performance.now() - startWallTime),
+            kind: 'click',
+            x: Math.min(1, Math.max(0, e.clientX / Math.max(1, window.innerWidth))),
+            y: Math.min(1, Math.max(0, e.clientY / Math.max(1, window.innerHeight))),
+          });
+        };
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('click', onClick);
+      }
+    } else if (api?.recorder) {
+      const streams: ('screen' | 'camera')[] = cameraTracks.length > 0 ? ['screen', 'camera'] : ['screen'];
+      const begun = await api.recorder.begin({
+        streams,
+        displayId: settings.sourceKind === 'screen' ? settings.displayId : null,
+        hideWindow: settings.hideWindow,
+      });
+      if (!begun.ok) {
+        bail();
+        return { ok: false, error: begun.error, warnings, shortcuts: [], cursorTracked: false };
+      }
+      sessionId = begun.sessionId;
+      dir = begun.dir;
+      cursorTracked = begun.cursorTracked;
+      inputStatus = begun.input;
+      shortcuts = begun.shortcuts;
+
+      if (!begun.cursorTracked) {
+        warnings.push(
+          'A single window was captured, so the pointer cannot be located inside the frame. '
+          + 'Auto zoom is off for this take.'
+        );
+      }
+      if (!begun.barHiddenFromCapture) {
+        warnings.push('On this platform the recording bar cannot be hidden from the capture, so it will appear in the take.');
+      }
     }
 
     /* ── 6. The recorders ── */
@@ -589,16 +621,15 @@ export async function startCapture(
       recorder.ondataavailable = (event) => {
         if (!event.data || event.data.size === 0) return;
         entry.chunks += 1;
-        /*
-          Kept as a promise the stop path awaits. Fire and forget loses
-          the tail of the recording: `stop()` emits one last, often
-          large, chunk and `finish` would close the file underneath it.
-        */
-        entry.writes.push(
-          event.data
-            .arrayBuffer()
-            .then((buffer) => api.recorder.chunk(begun.sessionId, name, new Uint8Array(buffer)))
-        );
+        if (isWeb) {
+          webChunks[name].push(event.data);
+        } else if (api?.recorder) {
+          entry.writes.push(
+            event.data
+              .arrayBuffer()
+              .then((buffer) => api.recorder.chunk(sessionId, name, new Uint8Array(buffer)))
+          );
+        }
       };
 
       return entry;
@@ -608,8 +639,8 @@ export async function startCapture(
     if (cameraTracks.length > 0) built.push(make('camera', cameraTracks));
 
     session = {
-      id: begun.sessionId,
-      dir: begun.dir,
+      id: sessionId,
+      dir,
       phase: 'recording',
       copyable,
       fps: settings.fps,
@@ -617,28 +648,23 @@ export async function startCapture(
       tracks: openedTracks,
       live: { screen: screen.video, camera: cameraVideo, audio: mic },
       audioContext,
-      cursorTracked: begun.cursorTracked,
-      input: begun.input,
+      cursorTracked,
+      input: inputStatus,
       warnings,
-      shortcuts: begun.shortcuts,
+      shortcuts,
       watchdog: null,
       fault: null,
+      isWeb,
+      webChunks,
+      cursorSamples,
+      inputEvents,
+      startedWallTime: startWallTime,
+      onMouseMove,
+      onClick,
     };
 
-    /*
-      Started back to back rather than awaited in turn. Whatever gap is
-      left is measured from the two `onstart` timestamps and applied to
-      the camera clip, so it is corrected rather than merely small.
-    */
     for (const entry of built) entry.recorder.start(TIMESLICE_MS);
 
-    /*
-      And then check that it is ACTUALLY recording.
-
-      Nothing else does. A MediaRecorder handed a track that never
-      delivers reports success at every step and produces no bytes, and
-      the only way to know is to look at whether any arrived.
-    */
     const started = session;
     started.watchdog = window.setTimeout(() => {
       if (session !== started) return;
@@ -654,10 +680,10 @@ export async function startCapture(
     return {
       ok: true,
       warnings,
-      shortcuts: begun.shortcuts,
-      cursorTracked: begun.cursorTracked,
-      input: begun.input,
-      dir: begun.dir,
+      shortcuts,
+      cursorTracked,
+      input: inputStatus,
+      dir,
     };
   } catch (err) {
     bail();
@@ -681,7 +707,9 @@ export async function pauseCapture(paused: boolean): Promise<void> {
     else entry.recorder.resume();
   }
   session.phase = paused ? 'paused' : 'recording';
-  await window.electronAPI?.recorder.pause(session.id, paused);
+  if (!session.isWeb) {
+    await window.electronAPI?.recorder.pause(session.id, paused);
+  }
 }
 
 /** Wait for a recorder's `onstop`, which fires AFTER its last chunk. */
@@ -703,11 +731,63 @@ export async function stopCapture(): Promise<{ ok: true; take: Take } | { ok: fa
     if (entry.recorder.state === 'paused') entry.recorder.resume();
   }
   await Promise.all(current.recorders.map(stopped));
-  // Every chunk write, including the final one each `stop()` emitted.
   await Promise.all(current.recorders.flatMap((entry) => entry.writes));
 
   for (const track of current.tracks) track.stop();
   void current.audioContext?.close();
+
+  if (current.isWeb && typeof window !== 'undefined') {
+    if (current.onMouseMove) window.removeEventListener('mousemove', current.onMouseMove);
+    if (current.onClick) window.removeEventListener('click', current.onClick);
+
+    const durationMs = Math.round(performance.now() - (current.startedWallTime ?? performance.now()));
+    const screenBlob = new Blob(current.webChunks?.screen ?? [], { type: 'video/webm' });
+    const screenUrl = URL.createObjectURL(screenBlob);
+    const screenProbed = await probeVideo(screenUrl);
+
+    let cameraTrackObj: TakeTrack | undefined;
+    const cameraBlobs = current.webChunks?.camera ?? [];
+    if (cameraBlobs.length > 0) {
+      const cameraBlob = new Blob(cameraBlobs, { type: 'video/webm' });
+      const cameraUrl = URL.createObjectURL(cameraBlob);
+      const cameraProbed = await probeVideo(cameraUrl);
+      cameraTrackObj = {
+        url: cameraUrl,
+        path: cameraUrl,
+        raw: true,
+        bytes: cameraBlob.size,
+        width: cameraProbed?.width ?? 1280,
+        height: cameraProbed?.height ?? 720,
+        hasAudio: true,
+      };
+    }
+
+    const take: Take = {
+      dir: 'web-take',
+      durationMs: Math.max(100, durationMs),
+      fps: current.fps,
+      screen: {
+        url: screenUrl,
+        path: screenUrl,
+        raw: true,
+        bytes: screenBlob.size,
+        width: screenProbed?.width ?? 1920,
+        height: screenProbed?.height ?? 1080,
+        hasAudio: Boolean(current.recorders.find((r) => r.name === 'screen')?.hasAudio),
+      },
+      cameraOffsetMs: 0,
+      camera: cameraTrackObj,
+      cursor: current.cursorSamples ?? [],
+      events: current.inputEvents ?? [],
+      marks: [],
+      cursorTracked: (current.cursorSamples?.length ?? 0) > 0,
+      input: { ok: true, source: 'cursor-only', reason: 'ready', message: 'Web Browser Capture' },
+      warnings: current.warnings,
+    };
+
+    session = null;
+    return { ok: true, take };
+  }
 
   const result = await window.electronAPI!.recorder.finish(current.id, current.copyable);
   session = null;
@@ -723,6 +803,11 @@ export async function cancelCapture(discard: boolean): Promise<void> {
   current.phase = 'finishing';
   if (current.watchdog !== null) { window.clearTimeout(current.watchdog); current.watchdog = null; }
 
+  if (current.isWeb && typeof window !== 'undefined') {
+    if (current.onMouseMove) window.removeEventListener('mousemove', current.onMouseMove);
+    if (current.onClick) window.removeEventListener('click', current.onClick);
+  }
+
   for (const entry of current.recorders) {
     if (entry.recorder.state !== 'inactive') {
       try { entry.recorder.stop(); } catch { /* already stopping */ }
@@ -732,7 +817,9 @@ export async function cancelCapture(discard: boolean): Promise<void> {
   void current.audioContext?.close();
 
   session = null;
-  await window.electronAPI?.recorder.cancel(current.id, discard);
+  if (!current.isWeb) {
+    await window.electronAPI?.recorder.cancel(current.id, discard);
+  }
 }
 
 /**

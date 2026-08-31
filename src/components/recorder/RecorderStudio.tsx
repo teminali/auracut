@@ -17,13 +17,14 @@
 import React from 'react';
 import { useRecorderStore } from '../../store/recorderStore';
 import { useUiStore } from '../../store/uiStore';
-import { applyTutorialSkill, openTakeRaw, TutorialProgress } from '../../engine/tutorialSkill';
+import { applyTutorialSkill, openTakeRaw, generateTakeCaptions, TutorialProgress } from '../../engine/tutorialSkill';
+import { SpeechCue } from '../../engine/recordingProject';
 import { detectMoments } from '../../engine/cursorZoom';
 import { SourceGrid } from './SourceGrid';
 import { CaptureOptions } from './CaptureOptions';
 import { formatDuration, formatFileSize } from '../../utils/time';
 import {
-  X, Record, Pause, Play, Square, Loader2, AlertTriangle, CheckCircle2,
+  X, Record, Pause, Play, Square, Loader2, AlertTriangle, CheckCircle2, Check,
   FolderOpen, CursorClick, Camera, Monitor, Mic, Trash2, Sparkle, Waves,
 } from '../ui/icons';
 
@@ -396,6 +397,9 @@ const Review: React.FC<{
 }> = ({ onBuild, building, progress }) => {
   const store = useRecorderStore();
   const take = store.take!;
+  const [cues, setCues] = React.useState<SpeechCue[]>(take.transcript ?? []);
+  const [generating, setGenerating] = React.useState(false);
+  const [autoStarted, setAutoStarted] = React.useState(false);
 
   /* The same detector the assembler will use, run once so the review can
      state a number rather than promise one. */
@@ -407,6 +411,35 @@ const Review: React.FC<{
   );
   const moments = detected.moments;
   const clicks = take.events.filter((e) => e.kind === 'click' || e.kind === 'rightclick').length;
+
+  React.useEffect(() => {
+    if (progress?.cues && progress.cues.length > 0) {
+      setCues(progress.cues);
+    }
+  }, [progress?.cues]);
+
+  const runGenerateCaptions = React.useCallback(async () => {
+    if (generating || cues.length > 0) return;
+    setGenerating(true);
+    try {
+      const res = await generateTakeCaptions(take, store.tutorialOptions());
+      if (res.cues.length > 0) {
+        setCues(res.cues);
+        take.transcript = res.cues;
+      }
+    } catch {
+      /* non-fatal preview generation */
+    } finally {
+      setGenerating(false);
+    }
+  }, [generating, cues.length, take, store]);
+
+  React.useEffect(() => {
+    if (!autoStarted && (take.camera?.hasAudio || take.screen?.hasAudio) && cues.length === 0) {
+      setAutoStarted(true);
+      void runGenerateCaptions();
+    }
+  }, [autoStarted, take, cues.length, runGenerateCaptions]);
 
   return (
     <>
@@ -448,16 +481,13 @@ const Review: React.FC<{
               label="Size"
               value={formatFileSize((take.screen?.bytes ?? 0) + (take.camera?.bytes ?? 0))}
             />
+            {cues.length > 0 && (
+              <Fact label="Captions" value={`${cues.length} lines ready`} />
+            )}
           </div>
         </div>
 
-        <div className="w-[288px] flex-shrink-0 border-l border-line overflow-y-auto p-3 space-y-3">
-          {/*
-            A take with no screen file is a FAILED take, and it used to
-            say "Take saved" under a green tick with the reason three
-            boxes further down. The heading is the one thing anybody
-            reads; it has to be the thing that is true.
-          */}
+        <div className="w-[320px] flex-shrink-0 border-l border-line overflow-y-auto p-3 space-y-3 flex flex-col">
           <div className="flex items-center gap-2">
             {take.screen ? (
               <CheckCircle2 className="w-4 h-4 text-spectrum-green flex-shrink-0" weight="fill" />
@@ -475,6 +505,60 @@ const Review: React.FC<{
               {take.camera ? ' The camera file is on disk and can be imported by hand.' : ''}
               {' '}Record again, and if it happens twice the reasons below are the place to look.
             </p>
+          )}
+
+          {/* ── Generated Captions Preview in Review Flow ── */}
+          {(take.camera?.hasAudio || take.screen?.hasAudio || cues.length > 0) && (
+            <div className="rounded-squircle-xs bg-white/[0.02] border border-line p-2.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-micro font-semibold text-spectrum-accent uppercase tracking-wider">
+                  <Sparkle className="w-3 h-3 text-spectrum-accent" weight="fill" />
+                  Generated Captions {cues.length > 0 ? `(${cues.length})` : ''}
+                </span>
+                {generating ? (
+                  <span className="flex items-center gap-1 text-micro text-spectrum-textDim">
+                    <Loader2 className="w-3 h-3 animate-spin text-spectrum-accent" />
+                    Transcribing...
+                  </span>
+                ) : cues.length > 0 ? (
+                  <span className="flex items-center gap-1 text-micro text-spectrum-green font-medium">
+                    <Check className="w-3 h-3 text-spectrum-green" />
+                    Polished & Clean
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => void runGenerateCaptions()}
+                    className="text-micro text-spectrum-accent hover:underline"
+                  >
+                    Generate preview
+                  </button>
+                )}
+              </div>
+
+              {cues.length > 0 ? (
+                <div className="max-h-[140px] overflow-y-auto space-y-1.5 pr-1">
+                  {cues.map((cue, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-baseline gap-2 text-ui-xs leading-snug bg-black/40 p-1.5 rounded border border-white/[0.04]"
+                    >
+                      <span className="font-mono text-micro text-spectrum-textDim tabular flex-shrink-0">
+                        {formatDuration(cue.startMs)}
+                      </span>
+                      <span className="text-spectrum-text font-medium">{cue.text}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : generating ? (
+                <div className="py-3 text-center text-ui-xs text-spectrum-textDim animate-pulse">
+                  Listening to voice narration and formatting subtitles...
+                </div>
+              ) : (
+                <div className="text-micro text-spectrum-textDim leading-relaxed">
+                  Captions are automatically transcribed and cleaned when you apply the Tutorial skill.
+                </div>
+              )}
+            </div>
           )}
 
           {take.screen && (
@@ -499,7 +583,14 @@ const Review: React.FC<{
               <Bullet icon={Camera} text="Give the camera the whole frame while you are talking, not doing" />
             )}
             {take.camera?.hasAudio && (
-              <Bullet icon={Mic} text="Transcribe the narration, caption it in Inter Bold, split it onto its own track" />
+              <Bullet
+                icon={Mic}
+                text={
+                  cues.length > 0
+                    ? `Apply ${cues.length} generated kinetic captions in Inter Bold`
+                    : 'Transcribe the narration, caption it in Inter Bold, split it onto its own track'
+                }
+              />
             )}
             {clicks > 0 && <Bullet icon={Waves} text="Put a tick under every click and air under every zoom" />}
           </ul>
@@ -530,7 +621,7 @@ const Review: React.FC<{
           <button
             onClick={() => void window.electronAPI?.recorder.reveal(take.screen?.path ?? take.dir)}
             className="flex items-center gap-1.5 text-micro text-spectrum-textDim hover:text-spectrum-text
-                       transition-colors"
+                       transition-colors mt-auto pt-2"
           >
             <FolderOpen className="w-3.5 h-3.5" />
             Show the files
@@ -539,11 +630,6 @@ const Review: React.FC<{
       </div>
 
       <div className="flex-shrink-0 border-t border-line px-3 py-2.5 flex items-center gap-2">
-        {/* "Record again", not "Discard": the files stay where they were
-            written. Deleting a take somebody just spent ten minutes
-            making, because they pressed the button next to the one they
-            wanted, is not a thing this should be able to do. The take is
-            one line above, under Show the files. */}
         <button
           onClick={() => void store.discard()}
           disabled={building}
@@ -562,21 +648,21 @@ const Review: React.FC<{
                 style={{ width: `${progress.percent}%` }}
               />
             </span>
-            <span className="text-micro text-spectrum-textDim min-w-0 leading-snug">
-              {progress.note}
-            </span>
+            <div className="min-w-0 flex flex-col">
+              <span className="text-micro text-spectrum-textDim min-w-0 leading-snug truncate">
+                {progress.note}
+              </span>
+              {progress.currentCue && (
+                <span className="text-micro text-spectrum-accent font-medium truncate max-w-[320px]">
+                  "{progress.currentCue}"
+                </span>
+              )}
+            </div>
 
-            {/*
-              The way out. Transcription is the one step that can run for
-              longer than the take, and it is OPTIONAL — the edit does not
-              need it, only the captions and the sentence boundaries the
-              camera cuts to. Without this, choosing the skill on a
-              twenty-minute recording is a decision nobody can undo.
-            */}
             {progress.phase === 'transcribing' && (
               <button
                 onClick={() => void window.electronAPI?.stt.cancel()}
-                className="pro-btn-filled h-6 px-2 text-ui-xs flex-shrink-0"
+                className="pro-btn-filled h-6 px-2 text-ui-xs flex-shrink-0 ml-auto"
                 title="Build the edit now, without captions"
               >
                 Skip captions

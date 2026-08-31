@@ -286,8 +286,27 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
   },
 
   refreshSources: async () => {
-    const api = window.electronAPI;
-    if (!api?.recorder) return;
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (!api?.recorder) {
+      const webSource: RecorderSource = {
+        id: 'web:screen',
+        name: 'Browser Display / Window / Tab',
+        kind: 'screen',
+        displayId: null,
+        width: 1920,
+        height: 1080,
+        scaleFactor: 1,
+        primary: true,
+        thumbnail: null,
+        icon: null,
+      };
+      set({
+        sources: [webSource],
+        sourcesLoading: false,
+        selectedSourceId: 'web:screen',
+      });
+      return;
+    }
     set({ sourcesLoading: true });
     const result = await api.recorder.sources(480);
     const sources = result.sources ?? [];
@@ -327,12 +346,46 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
   },
 
   refreshPermissions: async () => {
-    const permissions = await window.electronAPI?.recorder.permissions();
-    if (permissions) set({ permissions });
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (api?.recorder) {
+      const permissions = await api.recorder.permissions();
+      if (permissions) set({ permissions });
+    } else {
+      set({
+        permissions: {
+          platform: 'web',
+          screen: 'granted',
+          camera: 'granted',
+          microphone: 'granted',
+          barHiddenFromCapture: true,
+          input: {
+            ok: true,
+            source: 'cursor-only',
+            reason: 'ready',
+            message: 'Web Browser Capture',
+          },
+        },
+      });
+    }
   },
 
   requestPermission: async (kind) => {
-    await window.electronAPI?.recorder.requestPermission(kind);
+    const api = typeof window !== 'undefined' ? window.electronAPI : undefined;
+    if (api?.recorder) {
+      await api.recorder.requestPermission(kind);
+    } else if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
+      try {
+        if (kind === 'camera') {
+          const s = await navigator.mediaDevices.getUserMedia({ video: true });
+          s.getTracks().forEach((t) => t.stop());
+        } else if (kind === 'microphone') {
+          const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+          s.getTracks().forEach((t) => t.stop());
+        }
+      } catch {
+        /* dismissed prompt */
+      }
+    }
     await get().refreshPermissions();
     // Labels only appear once access has been granted at least once.
     await get().refreshDevices();

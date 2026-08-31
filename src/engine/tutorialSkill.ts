@@ -138,6 +138,9 @@ export interface TutorialProgress {
   /** 0..100 across the whole run, not within a phase. */
   percent: number;
   note: string;
+  /** Generated and cleaned captions available in real-time */
+  cues?: SpeechCue[];
+  currentCue?: string;
 }
 
 export interface TutorialOptions extends Partial<AssembleOptions> {
@@ -292,6 +295,62 @@ async function transcribe(
   }
 }
 
+/**
+ * Generate, audit, and clean the captions for a take before project assembly.
+ * Allows the recording studio to preview the exact transcript in real time.
+ */
+export async function generateTakeCaptions(
+  take: Take,
+  options: Partial<TutorialOptions> = {},
+  onProgress?: (progress: TutorialProgress) => void
+): Promise<{ cues: SpeechCue[]; notes: string[] }> {
+  const o = { ...DEFAULT_TUTORIAL, ...options };
+  const notes: string[] = [];
+
+  let speech: SpeechCue[] = options.speech ?? [];
+  if (speech.length === 0) {
+    onProgress?.({ phase: 'transcribing', percent: 10, note: 'Listening to narration...' });
+    const result = await transcribe(take, o, (percent, note) => {
+      onProgress?.({
+        phase: 'transcribing',
+        percent: 10 + Math.round(percent * 0.4),
+        note: percent >= 100 ? 'Narration transcribed, reviewing text...' : (note || 'Transcribing speech...'),
+      });
+    });
+    speech = result.cues;
+    notes.push(...result.notes);
+  }
+
+  if (speech.length > 0) {
+    const reviewed = auditAndRepairCaptions(speech);
+    speech = reviewed.cues;
+    notes.push(...reviewed.notes);
+
+    if (o.cleanCaptions !== false) {
+      onProgress?.({
+        phase: 'transcribing',
+        percent: 60,
+        note: 'Polishing captions with AI review...',
+        cues: speech,
+        currentCue: speech[speech.length - 1]?.text,
+      });
+      const review = await reviewCaptions(speech, o.language);
+      speech = review.cues;
+      notes.push(...review.notes);
+    }
+  }
+
+  onProgress?.({
+    phase: 'done',
+    percent: 100,
+    note: `${speech.length} captions generated`,
+    cues: speech,
+    currentCue: speech[speech.length - 1]?.text,
+  });
+
+  return { cues: speech, notes };
+}
+
 /* ── Applying it ────────────────────────────────────────────────── */
 
 /**
@@ -380,6 +439,13 @@ async function build(
       `Using the ${speech.length}-line transcript supplied with the take rather than `
       + 'transcribing it again.'
     );
+    onProgress({
+      phase: 'transcribing',
+      percent: 25,
+      note: `${speech.length} captions ready`,
+      cues: speech,
+      currentCue: speech[speech.length - 1]?.text,
+    });
   } else if (o.transcribe) {
     onProgress({ phase: 'transcribing', percent: 10, note: 'Listening to narration...' });
     const result = await transcribe(take, o, (percent, note) => {
@@ -391,30 +457,17 @@ async function build(
     });
     speech = result.cues;
     notes.push(...result.notes);
+    if (speech.length > 0) {
+      onProgress({
+        phase: 'transcribing',
+        percent: 38,
+        note: `Transcribed ${speech.length} caption lines`,
+        cues: speech,
+        currentCue: speech[speech.length - 1]?.text,
+      });
+    }
   }
 
-  /*
-    ── Read the words before putting them on screen ────────────────
-
-    Everything above this point trusts the transcriber. This is where
-    that stops. Deterministic only: an audit and the deletions that
-    follow from it, which cost nothing and need nothing installed.
-
-    The MODEL pass is deliberately not here. It used to be, and that was
-    a straightforward mistake against the rule at the top of this file:
-    the edit lands first and the words catch up. `api.captions.clean`
-    spawns an agent CLI and can take a minute or more, and it reported
-    no progress, so the studio sat at 40% showing the last thing
-    transcription had said — the word "Done" — while a language model
-    turned over. Done, then nothing, for a minute. See
-    `cleanCaptionsInBackground`.
-
-    It runs on the supplied-transcript path as well as the transcribed
-    one, on purpose. A `transcript.json` beside a take is usually a
-    script and usually clean, but "usually" is not a reason to measure
-    one input and not the other, and a hand-written transcript with a
-    duplicated paragraph is a real thing.
-  */
   let emphasis: Map<number, EmphasisWord[]> | undefined;
 
   if (speech.length > 0) {
@@ -423,45 +476,27 @@ async function build(
     notes.push(...reviewed.notes);
   }
 
-  /*
-    ── The model reads the words BEFORE anybody else does ───────────
-
-    This is the step that used to run after the edit was on screen, and
-    moving it here is a deliberate reversal of the rule at the top of
-    this file. The rule was right about a SPELL-CHECK: nobody should
-    wait a minute to have three apostrophes fixed, and
-    `cleanCaptionsInBackground` still does exactly that for the path
-    where the words arrive after the edit.
-
-    It is wrong about the failure this exists for. On code-switched
-    narration the transcriber does not produce a transcript with typos
-    in it, it produces syllables — and captions are the one output of
-    this skill a viewer reads word by word. Laying nonsense down and
-    correcting it forty seconds later means the first thing the user
-    sees of their own tutorial is gibberish under their face. There is
-    no version of that which is better than waiting.
-
-    Bounded so the wait cannot become the experience: `REVIEW_TIMEOUT_MS`
-    past that and the edit is built with the words as they are and a
-    note saying so. Non-fatal on every path — no agent CLI, a refused
-    reply, a timeout, a reply that fails its own checks.
-
-    It also returns the EMPHASIS, which is the other half of why it is
-    here rather than after: the kinetic captions are built during
-    assembly, and which word of a sentence goes on screen at 300px is a
-    judgement the deterministic picker makes from word length. A model
-    that has just read the sentence makes it properly, and it cannot be
-    applied retroactively without rebuilding every word clip.
-  */
   if (speech.length > 0 && o.cleanCaptions !== false) {
-    onProgress({ phase: 'transcribing', percent: 40, note: 'Checking the words before they go on screen' });
+    onProgress({
+      phase: 'transcribing',
+      percent: 40,
+      note: 'Checking the words before they go on screen',
+      cues: speech,
+      currentCue: speech[speech.length - 1]?.text,
+    });
     const review = await reviewCaptions(speech, o.language);
     speech = review.cues;
     emphasis = review.emphasis;
     notes.push(...review.notes);
   }
 
-  onProgress({ phase: 'building', percent: 45, note: 'Building the edit' });
+  onProgress({
+    phase: 'building',
+    percent: 45,
+    note: `Building the edit with ${speech.length} captions`,
+    cues: speech,
+    currentCue: speech[speech.length - 1]?.text,
+  });
 
   const report = await assembleRecording(take, {
     ...TUTORIAL_ASSEMBLE,
@@ -470,7 +505,13 @@ async function build(
     ...(emphasis ? { emphasis } : {}),
   });
 
-  onProgress({ phase: 'done', percent: 100, note: 'Done' });
+  onProgress({
+    phase: 'done',
+    percent: 100,
+    note: 'Done',
+    cues: speech,
+    currentCue: speech[speech.length - 1]?.text,
+  });
 
   if (background) {
     notes.push(
