@@ -31,6 +31,7 @@ import { ContextMenu } from './components/ui/ContextMenu';
 import { ShortcutsOverlay } from './components/ui/ShortcutsOverlay';
 import { Toasts } from './components/ui/Toasts';
 import { useLayoutStore } from './store/layoutStore';
+import { usePackagesStore } from './store/packagesStore';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { startAutosave, clearAutosave, serializeProject } from './engine/projectIO';
 import { captureCurrentFrame } from './engine/contextProtocol';
@@ -80,6 +81,13 @@ export const App: React.FC = () => {
     say goodbye.
   */
   useEffect(() => (showHome ? undefined : startAutosave()), [showHome]);
+
+  /*
+    Check packages and device hardware configuration on app startup.
+  */
+  useEffect(() => {
+    void usePackagesStore.getState().checkStatus();
+  }, []);
 
   /*
     Tell main which screen is showing, so the window's close button can

@@ -58,6 +58,8 @@ export const HomeTopBar: React.FC<Props> = ({
   const authStatus = useAccountStore((s) => s.status);
   const user = useAccountStore((s) => s.user);
   const [signInOpen, setSignInOpen] = React.useState(false);
+  const packages = usePackagesStore((s) => s.packages);
+  const coreReady = Boolean(packages.ffmpeg?.installed && packages.ffprobe?.installed);
 
   const state: 'unknown' | 'ready' | 'absent' =
     status === null ? 'unknown' : status.installed ? 'ready' : 'absent';
@@ -133,10 +135,13 @@ export const HomeTopBar: React.FC<Props> = ({
         <button
           onClick={() => usePackagesStore.getState().setModalOpen(true)}
           className="pro-btn-filled h-[28px] px-2.5 gap-1.5 text-ui-sm font-medium"
-          title="Packages & Models Manager"
+          title={coreReady ? 'Packages & Models Manager' : 'Recommended packages available for your machine. Click to install.'}
           aria-label="Packages & Models Manager"
         >
           <Package className="w-4 h-4 text-spectrum-accent" /> Packages
+          {!coreReady && (
+            <span className="w-1.5 h-1.5 rounded-full bg-[#f0a173] animate-pulse" />
+          )}
         </button>
 
         <button

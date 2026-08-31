@@ -44,6 +44,8 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
   const cancelActiveExport = useProjectStore((s) => s.cancelActiveExport);
   const setMcpModalOpen = useProjectStore((s) => s.setMcpModalOpen);
   const setPackagesModalOpen = usePackagesStore((s) => s.setModalOpen);
+  const packages = usePackagesStore((s) => s.packages);
+  const coreReady = Boolean(packages.ffmpeg?.installed && packages.ffprobe?.installed);
   const setAspectRatio = useProjectStore((s) => s.setAspectRatio);
   const setProjectName = useProjectStore((s) => s.setProjectName);
   const setFps = useProjectStore((s) => s.setFps);
@@ -267,12 +269,15 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
 
         <button
           onClick={() => setPackagesModalOpen(true)}
-          className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs"
-          title="Packages & Models Manager"
+          className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs relative"
+          title={coreReady ? 'Packages & Models Manager' : 'Recommended packages available for your machine. Click to install.'}
           aria-label="Packages & Models Manager"
         >
           <Package className="w-3 h-3 text-spectrum-accent" />
           <span className="hidden xl:inline">Packages</span>
+          {!coreReady && (
+            <span className="w-1.5 h-1.5 rounded-full bg-[#f0a173] animate-pulse" />
+          )}
         </button>
 
         <Divider />

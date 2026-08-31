@@ -23,13 +23,14 @@ import {
   Release, unseenRelease, readSeenRelease, writeSeenRelease,
 } from '../../services/changelog';
 import { ChangelogSheet } from './ChangelogSheet';
-import { Sparkle, Download, ChevronLeft, ChevronRight, X, ExternalLink } from '../ui/icons';
+import { Sparkle, Download, ChevronLeft, ChevronRight, X, ExternalLink, Package } from '../ui/icons';
+import { usePackagesStore } from '../../store/packagesStore';
 
 /** How long a slide holds before the next one, when there are two. */
 const DWELL_MS = 8000;
 
 interface Slide {
-  id: 'update' | 'feature';
+  id: 'update' | 'feature' | 'packages';
   kicker: string;
   title: string;
   body: string;
@@ -49,10 +50,17 @@ export const PromoCarousel: React.FC = () => {
      state so dismissing hides the slide without a reload. */
   const [seen, setSeen] = React.useState<string | null>(() => readSeenRelease());
   const [updateDismissed, setUpdateDismissed] = React.useState<string | null>(null);
+  const [packagesDismissed, setPackagesDismissed] = React.useState(false);
 
   const [busy, setBusy] = React.useState(false);
   const [installed, setInstalled] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState<string | null>(null);
+
+  const packages = usePackagesStore((s) => s.packages);
+  const hardware = usePackagesStore((s) => s.hardware);
+  const downloads = usePackagesStore((s) => s.downloads);
+  const installAll = usePackagesStore((s) => s.installAll);
+  const setModalOpen = usePackagesStore((s) => s.setModalOpen);
 
   const feature = unseenRelease(currentVersion, seen);
 
@@ -100,6 +108,33 @@ export const PromoCarousel: React.FC = () => {
       icon: Download,
       busy,
       onDismiss: () => setUpdateDismissed(newVersion),
+    });
+  }
+
+  /* Recommended Packages & Models alert slide */
+  const allCoreReady = packages.ffmpeg?.installed && packages.ffprobe?.installed;
+  const recommendedModel = Object.values(packages).find(
+    (p) => p.category === 'ai-stt' && (p.recommended || p.id === 'model-base')
+  );
+  const modelReady = recommendedModel?.installed;
+  const isDownloading = Object.values(downloads).some(
+    (d) => d.status === 'downloading' || d.status === 'extracting'
+  );
+
+  if ((!allCoreReady || !modelReady) && !packagesDismissed) {
+    slides.push({
+      id: 'packages',
+      kicker: hardware.isAppleSilicon ? 'Apple Silicon' : 'Setup',
+      title: `Recommended Core Pack: FFmpeg + ${recommendedModel?.name || 'Whisper Speech'}`,
+      body: `Hardware-tuned for your machine (${hardware.cores} cores, ${hardware.totalMemGb} GB RAM). Enables hardware video rendering and offline AI subtitles.`,
+      actionLabel: isDownloading ? 'Downloading…' : 'Install Recommended Pack',
+      onAction: () => {
+        if (!isDownloading) void installAll(recommendedModel?.id);
+        else setModalOpen(true);
+      },
+      icon: Package,
+      busy: isDownloading,
+      onDismiss: () => setPackagesDismissed(true),
     });
   }
 
