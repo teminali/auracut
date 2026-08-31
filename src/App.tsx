@@ -205,6 +205,7 @@ export const App: React.FC = () => {
         */}
         <PlayerOverlay onOpenTimeline={() => { setShowHome(false); }} />
         <ExportModal />
+        <PackagesModal />
         {isMcpModalOpen && <McpStatusModal onClose={() => setMcpModalOpen(false)} />}
         <CommandPalette />
         <ShortcutsOverlay />

@@ -290,7 +290,7 @@ function registerAgentIpc() {
   /* ══ Cross-Platform Package & Model Manager ═══════════════════════ */
   ipcMain.handle('packages:status', () => getPackagesStatus());
   ipcMain.handle('packages:install', (_e, p: { pkgId: string }) => installPackage(p.pkgId));
-  ipcMain.handle('packages:installAll', () => installAllCorePackages());
+  ipcMain.handle('packages:installAll', (_e, p?: { preferredModelId?: string }) => installAllCorePackages(p?.preferredModelId));
 
   onPackageProgress((progress) => {
     if (mainWindow && !mainWindow.isDestroyed()) {

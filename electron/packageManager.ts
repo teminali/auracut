@@ -35,12 +35,27 @@ export interface PackageItemStatus {
   sizeMb?: number;
   description: string;
   requiredFor: string[];
+  recommended?: boolean;
+  recommendedReason?: string;
+}
+
+export interface HardwareInfo {
+  platform: string;
+  arch: string;
+  cores: number;
+  totalMemGb: number;
+  freeMemGb: number;
+  cpuModel: string;
+  isAppleSilicon: boolean;
+  recommendedModelId: string;
+  recommendationReason: string;
 }
 
 export interface PackagesStatusReport {
   ready: boolean;
   binDir: string;
   packages: Record<string, PackageItemStatus>;
+  hardware: HardwareInfo;
   os: {
     platform: string;
     arch: string;
@@ -323,8 +338,8 @@ export async function installPackage(pkgId: string): Promise<{ ok: boolean; erro
   }
 }
 
-/** Install all core packages (FFmpeg + FFprobe + Whisper base model) in one click */
-export async function installAllCorePackages(): Promise<{ ok: boolean; errors?: string[] }> {
+/** Install all core packages (FFmpeg + FFprobe + Recommended Whisper model) in one click */
+export async function installAllCorePackages(preferredModelId?: string): Promise<{ ok: boolean; errors?: string[] }> {
   const errors: string[] = [];
 
   const r1 = await installPackage('ffmpeg');
@@ -333,13 +348,16 @@ export async function installAllCorePackages(): Promise<{ ok: boolean; errors?: 
   const r2 = await installPackage('ffprobe');
   if (!r2.ok && r2.error) errors.push(`FFprobe: ${r2.error}`);
 
-  const r3 = await installPackage('model-base');
-  if (!r3.ok && r3.error) errors.push(`Base Model: ${r3.error}`);
+  const status = await getPackagesStatus();
+  const modelToInstall = preferredModelId || status.hardware.recommendedModelId || 'model-base';
+
+  const r3 = await installPackage(modelToInstall);
+  if (!r3.ok && r3.error) errors.push(`Model (${modelToInstall}): ${r3.error}`);
 
   return { ok: errors.length === 0, errors: errors.length > 0 ? errors : undefined };
 }
 
-/** Query the full status of all packages and models */
+/** Query the full status of all packages, models, and device hardware specs */
 export async function getPackagesStatus(): Promise<PackagesStatusReport> {
   initAppBinPath();
   const isWin = process.platform === 'win32';
@@ -347,7 +365,7 @@ export async function getPackagesStatus(): Promise<PackagesStatusReport> {
   const ffprobeBin = findBinary('ffprobe');
 
   const modelsDir = getModelsDir();
-  const models = ['tiny', 'base', 'small', 'medium'].map((m) => {
+  const models = ['tiny', 'base', 'small', 'medium', 'large-v3'].map((m) => {
     const file = path.join(modelsDir, `ggml-${m}.bin`);
     const exists = fs.existsSync(file);
     let sizeMb = 0;
@@ -357,10 +375,42 @@ export async function getPackagesStatus(): Promise<PackagesStatusReport> {
     return { name: m, file, installed: exists, sizeMb };
   });
 
+  // Compute device hardware specifications
+  const totalMemBytes = os.totalmem();
+  const freeMemBytes = os.freemem();
+  const totalMemGb = Math.round((totalMemBytes / (1024 * 1024 * 1024)) * 10) / 10;
+  const freeMemGb = Math.round((freeMemBytes / (1024 * 1024 * 1024)) * 10) / 10;
+  const cpus = os.cpus() || [];
+  const cores = cpus.length;
+  const cpuModel = cpus[0]?.model || (process.arch === 'arm64' ? 'Apple Silicon' : 'CPU');
+  const isAppleSilicon = process.platform === 'darwin' && process.arch === 'arm64';
+
+  let recommendedModelId = 'model-base';
+  let recommendationReason = 'Standard multi-language balance of speed and precision.';
+
+  if (isAppleSilicon) {
+    if (totalMemGb >= 16) {
+      recommendedModelId = 'model-small';
+      recommendationReason = 'Optimal for Apple Silicon (Metal/ANE) with 16GB+ RAM for high precision.';
+    } else {
+      recommendedModelId = 'model-base';
+      recommendationReason = 'Fast real-time transcription tailored for Apple Silicon Unified Memory.';
+    }
+  } else if (totalMemGb >= 32 && cores >= 12) {
+    recommendedModelId = 'model-medium';
+    recommendationReason = 'High-end workstation detected: studio-precision transcription.';
+  } else if (totalMemGb >= 16) {
+    recommendedModelId = 'model-small';
+    recommendationReason = 'High-accuracy model for 16GB+ system memory.';
+  } else if (totalMemGb < 8) {
+    recommendedModelId = 'model-tiny';
+    recommendationReason = 'Lightweight fast model optimized for low memory usage.';
+  }
+
   const packages: Record<string, PackageItemStatus> = {
     ffmpeg: {
       id: 'ffmpeg',
-      name: 'FFmpeg Core Video Engine',
+      name: 'FFmpeg Core Video Engine 7.1',
       category: 'core',
       installed: ffmpegBin !== null,
       path: ffmpegBin ?? undefined,
@@ -376,23 +426,60 @@ export async function getPackagesStatus(): Promise<PackagesStatusReport> {
       description: 'Extracts exact frame counts, sample rates, duration metadata, and audio streams from media files.',
       requiredFor: ['Media Import', 'Duration Validation', 'Waveform Sync'],
     },
+    'model-tiny': {
+      id: 'model-tiny',
+      name: 'Whisper Speech Model (Tiny)',
+      category: 'ai-stt',
+      installed: models.find((m) => m.name === 'tiny')?.installed ?? false,
+      sizeMb: models.find((m) => m.name === 'tiny')?.sizeMb || 75,
+      description: 'Ultra-fast speech recognition model (75 MB). Minimal RAM footprint, ideal for quick drafts.',
+      requiredFor: ['Fast Transcription', 'Low Memory Subtitles'],
+      recommended: recommendedModelId === 'model-tiny',
+      recommendedReason: recommendedModelId === 'model-tiny' ? recommendationReason : undefined,
+    },
     'model-base': {
       id: 'model-base',
       name: 'Whisper Speech Model (Base)',
       category: 'ai-stt',
       installed: models.find((m) => m.name === 'base')?.installed ?? false,
-      sizeMb: models.find((m) => m.name === 'base')?.sizeMb,
+      sizeMb: models.find((m) => m.name === 'base')?.sizeMb || 142,
       description: 'Standard fast multi-language speech recognition model (142 MB). Recommended for everyday subtitles.',
       requiredFor: ['Automatic Captions', 'Voice Subtitles', 'Silence Detection'],
+      recommended: recommendedModelId === 'model-base',
+      recommendedReason: recommendedModelId === 'model-base' ? recommendationReason : undefined,
     },
     'model-small': {
       id: 'model-small',
       name: 'Whisper Speech Model (Small)',
       category: 'ai-stt',
       installed: models.find((m) => m.name === 'small')?.installed ?? false,
-      sizeMb: models.find((m) => m.name === 'small')?.sizeMb,
+      sizeMb: models.find((m) => m.name === 'small')?.sizeMb || 466,
       description: 'High-accuracy model for noisy audio, heavy accents, and complex vocabularies (466 MB).',
       requiredFor: ['High-Accuracy Captions', 'Multi-speaker Transcripts'],
+      recommended: recommendedModelId === 'model-small',
+      recommendedReason: recommendedModelId === 'model-small' ? recommendationReason : undefined,
+    },
+    'model-medium': {
+      id: 'model-medium',
+      name: 'Whisper Speech Model (Medium)',
+      category: 'ai-stt',
+      installed: models.find((m) => m.name === 'medium')?.installed ?? false,
+      sizeMb: models.find((m) => m.name === 'medium')?.sizeMb || 1536,
+      description: 'Studio-grade transcription model (1.5 GB). Maximum accuracy across 99+ languages.',
+      requiredFor: ['Studio Accuracy', 'Multi-language Translation'],
+      recommended: recommendedModelId === 'model-medium',
+      recommendedReason: recommendedModelId === 'model-medium' ? recommendationReason : undefined,
+    },
+    'model-large-v3': {
+      id: 'model-large-v3',
+      name: 'Whisper Speech Model (Large v3)',
+      category: 'ai-stt',
+      installed: models.find((m) => m.name === 'large-v3')?.installed ?? false,
+      sizeMb: models.find((m) => m.name === 'large-v3')?.sizeMb || 3100,
+      description: 'State-of-the-art multi-lingual foundation model (3.1 GB). Highest word recognition score.',
+      requiredFor: ['Enterprise Transcripts', 'Technical Jargon Recognition'],
+      recommended: recommendedModelId === 'model-large-v3',
+      recommendedReason: recommendedModelId === 'model-large-v3' ? recommendationReason : undefined,
     },
   };
 
@@ -402,6 +489,17 @@ export async function getPackagesStatus(): Promise<PackagesStatusReport> {
     ready: isReady,
     binDir: getAppBinDir(),
     packages,
+    hardware: {
+      platform: process.platform,
+      arch: process.arch,
+      cores,
+      totalMemGb,
+      freeMemGb,
+      cpuModel,
+      isAppleSilicon,
+      recommendedModelId,
+      recommendationReason,
+    },
     os: {
       platform: process.platform,
       arch: process.arch,

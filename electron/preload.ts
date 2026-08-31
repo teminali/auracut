@@ -537,7 +537,7 @@ const api: ElectronAPI = {
   packages: {
     status: () => ipcRenderer.invoke('packages:status'),
     install: (pkgId: string) => ipcRenderer.invoke('packages:install', { pkgId }),
-    installAll: () => ipcRenderer.invoke('packages:installAll'),
+    installAll: (opts?: { preferredModelId?: string }) => ipcRenderer.invoke('packages:installAll', opts),
     onProgress: (cb: (p: any) => void) => {
       const handler = (_e: unknown, progress: any) => cb(progress);
       ipcRenderer.on('packages:progress', handler);

@@ -240,11 +240,24 @@ export interface KerfElectronAPI {
         sizeMb?: number;
         description: string;
         requiredFor: string[];
+        recommended?: boolean;
+        recommendedReason?: string;
       }>;
+      hardware?: {
+        platform: string;
+        arch: string;
+        cores: number;
+        totalMemGb: number;
+        freeMemGb: number;
+        cpuModel: string;
+        isAppleSilicon: boolean;
+        recommendedModelId: string;
+        recommendationReason: string;
+      };
       os: { platform: string; arch: string };
     }>;
     install: (pkgId: string) => Promise<{ ok: boolean; error?: string }>;
-    installAll: () => Promise<{ ok: boolean; errors?: string[] }>;
+    installAll: (opts?: { preferredModelId?: string }) => Promise<{ ok: boolean; errors?: string[] }>;
     onProgress: (cb: (p: {
       pkgId: string;
       name: string;
