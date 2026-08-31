@@ -17,6 +17,7 @@
 import React from 'react';
 import { useRecorderStore } from '../../store/recorderStore';
 import { useUiStore } from '../../store/uiStore';
+import { usePackagesStore } from '../../store/packagesStore';
 import { applyTutorialSkill, openTakeRaw, generateTakeCaptions, TutorialProgress } from '../../engine/tutorialSkill';
 import { SpeechCue } from '../../engine/recordingProject';
 import { detectMoments } from '../../engine/cursorZoom';
@@ -26,6 +27,7 @@ import { formatDuration, formatFileSize } from '../../utils/time';
 import {
   X, Record, Pause, Play, Square, Loader2, AlertTriangle, CheckCircle2, Check,
   FolderOpen, CursorClick, Camera, Monitor, Mic, Trash2, Sparkle, Waves,
+  Download, Package,
 } from '../ui/icons';
 
 interface Props {
@@ -396,10 +398,24 @@ const Review: React.FC<{
   progress: TutorialProgress | null;
 }> = ({ onBuild, building, progress }) => {
   const store = useRecorderStore();
+  const packagesStore = usePackagesStore();
   const take = store.take!;
   const [cues, setCues] = React.useState<SpeechCue[]>(take.transcript ?? []);
   const [generating, setGenerating] = React.useState(false);
   const [autoStarted, setAutoStarted] = React.useState(false);
+  const [skippedCaptions, setSkippedCaptions] = React.useState(false);
+  const [showModelPrompt, setShowModelPrompt] = React.useState(false);
+
+  const packages = packagesStore.packages;
+  const downloads = packagesStore.downloads;
+  const hasWhisperModel = Object.values(packages).some(
+    (p) => p.category === 'ai-stt' && p.installed
+  );
+  const recommendedModel = Object.values(packages).find(
+    (p) => p.category === 'ai-stt' && (p.recommended || p.id === 'model-base')
+  ) || packages['model-base'];
+  const downloadingModel = recommendedModel ? downloads[recommendedModel.id] : null;
+  const isDownloadingModel = downloadingModel && (downloadingModel.status === 'downloading' || downloadingModel.status === 'extracting');
 
   /* The same detector the assembler will use, run once so the review can
      state a number rather than promise one. */
@@ -435,11 +451,11 @@ const Review: React.FC<{
   }, [generating, cues.length, take, store]);
 
   React.useEffect(() => {
-    if (!autoStarted && (take.camera?.hasAudio || take.screen?.hasAudio) && cues.length === 0) {
+    if (!autoStarted && (take.camera?.hasAudio || take.screen?.hasAudio) && cues.length === 0 && hasWhisperModel) {
       setAutoStarted(true);
       void runGenerateCaptions();
     }
-  }, [autoStarted, take, cues.length, runGenerateCaptions]);
+  }, [autoStarted, take, cues.length, hasWhisperModel, runGenerateCaptions]);
 
   return (
     <>
@@ -507,8 +523,67 @@ const Review: React.FC<{
             </p>
           )}
 
-          {/* ── Generated Captions Preview in Review Flow ── */}
-          {(take.camera?.hasAudio || take.screen?.hasAudio || cues.length > 0) && (
+          {/* ── Generated Captions Preview or Missing Model Prompt in Review Flow ── */}
+          {(take.camera?.hasAudio || take.screen?.hasAudio) && !hasWhisperModel && !skippedCaptions && cues.length === 0 ? (
+            <div className="rounded-squircle-xs bg-[#f0a173]/10 border border-[#f0a173]/30 p-2.5 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-micro font-semibold text-[#f0a173] uppercase tracking-wider">
+                  <Sparkle className="w-3 h-3 text-[#f0a173]" weight="fill" />
+                  Speech Model Required
+                </span>
+                {isDownloadingModel ? (
+                  <span className="flex items-center gap-1 text-micro text-[#f0a173] font-mono">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {downloadingModel.percent}%
+                  </span>
+                ) : (
+                  <span className="text-micro text-spectrum-textDim font-mono">
+                    {recommendedModel?.sizeMb ? `${recommendedModel.sizeMb} MB` : ''}
+                  </span>
+                )}
+              </div>
+
+              <p className="text-micro text-spectrum-textMuted leading-relaxed">
+                FrontierCut needs a Whisper model to generate AI subtitles and speech-synced camera cuts.
+              </p>
+
+              {isDownloadingModel ? (
+                <div className="space-y-1 pt-1">
+                  <div className="flex items-center justify-between text-micro font-mono text-[#f0a173]">
+                    <span className="truncate">Downloading {recommendedModel?.name || 'Whisper'}…</span>
+                    <span>{downloadingModel.percent}%</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden border border-[#3a3a3a]">
+                    <div
+                      className="h-full bg-[#f0a173] transition-all duration-150"
+                      style={{ width: `${downloadingModel.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    onClick={async () => {
+                      if (!recommendedModel) return;
+                      await packagesStore.installPackage(recommendedModel.id);
+                      await runGenerateCaptions();
+                    }}
+                    className="btn-primary h-7 px-2.5 text-micro gap-1.5 flex-1 justify-center"
+                  >
+                    <Download className="w-3 h-3" />
+                    Install & Transcribe
+                  </button>
+                  <button
+                    onClick={() => setSkippedCaptions(true)}
+                    className="pro-btn-filled h-7 px-2 text-micro text-spectrum-textDim hover:text-spectrum-text"
+                    title="Proceed without captions for this take"
+                  >
+                    Skip
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (take.camera?.hasAudio || take.screen?.hasAudio || cues.length > 0) && (
             <div className="rounded-squircle-xs bg-white/[0.02] border border-line p-2.5 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-micro font-semibold text-spectrum-accent uppercase tracking-wider">
@@ -687,7 +762,13 @@ const Review: React.FC<{
         </button>
         <button
           data-recorder="open-take"
-          onClick={() => void onBuild('skill')}
+          onClick={() => {
+            if (!hasWhisperModel && !skippedCaptions && (take.camera?.hasAudio || take.screen?.hasAudio) && cues.length === 0) {
+              setShowModelPrompt(true);
+              return;
+            }
+            void onBuild('skill');
+          }}
           disabled={building || !take.screen}
           className="btn-primary h-8 px-4 text-ui gap-2"
         >
@@ -695,6 +776,75 @@ const Review: React.FC<{
           Open with the Tutorial skill
         </button>
       </div>
+
+      {/* ── Missing Speech Model Prompt Modal ── */}
+      {showModelPrompt && (
+        <div className="scrim z-50 flex items-center justify-center p-4" onClick={() => setShowModelPrompt(false)}>
+          <div
+            className="modal-shell w-[480px] max-w-full p-5 space-y-4 shadow-modal border border-line-strong"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-squircle-sm bg-[#f0a173]/15 border border-[#f0a173]/30 flex items-center justify-center text-[#f0a173] flex-shrink-0">
+                <Package className="w-5 h-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-ui font-semibold text-spectrum-text">Whisper Speech Model Required</h3>
+                <p className="text-ui-sm text-spectrum-textMuted mt-1 leading-relaxed">
+                  Automatic subtitles and speech-synced camera framing require a local Whisper AI model. Would you like to install the recommended model now or proceed without captions?
+                </p>
+              </div>
+            </div>
+
+            {isDownloadingModel ? (
+              <div className="p-3 rounded-squircle-xs bg-[#1a1a1a] border border-[#3a3a3a] space-y-2">
+                <div className="flex items-center justify-between text-ui-xs font-mono text-[#f0a173]">
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Downloading {recommendedModel?.name || 'Whisper Model'}…
+                  </span>
+                  <span className="font-bold">{downloadingModel.percent}%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-[#2a2a2a]">
+                  <div
+                    className="h-full bg-[#f0a173] transition-all duration-150"
+                    style={{ width: `${downloadingModel.percent}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+                <button
+                  onClick={() => {
+                    setShowModelPrompt(false);
+                    setSkippedCaptions(true);
+                    void onBuild('skill');
+                  }}
+                  className="pro-btn-filled h-8 px-3 text-ui-sm"
+                >
+                  Continue Without Captions (Skip)
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!recommendedModel) return;
+                    try {
+                      await packagesStore.installPackage(recommendedModel.id);
+                      setShowModelPrompt(false);
+                      void onBuild('skill');
+                    } catch {
+                      // handled in store
+                    }
+                  }}
+                  className="btn-primary h-8 px-3.5 text-ui-sm gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Install & Auto-Edit ({recommendedModel?.sizeMb || 142} MB)
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 };
