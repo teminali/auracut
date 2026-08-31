@@ -6,6 +6,7 @@ import {
   storeBaseUrl,
 } from './storeSession';
 import path from 'path';
+import fs from 'fs';
 import http from 'http';
 import { initAutoUpdater } from './updater';
 import { initToolBridge, setBridgeWindow } from './toolBridge';
@@ -660,10 +661,18 @@ app.whenReady().then(async () => {
     carried a responsible audit token for a process that no longer
     existed. A fresh LaunchServices/Finder launch has a valid chain.
   */
+  let buildId = app.getVersion();
+  try {
+    const stat = fs.statSync(process.execPath);
+    buildId = `${app.getVersion()}_${Math.round(stat.mtimeMs)}`;
+  } catch {
+    // fallback to version string
+  }
+
   const permissionReset = process.platform === 'darwin' && app.isPackaged
     ? await preparePermissionsForBuild({
       file: permissionResetStateFile(app.getPath('userData')),
-      version: app.getVersion(),
+      version: buildId,
       bundleId: 'com.frontiercut.editor',
       reset: resetTccService,
     })

@@ -83,8 +83,8 @@ export const SourceGrid: React.FC<Props> = ({ sources, loading, selectedId, onSe
                    that the grant went stale when Kerf updated, and the
                    footer offers the one button that fixes that. */
                 : 'No displays were offered. Either screen recording has not been allowed for '
-                  + 'Kerf, or it was allowed for an earlier version and stopped matching when '
-                  + 'Kerf updated. The bar below says which and can fix it.'}
+                  + 'FrontierCut, or it was allowed for an earlier version and stopped matching when '
+                  + 'FrontierCut updated. Click "Reset permissions" or "Open settings" below.'}
             </p>
           </div>
         ) : (

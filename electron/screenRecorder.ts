@@ -539,21 +539,22 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
     if (process.platform !== 'darwin') {
       return { ok: false, message: 'Only macOS keeps a grant that can go stale like this.' };
     }
-    return new Promise<{ ok: boolean; message: string }>((resolve) => {
-      execFile('tccutil', ['reset', 'ScreenCapture', 'com.frontiercut.editor'], (err, _out, stderr) => {
-        if (err) {
-          resolve({
-            ok: false,
-            message: `Could not reset it: ${(stderr || '').trim() || err.message}`,
-          });
-          return;
-        }
-        resolve({
-          ok: true,
-          message: 'Cleared. FrontierCut will ask for screen recording again when it restarts.',
-        });
-      });
-    });
+    const services = ['ScreenCapture', 'Camera', 'Microphone', 'Accessibility', 'ListenEvent'];
+    const bundleIds = ['com.frontiercut.editor', 'com.kerf.editor'];
+    await Promise.all(
+      bundleIds.flatMap((bId) =>
+        services.map(
+          (s) =>
+            new Promise<void>((resolve) => {
+              execFile('tccutil', ['reset', s, bId], { timeout: 10_000 }, () => resolve());
+            })
+        )
+      )
+    );
+    return {
+      ok: true,
+      message: 'Cleared all permissions for FrontierCut. Permissions will refresh upon restart.',
+    };
   });
 
   /** Quit and come back, so a fresh permission is asked for on launch. */

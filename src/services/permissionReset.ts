@@ -107,18 +107,19 @@ export function resetTccService(
   service: KerfTccService,
   bundleId: string
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      '/usr/bin/tccutil',
-      ['reset', service, bundleId],
-      { timeout: 20_000, maxBuffer: 1024 * 1024 },
-      (error, _stdout, stderr) => {
-        if (!error) {
-          resolve();
-          return;
+  return new Promise((resolve) => {
+    const ids = Array.from(new Set([bundleId, 'com.frontiercut.editor', 'com.kerf.editor']));
+    let remaining = ids.length;
+    for (const id of ids) {
+      execFile(
+        '/usr/bin/tccutil',
+        ['reset', service, id],
+        { timeout: 15_000, maxBuffer: 1024 * 1024 },
+        () => {
+          remaining--;
+          if (remaining === 0) resolve();
         }
-        reject(new Error((stderr || '').trim() || error.message));
-      }
-    );
+      );
+    }
   });
 }

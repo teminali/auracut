@@ -239,10 +239,8 @@ const SetupFooter: React.FC = () => {
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-spectrum-amber flex-shrink-0" />
             <span className="text-ui-sm text-spectrum-textMuted truncate"
-              title={'Kerf is not signed by Apple, so macOS ties the permission to the exact '
-                + 'build. Updating replaces the build and the permission stops matching, '
-                + 'without the switch changing.'}>
-              Screen recording looks enabled but macOS is refusing it. Updating Kerf does this.
+              title={'FrontierCut permissions need refreshing on macOS update.'}>
+              Screen recording looks enabled but macOS is refusing it. Updating FrontierCut does this.
             </span>
             <button
               onClick={() => void store.repairScreenPermission()}
@@ -255,8 +253,15 @@ const SetupFooter: React.FC = () => {
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-spectrum-amber flex-shrink-0" />
             <span className="text-ui-sm text-spectrum-textMuted truncate">
-              macOS has not allowed Kerf to record the screen yet. Turn it on, then relaunch Kerf.
+              macOS has not allowed FrontierCut to record the screen yet.
             </span>
+            <button
+              onClick={() => void store.repairScreenPermission()}
+              className="btn-secondary h-6 px-2 text-ui-xs flex-shrink-0"
+              title="Reset macOS permission cache so macOS will prompt again"
+            >
+              Reset permissions
+            </button>
             <button
               onClick={() => void store.requestPermission('screen')}
               className="pro-btn-filled h-6 px-2 text-ui-xs flex-shrink-0"
