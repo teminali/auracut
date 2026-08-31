@@ -169,6 +169,24 @@ export const VersionFooter: React.FC = () => {
         </div>
       )}
 
+      {/* When downloading, show real-time download progress bar */}
+      {!open && status.state === 'downloading' && (
+        <div className="mt-1 w-full px-0.5">
+          <div className="p-1 rounded-[3px] bg-[#1a1a1a] border border-[#3a3a3a] space-y-1">
+            <div className="flex items-center justify-between text-micro font-mono text-[#f0a173] px-0.5">
+              <span className="truncate">Downloading</span>
+              <span className="font-bold tabular-nums">{status.percent}%</span>
+            </div>
+            <div className="w-full h-1 rounded-full bg-[#141414] overflow-hidden border border-[#2a2a2a]">
+              <div
+                className="h-full bg-[#f0a173] transition-all duration-150"
+                style={{ width: `${status.percent}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* The confirmation, when a check found nothing, without opening
           anything. */}
       {!open && confirmed && !isReady && (

@@ -39,6 +39,7 @@ interface Slide {
   actionIcon?: React.ElementType;
   icon: React.ElementType;
   busy?: boolean;
+  progressPercent?: number;
   onDismiss?: () => void;
 }
 
@@ -93,6 +94,18 @@ export const PromoCarousel: React.FC = () => {
       actionLabel: 'Quit FrontierCut',
       onAction: quitForUpdate,
       icon: Download,
+    });
+  } else if (status.state === 'downloading') {
+    slides.push({
+      id: 'update',
+      kicker: 'Downloading Update',
+      title: `Downloading FrontierCut ${status.version}`,
+      body: `Downloading update bundle in background (${status.percent}%). It will be ready to restart in a moment.`,
+      actionLabel: `${status.percent}%`,
+      onAction: () => {},
+      icon: Download,
+      busy: true,
+      progressPercent: status.percent,
     });
   } else if (isDesktop && pending && updateDismissed !== newVersion) {
     slides.push({
@@ -234,6 +247,14 @@ const Carousel: React.FC<{ slides: Slide[] }> = ({ slides }) => {
           <span className="promo-kicker">{active.kicker}</span>
           <p className="promo-title">{active.title}</p>
           <p className="promo-body">{active.body}</p>
+          {active.progressPercent !== undefined && (
+            <div className="w-full max-w-[280px] h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden border border-[#3a3a3a] mt-2">
+              <div
+                className="h-full bg-[#f0a173] transition-all duration-150"
+                style={{ width: `${active.progressPercent}%` }}
+              />
+            </div>
+          )}
         </div>
         <button onClick={active.onAction} disabled={active.busy} className="promo-action">
           {ActionIcon && <ActionIcon className="w-3.5 h-3.5" />}
