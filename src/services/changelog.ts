@@ -36,6 +36,17 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.13.1',
+    date: '2026-09-01',
+    headline: 'Native VibeVoice Speech ASR Integration',
+    detail: 'Eliminated legacy Whisper downloads by routing all speech recognition and recording studio captioning directly through on-device Microsoft VibeVoice Diarized AI.',
+    items: [
+      'Speech transcription across the Tutorial skill and Recording Studio now uses VibeVoice Diarized ASR directly, removing the 3.1GB model download requirement.',
+      'Resolved macOS Apple Silicon Gatekeeper quarantine handling for automatic in-app updates.',
+      'Refreshed public release distribution hub download URLs.',
+    ],
+  },
+  {
     version: '1.13.0',
     date: '2026-09-01',
     headline: 'Microsoft VibeVoice AI & Live Captions',
