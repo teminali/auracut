@@ -8,9 +8,9 @@
 # repo or the app will never see a new version.
 # ═══════════════════════════════════════════════════════════════════
 
-appId: com.frontiercut.editor
-productName: FrontierCut
-copyright: Copyright © 2026 FrontierCut
+appId: com.teminalicut.editor
+productName: TeminaliCut
+copyright: Copyright © 2026 TeminaliCut
 
 directories:
   output: release
@@ -87,11 +87,6 @@ publish:
   provider: github
   owner: teminali
   repo: frontierCut
-  # Must stay `release`. This value is copied into app-update.yml, where
-  # electron-updater uses it to decide which releases to consider — and
-  # `draft` would make the shipped app look for drafts, which needs an
-  # auth token it cannot have. The gate on shipping is the tag push, not
-  # this field.
   releaseType: release
 
 # ── macOS ──────────────────────────────────────────────────────────
@@ -193,7 +188,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: FrontierCut
+  shortcutName: TeminaliCut
 
 # ── Linux (AppImage rides along for free) ──────────────────────────
 linux:

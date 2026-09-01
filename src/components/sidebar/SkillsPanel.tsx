@@ -60,7 +60,7 @@ export const SkillsPanel: React.FC = () => {
         <EmptyState
           icon={Blocks}
           title="No skills installed"
-          detail="Bundled skills ship with FrontierCut. Browse them from the home screen."
+          detail="Bundled skills ship with TeminaliCut. Browse them from the home screen."
         />
       ) : shown.length === 0 ? (
         <EmptyState icon={Blocks} title="Nothing matches" detail={`No skill matches “${query}”.`} />

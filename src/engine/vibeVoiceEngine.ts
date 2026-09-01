@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   FrontierCut — Microsoft VibeVoice Engine Integration
+   TeminaliCut — Microsoft VibeVoice Engine Integration
 
    High-level orchestration for:
      1. Multi-speaker Conversational Dialogue -> Multi-Track Audio EDL
@@ -261,7 +261,7 @@ export async function transcribeWithDiarization(
 ): Promise<{ ok: boolean; cueCount: number; speakers: string[]; error?: string }> {
   const api = typeof window !== 'undefined' ? window.electronAPI?.vibeVoice : undefined;
   if (!api) {
-    throw new Error('VibeVoice transcription requires the FrontierCut desktop runtime.');
+    throw new Error('VibeVoice transcription requires the TeminaliCut desktop runtime.');
   }
 
   const result = await api.transcribe({ audioPath, language: options.language });

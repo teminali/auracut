@@ -551,7 +551,7 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
       return { ok: false, message: 'Only macOS keeps a grant that can go stale like this.' };
     }
     const services = ['ScreenCapture', 'Camera', 'Microphone', 'Accessibility', 'ListenEvent'];
-    const bundleIds = ['com.frontiercut.editor', 'com.kerf.editor'];
+    const bundleIds = ['com.teminalicut.editor', 'com.kerf.editor'];
     await Promise.all(
       bundleIds.flatMap((bId) =>
         services.map(
@@ -564,7 +564,7 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
     );
     return {
       ok: true,
-      message: 'Cleared all permissions for FrontierCut. Permissions will refresh upon restart.',
+      message: 'Cleared all permissions for TeminaliCut. Permissions will refresh upon restart.',
     };
   });
 

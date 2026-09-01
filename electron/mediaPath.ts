@@ -56,7 +56,7 @@ export function ffmpegSource(mediaUrl: string): string {
     // If not unpacked on disk, extract it from the asar archive to a temp file so ffmpeg can read it
     try {
       if (fs.existsSync(source)) {
-        const tempDir = path.join(os.tmpdir(), 'frontiercut-media');
+        const tempDir = path.join(os.tmpdir(), 'teminalicut-media');
         fs.mkdirSync(tempDir, { recursive: true });
         const ext = path.extname(source) || '.tmp';
         const extractedPath = path.join(tempDir, `${Date.now().toString(36)}_${path.basename(source, ext)}${ext}`);

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   VibeVoice Server & Subprocess Manager for FrontierCut.
+   VibeVoice Server & Subprocess Manager for TeminaliCut.
 
    Manages the lifecycle of Microsoft VibeVoice (Multi-speaker TTS,
    Long-form Diarized ASR, and Real-time Live Captions).

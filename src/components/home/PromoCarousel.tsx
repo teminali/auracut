@@ -91,7 +91,7 @@ export const PromoCarousel: React.FC = () => {
       kicker: 'Ready',
       title: 'Update installed',
       body: installed,
-      actionLabel: 'Quit FrontierCut',
+      actionLabel: 'Quit TeminaliCut',
       onAction: quitForUpdate,
       icon: Download,
     });
@@ -99,7 +99,7 @@ export const PromoCarousel: React.FC = () => {
     slides.push({
       id: 'update',
       kicker: 'Downloading Update',
-      title: `Downloading FrontierCut ${status.version}`,
+      title: `Downloading TeminaliCut ${status.version}`,
       body: `Downloading update bundle in background (${status.percent}%). It will be ready to restart in a moment.`,
       actionLabel: `${status.percent}%`,
       onAction: () => {},
@@ -111,10 +111,10 @@ export const PromoCarousel: React.FC = () => {
     slides.push({
       id: 'update',
       kicker: 'Update',
-      title: `FrontierCut ${newVersion} is available`,
+      title: `TeminaliCut ${newVersion} is available`,
       body: failed ?? (canSideload
         ? 'Install it now and restart when you are ready.'
-        : 'This copy is not somewhere FrontierCut can replace it, so the download page is the way in.'),
+        : 'This copy is not somewhere TeminaliCut can replace it, so the download page is the way in.'),
       actionLabel: canSideload ? (busy ? 'Updating…' : 'Update now') : 'Open downloads',
       onAction: canSideload ? () => void install() : openReleases,
       actionIcon: canSideload ? undefined : ExternalLink,

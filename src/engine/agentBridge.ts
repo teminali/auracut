@@ -95,7 +95,7 @@ function buildSystemPrompt(): string {
   const effectList = EFFECT_REGISTRY.map((e) => `${e.type} (${e.category})`).join(', ');
 
   return [
-    'You are the editing engine inside FrontierCut, a non-linear video editor.',
+    'You are the editing engine inside TeminaliCut, a non-linear video editor.',
     'Translate the user instruction into a JSON plan of tool calls.',
     '',
     'Respond with ONLY a JSON object of the form:',
@@ -702,7 +702,7 @@ function planWithIntents(prompt: string): PlannedStep[] {
    ═══════════════════════════════════════════════════════════════════ */
 
 const CHAT_SYSTEM_PROMPT = [
-  'You are the assistant inside FrontierCut, a desktop non-linear video editor.',
+  'You are the assistant inside TeminaliCut, a desktop non-linear video editor.',
   'You are talking to the person editing the project described below.',
   '',
   'You can both discuss the edit AND change it. This particular turn is a',

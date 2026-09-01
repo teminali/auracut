@@ -16,6 +16,7 @@ import { useRecorderStore } from '../../store/recorderStore';
 import { RecentProject } from '../../store/recentsStore';
 import { buildStarterProject } from '../../engine/starterProject';
 import { deserializeProject, restoreAutosave } from '../../engine/projectIO';
+import { isTemiProjectFile, importTemiProject } from '../../engine/temiBundle';
 import { INITIAL_PROJECT } from '../../mcp/defaultMedia';
 
 export interface HomeActions {
@@ -155,6 +156,22 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
   const openFile = useCallback(
     async (file: File) => {
       try {
+        const isTemi = file.name.endsWith('.temi') || (await isTemiProjectFile(file));
+        if (isTemi) {
+          const result = await importTemiProject(file);
+          if (!result.ok) {
+            pushToast({ kind: 'error', title: 'Could not load project bundle', detail: result.error });
+            return;
+          }
+          pushToast({
+            kind: 'success',
+            title: 'Project bundle loaded',
+            detail: `${result.projectName || file.name} · ${result.assetCount} media assets extracted`,
+          });
+          onEnterEditor();
+          return;
+        }
+
         const result = deserializeProject(await file.text());
         if (!result.ok) {
           pushToast({ kind: 'error', title: 'Could not load that file', detail: result.error });

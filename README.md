@@ -1,4 +1,4 @@
-# FrontierCut
+# TeminaliCut
 
 A professional, non-linear desktop AI video editor with native Model
 Context Protocol (MCP) integration. Every edit the UI can make, an agent

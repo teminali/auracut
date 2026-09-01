@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Notification sound & feedback synthesizer for FrontierCut.
+   Notification sound & feedback synthesizer for TeminaliCut.
 
    Generates a polished, harmonic completion chime via Web Audio API.
    Zero external asset dependencies, zero network requests, instant playback.

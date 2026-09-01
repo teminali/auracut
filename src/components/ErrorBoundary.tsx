@@ -68,7 +68,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-spectrum-stage p-8 overflow-auto">
         <div className="max-w-2xl w-full">
           <h1 className="text-ui-lg font-semibold text-spectrum-amber mb-1">
-            FrontierCut hit an error and stopped drawing.
+            TeminaliCut hit an error and stopped drawing.
           </h1>
           <p className="text-ui-sm text-spectrum-textMuted mb-4">
             Your project is still in memory. It has not been written over. Reloading the

@@ -74,7 +74,7 @@ const AppUpdateBanner: React.FC = () => {
     return (
       <div
         className="rail-tile !text-[#f0a173] bg-[#f0a173]/10 border border-[#f0a173]/30 mx-auto cursor-default flex flex-col items-center justify-center p-1"
-        title={`Downloading FrontierCut ${status.version} (${status.percent}%)`}
+        title={`Downloading TeminaliCut ${status.version} (${status.percent}%)`}
       >
         <Download className="w-4 h-4 animate-bounce" />
         <span className="text-micro leading-none font-bold font-mono mt-0.5">{status.percent}%</span>

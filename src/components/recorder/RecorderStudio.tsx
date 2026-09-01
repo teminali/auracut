@@ -242,8 +242,8 @@ const SetupFooter: React.FC = () => {
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-spectrum-amber flex-shrink-0" />
             <span className="text-ui-sm text-spectrum-textMuted truncate"
-              title={'FrontierCut permissions need refreshing on macOS update.'}>
-              Screen recording looks enabled but macOS is refusing it. Updating FrontierCut does this.
+              title={'TeminaliCut permissions need refreshing on macOS update.'}>
+              Screen recording looks enabled but macOS is refusing it. Updating TeminaliCut does this.
             </span>
             <button
               onClick={() => void store.repairScreenPermission()}
@@ -256,7 +256,7 @@ const SetupFooter: React.FC = () => {
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-spectrum-amber flex-shrink-0" />
             <span className="text-ui-sm text-spectrum-textMuted truncate">
-              macOS has not allowed FrontierCut to record the screen yet.
+              macOS has not allowed TeminaliCut to record the screen yet.
             </span>
             <button
               onClick={() => void store.repairScreenPermission()}
@@ -544,7 +544,7 @@ const Review: React.FC<{
               </div>
 
               <p className="text-micro text-spectrum-textMuted leading-relaxed">
-                FrontierCut needs a Whisper model to generate AI subtitles and speech-synced camera cuts.
+                TeminaliCut needs a Whisper model to generate AI subtitles and speech-synced camera cuts.
               </p>
 
               {isDownloadingModel ? (

@@ -1,14 +1,14 @@
 {
-  "name": "frontiercut",
+  "name": "teminalicut",
   "version": "2.0.0",
   "private": true,
-  "description": "FrontierCut — professional AI video editor with full Model Context Protocol (MCP) integration",
+  "description": "TeminaliCut — professional AI video editor with full Model Context Protocol (MCP) integration",
   "author": {
     "name": "teminali",
     "email": "muhasibudigital@gmail.com"
   },
   "license": "Proprietary",
-  "homepage": "https://teminali.github.io/frontiercut-releases/",
+  "homepage": "https://teminali.github.io/teminalicut-releases/",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {

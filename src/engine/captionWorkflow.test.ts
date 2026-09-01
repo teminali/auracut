@@ -8,7 +8,7 @@ describe('Subtitle Extraction & Polishing Cleanness Pipeline (End-to-End)', () =
   it('cleans raw transcript through deterministic audit, LLM review, and builds clean kinetic subtitle track', () => {
     // 1. Raw noisy transcript with repetition loops, stutters, and typos
     const rawSpeech: SpeechCue[] = [
-      { startMs: 0, endMs: 2500, text: 'Hello and welcom to FrontierCut video editr.' },
+      { startMs: 0, endMs: 2500, text: 'Hello and welcom to TeminaliCut video editr.' },
       { startMs: 2500, endMs: 5000, text: 'First we click on the setings button.' },
       // Stutter defect:
       { startMs: 5000, endMs: 8000, text: 'akaunti akaunti akaunti akaunti tuneita payables' },
@@ -25,7 +25,7 @@ describe('Subtitle Extraction & Polishing Cleanness Pipeline (End-to-End)', () =
 
     // 3. LLM Review & Polish (Spelling, proper nouns, hero word emphasis)
     const reviewPayload = JSON.stringify([
-      { i: 0, text: 'Hello and welcome to FrontierCut video editor.', words: [0, 3, 4], hero: 3 },
+      { i: 0, text: 'Hello and welcome to TeminaliCut video editor.', words: [0, 3, 4], hero: 3 },
       { i: 1, text: 'First we click on the Settings button.', words: [1, 5], hero: 5 },
       { i: 2, text: 'Akaunti tuneita payables.', words: [0, 2], hero: 2 },
       { i: 3, text: 'Now we run the MCP server on port 8000.', words: [2, 3, 7], hero: 3 },
@@ -34,7 +34,7 @@ describe('Subtitle Extraction & Polishing Cleanness Pipeline (End-to-End)', () =
     const reviewed = parseReviewReply(reviewPayload, repaired.cues);
     expect(reviewed.refused).toBeNull();
     expect(reviewed.corrected).toBe(4);
-    expect(reviewed.cues[0].text).toBe('Hello and welcome to FrontierCut video editor.');
+    expect(reviewed.cues[0].text).toBe('Hello and welcome to TeminaliCut video editor.');
     expect(reviewed.cues[1].text).toBe('First we click on the Settings button.');
     expect(reviewed.cues[3].text).toBe('Now we run the MCP server on port 8000.');
 
@@ -44,7 +44,7 @@ describe('Subtitle Extraction & Polishing Cleanness Pipeline (End-to-End)', () =
       frameHeight: 1080,
     });
     expect(clips.length).toBeGreaterThan(0);
-    expect(clips.some((c) => c.textStyle?.text.includes('FrontierCut'))).toBe(true);
+    expect(clips.some((c) => c.textStyle?.text.includes('TeminaliCut'))).toBe(true);
 
     // 5. Clean Subtitle Export (SRT & VTT)
     const captionCues = reviewed.cues.map((c, idx) => ({
@@ -55,7 +55,7 @@ describe('Subtitle Extraction & Polishing Cleanness Pipeline (End-to-End)', () =
     }));
 
     const srt = serializeCaptions(captionCues, 'srt');
-    expect(srt).toContain('1\n00:00:00,000 --> 00:00:02,500\nHello and welcome to FrontierCut video editor.');
+    expect(srt).toContain('1\n00:00:00,000 --> 00:00:02,500\nHello and welcome to TeminaliCut video editor.');
     expect(srt).not.toContain('[Music playing]');
 
     const vtt = serializeCaptions(captionCues, 'vtt');

@@ -289,7 +289,7 @@ export const HomeScreen: React.FC<Props> = ({ onEnterEditor }) => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".json,.kerf.json,application/json"
+        accept=".temi,.json,.kerf.json,application/json"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];

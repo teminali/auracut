@@ -9,13 +9,14 @@
    so nothing reflows as the project name or timecode changes width.
    ═══════════════════════════════════════════════════════════════════ */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useUiStore } from '../../store/uiStore';
 import { AspectRatio, ASPECT_DIMENSIONS } from '../../types/edl';
 import { formatTimecode } from '../../utils/time';
 import { serializeProject, deserializeProject } from '../../engine/projectIO';
+import { isTemiProjectFile, importTemiProject } from '../../engine/temiBundle';
 import { UpdateIndicator } from './UpdateIndicator';
 import { KerfMark } from '../ui/KerfMark';
 import { usePackagesStore } from '../../store/packagesStore';
@@ -43,6 +44,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
   const exportProgress = useProjectStore((s) => s.exportProgress);
   const cancelActiveExport = useProjectStore((s) => s.cancelActiveExport);
   const setMcpModalOpen = useProjectStore((s) => s.setMcpModalOpen);
+
   const setPackagesModalOpen = usePackagesStore((s) => s.setModalOpen);
   const packages = usePackagesStore((s) => s.packages);
   const coreReady = Boolean(packages.ffmpeg?.installed && packages.ffprobe?.installed);
@@ -58,10 +60,17 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
   const [titleDraft, setTitleDraft] = useState(project.name);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Keep titleDraft in sync with store (e.g., when agent renames)
+  useEffect(() => {
+    if (!isEditingTitle) setTitleDraft(project.name);
+  }, [project.name, isEditingTitle]);
+
   const commitTitle = () => {
+    const trimmed = titleDraft.trim();
+    if (trimmed && trimmed !== project.name) {
+      setProjectName(trimmed);
+    }
     setEditingTitle(false);
-    if (titleDraft.trim()) setProjectName(titleDraft.trim());
-    else setTitleDraft(project.name);
   };
 
   const saveProject = () => {
@@ -78,6 +87,25 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
 
   const loadProject = async (file: File) => {
     try {
+      const isTemi = file.name.endsWith('.temi') || (await isTemiProjectFile(file));
+      if (isTemi) {
+        const result = await importTemiProject(file);
+        if (result.ok) {
+          pushToast({
+            kind: 'success',
+            title: 'Project bundle loaded',
+            detail: `${result.projectName || file.name} · ${result.assetCount} media assets extracted`,
+          });
+        } else {
+          pushToast({
+            kind: 'error',
+            title: 'Could not load project bundle',
+            detail: result.error,
+          });
+        }
+        return;
+      }
+
       const result = deserializeProject(await file.text());
       pushToast({
         kind: result.ok ? 'success' : 'error',
@@ -115,10 +143,10 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
             className="w-[22px] h-[22px] rounded-squircle-xs flex items-center justify-center shadow-raised"
             style={{ background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)' }}
           >
-            {/* The FrontierCut F mark */}
+            {/* The TeminaliCut F mark */}
             <KerfMark className="w-[13px] h-[13px]" />
           </div>
-          <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">FrontierCut</span>
+          <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">TeminaliCut</span>
         </button>
 
         <Divider />
@@ -191,7 +219,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         <input
           ref={fileInputRef}
           type="file"
-          accept=".json"
+          accept=".temi,.json,.kerf.json,application/json"
           className="hidden"
           onChange={(e) => e.target.files?.[0] && loadProject(e.target.files[0])}
         />

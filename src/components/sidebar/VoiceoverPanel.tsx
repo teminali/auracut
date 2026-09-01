@@ -26,14 +26,14 @@ const TEMPLATES: Array<{ label: string; turns: DialogueTurn[] }> = [
     label: 'Podcast Intro',
     turns: [
       { speaker: 'Alice', voiceId: 'en_female_warm', emotion: 'friendly', text: 'Welcome back to the Frontier Show! Today we are diving into generative video workflows.' },
-      { speaker: 'Bob', voiceId: 'en_male_deep', emotion: 'excited', text: 'That is right Alice! The new real-time voice synthesis and multi-speaker editing in FrontierCut is unreal.' },
+      { speaker: 'Bob', voiceId: 'en_male_deep', emotion: 'excited', text: 'That is right Alice! The new real-time voice synthesis and multi-speaker editing in TeminaliCut is unreal.' },
       { speaker: 'Alice', voiceId: 'en_female_warm', emotion: 'friendly', text: 'Let’s walk through how to build a full episode in under two minutes.' },
     ],
   },
   {
     label: 'Product Walkthrough',
     turns: [
-      { speaker: 'Narrator', voiceId: 'en_male_calm', emotion: 'neutral', text: 'FrontierCut empowers creators with an autonomous AI video editing engine.' },
+      { speaker: 'Narrator', voiceId: 'en_male_calm', emotion: 'neutral', text: 'TeminaliCut empowers creators with an autonomous AI video editing engine.' },
       { speaker: 'Host', voiceId: 'en_female_energetic', emotion: 'excited', text: 'Notice how every cut and caption locks directly to the rhythm of the speech.' },
     ],
   },

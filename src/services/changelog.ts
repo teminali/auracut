@@ -91,7 +91,7 @@ export const CHANGELOG: Release[] = [
     detail:
       'Interactive speech model install prompts during recording review, 1-click auto-transcribe workflow, and real-time update download progress bars.',
     items: [
-      'Interactive Speech Model Prompts: when finishing a recording with narration without an installed Whisper model, FrontierCut prompts with 1-click install & transcribe or skip options instead of silently omitting subtitles.',
+      'Interactive Speech Model Prompts: when finishing a recording with narration without an installed Whisper model, TeminaliCut prompts with 1-click install & transcribe or skip options instead of silently omitting subtitles.',
       'Real-Time Update Progress Display: live download percentage and progress bars across the launcher promotion banner, left navigation rail, and version footer.',
       'Auto-Edit Integration: seamlessly downloads the recommended local model and proceeds directly into transcription, polishing, and speech-synced camera framing.',
     ],
@@ -147,7 +147,7 @@ export const CHANGELOG: Release[] = [
       'In-App Packages & Models Manager: survey, download, and manage FFmpeg, FFprobe, and Whisper speech models with 1-click.',
       'Auto-Download on Export: interactive 1-click installer inside the Export dialog when FFmpeg is missing, resuming export instantly.',
       'Cross-Platform Binary Isolation: binaries install to internal user directory without requiring brew, chocolatey, or root permissions.',
-      'Native Windows Branding: fixed window titles and system menu bars to display FrontierCut.',
+      'Native Windows Branding: fixed window titles and system menu bars to display TeminaliCut.',
       'Eliminated platform-specific brew install error messages across export, screen recording, and transcription.',
     ],
   },
@@ -168,12 +168,12 @@ export const CHANGELOG: Release[] = [
   {
     version: '1.12.7',
     date: '2026-08-31',
-    headline: 'Classic Clean Captions & FrontierCut Brand',
+    headline: 'Classic Clean Captions & TeminaliCut Brand',
     detail:
-      'Tutorial skill now defaults to clean classic subtitle typography, and in-app branding is fully updated to FrontierCut.',
+      'Tutorial skill now defaults to clean classic subtitle typography, and in-app branding is fully updated to TeminaliCut.',
     items: [
       'Removed distracting kinetic typography from tutorial skill assembly, preserving pristine classic subtitle legibility.',
-      'Updated in-app header, home view, and navigation identity to official FrontierCut branding and F logo mark.',
+      'Updated in-app header, home view, and navigation identity to official TeminaliCut branding and F logo mark.',
       'Streamlined caption tracks and speech alignment for clean video production.',
     ],
   },

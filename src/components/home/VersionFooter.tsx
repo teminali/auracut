@@ -99,8 +99,8 @@ export const VersionFooter: React.FC = () => {
     if (outcome.ok) {
       pushToast({
         kind: 'success',
-        title: `FrontierCut ${outcome.version ?? version ?? ''} installed`,
-        detail: 'Close and reopen FrontierCut when you are ready.',
+        title: `TeminaliCut ${outcome.version ?? version ?? ''} installed`,
+        detail: 'Close and reopen TeminaliCut when you are ready.',
       });
     } else {
       pushToast({
@@ -209,7 +209,7 @@ export const VersionFooter: React.FC = () => {
           {isReady && (
             <MenuItem
               icon={RefreshCw}
-              label="Quit FrontierCut to finish update"
+              label="Quit TeminaliCut to finish update"
               tone="accent"
               disabled={Boolean(busy)}
               onClick={quitForUpdate}

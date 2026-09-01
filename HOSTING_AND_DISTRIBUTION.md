@@ -1,31 +1,31 @@
-# FrontierCut / Kerf — Release Hosting & Distribution Architecture
+# TeminaliCut / Kerf — Release Hosting & Distribution Architecture
 
-This document details the release hosting infrastructure, automated multi-platform build pipeline, and public distribution workflow for **FrontierCut** (formerly Kerf).
+This document details the release hosting infrastructure, automated multi-platform build pipeline, and public distribution workflow for **TeminaliCut** (formerly Kerf).
 
 ---
 
 ## 1. Architectural Overview
 
-To protect proprietary core codebase and editing engine IP while maintaining a seamless, zero-friction public distribution experience for end users, FrontierCut utilizes a **Two-Tier Repository Architecture**:
+To protect proprietary core codebase and editing engine IP while maintaining a seamless, zero-friction public distribution experience for end users, TeminaliCut utilizes a **Two-Tier Repository Architecture**:
 
 ```mermaid
 graph TD
-    A["Private Core Repo<br/>(teminali/frontierCut)"] -->|"git tag vX.Y.Z"| B["GitHub Actions Matrix<br/>(macOS, Windows, Linux)"]
+    A["Private Core Repo<br/>(teminali/teminaliCut)"] -->|"git tag vX.Y.Z"| B["GitHub Actions Matrix<br/>(macOS, Windows, Linux)"]
     B -->|"Build & Sign"| C["electron-builder<br/>Package & Checksum Generation"]
-    C -->|"Publish Artifacts"| D["Public Releases Hub<br/>(teminali/frontiercut-releases)"]
+    C -->|"Publish Artifacts"| D["Public Releases Hub<br/>(teminali/teminalicut-releases)"]
     D -->|"GitHub Releases API"| E["Public Download Portal<br/>(GitHub Pages Web App)"]
     D -->|"latest*.yml Feeds"| F["In-App Auto-Updater<br/>(Client Desktop App)"]
     E -->|"Direct CDN Downloads"| G["End Users & Creators"]
 ```
 
 ### Components:
-1. **Private Core Repository (`teminali/frontierCut`)**:
+1. **Private Core Repository (`teminali/teminaliCut`)**:
    - Contains full source code, Electron main process, WebGL2/WebCodecs engine, MCP tools, React editor interface, and test suites.
    - Visibility: `Private`.
-2. **Public Releases Hub (`teminali/frontiercut-releases`)**:
+2. **Public Releases Hub (`teminali/teminalicut-releases`)**:
    - Houses public GitHub Releases, release notes, verified binaries (`.dmg`, `.exe`, `.AppImage`, `.zip`), and YAML feed manifests (`latest.yml`, `latest-mac.yml`).
    - Visibility: `Public`.
-3. **Public Web Portal & Documentation (`https://teminali.github.io/frontiercut-releases/`)**:
+3. **Public Web Portal & Documentation (`https://teminali.github.io/teminalicut-releases/`)**:
    - Modern, SEO-optimized web landing page and download hub.
    - Features automatic OS detection, direct multi-architecture downloads, live release notes, and SHA-512 checksum verifier.
 
@@ -38,10 +38,10 @@ Releases are compiled natively on target operating systems using GitHub Actions 
 ### Matrix Strategy:
 | Platform | Target Architecture | Package Format | Runner OS | Output File |
 | :--- | :--- | :--- | :--- | :--- |
-| **macOS (Apple Silicon)** | `arm64` (M1/M2/M3/M4) | DMG / ZIP | `macos-14` | `FrontierCut-1.12.6-macOS-arm64.dmg` |
-| **macOS (Intel)** | `x64` (Intel Core) | DMG / ZIP | `macos-13` / `macos-14` | `FrontierCut-1.12.6-macOS-x64.dmg` |
-| **Windows** | `x64` (64-bit) | NSIS Setup EXE | `windows-latest` | `FrontierCut-Setup-1.12.6-Windows-x64.exe` |
-| **Linux** | `x64` (`x86_64`) | AppImage | `ubuntu-latest` | `FrontierCut-1.12.6-Linux-x86_64.AppImage` |
+| **macOS (Apple Silicon)** | `arm64` (M1/M2/M3/M4) | DMG / ZIP | `macos-14` | `TeminaliCut-1.12.6-macOS-arm64.dmg` |
+| **macOS (Intel)** | `x64` (Intel Core) | DMG / ZIP | `macos-13` / `macos-14` | `TeminaliCut-1.12.6-macOS-x64.dmg` |
+| **Windows** | `x64` (64-bit) | NSIS Setup EXE | `windows-latest` | `TeminaliCut-Setup-1.12.6-Windows-x64.exe` |
+| **Linux** | `x64` (`x86_64`) | AppImage | `ubuntu-latest` | `TeminaliCut-1.12.6-Linux-x86_64.AppImage` |
 
 ### Package Configuration (`electron-builder.yml`):
 - **Native Modules**: `uiohook-napi` is N-API ABI-stable and prebuilt across platforms; `npmRebuild: false` avoids unnecessary C++ compilation steps on CI runners.
@@ -52,7 +52,7 @@ Releases are compiled natively on target operating systems using GitHub Actions 
 
 ## 3. Release Hosting & Feed Manifests
 
-The auto-updater system in [`electron/updater.ts`](file:///Users/teminali/Documents/my_projects/frontierCut/electron/updater.ts) reads YAML manifest feeds published with each release:
+The auto-updater system in [`electron/updater.ts`](file:///Users/teminali/Documents/my_projects/teminaliCut/electron/updater.ts) reads YAML manifest feeds published with each release:
 
 1. **`latest-mac.yml`**: Contains macOS versions, asset URLs, and SHA-512 hashes for `arm64` and `x64`.
 2. **`latest.yml`**: Contains Windows installer hashes and NSIS update packages.
@@ -70,8 +70,8 @@ Every binary uploaded to the release is accompanied by a cryptographic SHA-512 h
 To publish a new version:
 
 ### Step 1: Update Version & Changelog
-1. Update `"version"` in [`package.json`](file:///Users/teminali/Documents/my_projects/frontierCut/package.json).
-2. Add the release entry at the top of [`src/services/changelog.ts`](file:///Users/teminali/Documents/my_projects/frontierCut/src/services/changelog.ts).
+1. Update `"version"` in [`package.json`](file:///Users/teminali/Documents/my_projects/teminaliCut/package.json).
+2. Add the release entry at the top of [`src/services/changelog.ts`](file:///Users/teminali/Documents/my_projects/teminaliCut/src/services/changelog.ts).
 
 ### Step 2: Run Verification & Build Checks
 ```bash

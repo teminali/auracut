@@ -140,7 +140,7 @@ export const PackagesModal: React.FC = () => {
             Local Isolated Storage
           </span>
           <span className="truncate max-w-[340px] text-[#8a8a8a]">
-            Packages stored in FrontierCut user data
+            Packages stored in TeminaliCut user data
           </span>
           <div className="ml-auto flex items-center gap-2">
             {!allCoreInstalled ? (
@@ -236,10 +236,10 @@ export const PackagesModal: React.FC = () => {
 
           <div className="p-4 rounded-[2px] bg-[#262626] border border-[#141414] space-y-2">
             <h4 className="font-mono text-micro font-bold tracking-[0.13em] text-[#989898] uppercase">
-              How FrontierCut Tunes AI Models
+              How TeminaliCut Tunes AI Models
             </h4>
             <p className="text-ui text-[#a6a6a6] leading-relaxed">
-              FrontierCut dynamically matches quantized speech-to-text models to your host machine.
+              TeminaliCut dynamically matches quantized speech-to-text models to your host machine.
               On Apple Silicon, ggml models execute directly on Metal and Neural Engine cores with sub-2-second latency for 90-second voice clips.
             </p>
           </div>

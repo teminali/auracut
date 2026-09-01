@@ -3,15 +3,17 @@ import { useProjectStore, ExportTelemetry } from '../../store/projectStore';
 import { useTimelineStore, getContentEndMs } from '../../store/timelineStore';
 import { useUiStore } from '../../store/uiStore';
 import { runHardwareExport, ExportResolution, ExportResult } from '../../engine/exportPipeline';
-import { formatDuration } from '../../utils/time';
+import { exportTemiProjectBundle, TemiExportProgress, TemiExportResult } from '../../engine/temiBundle';
+import { formatDuration, formatFileSize } from '../../utils/time';
 import { notifyExportComplete } from '../../utils/soundEffects';
 import { usePackagesStore } from '../../store/packagesStore';
 import { SegmentedControl, ToggleRow, Section } from '../ui/Controls';
 import {
   X, Download, Check, Film, Zap, Cpu, Layers, FolderOpen, ExternalLink, RefreshCw, AlertTriangle, Package,
+  ShieldCheck, Lock, Image as ImageIcon, Music, Video,
 } from '../ui/icons';
 
-/* The short edge — the long edge follows the project's aspect ratio. */
+/* The short edge - the long edge follows the project's aspect ratio. */
 const RESOLUTIONS = [
   { value: '720p', label: '720p', hint: 'Fast' },
   { value: '1080p', label: '1080p', hint: 'Standard' },
@@ -45,7 +47,7 @@ const PLATFORM_PRESETS = [
   { id: 'master', label: 'Master', detail: '4K · ProRes', resolution: '4k', codec: 'prores' },
 ] as const;
 
-/** "4m 12s", "38s" — short enough to sit in a stat cell. */
+/** "4m 12s", "38s" - short enough to sit in a stat cell. */
 function shortDuration(ms: number): string {
   const total = Math.max(0, Math.round(ms / 1000));
   const m = Math.floor(total / 60);
@@ -101,7 +103,54 @@ export const ExportModal: React.FC = () => {
   const [rangeOnly, setRangeOnly] = useState(false);
   const [done, setDone] = useState<ExportResult | null>(null);
 
+  // Tab: 'video' | 'project'
+  const [exportTab, setExportTab] = useState<'video' | 'project'>('video');
+
+  // .temi Project export state
+  const mediaPool = useTimelineStore((s) => s.mediaPool);
+  const [isTemiExporting, setIsTemiExporting] = useState(false);
+  const [temiProgress, setTemiProgress] = useState<TemiExportProgress | null>(null);
+  const [temiDone, setTemiDone] = useState<TemiExportResult | null>(null);
+
   const abortRef = useRef<AbortController | null>(null);
+
+  const startTemiExport = async () => {
+    setIsTemiExporting(true);
+    setTemiDone(null);
+    setTemiProgress({ phase: 'collecting', percent: 5, statusText: 'Preparing project bundle…' });
+
+    try {
+      const result = await exportTemiProjectBundle({
+        onProgress: setTemiProgress,
+      });
+
+      if (!result.ok || !result.blob) {
+        throw new Error(result.error || 'Failed to export project bundle.');
+      }
+
+      // Download / trigger save
+      const url = URL.createObjectURL(result.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.fileName || `${project.name}.temi`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+      setTemiDone(result);
+      notifyExportComplete('TeminaliCut Project Exported', `${result.fileName} (${formatFileSize(result.sizeBytes || 0)})`);
+      pushToast({
+        kind: 'success',
+        title: 'Project bundle exported',
+        detail: `${result.fileName} · ${formatFileSize(result.sizeBytes || 0)} · ${result.assetCount} media assets`,
+      });
+    } catch (err) {
+      pushToast({ kind: 'error', title: 'Project export failed', detail: (err as Error).message });
+    } finally {
+      setIsTemiExporting(false);
+    }
+  };
 
   const handleCancelExport = () => {
     if (abortRef.current) {
@@ -192,7 +241,7 @@ export const ExportModal: React.FC = () => {
 
       // Trigger success audio chime and desktop notification
       const fileName = result.outputPath.split(/[\\/]/).pop() ?? result.outputPath;
-      notifyExportComplete('FrontierCut Export Complete', `${fileName} (${(result.bytes / 1024 / 1024).toFixed(1)} MB)`);
+      notifyExportComplete('TeminaliCut Export Complete', `${fileName} (${(result.bytes / 1024 / 1024).toFixed(1)} MB)`);
 
       pushToast({
         kind: 'success',
@@ -215,11 +264,14 @@ export const ExportModal: React.FC = () => {
     }
   };
 
+  const isAnyExporting = isExporting || isTemiExporting;
+  const isAnyDone = Boolean(done || temiDone);
+
   return (
-    <div className="scrim" onClick={() => (isExporting ? handleMinimize() : setOpen(false))}>
+    <div className="scrim" onClick={() => (isAnyExporting ? handleMinimize() : setOpen(false))}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`modal-shell max-w-[92vw] rounded-2xl bg-[#11141a] border border-[#232936] shadow-[0_24px_64px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] overflow-hidden ${isExporting || done ? 'w-[520px]' : 'w-[480px]'}`}
+        className={`modal-shell max-w-[92vw] rounded-2xl bg-[#11141a] border border-[#232936] shadow-[0_24px_64px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] overflow-hidden ${isAnyExporting || isAnyDone ? 'w-[520px]' : 'w-[500px]'}`}
         role="dialog"
         aria-modal="true"
         aria-label="Export"
@@ -227,25 +279,63 @@ export const ExportModal: React.FC = () => {
         <div className="panel-header px-6 py-4.5 border-b border-white/[0.06] bg-[#11141a] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
-              <Download className="w-4 h-4 text-[#f97316]" />
+              {exportTab === 'project' ? (
+                <ShieldCheck className="w-4 h-4 text-spectrum-accent" />
+              ) : (
+                <Download className="w-4 h-4 text-[#f97316]" />
+              )}
             </span>
             <span className="text-[17px] font-semibold text-white tracking-tight">Export</span>
             {isExporting && (
               <span className="px-2 py-0.5 rounded-[4px] text-ui-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse font-mono">
-                Rendering
+                Rendering Video
+              </span>
+            )}
+            {isTemiExporting && (
+              <span className="px-2 py-0.5 rounded-[4px] text-ui-xs bg-spectrum-accentSoft text-spectrum-accent border border-spectrum-accentLine animate-pulse font-mono">
+                Bundling .temi
               </span>
             )}
           </div>
           <button
-            onClick={() => (isExporting ? handleMinimize() : setOpen(false))}
+            onClick={() => (isAnyExporting ? handleMinimize() : setOpen(false))}
             className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors"
-            title={isExporting ? 'Minimize to background' : 'Close'}
-            aria-label={isExporting ? 'Minimize to background' : 'Close the export dialog'}
+            title={isAnyExporting ? 'Minimize to background' : 'Close'}
+            aria-label={isAnyExporting ? 'Minimize to background' : 'Close the export dialog'}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
+        {/* Tab Switcher (shown when not exporting and not finished) */}
+        {!isAnyExporting && !isAnyDone && (
+          <div className="px-6 pt-3.5 pb-2 border-b border-white/[0.06] flex items-center gap-2 bg-[#0d1016]">
+            <button
+              onClick={() => setExportTab('video')}
+              className={`px-3.5 py-1.5 rounded-lg text-ui font-medium flex items-center gap-2 transition-all ${
+                exportTab === 'video'
+                  ? 'bg-spectrum-accentSoft text-spectrum-accent border border-spectrum-accentLine shadow-sm'
+                  : 'text-spectrum-textMuted hover:text-white hover:bg-white/[0.04] border border-transparent'
+              }`}
+            >
+              <Film className="w-4 h-4" />
+              Video Master
+            </button>
+            <button
+              onClick={() => setExportTab('project')}
+              className={`px-3.5 py-1.5 rounded-lg text-ui font-medium flex items-center gap-2 transition-all ${
+                exportTab === 'project'
+                  ? 'bg-spectrum-accentSoft text-spectrum-accent border border-spectrum-accentLine shadow-sm'
+                  : 'text-spectrum-textMuted hover:text-white hover:bg-white/[0.04] border border-transparent'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Project File (.temi)
+            </button>
+          </div>
+        )}
+
+        {/* Video Done View */}
         {done ? (
           <ExportDone
             result={done}
@@ -253,6 +343,7 @@ export const ExportModal: React.FC = () => {
             onClose={() => { setDone(null); setOpen(false); }}
           />
         ) : isExporting ? (
+          /* Video Running View */
           <ExportRunning
             progress={exportProgress}
             statusText={exportStatusText}
@@ -260,7 +351,103 @@ export const ExportModal: React.FC = () => {
             onCancel={handleCancelExport}
             onMinimize={handleMinimize}
           />
+        ) : exportTab === 'project' ? (
+          /* Temi Project Export Flow */
+          temiDone ? (
+            <TemiExportDone
+              result={temiDone}
+              projectName={project.name}
+              onAgain={() => setTemiDone(null)}
+              onClose={() => { setTemiDone(null); setOpen(false); }}
+            />
+          ) : isTemiExporting ? (
+            <TemiExportRunning progress={temiProgress} />
+          ) : (
+            <>
+              <div className="max-h-[54vh] overflow-y-auto p-0">
+                <Section title="Project Overview" icon={ShieldCheck}>
+                  <div className="grid grid-cols-2 gap-2 text-ui-sm">
+                    <SummaryCell label="Project Name" value={project.name} />
+                    <SummaryCell label="Duration" value={formatDuration(exportDuration)} />
+                    <SummaryCell label="Canvas" value={`${project.width}×${project.height} (${project.aspectRatio})`} />
+                    <SummaryCell label="Timeline Structure" value={`${clipCount} clips · ${tracks.length} tracks`} />
+                  </div>
+                </Section>
+
+                <Section title={`Bundled Media Assets (${mediaPool.length})`} icon={Package}>
+                  {mediaPool.length === 0 ? (
+                    <div className="p-3 rounded-lg bg-[#0b0e13] border border-line text-micro text-spectrum-textMuted">
+                      No external media assets in pool. All timeline tracks, shapes, text, animations, and effects will be packaged.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {mediaPool.map((asset) => (
+                        <div
+                          key={asset.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-[#0b0e13] border border-line text-ui-sm"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {asset.type === 'video' ? (
+                              <Video className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                            ) : asset.type === 'audio' ? (
+                              <Music className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                            ) : (
+                              <ImageIcon className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                            )}
+                            <span className="truncate text-spectrum-text text-ui-xs font-mono">{asset.name}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-micro font-mono text-spectrum-textFaint">
+                              {formatDuration(asset.durationMs)}
+                            </span>
+                            {asset.fileSizeFormatted && (
+                              <span className="text-micro font-mono text-spectrum-textDim">
+                                {asset.fileSizeFormatted}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-micro text-spectrum-textFaint pt-1">
+                    All video footage, audio beds, and images are embedded directly into the encrypted .temi file so any recipient can open and start editing immediately without missing assets.
+                  </p>
+                </Section>
+
+                <Section title="Encryption" icon={Lock}>
+                  <div className="p-3 rounded-lg bg-spectrum-accentSoft border border-spectrum-accentLine flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-spectrum-accent shrink-0 mt-0.5" />
+                    <div className="text-micro text-spectrum-text space-y-0.5">
+                      <span className="font-semibold block">AES-256-GCM Encrypted</span>
+                      <p className="text-spectrum-textMuted leading-relaxed">
+                        Your project bundle is compressed with GZIP and encrypted with AES-256-GCM.
+                        The file can only be opened in TeminaliCut and cannot be extracted for use in other editors.
+                      </p>
+                    </div>
+                  </div>
+                </Section>
+              </div>
+
+              <div className="p-4 px-6 border-t border-[#232936] bg-[#0b0e13] flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setOpen(false)}
+                  className="pro-btn-filled h-9 px-4 rounded-lg text-ui font-medium bg-[#0e1218] border border-[#232936] hover:border-[#384252] text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={startTemiExport}
+                  className="btn-primary h-9 px-5 rounded-lg gap-2 text-ui font-medium"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  Export .temi Project
+                </button>
+              </div>
+            </>
+          )
         ) : (
+          /* Video Settings Form */
           <>
             <div className="max-h-[54vh] overflow-y-auto">
               {!ffmpegInstalled && (
@@ -272,7 +459,7 @@ export const ExportModal: React.FC = () => {
                         <span>FFmpeg Video Engine Required</span>
                       </div>
                       <p className="text-micro text-spectrum-textMuted">
-                        FrontierCut requires standalone FFmpeg to render and mix videos on Windows, macOS, and Linux.
+                        TeminaliCut requires standalone FFmpeg to render and mix videos on Windows, macOS, and Linux.
                       </p>
                     </div>
                     <button
@@ -418,7 +605,7 @@ export const ExportModal: React.FC = () => {
 /* ── While it runs ─────────────────────────────────────────────────
 
    The old panel was a spinner, a line of text and a bar. That is enough
-   to know something is happening and not enough to know anything else —
+   to know something is happening and not enough to know anything else -
    and a render is the one thing in this app a user WAITS for, so the
    dialog they are staring at is the one place worth spending a design
    on. What is on screen now is what the render is actually doing: the
@@ -615,7 +802,7 @@ const ExportDone: React.FC<{
       {/*
         Named rather than merely written. A subtitle file that appears
         silently beside the video is one nobody uploads, because nobody
-        knows it is there — and being able to upload it is the entire
+        knows it is there - and being able to upload it is the entire
         reason it is written.
       */}
       {result.subtitlePaths && result.subtitlePaths.length > 0 && (
@@ -656,3 +843,115 @@ const SummaryCell: React.FC<{ label: string; value: string }> = ({ label, value 
     <span className="block font-mono text-spectrum-text tabular truncate">{value}</span>
   </div>
 );
+
+const TemiExportRunning: React.FC<{ progress: TemiExportProgress | null }> = ({ progress }) => {
+  const percent = Math.min(100, Math.max(0, progress?.percent ?? 0));
+  const phase = progress?.phase ?? 'collecting';
+
+  return (
+    <div className="p-6 space-y-5">
+      <div className="text-center pt-2">
+        <div className="export-figure tabular">
+          {Math.round(percent)}
+          <span className="export-figure-unit">%</span>
+        </div>
+        <p className="text-ui font-medium text-spectrum-text mt-1">
+          {progress?.statusText || 'Bundling project…'}
+        </p>
+        {progress?.currentAsset && (
+          <p className="text-micro font-mono text-spectrum-textFaint truncate max-w-[360px] mx-auto mt-0.5">
+            {progress.currentAsset}
+          </p>
+        )}
+      </div>
+
+      <div className="export-track">
+        <div className="export-track-fill" style={{ width: `${Math.max(2, percent)}%` }}>
+          <span className="export-track-sheen" />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center gap-2 pt-1">
+        <PhaseChip label="Collect Media" state={phase === 'collecting' ? 'live' : percent > 40 ? 'done' : 'todo'} />
+        <PhaseChip label="Compress" state={phase === 'compressing' ? 'live' : percent > 70 ? 'done' : 'todo'} />
+        <PhaseChip label="AES-256 Encrypt" state={phase === 'encrypting' ? 'live' : percent >= 100 ? 'done' : 'todo'} />
+        <PhaseChip label="Download" state={phase === 'done' ? 'done' : 'todo'} />
+      </div>
+
+      <p className="text-micro text-spectrum-textFaint text-center max-w-[340px] mx-auto pt-1">
+        Bundling all assets and compressing the editing timeline into a self-contained encrypted package.
+      </p>
+    </div>
+  );
+};
+
+const TemiExportDone: React.FC<{
+  result: TemiExportResult;
+  projectName: string;
+  onAgain: () => void;
+  onClose: () => void;
+}> = ({ result, projectName, onAgain, onClose }) => {
+  const pushToast = useUiStore((s) => s.pushToast);
+
+  const downloadAgain = () => {
+    if (!result.blob) return;
+    const url = URL.createObjectURL(result.blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = result.fileName || `${projectName}.temi`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    pushToast({ kind: 'info', title: 'Download triggered' });
+  };
+
+  return (
+    <div className="p-6 flex flex-col items-center text-center gap-3">
+      <div className="w-12 h-12 rounded-2xl bg-spectrum-accentSoft border border-spectrum-accentLine flex items-center justify-center shadow-lg shadow-spectrum-accent/10">
+        <ShieldCheck className="w-6 h-6 text-spectrum-accent" />
+      </div>
+      <div>
+        <p className="text-ui-lg font-semibold text-spectrum-text">Project Exported (.temi)</p>
+        <p className="text-ui-sm font-mono text-spectrum-textDim break-all max-w-[380px] mt-0.5">
+          {result.fileName}
+        </p>
+      </div>
+
+      <div className="p-3 rounded-xl bg-[#0b0e13] border border-line w-full max-w-[380px] text-left space-y-1.5">
+        <div className="flex justify-between text-ui-xs">
+          <span className="text-spectrum-textMuted">File Size:</span>
+          <span className="font-mono text-spectrum-text font-medium">{formatFileSize(result.sizeBytes || 0)}</span>
+        </div>
+        <div className="flex justify-between text-ui-xs">
+          <span className="text-spectrum-textMuted">Bundled Assets:</span>
+          <span className="font-mono text-spectrum-text font-medium">{result.assetCount} media files</span>
+        </div>
+        <div className="flex justify-between text-ui-xs">
+          <span className="text-spectrum-textMuted">Encryption:</span>
+          <span className="font-mono text-spectrum-accent font-medium">
+            AES-256-GCM (TeminaliCut)
+          </span>
+        </div>
+      </div>
+
+      <p className="text-micro text-spectrum-textFaint max-w-[380px] leading-relaxed">
+        This file contains all footage, audio, and timeline edits. Send it to anyone - they can open it in TeminaliCut and immediately begin editing.
+      </p>
+
+      <div className="flex flex-wrap justify-center gap-2 pt-2">
+        <button onClick={downloadAgain} className="pro-btn-filled h-8 px-3.5 gap-1.5 text-ui-sm">
+          <Download className="w-3.5 h-3.5" />
+          Download again
+        </button>
+        <button onClick={onAgain} className="pro-btn-filled h-8 px-3.5 text-ui-sm">
+          Export settings
+        </button>
+        <button onClick={onClose} className="btn-primary h-8 px-4 text-ui-sm">
+          Done
+        </button>
+      </div>
+    </div>
+  );
+};
+

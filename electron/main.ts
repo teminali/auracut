@@ -49,7 +49,7 @@ import {
 } from '../src/services/permissionReset';
 
 initAppBinPath();
-app.setName('FrontierCut');
+app.setName('TeminaliCut');
 
 /*
   This file is bundled to CommonJS (`main.cjs`), so `__dirname` is native
@@ -108,7 +108,7 @@ let currentScreen: 'home' | 'editor' = 'home';
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    title: 'FrontierCut',
+    title: 'TeminaliCut',
     width: 1440,
     height: 900,
     minWidth: 1024,
@@ -243,7 +243,7 @@ ipcMain.handle('dialog:openMedia', async () => {
 ipcMain.handle('dialog:saveExport', async (_, defaultName: string) => {
   if (!mainWindow) return null;
   const result = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: defaultName || 'FrontierCut_Render_Master.mp4',
+    defaultPath: defaultName || 'TeminaliCut_Render_Master.mp4',
     filters: [
       { name: 'MP4 Video (H.264 / HEVC)', extensions: ['mp4'] },
       { name: 'Apple ProRes 422', extensions: ['mov'] },
@@ -592,7 +592,7 @@ function registerAgentIpc() {
       ]);
       return { ok: true, message: `Opened Terminal running \`${command}\`.` };
     }
-    return { ok: false, message: `Run \`${command}\` in a terminal, then reopen FrontierCut.` };
+    return { ok: false, message: `Run \`${command}\` in a terminal, then reopen TeminaliCut.` };
   });
 
   ipcMain.handle('agents:openAntigravity', async (_e, p?: { prompt?: string }) => {
@@ -676,7 +676,7 @@ app.whenReady().then(async () => {
     ? await preparePermissionsForBuild({
       file: permissionResetStateFile(app.getPath('userData')),
       version: buildId,
-      bundleId: 'com.frontiercut.editor',
+      bundleId: 'com.teminalicut.editor',
       reset: resetTccService,
     })
     : null;
@@ -733,12 +733,12 @@ app.whenReady().then(async () => {
       if (!mainWindow) return;
       void dialog.showMessageBox(mainWindow, {
         type: 'warning',
-        title: 'FrontierCut could not refresh macOS permissions',
+        title: 'TeminaliCut could not refresh macOS permissions',
         message: 'Screen recording permissions still need to be refreshed.',
         detail:
-          `${failures}\n\nFrontierCut will retry automatically on every fresh launch. `
-          + 'You can also run “tccutil reset ScreenCapture com.frontiercut.editor” in Terminal, '
-          + 'then close and reopen FrontierCut.',
+          `${failures}\n\nTeminaliCut will retry automatically on every fresh launch. `
+          + 'You can also run “tccutil reset ScreenCapture com.teminalicut.editor” in Terminal, '
+          + 'then close and reopen TeminaliCut.',
         buttons: ['OK'],
       });
     });

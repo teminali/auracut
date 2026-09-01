@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   The FrontierCut mark.
+   The TeminaliCut mark.
 
    An F, cut. The vertical stem and the two horizontal bars form the F;
    the clean gap between them is the cut — the blade slit that defines
@@ -11,7 +11,7 @@
 
 import React from 'react';
 
-export const FrontierCutMark: React.FC<{ className?: string; color?: string }> = ({
+export const TeminaliCutMark: React.FC<{ className?: string; color?: string }> = ({
   className,
   color = '#fff',
 }) => (
@@ -34,5 +34,5 @@ export const FrontierCutMark: React.FC<{ className?: string; color?: string }> =
 );
 
 /** Alias for backward compatibility */
-export const KerfMark = FrontierCutMark;
+export const KerfMark = TeminaliCutMark;
 

@@ -108,7 +108,7 @@ export function resetTccService(
   bundleId: string
 ): Promise<void> {
   return new Promise((resolve) => {
-    const ids = Array.from(new Set([bundleId, 'com.frontiercut.editor', 'com.kerf.editor']));
+    const ids = Array.from(new Set([bundleId, 'com.teminalicut.editor', 'com.kerf.editor']));
     let remaining = ids.length;
     for (const id of ids) {
       execFile(

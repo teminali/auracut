@@ -10,7 +10,7 @@ import { executeTool } from '../../mcp/toolRegistry';
 import { MOTION_PRESET_LABELS } from '../../store/timelineStore';
 import { ASPECT_DIMENSIONS, AspectRatio } from '../../types/edl';
 import {
-  Search, Scissors, Copy, Trash2, Flag, Sparkle, Play, Undo2, Redo2, Layers, Snowflake, RotateCcw, Unlink, Music4, Subtitles, Download, Smartphone, Magnet, Command as CommandIcon,
+  Search, Scissors, Copy, Trash2, Flag, Sparkle, Play, Undo2, Redo2, Layers, Snowflake, RotateCcw, Unlink, Music4, Subtitles, Download, Smartphone, Magnet, Command as CommandIcon, ShieldCheck,
 } from './icons';
 
 interface CommandItem {
@@ -92,6 +92,7 @@ export const CommandPalette: React.FC = () => {
 
       /* Project */
       { id: 'export', label: 'Export video', group: 'Project', icon: Download, shortcut: '⌘E', run: () => p().setExportModalOpen(true) },
+      { id: 'export-temi', label: 'Export project package (.temi)', group: 'Project', icon: ShieldCheck, keywords: 'temi bundle package backup share encrypted project', run: () => p().setExportModalOpen(true) },
       { id: 'reset-layout', label: 'Reset panel layout', group: 'Project', icon: Layers, run: () => l().resetLayout() },
     ];
 

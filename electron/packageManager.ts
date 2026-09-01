@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Cross-platform Package & Model Manager for FrontierCut.
+   Cross-platform Package & Model Manager for TeminaliCut.
 
    Enables in-app 1-click automatic downloading, installation, and
    discovery of FFmpeg, FFprobe, and AI Whisper models across

@@ -43,7 +43,7 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
       >
 
         <div className="panel-header p-6 pb-4 flex items-center justify-between border-b border-white/[0.06]">
-          <h2 id="kerf-sign-in-title" className="text-[17px] font-semibold text-white tracking-tight">Sign in to FrontierCut</h2>
+          <h2 id="kerf-sign-in-title" className="text-[17px] font-semibold text-white tracking-tight">Sign in to TeminaliCut</h2>
           <button onClick={close} className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors" title="Close"
             aria-label="Close">
             <X className="w-4 h-4" />
