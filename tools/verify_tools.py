@@ -287,7 +287,7 @@ check('a refused call records no history at all',
 ok(call('reset_project', {'name': 'snapprobe', 'aspectRatio': '16:9', 'fps': 30,
                           'backgroundColor': '#000000', 'durationMs': 12000}), 'r')
 bed = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                   'src', 'assets', 'kerf_film_bed.wav')
+                   'src', 'assets', 'teminali_film_bed.wav')
 a = ok(call('import_media_from_path', {'path': bed, 'name': 'bed'}), 'imp')['assetId']
 ta = ok(call('add_track', {'type': 'audio', 'name': 'A'}), 't')['trackId']
 music = ok(call('insert_clip', {'assetId': a, 'trackId': ta, 'startTimeMs': 0}), 'i')['clipId']

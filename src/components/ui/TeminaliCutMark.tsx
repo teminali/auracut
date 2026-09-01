@@ -1,10 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
-   The TeminaliCut mark.
+   The TeminaliCut mark (TC Monogram).
 
-   An F, cut. The vertical stem and the two horizontal bars form the F;
-   the clean gap between them is the cut — the blade slit that defines
-   the editor.
-
+   Crisp vector geometry rendering the TC monogram with a modern cut aesthetic.
    Drawn as strokes rather than a raster so it holds at 16px in a title
    bar and at 1024px in an app icon, and stays crisp at every size.
    ═══════════════════════════════════════════════════════════════════ */
@@ -18,21 +15,16 @@ export const TeminaliCutMark: React.FC<{ className?: string; color?: string }> =
   <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
     <g
       stroke={color}
-      strokeWidth={3.3}
+      strokeWidth={2.6}
       strokeLinecap="round"
       strokeLinejoin="round"
       fill="none"
     >
-      {/* Stem of F */}
-      <path d="M6.2 3.9 V20.1" />
-      {/* Top bar of F, held clear of the stem by the cut */}
-      <path d="M11.2 5.5 H19.2" />
-      {/* Mid bar of F, held clear of the stem by the cut */}
-      <path d="M11.2 12.2 H16.5" />
+      {/* T - top crossbar & vertical stem */}
+      <path d="M3.5 6 H12" />
+      <path d="M7.7 6 V19" />
+      {/* C - modern geometric arc */}
+      <path d="M20.5 8 C19 5.8 15.5 5.8 14.2 7.8 C13.2 9.5 13.2 15.5 14.2 17.2 C15.5 19.2 19 19.2 20.5 17" />
     </g>
   </svg>
 );
-
-/** Alias for backward compatibility */
-export const KerfMark = TeminaliCutMark;
-

@@ -36,6 +36,18 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '2.1.0',
+    date: '2026-09-01',
+    headline: 'Encrypted .temi Project Bundles & TeminaliCut',
+    detail: 'Complete rebrand to TeminaliCut with proprietary AES-256-GCM encrypted project file export/import (.temi), bundling all media assets and timeline state into a single portable package.',
+    items: [
+      'Export and import portable encrypted project files (.temi) containing all video footage, audio, and timeline edits.',
+      'Native AES-256-GCM encryption with GZIP stream compression ensures project assets are self-contained and load with zero missing media.',
+      'Comprehensive in-app .temi support across the Export Modal, Header Bar, Home Screen, and Command Palette.',
+      'Complete global rebrand to TeminaliCut across the desktop application, system bridges, and release portal.',
+    ],
+  },
+  {
     version: '2.0.0',
     date: '2026-09-01',
     headline: 'Teminali Cut Genesis & Unified MCP 3888',

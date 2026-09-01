@@ -86,7 +86,7 @@ asarUnpack:
 publish:
   provider: github
   owner: teminali
-  repo: frontierCut
+  repo: teminaliCut
   releaseType: release
 
 # ── macOS ──────────────────────────────────────────────────────────

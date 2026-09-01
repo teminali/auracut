@@ -18,7 +18,7 @@ import { formatTimecode } from '../../utils/time';
 import { serializeProject, deserializeProject } from '../../engine/projectIO';
 import { isTemiProjectFile, importTemiProject } from '../../engine/temiBundle';
 import { UpdateIndicator } from './UpdateIndicator';
-import { KerfMark } from '../ui/KerfMark';
+import { TeminaliCutMark } from '../ui/TeminaliCutMark';
 import { usePackagesStore } from '../../store/packagesStore';
 import {
   Sparkle, Download, Undo2, Redo2, Command, Save, FolderOpen, Keyboard, X, Package,
@@ -139,12 +139,8 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           className="flex items-center gap-2 flex-shrink-0 rounded-squircle-xs px-1 -mx-1 py-0.5
                      hover:bg-white/[0.05] transition-colors disabled:hover:bg-transparent"
         >
-          <div
-            className="w-[22px] h-[22px] rounded-squircle-xs flex items-center justify-center shadow-raised"
-            style={{ background: 'linear-gradient(135deg,#3b82f6,#1d4ed8)' }}
-          >
-            {/* The TeminaliCut F mark */}
-            <KerfMark className="w-[13px] h-[13px]" />
+          <div className="w-[26px] h-[26px] rounded-lg bg-spectrum-accentSoft border border-spectrum-accentLine flex items-center justify-center flex-shrink-0 text-spectrum-accent shadow-[0_0_12px_rgba(59,130,246,0.15)]">
+            <TeminaliCutMark className="w-[13px] h-[13px]" />
           </div>
           <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">TeminaliCut</span>
         </button>

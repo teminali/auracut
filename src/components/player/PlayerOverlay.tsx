@@ -35,7 +35,7 @@ import { useProgramLoop } from '../../hooks/useProgramLoop';
 import { useMeasure } from '../../hooks/useMeasure';
 import { PlaybackControls } from '../preview/PlaybackControls';
 import { CopilotDrawer } from '../copilot/CopilotDrawer';
-import { KerfMark } from '../ui/KerfMark';
+import { TeminaliCutMark } from '../ui/TeminaliCutMark';
 import {
   ArrowLeft, Sparkle, Download, ScissorsLineDashed, Flag, Subtitles, Sliders, Rows3,
   DotsThree, Crop, Selection,
@@ -301,7 +301,7 @@ const PlayerStage: React.FC<Props> = ({ onOpenTimeline }) => {
         </button>
 
         <span className="kp-mark">
-          <KerfMark className="w-[13px] h-[13px]" />
+          <TeminaliCutMark className="w-[13px] h-[13px]" />
         </span>
 
         <span className="min-w-0">
