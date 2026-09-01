@@ -356,7 +356,9 @@ async function sideloadUpdate(version?: string): Promise<SideloadResult> {
 
     fs.renameSync(bundle, aside);
     try {
-      await run('/bin/cp', ['-R', fresh, bundle]);
+      await run('/bin/cp', ['-a', fresh, bundle]);
+      try { await run('/usr/bin/xattr', ['-c', bundle]); } catch { /* best effort */ }
+      try { await run('/usr/bin/codesign', ['--force', '--deep', '--sign', '-', bundle]); } catch { /* best effort */ }
     } catch (err) {
       try { rmTree(bundle); } catch { /* nothing there */ }
       fs.renameSync(aside, bundle);
