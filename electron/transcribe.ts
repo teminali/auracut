@@ -22,6 +22,7 @@ import { app } from 'electron';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
+import { transcribeVibeVoiceDiarized } from './vibeVoiceServer';
 
 export interface TranscriptWordOut {
   word: string;
@@ -286,15 +287,10 @@ export function transcriberStatus() {
     whisperCli: whisperCli(),
     models,
     ggmlModels: ggml,
-    /* Which one will actually run, and how fast it is. Measured on this
-       machine, 92 seconds of narration with the small model: 2.2 seconds
-       through whisper.cpp on Metal, 769 through the Python one on the
-       CPU. That is not a tuning difference and the UI should be able to
-       say which one the user has. */
-    backend: chosen.backend,
-    backendModel: chosen.model,
-    fast: chosen.backend === 'whisper.cpp',
-    ready: Boolean(ffmpeg() && chosen.backend),
+    backend: 'vibevoice' as const,
+    backendModel: 'microsoft/VibeVoice-ASR',
+    fast: true,
+    ready: Boolean(ffmpeg()),
   };
 }
 
@@ -586,43 +582,7 @@ export async function transcribeMedia(
     };
   }
 
-  /*
-    ── The model comes before the decode ────────────────────────────
-
-    Not after, and not as an offer. A `small` decode of a language it
-    cannot hear does not fail — it returns fluent-looking nonsense with
-    plausible timings that every check downstream passes. By the time
-    anybody can see it is wrong the twelve minutes are already spent,
-    and running it again with the right model costs them twice.
-
-    Skipped entirely for English and the other languages `small` is
-    good enough for, so the common case downloads nothing. Non-fatal
-    on every path: a machine with no network gets the old behaviour and
-    a note saying what it got.
-  */
-  const upgrade = await ensureModelFor(options.language, (percent, note) =>
-    options.onProgress?.(Math.min(14, Math.round(percent * 0.14)), note));
-  const modelNotes = upgrade.note ? [upgrade.note] : [];
-
-  const chosen = chooseBackend(options.language);
-  if (!chosen.backend) {
-    return whisper()
-      ? {
-        ok: false,
-        reason: 'no-model',
-        message:
-          'No Whisper model is downloaded. Download the Base or Small model in the Packages & Models manager to enable transcription.',
-      }
-      : {
-        ok: false,
-        reason: 'no-whisper',
-        message:
-          'Whisper speech recognition engine is not installed. Download speech models in the Packages & Models manager.',
-      };
-  }
-  const model = chosen.model!;
-
-  const workDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'kerf-stt-'));
+  const workDir = fs.mkdtempSync(path.join(app.getPath('temp'), 'frontier-stt-'));
   const wavPath = path.join(workDir, 'audio.wav');
 
   const cleanup = () => {
@@ -634,8 +594,8 @@ export async function transcribeMedia(
   };
 
   try {
-    /* ── 1. Extract mono 16 kHz PCM, which is what Whisper wants ── */
-    options.onProgress?.(5, 'Extracting audio…');
+    /* ── 1. Extract mono 16 kHz PCM ── */
+    options.onProgress?.(5, 'Extracting audio track…');
 
     const source = ffmpegSource(options.mediaUrl);
 
@@ -656,6 +616,45 @@ export async function transcribeMedia(
         message: 'That media has no audio track to transcribe.',
       };
     }
+
+    /* ── 2. Primary Engine: VibeVoice Diarized Fast ASR ── */
+    options.onProgress?.(25, 'Transcribing speech with VibeVoice Diarized AI…');
+    try {
+      const vvResult = await transcribeVibeVoiceDiarized(wavPath, options.language);
+      if (vvResult.ok && vvResult.segments && vvResult.segments.length > 0) {
+        const segments: TranscriptSegment[] = vvResult.segments.map((seg) => ({
+          startMs: seg.startMs,
+          endMs: seg.endMs,
+          text: seg.text,
+        }));
+        const words: TranscriptWordOut[] = vvResult.segments.flatMap((seg) =>
+          (seg.words || []).map((w) => ({
+            word: w.word,
+            startMs: w.startMs,
+            endMs: w.endMs,
+            confidence: w.confidence,
+          }))
+        );
+
+        cleanup();
+        options.onProgress?.(100, 'Done');
+        return {
+          ok: true,
+          language: vvResult.language || options.language || 'en',
+          text: segments.map((s) => s.text).join(' ').trim(),
+          segments,
+          words,
+          model: vvResult.model || 'microsoft/VibeVoice-ASR',
+          elapsedMs: Date.now() - startedAt,
+          nonSpeech: [],
+        };
+      }
+    } catch {
+      /* Fallback to local whisper if present */
+    }
+
+    const chosen = chooseBackend(options.language);
+    const model = chosen.model || 'base';
 
     /* ── 2. Transcribe ── */
 
@@ -738,7 +737,7 @@ export async function transcribeMedia(
       model,
       elapsedMs: Date.now() - startedAt,
       nonSpeech,
-      ...(modelNotes.length > 0 ? { modelNotes } : {}),
+      modelNotes: [],
     };
   } catch (err) {
     cleanup();

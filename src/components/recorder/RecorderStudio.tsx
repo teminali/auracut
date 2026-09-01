@@ -789,9 +789,9 @@ const Review: React.FC<{
                 <Package className="w-5 h-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <h3 className="text-ui font-semibold text-spectrum-text">Whisper Speech Model Required</h3>
+                <h3 className="text-ui font-semibold text-spectrum-text">VibeVoice Speech AI Required</h3>
                 <p className="text-ui-sm text-spectrum-textMuted mt-1 leading-relaxed">
-                  Automatic subtitles and speech-synced camera framing require a local Whisper AI model. Would you like to install the recommended model now or proceed without captions?
+                  Automatic subtitles and speech-synced camera framing use VibeVoice Diarized AI. Would you like to install the speech package now or proceed without captions?
                 </p>
               </div>
             </div>
@@ -801,7 +801,7 @@ const Review: React.FC<{
                 <div className="flex items-center justify-between text-ui-xs font-mono text-[#f0a173]">
                   <span className="flex items-center gap-1.5">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Downloading {recommendedModel?.name || 'Whisper Model'}…
+                    Downloading {recommendedModel?.name || 'VibeVoice Speech Model'}…
                   </span>
                   <span className="font-bold">{downloadingModel.percent}%</span>
                 </div>
