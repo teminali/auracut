@@ -40,6 +40,9 @@ import {
   initAppBinPath, getPackagesStatus, installPackage, installAllCorePackages, onPackageProgress,
 } from './packageManager';
 import {
+  registerVibeVoiceIpc, startVibeVoiceServer, stopVibeVoiceServer,
+} from './vibeVoiceServer';
+import {
   permissionResetStateFile,
   preparePermissionsForBuild,
   resetTccService,
@@ -705,6 +708,8 @@ app.whenReady().then(async () => {
   initToolBridge();
   registerAgentIpc();
   registerCrashIpc();
+  registerVibeVoiceIpc();
+  startVibeVoiceServer();
   /*
     Passed as a getter, not as the window. `createWindow` runs AFTER
     this and reassigns `mainWindow` on every relaunch from the dock, so
@@ -758,4 +763,7 @@ app.on('window-all-closed', () => app.quit());
   app on the machine), an always-on-top window, and open file handles.
   `will-quit` is the last point all three are still reachable.
 */
-app.on('will-quit', () => shutdownScreenRecorder());
+app.on('will-quit', () => {
+  stopVibeVoiceServer();
+  shutdownScreenRecorder();
+});

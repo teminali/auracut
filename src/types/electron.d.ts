@@ -304,6 +304,91 @@ export interface KerfElectronAPI {
     onProgress: (cb: (p: { percent: number; note: string }) => void) => () => void;
   };
 
+  /** Microsoft VibeVoice: Conversational Multi-Speaker TTS, Diarized ASR & Real-Time Streaming */
+  vibeVoice: {
+    status: () => Promise<{
+      ok: boolean;
+      ready: boolean;
+      device: string;
+      port: number;
+      serverRunning: boolean;
+      modelsDir: string;
+      loadedModels: string[];
+    }>;
+    synthesize: (req: {
+      script: Array<{
+        speaker: string;
+        voiceId?: string;
+        text: string;
+        emotion?: string;
+        speed?: number;
+      }>;
+      outputDir?: string;
+      pauseBetweenSpeakersMs?: number;
+    }) => Promise<{
+      ok: boolean;
+      error?: string;
+      totalDurationMs?: number;
+      speakers?: string[];
+      tracks?: Record<string, Array<{
+        turnIndex: number;
+        speaker: string;
+        voiceId?: string;
+        emotion?: string;
+        text: string;
+        audioPath: string;
+        startMs: number;
+        endMs: number;
+        durationMs: number;
+        words: Array<{ word: string; startMs: number; endMs: number; confidence: number }>;
+      }>>;
+      cues?: Array<{
+        index: number;
+        startMs: number;
+        endMs: number;
+        text: string;
+        speakerId: string;
+        speakerName: string;
+      }>;
+      modelUsed?: string;
+      device?: string;
+    }>;
+    transcribe: (opts: {
+      audioPath: string;
+      language?: string;
+    }) => Promise<{
+      ok: boolean;
+      error?: string;
+      language?: string;
+      durationMs?: number;
+      speakers?: string[];
+      speakerNames?: Record<string, string>;
+      segments?: Array<{
+        speakerId: string;
+        speakerName: string;
+        startMs: number;
+        endMs: number;
+        text: string;
+        words: Array<{ word: string; startMs: number; endMs: number; confidence: number }>;
+      }>;
+      model?: string;
+      elapsedMs?: number;
+    }>;
+    liveChunk: (req: {
+      channel: 'mic' | 'system';
+      text?: string;
+      timestampMs?: number;
+    }) => Promise<{
+      ok: boolean;
+      speaker: string;
+      channel: 'mic' | 'system';
+      timestampMs: number;
+      text: string;
+      isFinal: boolean;
+      badgeColor: string;
+    }>;
+  };
+
   exporter: {
     start: (opts: {
       width: number; height: number; fps: number;

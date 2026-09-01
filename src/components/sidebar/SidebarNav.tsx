@@ -15,7 +15,7 @@
 import React from 'react';
 import { useLayoutStore, SidebarTab } from '../../store/layoutStore';
 import {
-  FolderOpen, Music, Type, Subtitles, Layers, Sparkle, Sliders, Zap, Blocks, Image,
+  FolderOpen, Music, Type, Subtitles, Layers, Sparkle, Sliders, Zap, Blocks, Image, Mic,
 } from '../ui/icons';
 
 interface TabItem {
@@ -28,17 +28,18 @@ interface TabItem {
 const TABS: TabItem[] = [
   { id: 'media', label: 'Media', icon: FolderOpen, hotkey: '1' },
   { id: 'audio', label: 'Audio', icon: Music, hotkey: '2' },
-  { id: 'text', label: 'Text', icon: Type, hotkey: '3' },
-  { id: 'captions', label: 'Captions', icon: Subtitles, hotkey: '4' },
-  { id: 'transitions', label: 'Trans', icon: Layers, hotkey: '5' },
+  { id: 'voiceover', label: 'Voice', icon: Mic, hotkey: '3' },
+  { id: 'text', label: 'Text', icon: Type, hotkey: '4' },
+  { id: 'captions', label: 'Captions', icon: Subtitles, hotkey: '5' },
+  { id: 'transitions', label: 'Trans', icon: Layers, hotkey: '6' },
   /* `Sparkle` is the platform's ONE AI mark (HANDOVER, Iconography).
      VFX is not AI, and wearing the same symbol as the AI panel two
      tiles below it is how a set of one drifts back to a set of three. */
-  { id: 'effects', label: 'VFX', icon: Zap, hotkey: '6' },
-  { id: 'filters', label: 'Colour', icon: Sliders, hotkey: '7' },
-  { id: 'skills', label: 'Skills', icon: Blocks, hotkey: '8' },
-  { id: 'ai', label: 'AI', icon: Sparkle, hotkey: '9' },
-  { id: 'image', label: 'Image', icon: Image, hotkey: '0' },
+  { id: 'effects', label: 'VFX', icon: Zap, hotkey: '7' },
+  { id: 'filters', label: 'Colour', icon: Sliders, hotkey: '8' },
+  { id: 'skills', label: 'Skills', icon: Blocks, hotkey: '9' },
+  { id: 'ai', label: 'AI', icon: Sparkle, hotkey: '0' },
+  { id: 'image', label: 'Image', icon: Image, hotkey: 'I' },
 ];
 
 export const SidebarNav: React.FC = () => {

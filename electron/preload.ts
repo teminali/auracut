@@ -140,6 +140,14 @@ export interface ElectronAPI {
     onProgress: (cb: (p: { percent: number; note: string }) => void) => () => void;
   };
 
+  /** Microsoft VibeVoice: Conversational TTS, Diarized ASR & Real-time Captions */
+  vibeVoice: {
+    status: () => Promise<any>;
+    synthesize: (req: { script: Array<{ speaker: string; voiceId?: string; text: string; emotion?: string; speed?: number }>; outputDir?: string; pauseBetweenSpeakersMs?: number }) => Promise<any>;
+    transcribe: (opts: { audioPath: string; language?: string }) => Promise<any>;
+    liveChunk: (req: { channel: 'mic' | 'system'; text?: string; timestampMs?: number }) => Promise<any>;
+  };
+
   /** Real video export: frames to ffmpeg, audio muxed in. */
   exporter: {
     start: (opts: any) => Promise<{ sessionId?: string; error?: string }>;
@@ -390,6 +398,13 @@ const api: ElectronAPI = {
       ipcRenderer.on('stt:progress', handler);
       return () => ipcRenderer.removeListener('stt:progress', handler);
     },
+  },
+
+  vibeVoice: {
+    status: () => ipcRenderer.invoke('vibevoice:status'),
+    synthesize: (req) => ipcRenderer.invoke('vibevoice:synthesize', req),
+    transcribe: (opts) => ipcRenderer.invoke('vibevoice:transcribe', opts),
+    liveChunk: (req) => ipcRenderer.invoke('vibevoice:live-chunk', req),
   },
 
   exporter: {

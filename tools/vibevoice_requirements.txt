@@ -1,0 +1,9 @@
+# Microsoft VibeVoice requirements for FrontierCut
+torch>=2.2.0
+torchaudio>=2.2.0
+transformers>=4.48.0
+accelerate>=0.28.0
+soundfile>=0.12.1
+numpy>=1.26.0
+aiohttp>=3.9.0
+huggingface_hub>=0.25.0

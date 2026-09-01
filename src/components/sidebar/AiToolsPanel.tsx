@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTimelineStore } from '../../store/timelineStore';
 import { useProjectStore } from '../../store/projectStore';
 import { useUiStore } from '../../store/uiStore';
+import { useLayoutStore } from '../../store/layoutStore';
 import { executeTool } from '../../mcp/toolRegistry';
 import { analyzeTranscriptForBroll, BrollSuggestion } from '../../engine/brollEngine';
 import { Section } from '../ui/Controls';
@@ -84,6 +85,24 @@ export const AiToolsPanel: React.FC = () => {
       icon: Subtitles,
       tone: 'text-spectrum-accent',
       run: () => call('generate_auto_captions', { language: 'sw' }, 'Captions generated'),
+    },
+    {
+      id: 'vibevoice-dialogue',
+      label: 'VibeVoice Dialogue',
+      hint: 'Synthesize multi-speaker podcast audio with synced character tracks',
+      icon: MessageSquare,
+      tone: 'text-spectrum-pink',
+      run: async () => {
+        useLayoutStore.getState().setActiveTab('voiceover');
+      },
+    },
+    {
+      id: 'vibevoice-diarize',
+      label: 'Diarized Captions',
+      hint: 'Single-pass multi-speaker speech recognition with color-coded speaker tags',
+      icon: Subtitles,
+      tone: 'text-spectrum-amber',
+      run: () => call('transcribe_with_diarization', {}, 'Multi-speaker captions generated'),
     },
     {
       id: 'vertical',

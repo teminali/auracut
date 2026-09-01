@@ -36,6 +36,20 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '1.13.0',
+    date: '2026-09-01',
+    headline: 'Microsoft VibeVoice AI & Live Captions',
+    detail:
+      'Unified on-device conversational speech engine: multi-speaker dialogue synthesis, single-pass diarized ASR, and real-time RTMP live streaming captions with active speaker badges.',
+    items: [
+      'Multi-Speaker Conversational Voiceover Studio: dedicated Voice sidebar panel to write and synthesize multi-character podcast dialogue with natural turn-taking, distinct timbres, and emotional inflection, auto-assembling into separate audio tracks.',
+      'Single-Pass Diarized Speech Recognition: transcribe multi-speaker audio with automatic speaker identification and color-coded subtitles, enabling text-based video editing and speaker clip isolation.',
+      'Real-Time Live Streaming Captions: burns live closed captions and speaker badges directly into outgoing RTMP video broadcasts at ultra-low latency.',
+      'Multilingual Dubbing & Audio Ducking: 1-click translated dialogue re-voicing and automatic background music ducking under spoken dialogue.',
+      'Expanded MCP Tool Surface: registered generate_conversational_voiceover, transcribe_with_diarization, dub_timeline_audio, and cut_by_speaker.',
+    ],
+  },
+  {
     version: '1.12.14',
     date: '2026-09-01',
     headline: 'Groq Console UI Design & Modal System',

@@ -412,6 +412,13 @@ export const CaptureOptions: React.FC<Props> = ({
               onChange={(v) => onChange('streamHeight', Number(v) as 720 | 1080)}
             />
           </Row>
+
+          <ToggleRow
+            label="Real-Time Closed Captions"
+            checked={settings.captions}
+            onChange={(v) => onChange('captions', v)}
+            hint="Burns live subtitles and speaker tags into outgoing RTMP stream via VibeVoice"
+          />
         </>
       )}
     </Group>

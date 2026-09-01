@@ -87,6 +87,8 @@ export interface LiveStreamOptions {
   cameraCorner?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   cameraSizePct?: number;
   mirrorCamera?: boolean;
+  /** Whether to render live closed captions on the broadcast video stream. */
+  liveCaptions?: boolean;
   /** Force software encoding in ffmpeg. */
   software?: boolean;
 }
@@ -152,7 +154,7 @@ function buildLiveProject(
   cameraCorner: NonNullable<LiveStreamOptions['cameraCorner']>,
   cameraSizePct: number,
   mirrorCamera = true
-): { screenClipId: string; cameraClipId: string | null } {
+): { screenClipId: string; cameraClipId: string | null; liveCaptionClipId: string | null } {
   const settings: ProjectSettings = {
     ...project().project,
     name: 'Live stream',
@@ -227,8 +229,29 @@ function buildLiveProject(
     });
   }
 
+  let liveCaptionClipId: string | null = null;
+  const captionTrack = store().addTrack('text', 'T1 · Live Captions');
+  if (captionTrack) {
+    const defaultText = '';
+    liveCaptionClipId = store().addTextLayer(captionTrack, defaultText, 0, LIVE_DURATION_MS);
+    if (liveCaptionClipId) {
+      store().patchClip(liveCaptionClipId, {
+        name: 'Live Subtitles',
+        'textStyle.fontSize': Math.round(settings.height * 0.045),
+        'textStyle.fontWeight': 800,
+        'textStyle.color': '#ffffff',
+        'textStyle.strokeColor': '#000000',
+        'textStyle.strokeWidth': 6,
+        'textStyle.background': 'rgba(10, 11, 14, 0.85)',
+        'textStyle.backgroundPadding': 14,
+        'textStyle.backgroundRadius': 8,
+        'transform.y': Math.round(settings.height * 0.38),
+      });
+    }
+  }
+
   store().commitTransaction('Live stream');
-  return { screenClipId, cameraClipId };
+  return { screenClipId, cameraClipId, liveCaptionClipId };
 }
 
 /**

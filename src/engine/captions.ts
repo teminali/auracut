@@ -13,6 +13,10 @@ export interface CaptionCue {
   text: string;
   /** Alignment hint, when the format carries one. */
   align?: 'left' | 'center' | 'right';
+  /** Speaker identifier for multi-speaker diarization */
+  speakerId?: string;
+  speakerName?: string;
+  speakerColor?: string;
 }
 
 export type CaptionFormat = 'srt' | 'vtt' | 'sbv' | 'ass' | 'json';

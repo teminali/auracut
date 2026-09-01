@@ -41,6 +41,7 @@ export const CaptionsPanel: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [language, setLanguage] = useState('sw');
+  const [engine, setEngine] = useState<'vibevoice' | 'whisper'>('vibevoice');
   const [styleId, setStyleId] = useState('viral');
   const [isBusy, setBusy] = useState(false);
   const [isDropping, setDropping] = useState(false);
@@ -102,16 +103,25 @@ export const CaptionsPanel: React.FC = () => {
 
   const generate = async () => {
     setBusy(true);
-    const toastId = pushToast({ kind: 'progress', title: 'Transcribing audio…', progress: 30 });
+    const toastId = pushToast({
+      kind: 'progress',
+      title: engine === 'vibevoice' ? 'Transcribing with VibeVoice Diarization…' : 'Transcribing audio…',
+      progress: 30,
+    });
 
     const preset = CAPTION_STYLES.find((s) => s.id === styleId)?.style ?? {};
-    const result = await executeTool('generate_auto_captions', { language, style: preset }, 'Captions Panel');
+    const toolName = engine === 'vibevoice' ? 'transcribe_with_diarization' : 'generate_auto_captions';
+    const result = await executeTool(toolName, { language, style: preset }, 'Captions Panel');
 
     useUiStore.getState().dismissToast(toastId);
     setBusy(false);
 
     if (result.success) {
-      pushToast({ kind: 'success', title: 'Captions generated', detail: 'Restyle or retime them from the timeline.' });
+      pushToast({
+        kind: 'success',
+        title: engine === 'vibevoice' ? 'Diarized Captions Generated' : 'Captions generated',
+        detail: 'Restyle or retime them from the timeline.',
+      });
     } else {
       pushToast({ kind: 'error', title: 'Transcription failed', detail: result.error });
     }
@@ -299,24 +309,43 @@ export const CaptionsPanel: React.FC = () => {
 
         {/* ── Generate ── */}
         <Section title="Speech to text" icon={Sparkle}>
-          <div className="space-y-1">
-            <span className="text-ui-sm text-spectrum-textMuted flex items-center gap-1.5">
-              <Globe className="w-3 h-3 text-spectrum-accent" /> Language
-            </span>
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="pro-input w-full h-7 px-2 text-ui-sm cursor-pointer"
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <span className="text-ui-sm text-spectrum-textMuted flex items-center justify-between">
+                <span>Transcription Engine</span>
+                {engine === 'vibevoice' && (
+                  <span className="chip !text-spectrum-pink !border-spectrum-pink/30 text-micro">Diarized</span>
+                )}
+              </span>
+              <select
+                value={engine}
+                onChange={(e) => setEngine(e.target.value as any)}
+                className="pro-input w-full h-7 px-2 text-ui-sm cursor-pointer"
+              >
+                <option value="vibevoice">Microsoft VibeVoice (Multi-Speaker Diarization)</option>
+                <option value="whisper">Whisper (Single Speaker Fast)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <span className="text-ui-sm text-spectrum-textMuted flex items-center gap-1.5">
+                <Globe className="w-3 h-3 text-spectrum-accent" /> Language
+              </span>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="pro-input w-full h-7 px-2 text-ui-sm cursor-pointer"
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <button onClick={generate} disabled={isBusy} className="btn-primary w-full h-8 gap-1.5 text-ui">
+          <button onClick={generate} disabled={isBusy} className="btn-primary w-full h-8 gap-1.5 text-ui mt-2">
             <Subtitles className="w-3.5 h-3.5" />
-            {isBusy ? 'Transcribing…' : 'Generate captions'}
+            {isBusy ? 'Transcribing…' : engine === 'vibevoice' ? 'Generate Diarized Captions' : 'Generate captions'}
           </button>
         </Section>
 

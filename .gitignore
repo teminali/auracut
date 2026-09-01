@@ -45,3 +45,4 @@ design-prototypes/*/uploads/
 # artifact of the editor, not part of the reference.
 design-prototypes/*/.thumbnail
 scratch/
+apex_guardian/

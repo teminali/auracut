@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type SidebarTab =
-  | 'media' | 'audio' | 'text' | 'captions'
+  | 'media' | 'audio' | 'voiceover' | 'text' | 'captions'
   | 'transitions' | 'effects' | 'filters' | 'skills' | 'ai' | 'image';
 
 interface LayoutState {

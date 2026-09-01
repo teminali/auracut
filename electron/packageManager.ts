@@ -318,6 +318,17 @@ export async function installPackage(pkgId: string): Promise<{ ok: boolean; erro
       return { ok: true };
     }
 
+    if (pkgId.startsWith('model-vibevoice-')) {
+      const modelSub = pkgId.replace('model-vibevoice-', '');
+      const modelsDir = path.join(app.getPath('userData'), 'packages', 'models', 'vibevoice');
+      fs.mkdirSync(modelsDir, { recursive: true });
+      const filename = `${modelSub}.bin`;
+      const url = `https://huggingface.co/microsoft/VibeVoice-${modelSub.toUpperCase()}/resolve/main/model.safetensors`;
+      const dest = path.join(modelsDir, filename);
+      await downloadFile(url, dest, pkgId, `VibeVoice ${modelSub.toUpperCase()}`, false);
+      return { ok: true };
+    }
+
     if (pkgId.startsWith('model-')) {
       const modelName = pkgId.replace('model-', '');
       const modelsDir = getModelsDir();
@@ -480,6 +491,39 @@ export async function getPackagesStatus(): Promise<PackagesStatusReport> {
       requiredFor: ['Enterprise Transcripts', 'Technical Jargon Recognition'],
       recommended: recommendedModelId === 'model-large-v3',
       recommendedReason: recommendedModelId === 'model-large-v3' ? recommendationReason : undefined,
+    },
+    'model-vibevoice-tts-1.5b': {
+      id: 'model-vibevoice-tts-1.5b',
+      name: 'Microsoft VibeVoice (1.5B Conversational TTS)',
+      category: 'ai-agent',
+      installed: fs.existsSync(path.join(app.getPath('userData'), 'packages', 'models', 'vibevoice', 'tts-1.5b.bin')),
+      sizeMb: 1500,
+      description: 'Multi-speaker long-form conversational text-to-speech with natural turn-taking and emotion.',
+      requiredFor: ['AI Voiceover Studio', 'Multi-speaker Podcasts', 'Dialogue Generation'],
+      recommended: true,
+      recommendedReason: isAppleSilicon ? 'Optimized for Apple Silicon Metal (MPS).' : 'Fast multi-speaker dialogue synthesis.',
+    },
+    'model-vibevoice-asr': {
+      id: 'model-vibevoice-asr',
+      name: 'Microsoft VibeVoice (Diarized ASR)',
+      category: 'ai-stt',
+      installed: fs.existsSync(path.join(app.getPath('userData'), 'packages', 'models', 'vibevoice', 'asr.bin')),
+      sizeMb: 950,
+      description: 'Single-pass 60+ min multi-speaker transcription with built-in speaker diarization.',
+      requiredFor: ['Multi-speaker Diarized Captions', 'Speaker Text-based Editing'],
+      recommended: true,
+      recommendedReason: 'Single-pass diarization across 50+ languages.',
+    },
+    'model-vibevoice-realtime-0.5b': {
+      id: 'model-vibevoice-realtime-0.5b',
+      name: 'Microsoft VibeVoice (Realtime 0.5B Streaming)',
+      category: 'ai-stt',
+      installed: fs.existsSync(path.join(app.getPath('userData'), 'packages', 'models', 'vibevoice', 'realtime-0.5b.bin')),
+      sizeMb: 500,
+      description: 'Ultra-low latency streaming model for real-time live broadcast closed captions.',
+      requiredFor: ['Live Stream Broadcast Captions', 'Real-time Speaker Badges'],
+      recommended: true,
+      recommendedReason: 'Ultra-low latency live stream captioning.',
     },
   };
 

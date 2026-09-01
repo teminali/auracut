@@ -10,6 +10,7 @@ import { HomeScreen } from './components/home/HomeScreen';
 import { SidebarNav } from './components/sidebar/SidebarNav';
 import { MediaPanel } from './components/sidebar/MediaPanel';
 import { AudioPanel } from './components/sidebar/AudioPanel';
+import { VoiceoverPanel } from './components/sidebar/VoiceoverPanel';
 import { TextPanel } from './components/sidebar/TextPanel';
 import { CaptionsPanel } from './components/sidebar/CaptionsPanel';
 import { TransitionsPanel } from './components/sidebar/TransitionsPanel';
@@ -46,6 +47,7 @@ import {
 const PANELS = {
   media: MediaPanel,
   audio: AudioPanel,
+  voiceover: VoiceoverPanel,
   text: TextPanel,
   captions: CaptionsPanel,
   transitions: TransitionsPanel,
