@@ -36,6 +36,18 @@ export interface Release {
 */
 export const CHANGELOG: Release[] = [
   {
+    version: '2.0.0',
+    date: '2026-09-01',
+    headline: 'Teminali Cut Genesis & Unified MCP 3888',
+    detail: 'Complete rebrand to Teminali Cut with modern TC initials branding, zero-latency MCP timeline streaming, and unified Apple Silicon memory optimization.',
+    items: [
+      'Rebranded platform identity to Teminali Cut with unified TC logo styling.',
+      'Enhanced local JSON-RPC bridge on port 3888 for sub-millisecond timeline synchronization with Teminali Studio.',
+      'Integrated Teminali Guardian macOS memory optimization for uninterrupted 4K 60fps playback.',
+      'Improved transient beat-snapping engine and kinetic subtitles rendering pipeline.',
+    ],
+  },
+  {
     version: '1.13.1',
     date: '2026-09-01',
     headline: 'Native VibeVoice Speech ASR Integration',
