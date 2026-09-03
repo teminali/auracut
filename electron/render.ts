@@ -25,7 +25,8 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { ffmpegSource } from './mediaPath';
-import { spawn, execFile } from 'child_process';
+import { pickHardwareEncoder, parseEncoders, HwCodec } from '../src/services/hardwareEncoder';
+import { spawn, execFile, execFileSync } from 'child_process';
 import { app, powerSaveBlocker } from 'electron';
 import path from 'path';
 import fs from 'fs';
@@ -144,6 +145,33 @@ function releasePowerLock(): void {
   }
 }
 
+/*
+  Hardware encoding is platform-specific; the choice itself lives in
+  `src/services/hardwareEncoder` so it can be tested without an ffmpeg.
+  All this end does is ask the binary what it has, once — the answer
+  cannot change while the app runs.
+*/
+let encoderCache: Set<string> | null = null;
+
+function availableEncoders(): Set<string> {
+  if (encoderCache) return encoderCache;
+  const bin = ffmpeg();
+  if (!bin) return new Set();
+  try {
+    const out = execFileSync(bin, ['-hide_banner', '-encoders'], {
+      encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    encoderCache = parseEncoders(out);
+  } catch {
+    encoderCache = new Set();   // an unprobeable binary just means software
+  }
+  return encoderCache;
+}
+
+export function hardwareEncoder(codec: HwCodec): string | null {
+  return pickHardwareEncoder(codec, process.platform, availableEncoders());
+}
+
 function encoderArgs(options: StartExportOptions): string[] {
   const { codec, hardware, bitrateMbps } = options;
 
@@ -154,16 +182,20 @@ function encoderArgs(options: StartExportOptions): string[] {
 
   const bitrate = bitrateMbps ? ['-b:v', `${bitrateMbps}M`] : ['-crf', '18'];
 
-  if (hardware) {
-    // VideoToolbox ignores CRF, so give it an explicit bitrate.
-    const vtBitrate = bitrateMbps ?? (options.height >= 2000 ? 40 : 12);
+  const hwEncoder = hardware ? hardwareEncoder(codec === 'hevc' ? 'hevc' : 'h264') : null;
+  if (hwEncoder) {
+    // Hardware encoders ignore CRF, so give them an explicit bitrate.
+    const hwBitrate = bitrateMbps ?? (options.height >= 2000 ? 40 : 12);
     return [
-      '-c:v', codec === 'hevc' ? 'hevc_videotoolbox' : 'h264_videotoolbox',
-      '-b:v', `${vtBitrate}M`,
+      '-c:v', hwEncoder,
+      '-b:v', `${hwBitrate}M`,
       '-pix_fmt', 'yuv420p',
       ...(codec === 'hevc' ? ['-tag:v', 'hvc1'] : []),
     ];
   }
+  // No hardware encoder on this machine: fall through to software rather
+  // than name one ffmpeg does not have.
+
 
   return [
     '-c:v', codec === 'hevc' ? 'libx265' : 'libx264',

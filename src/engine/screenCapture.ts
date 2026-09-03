@@ -398,6 +398,17 @@ interface Recorder {
   startedAt: number | null;
   /** Every chunk is awaited, so a stop cannot run ahead of the writes. */
   writes: Promise<unknown>[];
+  /*
+    The tail of the write chain. Each chunk is appended to an append-only
+    file, so the ORDER they reach main in is the order they land on disk.
+    `Blob.arrayBuffer()` gives no such guarantee: Chromium spills large
+    blobs to disk and resolves each read independently, so chunk N+1 can
+    overtake chunk N. A WebM whose clusters are out of order decodes as
+    smeared colour and black frames, which is what recording on Windows
+    was doing. Chaining every read onto this promise makes the sequence
+    FIFO again.
+  */
+  tail: Promise<unknown>;
   /** How many chunks have actually arrived. The watchdog reads this. */
   chunks: number;
   hasAudio: boolean;
@@ -726,6 +737,7 @@ export async function startCapture(
         recorder,
         startedAt: null,
         writes: [],
+        tail: Promise.resolve(),
         chunks: 0,
         hasAudio: tracks.some((t) => t.kind === 'audio'),
         width,
@@ -739,11 +751,19 @@ export async function startCapture(
         if (isWeb) {
           webChunks[name].push(event.data);
         } else if (api?.recorder) {
-          entry.writes.push(
-            event.data
-              .arrayBuffer()
-              .then((buffer) => api.recorder.chunk(sessionId, name, new Uint8Array(buffer)))
-          );
+          const blob = event.data;
+          entry.tail = entry.tail.then(async () => {
+            const buffer = await blob.arrayBuffer();
+            await api.recorder.chunk(sessionId, name, new Uint8Array(buffer));
+          });
+          entry.writes.push(entry.tail);
+          /*
+            `writes` keeps the rejecting promise so `stopCapture` still
+            reports the failure; the chain itself continues from a settled
+            state, because a single failed chunk must not silently discard
+            every chunk after it.
+          */
+          entry.tail = entry.tail.catch(() => {});
         }
       };
 

@@ -45,6 +45,7 @@ import { BrowserWindow, ipcMain } from 'electron';
 import { spawn, ChildProcess } from 'child_process';
 import log from 'electron-log';
 import { ffmpeg } from './transcribe';
+import { hardwareEncoder } from './render';
 
 /* ── The ladder ─────────────────────────────────────────────────── */
 
@@ -113,17 +114,27 @@ function encoderArgs(o: Required<Pick<StreamOptions, 'width' | 'height' | 'fps'>
   const gop = String(Math.round(o.fps * 2));
 
   /*
-    VideoToolbox where it exists. Encoding 1080p30 in software while the
+    Hardware where it exists. Encoding 1080p30 in software while the
     same machine is capturing its own screen, compositing every frame and
     running two recorders is how a stream starts dropping frames, and the
     frames it drops are the recording's.
+
+    `h264_videotoolbox` is macOS only, so it is chosen by probe rather
+    than assumed — naming it on Windows is `Unknown encoder`, and the
+    stream never starts.
   */
-  const video = o.software
+  const hw = o.software ? null : hardwareEncoder('h264');
+  const software = [
+    '-c:v', 'libx264', '-preset', 'veryfast', '-profile:v', 'high', '-tune', 'zerolatency',
+    '-x264-params', `nal-hrd=cbr:keyint=${gop}:min-keyint=${gop}:scenecut=0`,
+  ];
+  const video = hw
     ? [
-      '-c:v', 'libx264', '-preset', 'veryfast', '-profile:v', 'high', '-tune', 'zerolatency',
-      '-x264-params', `nal-hrd=cbr:keyint=${gop}:min-keyint=${gop}:scenecut=0`,
+      '-c:v', hw, '-profile:v', 'high',
+      ...(hw === 'h264_videotoolbox' ? ['-realtime', '1'] : []),
+      ...(hw.endsWith('_nvenc') ? ['-preset', 'p1', '-tune', 'll'] : []),
     ]
-    : ['-c:v', 'h264_videotoolbox', '-profile:v', 'high', '-realtime', '1'];
+    : software;
 
   return [
     ...video,
