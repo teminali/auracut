@@ -305,18 +305,39 @@ const SetupFooter: React.FC = () => {
 
 /* ── Countdown ──────────────────────────────────────────────────── */
 
-const Countdown: React.FC<{ seconds: number }> = ({ seconds }) => (
-  <div className="flex-1 flex flex-col items-center justify-center gap-4">
-    <span
-      key={seconds}
-      className="text-spectrum-text font-semibold tabular animate-scale-in"
-      style={{ fontSize: 128, lineHeight: 1 }}
-    >
-      {seconds}
-    </span>
-    <p className="text-ui-lg text-spectrum-textDim">Get your window in front</p>
-  </div>
-);
+/*
+  The way out of the countdown.
+
+  It had none, and the phase it sits in is the one phase where changing
+  your mind is most likely: the countdown exists precisely so you can get
+  a window in front, and finding the wrong window there is the normal
+  reason to stop. Without this the only options were to let it record and
+  discard afterwards, or to record your desktop while hunting for a way
+  to cancel. `discard` from `countdown` starts nothing and writes
+  nothing — there is no take yet to throw away.
+*/
+const Countdown: React.FC<{ seconds: number }> = ({ seconds }) => {
+  const discard = useRecorderStore((s) => s.discard);
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-4">
+      <span
+        key={seconds}
+        className="text-spectrum-text font-semibold tabular animate-scale-in"
+        style={{ fontSize: 128, lineHeight: 1 }}
+      >
+        {seconds}
+      </span>
+      <p className="text-ui-lg text-spectrum-textDim">Get your window in front</p>
+      <button
+        type="button"
+        onClick={() => void discard()}
+        className="btn-secondary h-7 px-3 text-ui-sm"
+      >
+        Cancel
+      </button>
+    </div>
+  );
+};
 
 /* ── Recording ──────────────────────────────────────────────────── */
 

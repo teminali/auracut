@@ -438,6 +438,9 @@ interface Session {
   fault: string | null;
   isWeb?: boolean;
   webChunks?: Record<'screen' | 'camera', Blob[]>;
+  /** Web only: the wall time that has to come OFF the take's duration. */
+  pausedTotalMs: number;
+  pausedAtMs: number;
   cursorSamples?: CursorSample[];
   inputEvents?: InputEvent[];
   speechCues?: import('./recordingProject').SpeechCue[];
@@ -457,7 +460,17 @@ export function isRecording(): boolean {
 const TIMESLICE_MS = 3000;
 
 /**
- * How long to wait before deciding a recorder is producing nothing.
+ * How long a recorder may produce nothing before it is called dead.
+ *
+ * Checked REPEATEDLY, not once. The first version fired a single
+ * `setTimeout` six and a half seconds in, which catches the recorder
+ * that never starts and misses every recorder that stops — a camera
+ * unplugged at minute four, a display disconnected, an encoder that
+ * gives up. Those are the expensive ones, because the take runs to the
+ * end looking healthy and the file is short.
+ *
+ * The grace has to be comfortably longer than `TIMESLICE_MS` or a chunk
+ * arriving slightly late reads as a stall.
  */
 const SILENCE_GRACE_MS = 6500;
 
@@ -493,11 +506,33 @@ export async function startCapture(
   const warnings: string[] = [];
   const openedTracks: MediaStreamTrack[] = [];
   let audioContext: AudioContext | null = null;
+  /*
+    Set the moment `recorder:begin` succeeds, and read only by `bail`.
+
+    Everything after that call can still throw — `new MediaRecorder` on a
+    mime the track combination does not accept, `start()` on a track that
+    ended between being opened and being handed over — and until this
+    existed, that threw straight past a main process which had already
+    hidden the editor window, put an always-on-top bar over the screen,
+    taken three global shortcuts off every other app and opened two files
+    for writing. Nothing ever called `finish` or `cancel` for that
+    session, so none of it came back: the app kept running, answered its
+    RPC, and had no visible window on any platform. See the note on
+    `reconcileOnLoad` in `electron/screenRecorder.ts` for what that looks
+    like from outside, and why a reload is the only other way out of it.
+  */
+  let mainSessionId: string | null = null;
 
   /** Release everything acquired so far. Called from every failure below. */
   const bail = () => {
     for (const track of openedTracks) track.stop();
     void audioContext?.close();
+    if (mainSessionId) {
+      const id = mainSessionId;
+      mainSessionId = null;
+      /* Discard: nothing was ever recorded into it. */
+      void api?.recorder.cancel(id, true).catch(() => undefined);
+    }
   };
 
   try {
@@ -702,6 +737,7 @@ export async function startCapture(
         return { ok: false, error: begun.error, warnings, shortcuts: [], cursorTracked: false };
       }
       sessionId = begun.sessionId;
+      mainSessionId = begun.sessionId;
       dir = begun.dir;
       cursorTracked = begun.cursorTracked;
       inputStatus = begun.input;
@@ -754,7 +790,18 @@ export async function startCapture(
           const blob = event.data;
           entry.tail = entry.tail.then(async () => {
             const buffer = await blob.arrayBuffer();
-            await api.recorder.chunk(sessionId, name, new Uint8Array(buffer));
+            /*
+              `recorder:chunk` REPORTS a refusal rather than throwing one
+              — a closed file, an unknown session — and for as long as
+              nobody read the answer, a take could lose every chunk after
+              the first refusal and still finish with a green tick. The
+              rejection raised here is what puts it in `writes`, which is
+              what `stopCapture` turns into a warning on the take.
+            */
+            const wrote = await api.recorder.chunk(sessionId, name, new Uint8Array(buffer));
+            if (wrote && wrote.ok === false) {
+              throw new Error(wrote.error || `The ${name} file would not accept a chunk.`);
+            }
           });
           entry.writes.push(entry.tail);
           /*
@@ -789,6 +836,8 @@ export async function startCapture(
       shortcuts,
       watchdog: null,
       fault: null,
+      pausedTotalMs: 0,
+      pausedAtMs: 0,
       isWeb,
       webChunks,
       cursorSamples,
@@ -803,15 +852,43 @@ export async function startCapture(
     for (const entry of built) entry.recorder.start(TIMESLICE_MS);
 
     const started = session;
-    started.watchdog = window.setTimeout(() => {
+    /* Chunk counts as of the previous check, per recorder, in order. */
+    const seen = built.map(() => 0);
+    started.watchdog = window.setInterval(() => {
       if (session !== started) return;
-      const dead = started.recorders.filter((entry) => entry.chunks === 0);
-      if (dead.length === 0) return;
+      /* A paused recorder is supposed to produce nothing. */
+      if (started.phase !== 'recording') {
+        for (let i = 0; i < built.length; i++) seen[i] = built[i].chunks;
+        return;
+      }
 
-      started.fault = dead.length === started.recorders.length
-        ? 'Nothing is being recorded. Stop and try again.'
-        : `The ${dead.map((d) => d.name).join(' and ')} is not recording. Stop and try again.`;
-      onFault(started.fault);
+      const stalled: Recorder[] = [];
+      const neverStarted = built.every((entry) => entry.chunks === 0);
+      for (let i = 0; i < built.length; i++) {
+        if (built[i].chunks === seen[i]) stalled.push(built[i]);
+        seen[i] = built[i].chunks;
+      }
+
+      if (stalled.length === 0) {
+        /* It recovered. Say so, rather than leaving the last fault up. */
+        if (started.fault) { started.fault = null; onFault(''); }
+        return;
+      }
+
+      const all = stalled.length === built.length;
+      const fault = all
+        ? (neverStarted
+          ? 'Nothing is being recorded. Stop and try again.'
+          : 'Both sources have stopped producing video. Stop now: what has been written so far is kept.')
+        : `The ${stalled.map((d) => d.name).join(' and ')} `
+          + `${stalled.length === 1 ? 'has' : 'have'} stopped recording. `
+          + 'Stop now: the rest of the take is kept.';
+
+      /* Only when it CHANGES: this runs every few seconds for the length
+         of the take, and a toast that re-raises itself is noise. */
+      if (started.fault === fault) return;
+      started.fault = fault;
+      onFault(fault);
     }, SILENCE_GRACE_MS);
 
     return {
@@ -844,6 +921,18 @@ export async function pauseCapture(paused: boolean): Promise<void> {
     else entry.recorder.resume();
   }
   session.phase = paused ? 'paused' : 'recording';
+  /*
+    Main keeps this arithmetic for a desktop take, because main owns the
+    clock the cursor track is stamped with. On the web there is no main,
+    and without this a paused take came back with a duration that
+    included the pause — so every clip on the timeline was longer than
+    its own footage and ended on a freeze.
+  */
+  if (paused) session.pausedAtMs = performance.now();
+  else if (session.pausedAtMs > 0) {
+    session.pausedTotalMs += performance.now() - session.pausedAtMs;
+    session.pausedAtMs = 0;
+  }
   if (!session.isWeb) {
     await window.electronAPI?.recorder.pause(session.id, paused);
   }
@@ -861,14 +950,53 @@ function stopped(entry: Recorder): Promise<void> {
 export async function stopCapture(): Promise<{ ok: true; take: Take } | { ok: false; error: string }> {
   const current = session;
   if (!current) return { ok: false, error: 'Nothing is recording.' };
+  /*
+    The bar, the global shortcut and the studio button all land here, and
+    two of them can arrive within the same second. Without this guard the
+    second call stopped already-inactive recorders (which resolves at
+    once), called `recorder:finish` on a session the first call had
+    already closed, and put the studio into `error` on top of a review
+    screen that had a perfectly good take on it.
+  */
+  if (current.phase === 'finishing') {
+    return { ok: false, error: 'This take is already being finished.' };
+  }
   current.phase = 'finishing';
-  if (current.watchdog !== null) { window.clearTimeout(current.watchdog); current.watchdog = null; }
+  if (current.watchdog !== null) { window.clearInterval(current.watchdog); current.watchdog = null; }
 
   for (const entry of current.recorders) {
     if (entry.recorder.state === 'paused') entry.recorder.resume();
   }
   await Promise.all(current.recorders.map(stopped));
-  await Promise.all(current.recorders.flatMap((entry) => entry.writes));
+
+  /*
+    `allSettled`, and the difference is the whole take.
+
+    `writes` deliberately holds the REJECTING promise so a failed chunk
+    is reported rather than swallowed — but `Promise.all` reports it by
+    throwing out of this function, and every line below is teardown:
+    the tracks are stopped here, the AudioContext is closed here, and
+    `session` is cleared here. A single refused chunk therefore left the
+    camera light on, the session non-null so nothing could be recorded
+    again, and the main process holding an open file, a hidden editor
+    window and three global shortcuts for the life of the process.
+
+    A failed chunk is a WARNING on the take. It is not a reason to
+    abandon the ten minutes that wrote correctly.
+  */
+  const writeFailures: string[] = [];
+  for (const settled of await Promise.allSettled(current.recorders.flatMap((entry) => entry.writes))) {
+    if (settled.status === 'rejected') {
+      const message = (settled.reason as Error)?.message || String(settled.reason);
+      if (!writeFailures.includes(message)) writeFailures.push(message);
+    }
+  }
+  if (writeFailures.length > 0) {
+    current.warnings.push(
+      `${writeFailures.length} part${writeFailures.length === 1 ? '' : 's'} of this take could `
+      + `not be written, so the file may be short or skip. ${writeFailures.join(' ')}`
+    );
+  }
 
   for (const track of current.tracks) track.stop();
   void current.audioContext?.close();
@@ -880,7 +1008,11 @@ export async function stopCapture(): Promise<{ ok: true; take: Take } | { ok: fa
     if (current.onMouseMove) window.removeEventListener('mousemove', current.onMouseMove);
     if (current.onClick) window.removeEventListener('click', current.onClick);
 
-    const durationMs = Math.round(performance.now() - (current.startedWallTime ?? performance.now()));
+    const pausedNow = current.pausedAtMs > 0 ? performance.now() - current.pausedAtMs : 0;
+    const durationMs = Math.round(
+      performance.now() - (current.startedWallTime ?? performance.now())
+      - current.pausedTotalMs - pausedNow
+    );
     const screenBlob = new Blob(current.webChunks?.screen ?? [], { type: 'video/webm' });
     const screenUrl = URL.createObjectURL(screenBlob);
     const screenProbed = await probeVideo(screenUrl);
@@ -930,7 +1062,13 @@ export async function stopCapture(): Promise<{ ok: true; take: Take } | { ok: fa
     return { ok: true, take };
   }
 
-  const result = await window.electronAPI!.recorder.finish(current.id, current.copyable);
+  let result: RecordingResult | { ok: false; error: string };
+  try {
+    result = await window.electronAPI!.recorder.finish(current.id, current.copyable);
+  } catch (err) {
+    session = null;
+    return { ok: false, error: (err as Error).message || 'The take could not be finished.' };
+  }
   session = null;
 
   if (!result.ok) return { ok: false, error: result.error };
@@ -942,9 +1080,14 @@ export async function cancelCapture(discard: boolean): Promise<void> {
   const current = session;
   if (!current) return;
   current.phase = 'finishing';
-  if (current.watchdog !== null) { window.clearTimeout(current.watchdog); current.watchdog = null; }
+  if (current.watchdog !== null) { window.clearInterval(current.watchdog); current.watchdog = null; }
 
   if (current.isWeb && typeof window !== 'undefined') {
+    /* The recogniser holds the microphone open, and `onend` restarts it
+       while a session is live. Stopping it is the only way it lets go. */
+    if (current.speechRecognition) {
+      try { current.speechRecognition.stop(); } catch { /* already stopped */ }
+    }
     if (current.onMouseMove) window.removeEventListener('mousemove', current.onMouseMove);
     if (current.onClick) window.removeEventListener('click', current.onClick);
   }

@@ -444,27 +444,54 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
 
   begin: async () => {
     const state = get();
+    /*
+      Every path into this — the button, the keyboard, a second click on
+      a button that has not repainted yet — has to be idempotent. Without
+      this guard a double click ran two countdowns; the second reached
+      `startCapture`, which correctly refused because one was already
+      running, and the studio put the take that WAS recording into
+      `error`.
+    */
+    if (state.phase === 'countdown' || state.phase === 'recording'
+      || state.phase === 'paused' || state.phase === 'processing') {
+      return;
+    }
     const source = state.sources.find((s) => s.id === state.selectedSourceId);
     if (!source) {
       set({ error: 'Pick a screen or a window first.', phase: 'error' });
       return;
     }
 
+    /*
+      Resolves `false` when the countdown did not finish — which is the
+      only thing that made the Cancel button on it mean anything. It set
+      the phase back to `setup`, and then the countdown that was still
+      running resolved anyway and started recording the screen of
+      somebody who had just said no.
+    */
     const runCountdown = (seconds: number) =>
-      new Promise<void>((resolve) => {
-        if (seconds <= 0) { resolve(); return; }
+      new Promise<boolean>((resolve) => {
+        if (seconds <= 0) { resolve(true); return; }
         set({ phase: 'countdown', countdown: seconds });
         countdownTimer = window.setInterval(() => {
+          if (get().phase !== 'countdown') {
+            if (countdownTimer !== null) { window.clearInterval(countdownTimer); countdownTimer = null; }
+            resolve(false);
+            return;
+          }
           const left = get().countdown - 1;
           set({ countdown: left });
           if (left <= 0) {
             if (countdownTimer !== null) { window.clearInterval(countdownTimer); countdownTimer = null; }
-            resolve();
+            resolve(true);
           }
         }, 1000);
       });
 
-    await runCountdown(state.settings.countdownSec);
+    if (!await runCountdown(state.settings.countdownSec)) return;
+    /* And once more after the wait: the phase can have moved on while
+       the last tick was in flight. */
+    if (get().phase !== 'countdown' && state.settings.countdownSec > 0) return;
 
     const settings: CaptureSettings = {
       sourceId: source.id,
@@ -483,6 +510,18 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     useUiStore.getState().dismissToast(FAULT_TOAST);
 
     const outcome = await startCapture(settings, (fault) => {
+      /*
+        An empty message is the watchdog saying the chunks came back. It
+        has to clear the sticky toast, or a take that stalled for six
+        seconds and recovered carries "This take is not recording" for
+        the rest of its length.
+      */
+      if (!fault) {
+        set({ fault: null });
+        publish({ phase: get().phase, elapsedMs: get().elapsedMs, markCount: get().markCount, fault: null });
+        useUiStore.getState().dismissToast(FAULT_TOAST);
+        return;
+      }
       /*
         Raised from the capture engine six seconds in, not at the end.
         The alternative is what actually happened to somebody: twenty-
@@ -594,6 +633,9 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
 
   stop: async () => {
     if (!isRecording()) return;
+    /* The bar, the global shortcut and the studio button are three ways
+       to press one thing, and `processing` is already the answer. */
+    if (get().phase === 'processing') return;
     if (ticker !== null) { window.clearInterval(ticker); ticker = null; }
     set({ phase: 'processing', isOpen: true });
     publish({ phase: 'processing', elapsedMs: get().elapsedMs, markCount: get().markCount });
@@ -632,6 +674,13 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
   */
   discard: async () => {
     if (ticker !== null) { window.clearInterval(ticker); ticker = null; }
+    /*
+      The countdown interval is deliberately NOT cleared here. It is the
+      thing that resolves `runCountdown`, and killing it from outside
+      leaves `begin` awaiting a promise nothing will ever settle. It
+      stops itself on its next tick, because the phase this sets is not
+      `countdown` any more.
+    */
     if (get().streaming) {
       await stopLiveStream().catch(() => { /* nothing to salvage on a cancel */ });
       set({ streaming: false });

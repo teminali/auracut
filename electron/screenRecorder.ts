@@ -49,6 +49,7 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { ffmpeg } from './transcribe';
 import { writeSealed, readMaybeSealed, makePrivateDir } from './vault';
+import { canStreamCopy, videoCodecFromFfmpeg } from '../src/services/remuxPlan';
 import {
   startInputCapture, probeInputCapture, shutdownInputCapture,
   CaptureHandle, InputEvent, InputCaptureStatus,
@@ -75,8 +76,20 @@ interface OutStream {
   name: StreamName;
   filePath: string;
   handle: fs.WriteStream;
+  /** Bytes handed to the stream. Not the same as bytes on disk. */
   bytes: number;
   closed: boolean;
+  /**
+   * The first write that failed, if one did.
+   *
+   * An `fs.WriteStream` with no `error` listener does not fail quietly:
+   * Node re-raises the event as an uncaught exception, which on a disk
+   * that filled up or a volume that was ejected mid-take **took the
+   * whole main process down** — editor, bar, recording and all. A take
+   * that cannot be written is a warning on the take, so this is caught,
+   * kept, and reported by `recorder:finish`.
+   */
+  writeError: string | null;
 }
 
 interface Session {
@@ -311,6 +324,22 @@ function runFfmpeg(bin: string, args: string[]): Promise<{ ok: boolean; stderr: 
 }
 
 /**
+ * The video codec a finished file actually holds, as ffmpeg names it.
+ *
+ * `ffmpeg -i <file>` with no output exits non-zero and prints the
+ * stream table to stderr, which is exactly what is wanted here and needs
+ * no second binary: ffprobe is a separate download in the Packages
+ * manager and is not always there, while ffmpeg has already been
+ * resolved by the caller.
+ *
+ * Null when it cannot be read, which is treated as "do not copy".
+ */
+async function videoCodecOf(bin: string, input: string): Promise<string | null> {
+  const probed = await runFfmpeg(bin, ['-hide_banner', '-i', input]);
+  return videoCodecFromFfmpeg(probed.stderr);
+}
+
+/**
  * WebM out of MediaRecorder into MP4.
  *
  * This is not cosmetic. A MediaRecorder file carries NO duration in its
@@ -344,10 +373,27 @@ async function toMp4(input: string, tryCopy: boolean): Promise<RemuxResult> {
     output,
   ];
 
+  /*
+    `tryCopy` is the mime the renderer ASKED FOR, and that is a request,
+    not a result. `MediaRecorder.isTypeSupported('video/webm;codecs=h264')`
+    answering true is Chromium saying it will try: what it hands back
+    depends on the platform encoder, and a machine with no H.264 encoder
+    available to the sandbox falls back to VP8 while still reporting the
+    mime it was given. Copying that into an MP4 is not merely slower — it
+    is a container holding a stream its muxer has no tag for.
+
+    So the requested mime narrows the work and the FILE decides. Reading
+    it costs one ffmpeg invocation that exits immediately, against a
+    stream copy of a multi-gigabyte take that has to fail first
+    otherwise.
+  */
   if (tryCopy) {
-    const copied = await runFfmpeg(bin, [...base, '-c:v', 'copy', ...tail]);
-    if (copied.ok && fs.existsSync(output) && fs.statSync(output).size > 0) {
-      return { ok: true, path: output, raw: false };
+    const codec = await videoCodecOf(bin, input);
+    if (canStreamCopy(tryCopy, codec)) {
+      const copied = await runFfmpeg(bin, [...base, '-c:v', 'copy', ...tail]);
+      if (copied.ok && fs.existsSync(output) && fs.statSync(output).size > 0) {
+        return { ok: true, path: output, raw: false };
+      }
     }
   }
 
@@ -438,6 +484,14 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
       for (const session of [...sessions.values()]) {
         teardown(session);
         void closeStreams(session);
+        /*
+          And forget it. Leaving the entry in the map kept a torn-down
+          session reachable by id, so a `recorder:finish` arriving late
+          from the old page would remux files that had just been closed
+          and hand back a take built from a session with no recorders
+          behind it.
+        */
+        sessions.delete(session.id);
       }
       const live = getMainWindow();
       if (live && !live.isDestroyed() && !live.isVisible()) { live.show(); live.focus(); }
@@ -657,13 +711,21 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
 
     for (const name of p.streams) {
       const filePath = path.join(dir, `${name}.webm`);
-      session.streams.set(name, {
+      const out: OutStream = {
         name,
         filePath,
         handle: fs.createWriteStream(filePath),
         bytes: 0,
         closed: false,
+        writeError: null,
+      };
+      out.handle.on('error', (err: Error) => {
+        if (!out.writeError) out.writeError = err.message;
+        /* Nothing more can go to this file, and every further chunk for
+           it would raise the same event again. */
+        out.closed = true;
       });
+      session.streams.set(name, out);
     }
 
     sessions.set(id, session);
@@ -717,7 +779,9 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
     const session = sessions.get(p.sessionId);
     if (!session) return { ok: false, error: 'That recording session is not open.' };
     const out = session.streams.get(p.stream);
-    if (!out || out.closed) return { ok: false, error: `No open "${p.stream}" file.` };
+    if (!out) return { ok: false, error: `No "${p.stream}" file in this session.` };
+    if (out.writeError) return { ok: false, error: `The ${p.stream} file stopped accepting data: ${out.writeError}` };
+    if (out.closed) return { ok: false, error: `The "${p.stream}" file is already closed.` };
 
     out.handle.write(Buffer.from(p.bytes));
     out.bytes += p.bytes.byteLength;
@@ -770,23 +834,34 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
 
     const files: Record<string, { path: string; url: string; bytes: number; raw: boolean; error?: string }> = {};
     for (const out of session.streams.values()) {
+      /*
+        A file that failed a write is still remuxed and still returned:
+        a WebM truncated at the point the disk filled up usually plays up
+        to that point, and half a take is worth more than none. What must
+        not happen is finishing quietly, so the error rides along with it.
+      */
+      const wrote = out.writeError
+        ? `Part of the ${out.name} take could not be written to disk (${out.writeError}), `
+          + 'so it may end early.'
+        : null;
       if (out.bytes === 0) {
         files[out.name] = {
           path: out.filePath,
           url: '',
           bytes: 0,
           raw: true,
-          error: 'Nothing was written for this source.',
+          error: wrote ?? 'Nothing was written for this source.',
         };
         continue;
       }
       const result = await toMp4(out.filePath, p.copyable);
+      const error = [wrote, result.error].filter(Boolean).join(' ');
       files[out.name] = {
         path: result.path,
         url: fileUrl(result.path),
         bytes: fs.existsSync(result.path) ? fs.statSync(result.path).size : out.bytes,
         raw: result.raw,
-        ...(result.error ? { error: result.error } : {}),
+        ...(error ? { error } : {}),
       };
       /* The .webm is redundant once the .mp4 exists, and it is the same
          size again on disk. Only remove it when the conversion actually
