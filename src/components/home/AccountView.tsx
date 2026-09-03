@@ -52,21 +52,21 @@ export const AccountView: React.FC<{ onOpenSkills: () => void }> = ({ onOpenSkil
 
   return (
     <div className="max-w-[720px] pb-4">
-      <h1 className="text-[26px] font-semibold text-spectrum-text tracking-[-0.02em]">Account</h1>
+      <h1 className="text-display-lg font-semibold text-spectrum-text tracking-[-0.02em]">Account</h1>
       <p className="text-ui-lg text-spectrum-textDim mt-1">
         The account skills are bought and licensed against.
       </p>
 
       {/* Identity. `unknown` deliberately renders neither branch. */}
       {status === 'signed_in' && user && (
-        <div className="surface-card rounded-squircle-lg mt-6 p-4 flex items-center gap-3.5">
+        <div className="surface-card rounded-squircle-lg mt-6 p-4 flex items-center gap-3">
           {user.avatarUrl ? (
             <img src={user.avatarUrl} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
           ) : (
             <span
               className="w-12 h-12 rounded-full flex items-center justify-center text-ui-lg font-semibold
-                         text-white/90 flex-shrink-0"
-              style={{ background: 'linear-gradient(148deg,#f0a78e,#d0714d)' }}
+                         text-spectrum-textBright flex-shrink-0"
+              style={{ background: 'var(--surface-3)' }}
             >
               {(user.name ?? user.email ?? '?').slice(0, 1).toUpperCase()}
             </span>
@@ -94,7 +94,7 @@ export const AccountView: React.FC<{ onOpenSkills: () => void }> = ({ onOpenSkil
       )}
 
       {status === 'signed_out' && (
-        <div className="surface-card rounded-squircle-lg mt-6 p-6 flex flex-col items-center text-center gap-2.5">
+        <div className="surface-card rounded-squircle-lg mt-6 p-6 flex flex-col items-center text-center gap-2">
           <UserCircle className="w-9 h-9 text-spectrum-textFaint" />
           <p className="text-ui-lg font-medium text-spectrum-text">Not signed in</p>
           <p className="text-ui-sm text-spectrum-textDim max-w-[380px] leading-snug">
@@ -117,7 +117,7 @@ export const AccountView: React.FC<{ onOpenSkills: () => void }> = ({ onOpenSkil
           a licence granted to this machine outlives a sign-out. */}
       {owned.length > 0 && (
         <section className="mt-7">
-          <div className="flex items-center gap-2 h-[26px]">
+          <div className="flex items-center gap-2 h-[var(--h-sm)]">
             <Blocks className="w-3.5 h-3.5 text-spectrum-textFaint" />
             <h2 className="text-ui-sm font-semibold uppercase tracking-[0.06em] text-spectrum-textFaint">
               Owned skills
@@ -125,16 +125,16 @@ export const AccountView: React.FC<{ onOpenSkills: () => void }> = ({ onOpenSkil
             <button
               onClick={() => void refresh()}
               disabled={busy}
-              className="pro-btn h-[22px] px-2 gap-1.5 text-micro ml-auto disabled:opacity-55"
+              className="pro-btn h-[var(--h-xs)] px-2 gap-1.5 text-micro ml-auto disabled:opacity-55"
             >
               <RefreshCw className="w-3 h-3" />
               {busy ? 'Checking…' : 'Recheck'}
             </button>
           </div>
 
-          <div className="surface-card rounded-squircle-lg mt-2.5 divide-y divide-line-soft">
+          <div className="surface-card rounded-squircle-lg mt-2 divide-y divide-line-soft">
             {owned.map((skill) => (
-              <div key={`${skill.skillId}@${skill.majorVersion}`} className="flex items-center gap-3 px-3.5 py-2.5">
+              <div key={`${skill.skillId}@${skill.majorVersion}`} className="flex items-center gap-3 px-3 py-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-ui-lg font-medium text-spectrum-text truncate">{skill.skillId}</p>
                   <p className="text-micro text-spectrum-textFaint">
@@ -163,7 +163,7 @@ export const AccountView: React.FC<{ onOpenSkills: () => void }> = ({ onOpenSkil
             <p className="text-ui-sm text-spectrum-textDim flex-1">
               This account owns no skills yet.
             </p>
-            <button onClick={onOpenSkills} className="pro-btn-filled h-[26px] px-2.5 gap-1.5 text-ui-sm">
+            <button onClick={onOpenSkills} className="pro-btn-filled h-[var(--h-sm)] px-2 gap-1.5 text-ui-sm">
               <ExternalLink className="w-3 h-3" />
               Browse skills
             </button>

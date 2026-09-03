@@ -71,125 +71,230 @@
    a custom property so JS-set inline styles stay in the same system.
    ═══════════════════════════════════════════════════════════════ */
 @layer base {
+  /* ═══════════════════════════════════════════════════════════════
+     TEMINALI DESIGN SYSTEM (TDS) — THE TOKEN SHEET
+     Adapted from `teminaliCode/studio/src/styles/tokens.css`, whose
+     values were sampled pixel-for-pixel out of Cursor's own agent
+     window (macOS, 2x retina). This file is the ONLY place in
+     TeminaliCut where a raw hex, radius, height or duration may
+     appear. Everything else reads var(--*) or a Tailwind token bound
+     to one of these in `tailwind.config.js`.
+
+     THE GOVERNING OBSERVATION, inherited whole:
+
+       The system is ACHROMATIC and FLAT. Five greys carry the whole
+       interface — #151515 canvas, #181818 chrome, #212121 raised,
+       #262626 chip, #313131/#3a3a3a hairline — and depth is a flat
+       1px border one step lighter than the fill. No gradients, no
+       edge lighting, no glow, no tinted surfaces, no contact shadow.
+
+     WHAT AN NLE ADDS, and why each addition is legitimate rather
+     than a licence to reopen the palette:
+
+       --stage-void   a video picture needs a true floor beneath it,
+                      darker than any chrome, or the frame's own
+                      blacks dissolve into the panel behind them.
+       lane hues      a track's identity is DATA, not decoration —
+                      the one place TDS §1.3 permits colour, and the
+                      same permission the timeline's selection ring
+                      and waveform run on.
+
+     Both are declared here, under the governance law in
+     `teminaliCode/studio/DESIGN.md` §2: a genuinely new role gets a
+     token first, and prefers an existing grey when it can.
+
+     THE EMBER IS GONE. var(--accent) was the fifth accent this product
+     had. It is not the sixth: TDS has no accent in its chrome, and
+     putting an orange back is the single fastest way to stop looking
+     like the reference. `--accent` is a near-white; `--action` is the
+     one chromatic control in the window.
+     ═══════════════════════════════════════════════════════════════ */
   :root {
-    --line: rgba(255, 255, 255, 0.072);
-    --line-soft: rgba(255, 255, 255, 0.042);
-    --line-strong: rgba(255, 255, 255, 0.115);
+    /* ── Hairlines ─────────────────────────────────────────────
+       Flat, solid, identical on all four sides. Each step is the
+       fill it sits on lightened by roughly 0x10. These replaced a
+       white-alpha ladder (rgba(255,255,255,.042 / .072 / .115)),
+       which tinted whatever it crossed and fought the flat fills. */
+    --line-soft: #232323;   /* inner card rules */
+    --line: #262626;        /* table, card and control edge */
+    --line-strong: #313131; /* raised-control edge, outline pills */
+    --line-chrome: #282828; /* the structural divider: rail <-> canvas */
+    --line-popover: #3a3a3a;/* the brightest hairline in the window */
 
     /* ── The accent ────────────────────────────────────────────
-       Kerf orange, read off the approved design rather than chosen:
-       `--kerf-accent` in `kerf-unified.css`, and the colour every
-       primary control in the reference wears.
+       Achromatic. What other systems paint in a hue, this one paints
+       in white: an emphasised glyph is BRIGHTER than its neighbours,
+       never a different colour. `palette.test.ts` still holds this
+       against every role colour — an achromatic accent clears each
+       of them on saturation, and the failure table says so. */
+    --accent: #e8e8e8;
+    --accent-hover: #ffffff;
+    --accent-dim: #9f9f9f;
+    --accent-soft: rgba(232, 232, 232, 0.10);
+    --accent-line: rgba(232, 232, 232, 0.28);
+    /* Accent as INK on a dark well — one rung down so it reads as
+       emphasis at text size rather than as a highlight. */
+    --accent-ink: #f0f0f0;
+    /* Type that sits ON the accent fill. The fill is near-white, so
+       this is the ground colour. 14.98:1 — and white on the accent
+       is 1.24:1, which is why the role exists at all. */
+    --on-accent: #151515;
 
-       It is the FIFTH accent this project has had (blue, amber,
-       green, terracotta, this), and it moved every collision again
-       exactly as HANDOVER §7 said it would. See `palette.test.ts`:
-       an orange at 24 degrees sits closer to the keyframe gold than
-       the terracotta did, so gold now separates by SATURATION, and
-       error red — which the terracotta could only clear by
-       saturation — separates by HUE again at 33 degrees. */
-    --accent: #f28b46;
-    --accent-soft: rgba(242, 139, 70, 0.15);
-    /* Accent as INK on a warm well -- the reference lightens it rather
-       than painting the raw accent, which reads too hot at text size. */
-    --accent-ink: #f0a173;
-    --accent-line: rgba(242, 139, 70, 0.42);
-    /* Same value as the Tailwind `accentHover` token. */
-    --accent-hover: #ffad72;
-    /* Type that sits ON the accent. White on this orange is 2.45:1 and
-       fails AA badly; this is 7.01:1. FOUR accents in a row have failed
-       the same way, so the check belongs to the ROLE, not to any
-       colour — `palette.test.ts` asserts both halves. */
-    --on-accent: #2b1609;
+    /* ── The one colour ────────────────────────────────────────
+       Reserved. It belongs to a single affordance at a time — the
+       update pill, the primary confirm in a modal — and never to
+       chrome. Its fill is light, so it carries dark ink. */
+    --action: #86aee4;
+    --action-hover: #9dc0ea;
+    --action-ink: #151515;
+
+    /* Status, as roles. Never decorative: green means live, red means
+       destructive, amber means caution, and nothing else is tinted. */
+    --success: #65c466;
+    --info: #86aee4;
+    --warning: #f2ca44;
+    --danger: #ec6765;
 
     /* ── The surface ladder ────────────────────────────────────
-       Measured off the approved design, not converted from the old
-       one: each value is what the reference's own pages resolve to,
-       ordered by how much of the screen wears it.
+       Two planes carry the shell: chrome at #181818 and canvas at
+       #151515. Everything else is a raised control on one of them.
 
-       It is a NEUTRAL dark grey. The platform's previous ladder was
-       blue-black (#060709 … #252a33) and the two are not the same
-       family — the blue tint is gone on purpose, because the design
-       does not have it. Everything downstream reads these tokens, so
-       this block is the whole theme. */
-    --stage: #0c0d0f;
-    --sunken: #0a0b0d;
-    --chrome: #17181b;
-    --surface: #1d1e22;
-    --surface-2: #202126;
-    --surface-3: #26272c;
+       Note the inversion, and it is deliberate: a WELL is darker
+       than its panel while a CONTROL is lighter than the canvas.
+       Both read correctly because the border does the work. */
+    --stage: #151515;      /* app backdrop, canvas, editor ground */
+    --stage-void: #0f0f0f; /* the program-monitor bed — see the header */
+    --sunken: #131313;     /* wells, timeline bed, code blocks */
+    --chrome: #181818;     /* titlebar, toolbars, rails, panel bodies */
+    --surface: #212121;    /* inputs, composer, cards — the raised plane */
+    --surface-2: #262626;  /* buttons, chips, inline code */
+    --surface-3: #313131;  /* discs, slider thumbs, the top control step */
+    --surface-hover: #242424;
+    --surface-active: #252525;
+    /* Kept because ~40 rules name the old rungs. Same values. */
+    --window: #151515;
 
-    /* Ink, from the same source. MEASURED across every text-bearing
-       element of the reference, ordered by painted area — not chosen.
-       Pure white does not appear anywhere in that distribution, so
-       `--text` was an invention; the design's brightest ink is this. */
-    /* The rung above `--text`. The design inherits this on its shell
-       and paints it on emphasis, while ordinary text is `--text` — two
-       distinct inks the app previously collapsed into one, which is
-       why every container measured one step too dim against the
-       reference. */
-    --text-bright: #f5f5f7;
-    --text: #e8e8e8;
-    --text-muted: #b6b6bd;
-    --text-dim: #989898;
-    --text-dim-cool: #8f9098;
-    --text-faint-cool: #7b7b84;
-    --text-faint: #8a8a8a;
+    /* ── Ink ───────────────────────────────────────────────────
+       A short ramp on purpose: a thing is either what you are
+       reading or it is chrome. There is no "slightly dimmer body
+       text" tier, which is why the two `-cool` rungs below are now
+       aliases — the tint they carried was the last chromatic thing
+       left in the type. */
+    --text-bright: #f0f0f0;   /* headings, active labels */
+    --text: #ededed;          /* default body */
+    --text-muted: #b6b6bd;    /* rows, icons, secondary chrome */
+    --text-dim: #9f9f9f;      /* timestamps, quiet meta */
+    --text-faint: #989898;    /* section labels, tool lines */
+    --text-dim-cool: #9f9f9f;
+    --text-faint-cool: #8a8a8a;
+    --text-placeholder: #6b6b6b;
+    --text-disabled: #5a5a5a; /* line numbers, disabled glyphs */
+
+    /* ── Type ──────────────────────────────────────────────────
+       The platform face for UI and prose; rendering in the system
+       face is what makes a desktop app feel like part of the OS
+       rather than a web page in a window. Poppins stays bundled and
+       stays where it belongs — inside the RENDER, on kinetic
+       captions, never on the chrome. */
+    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', Roboto, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Geist Mono', Menlo, Consolas, monospace;
+
+    --text-3xs: 10px;  /* keycaps, badges, clip meta */
+    --text-2xs: 11px;  /* timestamps, counts */
+    --text-xs: 12px;   /* mono meta, tab labels */
+    --text-sm: 13px;   /* rows and chrome — the workhorse */
+    --text-md: 14px;   /* body and headings */
+    --text-lg: 16px;   /* launcher section headings */
 
     /* ── Geometry ──────────────────────────────────────────────
-       Four radius steps and nothing between them. Small square
-       editor controls sit at the bottom of the scale, buttons and
-       fields one step up, cards and panel groups above that, and
-       only genuinely floating layers reach the top.
+       Measured off the reference. Sub-control things at 2xs, small
+       editor controls at xs, buttons and fields at sm, cards and
+       panel groups at md, genuinely floating layers at lg, and the
+       tall composer at xl.
 
-       These replace a 5/7/9/13 ramp whose steps were too close to
-       read as deliberate: at 12px a 5 and a 7 are the same corner. */
+       This replaced 4/6/8/11/15/18. The top of that ramp was rounder
+       than anything in the reference, which is what made dense
+       panels read as a phone app rather than as a tool. */
+    --r-2xs: 4px;
     --r-xs: 6px;
     --r-sm: 8px;
-    --r-md: 11px;
-    --r-lg: 15px;
+    --r-md: 10px;
+    --r-lg: 12px;
+    --r-xl: 16px;
+    --r-full: 999px;
+
+    /* ── Spacing ───────────────────────────────────────────────
+       The rhythm every padding, margin and gap snaps to. Named
+       because "12px here and 14px there" is what an interface looks
+       like when nobody decided. 4 / 6 / 8 / 12 / 16 / 20 / 24, and
+       nothing between them.
+
+         sp-1  icon-to-label inside a control
+         sp-2  between controls in a cluster
+         sp-3  a control's own inset, a row's inset from a panel edge
+         sp-4  panel padding, the gap between control clusters
+         sp-5  section padding, the gap between panel groups
+         sp-6  between sections on a page
+         sp-7  a page's outer margin                                */
+    --sp-1: 4px;
+    --sp-2: 6px;
+    --sp-3: 8px;
+    --sp-4: 12px;
+    --sp-5: 16px;
+    --sp-6: 20px;
+    --sp-7: 24px;
 
     /* ── Motion ────────────────────────────────────────────────
-       One curve for the whole app, and it is the approved one: a
-       fast start that settles rather than decelerating evenly. The
-       old curve (0.32, 0.72, 0, 1) arrived with a slight hold that
-       reads as lag on a control you are clicking repeatedly.
+       ONE curve, three speeds. The previous curve (0.22, 1, 0.36, 1)
+       overshot into a settle, which reads as bounce on a control you
+       click repeatedly — and this is an editing tool, where a button
+       is clicked forty times a minute.
 
-       Press is its own duration because a button has to feel
-       answered before it has finished moving. Subtle scale, no
-       bounce: this is an editing tool, not a phone. */
-    --ease: cubic-bezier(0.22, 1, 0.36, 1);
-    --t-fast: 160ms;
-    --t-base: 200ms;
-    --t-press: 70ms;
+       Press keeps its own duration because a control has to feel
+       answered before it has finished moving. */
+    --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --t-fast: 100ms;
+    --t-base: 150ms;
+    --t-slow: 200ms;
+    --t-press: 100ms;
 
     /* ── Elevation ─────────────────────────────────────────────
-       A light source above the window. A raised control carries a
-       one-pixel inset highlight on its top edge and a short ambient
-       shadow under it; nothing else. Blur and long shadows are
-       reserved for layers that genuinely float, because a working
-       panel that blurs what is behind it costs a compositor pass
-       every frame and buys nothing when nothing overlaps.
+       RETIRED, and deliberately.
 
-       These are roles, not decorations. If a surface is not
-       physically above the one behind it, it gets none of them. */
-    --lift-1: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 2px rgba(0, 0, 0, 0.4);
-    /* Measured off the reference's raised control: a SOFTER, wider
-       ambient shadow than this used to carry. The old 0.42-at-12px read
-       as a hard drop against the design's 0.2-at-18px. */
-    --lift-2: inset 0 1px 0 rgba(255, 255, 255, 0.055), 0 7px 18px rgba(0, 0, 0, 0.2);
-    --lift-float: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 60px rgba(0, 0, 0, 0.62);
+       The old system drew an inset top highlight plus an ambient
+       shadow on every raised control, so a button read as a lit
+       physical plane. The reference does the opposite: one flat
+       fill, one flat border, all four sides, no inner catch and no
+       contact shadow. Depth is the border and nothing else.
 
-    /* Keyboard focus, as a token so every consumer draws the same ring. */
-    --focus-ring: 0 0 0 2px rgba(242, 139, 70, 0.5);
+       `--lift-1` and `--lift-2` survive as `none` because ~30 rules
+       consume them; collapsing them here is what turns the whole
+       elevation system flat in one move rather than in thirty edits.
+       Only things that genuinely FLOAT above the window cast — and
+       they cast a plain black shadow with no lit edge. */
+    --lift-1: none;
+    --lift-2: none;
+    --lift-float: 0 12px 32px rgba(0, 0, 0, 0.55);
+    --lift-modal: 0 24px 60px rgba(0, 0, 0, 0.6);
 
-    /* Height rhythm — every control snaps to one of these. */
-    --h-xs: 20px;
-    --h-sm: 24px;
-    --h-md: 28px;
-    --h-lg: 32px;
-    --h-bar: 42px;
-    --h-title: 52px;
+    /* Keyboard focus, as a token so every consumer draws the same
+       ring. Achromatic, like everything else that is not data: focus
+       BRIGHTENS the hairline rather than tinting it. */
+    --focus-ring: 0 0 0 1px var(--line-popover), 0 0 0 3px rgba(232, 232, 232, 0.16);
+
+    /* ── Height rhythm ─────────────────────────────────────────
+       Every control snaps to one of these, and every bar to the last
+       three. The bar dropped 42 -> 40 and the title bar 52 -> 48 to
+       match the reference's own chrome; both are flex containers, so
+       nothing inside them had to move. */
+    --h-xs: 22px;    /* badges, micro pills */
+    --h-sm: 26px;    /* the small control — measured */
+    --h-md: 30px;    /* the workhorse, and a list row's pitch */
+    --h-row: 30px;   /* a list row — 30 on a 31px pitch */
+    --h-lg: 36px;    /* a primary action, a launcher control */
+    --h-disc: 24px;  /* the round icon discs inside a composer */
+    --h-bar: 40px;   /* every panel header and toolbar */
+    --h-title: 48px; /* the window title bar */
 
     /* macOS traffic-light gutter; overridden to 0 on other platforms. */
     --titlebar-inset: 78px;
@@ -229,14 +334,38 @@
     /* The shell inherits the BRIGHT rung, as the reference's does;
        elements that actually paint text ask for `--text` themselves. */
     color: var(--text-bright);
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Geist, 'Segoe UI', sans-serif;
+    font-family: var(--font-sans);
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01', 'tnum';
-    font-size: 12px;
+    /* 13px, not 12. The reference's chrome workhorse is 13 and this
+       app's was 12, which put every inherited label one step too small
+       and made dense panels read as cramped rather than as dense. */
+    font-size: var(--text-sm);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     user-select: none;
     overflow: hidden;
+  }
+
+  /* ── Native controls are reset ONCE ────────────────────────────
+     Never at a call site. A `<select>` patched in the inspector and
+     again in the toolbar is two selects that will diverge, and this
+     codebase has already had that happen with the focus ring. */
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+  }
+
+  /* ── Selection ─────────────────────────────────────────────────
+     Achromatic, like the accent. A tinted selection was the last
+     place the retired ember could still be seen. */
+  ::selection {
+    background: rgba(232, 232, 232, 0.22);
+    color: var(--text-bright);
   }
 
   /* Numeric readouts never jitter as digits change. */
@@ -331,16 +460,9 @@
        both screens — without it every full-width element on Home
        measured 2px wider than the design. */
     box-sizing: border-box;
-    border: 1px solid #141414;
+    border: 1px solid var(--chrome);
     border-radius: 2px;
-    background:
-      radial-gradient(84% 52% at 30% -14%,
-        rgba(242, 139, 70, 0.13) 0%, rgba(242, 139, 70, 0.035) 44%, transparent 74%),
-      radial-gradient(60% 54% at 104% 2%,
-        rgba(104, 140, 200, 0.07) 0%, transparent 62%),
-      radial-gradient(126% 100% at 50% 30%,
-        transparent 36%, rgba(0, 0, 0, 0.32) 78%, rgba(0, 0, 0, 0.58) 100%),
-      var(--stage);
+    background: var(--stage);
   }
 
   .home-stage::before {
@@ -364,7 +486,7 @@
      hairline, and that is exactly enough to say "this column does not
      scroll and that one does" without drawing a wall. */
   .hp-rail {
-    background: #0c0e13;
+    background: var(--sunken);
     box-shadow: inset -1px 0 0 var(--edge);
   }
 
@@ -409,8 +531,8 @@
   /* ── Cards and planes ─────────────────────────────────────────
      The single-edge plane, used by every card that is not a tile. */
   .surface-card {
-    background-color: #171b22;
-    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0%, transparent 62%);
+    background-color: var(--chrome);
+    background-image: none;
     box-shadow: inset 0 0 0 1px var(--edge);
     transition:
       transform var(--t-base) var(--ease),
@@ -420,7 +542,7 @@
 
   .surface-card-hover:hover {
     transform: translateY(-2px);
-    background-color: #1d222b;
+    background-color: var(--surface);
     box-shadow:
       inset 0 0 0 1px var(--edge-hover),
       0 18px 38px -26px rgba(0, 0, 0, 0.95);
@@ -428,7 +550,7 @@
 
   .surface-card-hover:active {
     transform: translateY(0);
-    background-color: #21262f;
+    background-color: var(--surface-2);
     transition-duration: var(--t-fast);
   }
 
@@ -441,11 +563,7 @@
   .hp-banner {
     position: relative;
     overflow: hidden;
-    background:
-      radial-gradient(72% 150% at 6% 0%, rgba(242, 139, 70, 0.42) 0%, rgba(242, 139, 70, 0.10) 40%, transparent 66%),
-      radial-gradient(64% 150% at 46% 120%, rgba(160, 129, 245, 0.34) 0%, transparent 62%),
-      radial-gradient(78% 165% at 98% 6%, rgba(74, 144, 255, 0.32) 0%, transparent 64%),
-      linear-gradient(120deg, #1b2029 0%, #14181f 100%);
+    background: var(--surface);
     box-shadow: inset 0 0 0 1px var(--edge);
   }
 
@@ -471,24 +589,19 @@
   .hp-plate-cool {
     background-image:
       repeating-linear-gradient(90deg,
-        rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 24px),
-      radial-gradient(120% 110% at 22% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 56%);
+        rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 24px);
   }
 
+  /* Two plates, separated by a TONAL STEP rather than by warm-and-cool
+     tints. They were a terracotta wash and a violet wash over the same
+     grey, which is the decorative-colour rule broken twice — neither
+     hue told you anything about the skill on the plate. */
   .hp-plate-warm {
-    background-color: #1a1418;
-    background-image:
-      repeating-linear-gradient(90deg,
-        rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 24px),
-      linear-gradient(152deg, rgba(242, 139, 70, 0.30) 0%, rgba(242, 139, 70, 0.06) 58%, transparent 100%);
+    background-color: var(--surface);
   }
 
   .hp-plate-cool {
-    background-color: #1a1316;
-    background-image:
-      repeating-linear-gradient(90deg,
-        rgba(255, 255, 255, 0.024) 0 1px, transparent 1px 24px),
-      linear-gradient(332deg, rgba(199, 103, 46, 0.34) 0%, rgba(242, 139, 70, 0.08) 58%, transparent 100%);
+    background-color: var(--chrome);
   }
 
   /* ── Tabs ─────────────────────────────────────────────────────
@@ -548,8 +661,7 @@
      digits stay legible over a bright frame. */
   .media-pill {
     @apply text-micro font-mono tabular text-white/90;
-    background: rgba(6, 8, 12, 0.66);
-    backdrop-filter: blur(10px) saturate(1.3);
+    background: var(--chrome);
   }
 
   /* A frame with no poster yet. Perforations and a frame line rather
@@ -560,7 +672,7 @@
     background-image:
       repeating-linear-gradient(90deg,
         rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 26px),
-      linear-gradient(158deg, #1b2330 0%, #0c1015 100%);
+      var(--surface);
   }
 
   /* ── Entrance ─────────────────────────────────────────────────
@@ -651,24 +763,23 @@
   .hp-main {
     padding-top: 28px;
     background:
-      radial-gradient(900px 320px at 17% -10%, rgba(242, 139, 70, 0.055), transparent 70%),
       var(--chrome);
   }
 
   .hp-topbar {
     background: var(--sunken);
-    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.065);
+    box-shadow: none;
   }
 
   .hp-rail {
     background: var(--sunken);
-    box-shadow: inset -1px 0 0 rgba(255,255,255,0.065);
+    box-shadow: none;
   }
 
   .hp-brand-mark {
     color: var(--on-accent);
     background: var(--accent);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.14);
+    box-shadow: inset 0 0 0 1px var(--line);
   }
 
   .hp-rail-label { color: var(--text-faint) !important; }
@@ -682,7 +793,7 @@
   .hp-nav-on {
     color: var(--text) !important;
     background: var(--surface-2);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.045);
+    box-shadow: inset 0 0 0 1px var(--line);
   }
 
 
@@ -742,9 +853,9 @@
     font-size: 11px;
     letter-spacing: normal;
     color: var(--text-faint-cool);
-    background: rgba(29, 30, 34, 0.96);
+    background: var(--chrome);
     border-top: 1px solid var(--line);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.024);
+    box-shadow: none;
   }
 
   .hp-status-item {
@@ -767,7 +878,7 @@
     background: var(--text-faint);
   }
 
-  .hp-status-dot.is-on { background: #3ddc97; }
+  .hp-status-dot.is-on { background: var(--success); }
   .hp-status-dot.is-off { background: var(--text-faint); }
   .hp-status-dot.is-unknown { background: var(--text-faint); animation: pulse 1.6s ease-in-out infinite; }
 
@@ -839,8 +950,8 @@
   }
 
   .hp-activity-dot.tone-accent { background: var(--accent); }
-  .hp-activity-dot.tone-green { background: #3ddc97; }
-  .hp-activity-dot.tone-blue { background: #4a90ff; }
+  .hp-activity-dot.tone-green { background: var(--success); }
+  .hp-activity-dot.tone-blue { background: var(--info); }
   .hp-activity-dot.tone-dim { background: var(--text-faint); }
 
   .hp-activity-meta {
@@ -914,12 +1025,12 @@
     align-items: center;
     justify-content: center;
     border-radius: 999px;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 0 0 1px var(--line);
   }
 
   .hp-account-avatar-fallback {
     color: var(--on-accent);
-    background: linear-gradient(148deg, #ffb784, #e0854d);
+    background: var(--accent-hover);
     font-size: 12px;
     font-weight: 700;
   }
@@ -996,7 +1107,7 @@
   }
 
   .hp-tile-mark {
-    background: rgba(255,255,255,0.88);
+    background: var(--accent);
     box-shadow: none;
   }
   /* One chip for both plain tiles, in the accent.
@@ -1032,11 +1143,7 @@
   }
 
   .hp-banner {
-    background:
-      radial-gradient(80% 190% at 0% 0%, rgba(242, 139, 70, 0.22), transparent 66%),
-      radial-gradient(65% 170% at 52% 120%, rgba(176, 82, 47, 0.20), transparent 65%),
-      radial-gradient(70% 180% at 100% 0%, rgba(255, 183, 132, 0.13), transparent 70%),
-      var(--surface);
+    background: var(--surface);
     border: 1px solid rgba(255,255,255,0.085);
     box-shadow: none;
   }
@@ -1060,7 +1167,7 @@
   .poster-empty {
     background-image:
       repeating-linear-gradient(90deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 26px),
-      linear-gradient(158deg, #1a2028 0%, #0d1015 100%);
+      var(--chrome);
   }
 
   .home-stage .pro-btn { color: var(--text-dim); }
@@ -1090,7 +1197,7 @@
   .home-stage .btn-primary {
     color: var(--ink-warm);
     background: var(--accent);
-    border: 1px solid rgba(255, 183, 132, 0.38);
+    border: 1px solid rgba(232, 232, 232, 0.19);
     box-shadow: none;
   }
   .home-stage .pro-input,
@@ -1142,8 +1249,8 @@
     display: block;
     padding: 10px;
     border-radius: var(--r-sm);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.014)), var(--surface-2);
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 10px 28px rgba(0, 0, 0, 0.14);
+    background: var(--surface);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
     border: 1px solid rgba(255,255,255,0.075);
     transition: background-color var(--t-fast) ease, border-color var(--t-fast) ease,
       transform var(--t-base) var(--ease);
@@ -1177,7 +1284,7 @@
   .hp-skill-thumb-shade {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(5,7,10,0.74) 0, rgba(5,7,10,0.06) 42%, transparent 68%);
+    background: linear-gradient(to top, rgba(15, 15, 15, 0.78) 0, rgba(15, 15, 15, 0.06) 42%, transparent 68%);
     pointer-events: none;
   }
   .hp-skill-state,
@@ -1191,10 +1298,9 @@
     gap: 4px;
     padding: 0 7px;
     border-radius: 5px;
-    color: rgba(255,255,255,0.88);
-    background: rgba(8,10,13,0.72);
+    color: var(--accent);
+    background: var(--chrome);
     border: 1px solid rgba(255,255,255,0.10);
-    backdrop-filter: blur(8px);
     font-size: 9px;
     font-weight: 650;
   }
@@ -1325,8 +1431,8 @@
     padding: 0 15px;
     padding-left: max(15px, var(--titlebar-inset));
     color: var(--text-bright);
-    background: rgba(35, 36, 40, 0.92);
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 14px 36px rgba(0, 0, 0, 0.2);
+    background: var(--surface-2);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.2);
   }
 
   .kp-bottom {
@@ -1336,7 +1442,7 @@
     gap: 10px;
     padding: 46px 16px 14px;
     background: linear-gradient(0deg,
-      rgba(3, 4, 6, 0.94) 0%, rgba(3, 4, 6, 0.88) 42%, rgba(3, 4, 6, 0.5) 74%, transparent 100%);
+      rgba(15, 15, 15, 0.94) 0%, rgba(15, 15, 15, 0.88) 42%, rgba(15, 15, 15, 0.5) 74%, transparent 100%);
   }
 
   /*
@@ -1420,8 +1526,8 @@
     min-height: 66px;
     padding: 14px 16px;
     border-radius: 13px;
-    background: rgba(36, 37, 42, 0.88);
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.05), 0 18px 46px rgba(0, 0, 0, 0.3);
+    background: var(--surface-2);
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.3);
   }
 
   /* The label doubles as the description of whatever is hovered, so
@@ -1514,28 +1620,55 @@
     @apply bg-spectrum-panel border-line;
   }
 
+  /* The one structural seam in the shell: chrome against canvas. It is
+     a step brighter than an ordinary card edge on purpose — it is the
+     only divider in the window that is telling you about the LAYOUT
+     rather than about a control. */
+  .panel-seam {
+    border-color: var(--line-chrome);
+  }
+
   /* Every panel/toolbar header in the app is this height. No exceptions. */
   .panel-header {
-    @apply flex items-center justify-between gap-2 px-3 bg-spectrum-panelHeader border-b border-line flex-shrink-0;
+    @apply flex items-center justify-between bg-spectrum-panelHeader border-b border-line flex-shrink-0;
+    gap: var(--sp-3);
+    padding: 0 var(--sp-4);
     height: var(--h-bar);
   }
 
-  /* Measured off the reference's own panel and program titles, which
-     are the same control: 10.5px / 700 / 1.365px tracking, in the body
-     ink rather than the dim one. */
+  /*
+    A PANEL TITLE IS NOT CHROME.
+
+    This was 10.5px / 700 / 0.13em tracking, uppercase — the typographic
+    grammar of a hardware faceplate, and the single loudest thing on a
+    surface whose actual job is to hold controls. Six of them stacked
+    down a sidebar shouted six times about six things you were not
+    looking at.
+
+    The reference writes a title in SENTENCE CASE, at BODY SIZE, one
+    step down the ink ramp, and separates it with space instead of with
+    weight. It stops competing with the content it labels the moment
+    you stop treating it as a label and start treating it as a heading.
+    No uppercase, no wide tracking, no rule underneath.
+  */
   .panel-title {
-    @apply text-spectrum-text uppercase truncate;
+    @apply text-spectrum-text truncate;
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.13em;
+    gap: var(--sp-2);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    letter-spacing: -0.003em;
+    text-transform: none;
   }
 
+  /* Same reasoning one rung quieter: a section label inside a panel. */
   .section-label {
-    @apply text-micro font-semibold text-spectrum-textMuted uppercase;
-    letter-spacing: 0.07em;
+    @apply text-spectrum-textFaint;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
   }
 
   .hairline {
@@ -1554,10 +1687,22 @@
   */
   .card,
   .squircle-card {
-    @apply bg-spectrum-card rounded-squircle-sm;
-    border: 1px solid transparent;
-    transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease),
-      box-shadow var(--t-base) var(--ease);
+    @apply bg-spectrum-card rounded-squircle-md;
+    /*
+      The hairline is back, and it is the reference's answer rather than
+      a reversal for its own sake.
+
+      The note above is right that a border PLUS a fill PLUS a shadow is
+      three edges doing one job — and the fix at the time was to drop
+      two of the three. The reference drops a different two: it keeps
+      the border, drops the shadow, and makes the fill a step so small
+      (#212121 on #181818) that it is not competing. Depth is the
+      hairline and nothing else, everywhere, which is why twenty of
+      these stacked in a sidebar still read as twenty cards instead of
+      as one long gradient.
+    */
+    border: 1px solid var(--line);
+    transition: background-color var(--t-base) var(--ease), border-color var(--t-base) var(--ease);
   }
 
   .card-interactive {
@@ -1566,6 +1711,7 @@
 
   .card-interactive:hover {
     @apply bg-spectrum-cardHover;
+    border-color: var(--line-strong);
   }
 
   /*
@@ -1592,12 +1738,53 @@
     @apply bg-spectrum-sunken border border-line rounded-squircle-sm;
   }
 
+  /* A row in a list — nav item, media item, conversation.
+
+     Measured off the reference and not approximate: a 30px row on a
+     31px pitch, inset 8px from each edge of its container, an 8px
+     corner, and a 16px glyph. Every list in this app was drawing its
+     own row height, its own inset and its own corner, which is why no
+     two sidebars in it ever lined up with each other. */
+  .row-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    height: var(--h-row);
+    margin-bottom: 1px;
+    padding: 0 var(--sp-3);
+    border-radius: var(--r-sm);
+    color: var(--text-muted);
+    background: transparent;
+    text-align: left;
+    transition: background-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  }
+
+  .row-item:hover {
+    background: var(--surface-hover);
+    color: var(--text-bright);
+  }
+
+  .row-item-active {
+    background: var(--surface-active);
+    color: var(--text-bright);
+  }
+
   /* Frosted floating surface — palettes, popovers, stage overlays. */
+  /*
+    A floating layer — palette, popover, stage overlay.
+
+    Opaque, not frosted. A blur costs a compositor pass every frame in
+    an app that is decoding video on the same GPU, and it buys nothing
+    here: what shows through a 0.82 panel is the editor's own dark
+    chrome, which is the colour the panel already is. The reference
+    floats a layer on a flat fill, the brightest hairline in the window,
+    and a plain black shadow. Three things, all cheap.
+  */
   .glass {
-    background: rgba(22, 25, 31, 0.82);
-    backdrop-filter: blur(18px) saturate(150%);
-    -webkit-backdrop-filter: blur(18px) saturate(150%);
-    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    border: 1px solid var(--line-popover);
+    box-shadow: var(--lift-float);
   }
 
   /* ─────────────────────────────────────────────────────────────
@@ -1649,6 +1836,7 @@
     @apply rounded-squircle-sm text-spectrum-textMuted inline-flex items-center justify-center flex-shrink-0;
     background-color: transparent;
     border: 1px solid transparent;
+    gap: var(--sp-2);
   }
 
   .pro-btn:hover:not(:disabled) {
@@ -1663,9 +1851,21 @@
     @apply opacity-25 cursor-not-allowed;
   }
 
+  /*
+    A toggle that is ON.
+
+    Brighter, not tinted. The accent is near-white, so this is the fill
+    one step up the ramp plus the brightest hairline and the brightest
+    ink — which is exactly how the reference marks a selected control,
+    and it is the reason the accent was made achromatic in the first
+    place: an on-state that changes HUE competes with the lane colours
+    three inches below it in the timeline, and the lane colours are
+    carrying information that the on-state is not.
+  */
   .pro-btn-active {
-    @apply bg-spectrum-accentSoft text-spectrum-accent;
-    border-color: var(--accent-line);
+    background-color: var(--surface-3);
+    color: var(--text-bright);
+    border-color: var(--line-popover);
   }
 
   /*
@@ -1678,13 +1878,25 @@
   .pro-btn-filled,
   .squircle-btn {
     @apply rounded-squircle-sm bg-spectrum-card text-spectrum-textMuted inline-flex items-center justify-center flex-shrink-0;
-    border: 1px solid transparent;
-    box-shadow: var(--lift-1);
+    /*
+      A REAL hairline, not a transparent placeholder.
+
+      This used to lean on `--lift-1` — an inset top highlight plus an
+      ambient shadow — to say "raised". That token is `none` now, and
+      the reference's answer is the one that survives on a flat design:
+      a 1px border one step lighter than the fill it encloses, the same
+      on all four sides. It reads as raised at any zoom, it does not
+      cost a paint, and it does not disagree with itself when two of
+      these sit side by side.
+    */
+    border: 1px solid var(--line);
+    gap: var(--sp-2);
   }
 
   .pro-btn-filled:hover:not(:disabled),
   .squircle-btn:hover:not(:disabled) {
     @apply bg-spectrum-cardHover text-spectrum-text;
+    border-color: var(--line-strong);
   }
 
   .pro-btn-filled:active:not(:disabled),
@@ -1710,27 +1922,35 @@
     being luminous and starts being neon, which is the failure mode
     this palette has already been through once.
   */
+  /*
+    The primary action.
+
+    A flat near-white disc with dark ink on it. No gradient, no inset
+    highlight, no warm ambient pool — the three things the previous
+    treatment used to make an orange button read as "lit", and the
+    three things the reference does not do anywhere.
+
+    It is the brightest thing in the window, and that is the entire
+    signal. On a shell where nothing else is brighter than #313131, a
+    near-white fill is impossible to miss without spending a single
+    degree of hue on it.
+  */
   .btn-primary {
     @apply rounded-squircle-sm inline-flex items-center justify-center font-semibold flex-shrink-0;
-    /* Dark type, not white — see --on-accent. */
+    gap: var(--sp-2);
+    /* Dark type on a light fill — see --on-accent. White here is
+       1.24:1 and this is 14.98:1; `palette.test.ts` asserts both. */
     color: var(--on-accent);
-    background: linear-gradient(180deg, #ffad72 0%, #f28b46 100%);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34),
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 6px 18px -6px rgba(199, 103, 46, 0.45);
+    background: var(--accent);
+    border: 1px solid transparent;
   }
 
   .btn-primary:hover:not(:disabled) {
-    filter: brightness(1.08) saturate(1.03);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4),
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 8px 22px -6px rgba(199, 103, 46, 0.55);
+    background: var(--accent-hover);
   }
 
   .btn-primary:active:not(:disabled) {
-    filter: brightness(0.94);
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+    background: var(--accent-dim);
   }
 
   .btn-primary:disabled {
@@ -1740,19 +1960,24 @@
   .btn-ghost-danger {
     @apply rounded-squircle-sm inline-flex items-center justify-center text-spectrum-textDim flex-shrink-0;
     border: 1px solid transparent;
+    gap: var(--sp-2);
   }
 
   .btn-ghost-danger:hover {
     @apply text-spectrum-red;
-    background-color: rgba(238, 90, 99, 0.11);
-    border-color: rgba(238, 90, 99, 0.26);
+    background-color: rgba(236, 103, 101, 0.12);
+    border-color: rgba(236, 103, 101, 0.30);
   }
 
   /* Segmented control — one recessed trough, the active cell lifts out. */
+  /* One recessed trough, the active cell lifts out. The trough keeps
+     its hairline because it is DARKER than the panel it sits on, and a
+     dark rectangle on dark chrome with no edge reads as a hole punched
+     through rather than as an inset. The inset shadow is gone: the
+     tonal step and the border already say "trough" twice. */
   .seg-group {
     @apply inline-flex items-center gap-px rounded-squircle-sm bg-spectrum-sunken border border-line;
     padding: 2px;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
   .seg-item {
@@ -1767,26 +1992,29 @@
 
   .seg-item:hover:not(.seg-item-active) {
     @apply text-spectrum-text;
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--surface-hover);
   }
 
   /* One signal, like the home nav. A fill is enough to say "this one";
      a fill plus a border plus an inset highlight plus a cast shadow is
      a control shouting about a binary. */
   .seg-item-active {
-    @apply bg-spectrum-card text-spectrum-text;
-    box-shadow: var(--lift-1);
+    @apply bg-spectrum-cardHover text-spectrum-textBright;
   }
 
   /* On-state that also carries meaning (snapping on, safe areas on, …). */
+  /* An on-state that also carries meaning (snapping on, safe areas
+     on, …). Brighter than merely selected, and still not tinted. */
   .seg-item-on {
-    @apply text-spectrum-accent;
-    background: var(--accent-soft);
-    border-color: var(--accent-line);
+    color: var(--text-bright);
+    background: var(--surface-3);
+    border-color: var(--line-popover);
   }
 
   .chip {
-    @apply inline-flex items-center gap-1 px-1.5 text-micro font-medium bg-spectrum-card text-spectrum-textDim;
+    @apply inline-flex items-center text-micro font-medium bg-spectrum-cardHover text-spectrum-textDim;
+    gap: var(--sp-1);
+    padding: 0 var(--sp-2);
     border-radius: var(--r-xs);
     height: var(--h-xs);
   }
@@ -1917,7 +2145,7 @@
      are, not what you changed. */
   .rail-tile-active {
     @apply text-spectrum-textBright;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.05));
+    background: rgba(255, 255, 255, 0.06);
     border-color: rgba(255, 255, 255, 0.105);
     box-shadow: var(--lift-2);
   }
@@ -1928,13 +2156,28 @@
   /* Measured: the reference's field sits on the CARD surface with a
      6px radius and a faint top highlight -- not in a dark sunken well
      with a heavy inset shadow, which is what this was. */
+  /*
+    A text field is a FLAT WELL behind a hairline.
+
+    It used to be a two-stop gradient plus an inset top highlight, on
+    the theory that a field looks recessed if you light its top edge.
+    The reference recesses it by making it the same flat fill as every
+    other raised control and letting the BORDER carry the depth — and
+    on a flat design that is the only cue that survives, because a
+    highlight on a field beside a highlight on a button beside a
+    highlight on a card is three lights from three directions.
+
+    Corner is `--r-sm` (8) rather than `--r-xs` (6): a field is a
+    button-sized control and wears a button-sized corner. The two being
+    different is why a search box never quite lined up with the button
+    sitting next to it in every toolbar in the app.
+  */
   .pro-input,
   .squircle-input {
     @apply text-spectrum-textBright border border-line text-ui-sm;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.014)), var(--surface-2);
-    border-radius: var(--r-xs);
+    background: var(--surface);
+    border-radius: var(--r-sm);
     outline: none;
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.027);
     transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
   }
 
@@ -1943,16 +2186,18 @@
     @apply border-line-strong;
   }
 
+  /* Focus BRIGHTENS the hairline. It does not tint it — see
+     --focus-ring, which every other focusable control draws. */
   .pro-input:focus,
   .pro-input:focus-within,
   .squircle-input:focus,
   .squircle-input:focus-within {
-    border-color: var(--accent-line);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2), 0 0 0 3px rgba(242, 139, 70, 0.16);
+    border-color: var(--line-popover);
+    box-shadow: 0 0 0 3px rgba(232, 232, 232, 0.13);
   }
 
   .pro-input::placeholder {
-    color: var(--text-faint);
+    color: var(--text-placeholder);
   }
 
   /* Native select keeps its own chevron so it matches everywhere. */
@@ -1969,7 +2214,7 @@
   }
 
   select option {
-    background-color: #1e222a;
+    background-color: var(--surface);
     color: var(--text);
   }
 
@@ -2078,16 +2323,19 @@
 
   .modal-shell {
     @apply overflow-hidden animate-scale-in;
-    background: #11141a;
-    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
-    border: 1px solid #232936;
-    border-radius: 16px;
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    background: var(--chrome);
+    background-image: none;
+    border: 1px solid var(--line-popover);
+    border-radius: var(--r-xl);
+    box-shadow: var(--lift-modal);
   }
 
+  /* A keycap. Flat, like everything else — the 1px black shelf under
+     it was the last physical-object metaphor left in the control set,
+     and a keycap does not need to look pressable when nothing on the
+     screen does. Kept in step with the `Kbd` primitive. */
   .kbd {
-    @apply inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-squircle-2xs bg-spectrum-card text-micro font-mono text-spectrum-textDim;
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+    @apply inline-flex items-center justify-center min-w-[18px] h-[18px] px-hair rounded-squircle-2xs bg-spectrum-cardHover border border-line text-micro font-mono text-spectrum-textDim;
   }
 
   /* A count pinned to an icon button's corner — how many markers
@@ -2146,8 +2394,7 @@
   }
 
   .btn-primary:focus-visible {
-    box-shadow: var(--focus-ring), inset 0 1px 0 rgba(255, 255, 255, 0.34),
-      0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px -6px rgba(199, 103, 46, 0.45);
+    box-shadow: var(--focus-ring), 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 18px -6px rgba(232, 232, 232, 0.22);
   }
 }
 
@@ -2170,14 +2417,14 @@ input[type='range']:focus {
 input[type='range']::-webkit-slider-runnable-track {
   width: 100%;
   height: 4px;
-  background: #262b33;
+  background: var(--surface-2);
   border-radius: 999px;
   box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.35);
   transition: background var(--t-fast) ease;
 }
 
 input[type='range']:hover::-webkit-slider-runnable-track {
-  background: #2f353f;
+  background: var(--surface-3);
 }
 
 input[type='range']::-webkit-slider-thumb {
@@ -2185,7 +2432,7 @@ input[type='range']::-webkit-slider-thumb {
   height: 12px;
   width: 12px;
   border-radius: 999px;
-  background: #f2f4f8;
+  background: var(--text-bright);
   margin-top: -4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.3);
   border: none;
@@ -2200,7 +2447,7 @@ input[type='range']:hover::-webkit-slider-thumb {
 
 input[type='range']:active::-webkit-slider-thumb {
   transform: scale(1.05);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 0 4px rgba(242, 139, 70, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.65), 0 0 0 4px rgba(232, 232, 232, 0.125);
 }
 
 input[type='range'].range-accent::-webkit-slider-thumb {
@@ -2216,7 +2463,7 @@ input[type='checkbox'] {
   width: 15px;
   height: 15px;
   border-radius: 4px;
-  background: #14171d;
+  background: var(--chrome);
   border: 1px solid var(--line-strong);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
   cursor: pointer;
@@ -2232,7 +2479,7 @@ input[type='checkbox']:hover {
 input[type='checkbox']:checked {
   background: var(--accent);
   border-color: var(--accent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: none;
 }
 
 input[type='checkbox']:checked::after {
@@ -2249,8 +2496,21 @@ input[type='checkbox']:checked::after {
 
 /* ═══════════════════════════════════════════════════════════════
    SCROLLBARS
-   Overlay style — invisible until the region is hovered.
+
+   Overlay-thin and achromatic. A scrollbar is chrome about chrome: it
+   should be findable when you look for it and invisible when you are
+   not. The track stays transparent — a filled track draws a permanent
+   stripe down the side of every panel in the app.
+
+   The thumb is a SOLID hairline now, not a white alpha. The alpha
+   version tinted whatever it crossed, so the same scrollbar was one
+   colour on the timeline bed and another on a panel.
    ═══════════════════════════════════════════════════════════════ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -2261,15 +2521,15 @@ input[type='checkbox']:checked::after {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.09);
-  border-radius: 999px;
+  background: var(--line-strong);
+  border-radius: var(--r-full);
   border: 3px solid transparent;
   background-clip: content-box;
-  transition: background-color var(--t-base) ease;
+  transition: background-color var(--t-base) var(--ease);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--line-popover);
   background-clip: content-box;
 }
 
@@ -2302,7 +2562,7 @@ input[type='number']::-webkit-outer-spin-button {
    window is painted with, which is what a vignette alone could not do.
 */
 .stage-bed {
-  background: radial-gradient(circle at 50% 42%, #202126 0, #111215 48%, #0d0e10 100%);
+  background: var(--stage-void);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2313,9 +2573,9 @@ input[type='number']::-webkit-outer-spin-button {
    editor tab inherits one measured panel system.
    ═══════════════════════════════════════════════════════════════ */
 .editor-shell {
-  background: #090a0c;
+  background: var(--sunken);
   box-sizing: border-box;
-  border: 1px solid #141414;
+  border: 1px solid var(--chrome);
   border-radius: 2px;
   letter-spacing: -0.012em;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Geist, 'Segoe UI', sans-serif;
@@ -2328,15 +2588,13 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .editor-topbar {
-  background: rgba(35, 36, 40, 0.92);
+  background: var(--surface-2);
   border-bottom-color: rgba(255, 255, 255, 0.075);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.03), 0 10px 30px rgba(0, 0, 0, 0.16);
-  backdrop-filter: saturate(145%) blur(24px);
-  -webkit-backdrop-filter: saturate(145%) blur(24px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16);
 }
 
 .editor-workspace {
-  background: #090a0c;
+  background: var(--sunken);
   margin-top: 2px;
 }
 
@@ -2379,9 +2637,9 @@ input[type='number']::-webkit-outer-spin-button {
   height: 42px;
   padding-left: 13px;
   padding-right: 13px;
-  background: rgba(36, 37, 41, 0.96);
+  background: var(--surface-2);
   border-bottom-color: rgba(255, 255, 255, 0.075);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 8px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
 .editor-library .panel-header .panel-title,
@@ -2401,8 +2659,8 @@ input[type='number']::-webkit-outer-spin-button {
      tint composites bluer than the design's brown and the raw accent
      is a shade too hot against it. */
   color: var(--accent-ink);
-  background: #33281e;
-  border: 1px solid rgba(242, 139, 70, 0.34);
+  background: var(--surface-2);
+  border: 1px solid rgba(232, 232, 232, 0.17);
   font-size: 12px;
   padding: 5px 11px;
   transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease),
@@ -2410,17 +2668,17 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .editor-library-action:hover {
-  color: #ffad72;
-  background: rgba(242, 139, 70, 0.19);
-  border-color: rgba(242, 139, 70, 0.5);
+  color: var(--accent-hover);
+  background: rgba(232, 232, 232, 0.095);
+  border-color: rgba(232, 232, 232, 0.22);
 }
 
 .editor-library .card,
 .editor-library .card-interactive,
 .editor-library .squircle-card {
   border-color: rgba(255, 255, 255, 0.075);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.014)), var(--surface-2);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.025);
+  background: var(--surface);
+  box-shadow: none;
 }
 
 .editor-library .card-interactive:hover {
@@ -2433,7 +2691,7 @@ input[type='number']::-webkit-outer-spin-button {
   width: 4px;
   height: 17px;
   border-radius: 999px;
-  box-shadow: 0 0 12px rgba(242, 139, 70, 0.35);
+  box-shadow: 0 0 12px rgba(232, 232, 232, 0.175);
 }
 
 .editor-program-inner {
@@ -2442,7 +2700,7 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .editor-program-stage {
-  background: radial-gradient(circle at 50% 42%, #202126 0, #111215 48%, #0d0e10 100%);
+  background: var(--stage-void);
 }
 
 .editor-program-stage canvas {
@@ -2453,7 +2711,7 @@ input[type='number']::-webkit-outer-spin-button {
   min-height: 78px;
   padding-bottom: 10px;
   border-top-color: rgba(255, 255, 255, 0.105);
-  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.16), inset 0 1px rgba(255, 255, 255, 0.025);
+  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.16);
 }
 
 .editor-playback-controls {
@@ -2475,27 +2733,25 @@ input[type='number']::-webkit-outer-spin-button {
 
 .editor-align-shelf .glass {
   border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(34, 35, 39, 0.91);
-  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.52), inset 0 1px rgba(255, 255, 255, 0.075);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  background: var(--surface-2);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.52);
 }
 
 .editor-timeline-inner {
-  background: #15161a;
+  background: var(--chrome);
   border-top-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 -18px 42px rgba(0, 0, 0, 0.2), inset 0 1px rgba(255, 255, 255, 0.035);
+  box-shadow: 0 -18px 42px rgba(0, 0, 0, 0.2);
 }
 
 .editor-timeline-toolbar {
-  background: rgba(28, 29, 33, 0.98);
+  background: var(--surface);
   border-bottom-color: rgba(255, 255, 255, 0.09);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.03), 0 10px 24px rgba(0, 0, 0, 0.14);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
 }
 
 .editor-track-list,
 .editor-timeline-lanes {
-  background: #17181b;
+  background: var(--chrome);
 }
 
 .editor-timeline-lanes { margin-left: 2px; }
@@ -2506,18 +2762,18 @@ input[type='number']::-webkit-outer-spin-button {
 }
 
 .editor-track-list-header {
-  background: linear-gradient(180deg, #24252a, #1d1e22);
+  background: var(--surface-2);
   border-bottom-color: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+  box-shadow: none;
 }
 
 .editor-time-ruler {
-  background: linear-gradient(180deg, rgba(37, 38, 43, 0.98), rgba(29, 30, 34, 0.98));
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.035);
+  background: var(--surface-2);
+  box-shadow: none;
 }
 
 .editor-marker-strip {
-  background: rgba(25, 26, 30, 0.98);
+  background: var(--surface);
   border-color: rgba(255, 255, 255, 0.075);
   border-top-width: 0;
 }
@@ -2530,13 +2786,13 @@ input[type='number']::-webkit-outer-spin-button {
 .editor-track-row { background: rgba(255, 255, 255, 0.012); }
 .editor-track-row:hover { background: rgba(255, 255, 255, 0.045); }
 .editor-track-row.is-active {
-  background: linear-gradient(90deg, rgba(242, 139, 70, 0.1), rgba(255, 255, 255, 0.028));
-  box-shadow: inset 2px 0 rgba(242, 139, 70, 0.75);
+  background: var(--surface-2);
+  box-shadow: inset 2px 0 rgba(232, 232, 232, 0.22);
 }
 
 .editor-track-lane { background: rgba(255, 255, 255, 0.008); }
 .editor-track-lane.is-active {
-  background: linear-gradient(90deg, rgba(242, 139, 70, 0.035), rgba(255, 255, 255, 0.016));
+  background: var(--surface-2);
 }
 
 .editor-clip {
@@ -2544,7 +2800,8 @@ input[type='number']::-webkit-outer-spin-button {
   height: calc(100% - 10px) !important;
   padding: 5px 8px;
   border-radius: 8px;
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.105), 0 6px 16px rgba(0, 0, 0, 0.18);
+  /* No inset edge light — TDS §1.2. Depth is the border, nothing else. */
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
   transition: transform var(--t-fast) var(--ease), filter var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
 
@@ -2568,12 +2825,12 @@ input[type='number']::-webkit-outer-spin-button {
 
 /* Checkerboard behind transparent canvas areas. */
 .checkerboard {
-  background-color: #15181d;
+  background-color: var(--chrome);
   background-image:
-    linear-gradient(45deg, #1c1f26 25%, transparent 25%),
-    linear-gradient(-45deg, #1c1f26 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #1c1f26 75%),
-    linear-gradient(-45deg, transparent 75%, #1c1f26 75%);
+    linear-gradient(45deg, var(--surface) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--surface) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--surface) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--surface) 75%);
   background-size: 16px 16px;
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
@@ -2640,8 +2897,8 @@ input[type='number']::-webkit-outer-spin-button {
 .clip-body {
   /* Neutral, not blue-black: #1a1d24 was left over from the previous
      ladder and painted 7 points of blue past the reference's clip. */
-  background-color: #191a1d;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.106), 0 6px 16px rgba(0, 0, 0, 0.18);
+  background-color: var(--chrome);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
 }
 
 
@@ -2722,8 +2979,8 @@ input[type='number']::-webkit-outer-spin-button {
   height: 100%;
   border-radius: 999px;
   overflow: hidden;
-  background: linear-gradient(90deg, rgba(242, 139, 70, 0.55), var(--accent));
-  box-shadow: 0 0 10px rgba(242, 139, 70, 0.35);
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(232, 232, 232, 0.175);
   /* Follows the reading, and slowly enough that a 12-per-second update
      reads as a glide rather than a stutter. */
   transition: width 220ms var(--ease);
@@ -2749,7 +3006,7 @@ input[type='number']::-webkit-outer-spin-button {
 .export-lane-fill {
   height: 100%;
   border-radius: 999px;
-  background: rgba(242, 139, 70, 0.62);
+  background: rgba(232, 232, 232, 0.22);
   transition: width 220ms var(--ease);
 }
 
@@ -2791,7 +3048,7 @@ input[type='number']::-webkit-outer-spin-button {
 
 .export-phase-done .export-phase-dot {
   opacity: 1;
-  background: #33c98d;
+  background: var(--success);
 }
 
 /* The finish. One ring, one tick, arriving with a little weight. */
@@ -2802,8 +3059,8 @@ input[type='number']::-webkit-outer-spin-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(51, 201, 141, 0.15);
-  border: 1px solid rgba(51, 201, 141, 0.3);
+  background: rgba(101, 196, 102, 0.15);
+  border: 1px solid rgba(101, 196, 102, 0.3);
   animation: export-tick-in 320ms cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
@@ -2839,7 +3096,6 @@ input[type='number']::-webkit-outer-spin-button {
   padding: 10px 12px;
   border-radius: 14px;
   background:
-    linear-gradient(100deg, var(--accent-soft), transparent 62%),
     var(--surface);
   box-shadow: inset 0 0 0 1px var(--accent-line);
   overflow: hidden;
@@ -3035,11 +3291,11 @@ input[type='number']::-webkit-outer-spin-button {
     min-height: 52px;
     padding-right: 15px;
     padding-left: 15px;
-    background: rgba(35, 36, 40, 0.92);
+    background: var(--surface-2);
     border-bottom: 1px solid var(--line);
     /* A soft ambient below the bar, as the reference has — not a 1px
        hard line, which reads as a seam rather than a layer. */
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 12px 34px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18);
   }
 
   .hp-workspace {
@@ -3064,7 +3320,7 @@ input[type='number']::-webkit-outer-spin-button {
     gap: 2px;
     background: var(--surface);
     border-right: 0;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.024);
+    box-shadow: none;
   }
 
   .hp-rail .rail-tile {
@@ -3083,18 +3339,17 @@ input[type='number']::-webkit-outer-spin-button {
 
   .hp-rail .rail-tile-active {
     color: var(--accent-hover);
-    background: linear-gradient(180deg, rgba(242, 139, 70, 0.18), rgba(242, 139, 70, 0.10));
-    border: 1px solid rgba(242, 139, 70, 0.32);
+    background: var(--surface-3);
+    border: 1px solid rgba(232, 232, 232, 0.16);
     /* Inset only. The reference does not float this tab — it is part of
        the rail, and an ambient shadow made it hover off it. */
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    box-shadow: none;
   }
 
   .hp-main {
     min-width: 0;
     padding: 24px 28px 30px;
     background:
-      radial-gradient(900px 360px at 18% -13%, rgba(242, 139, 70, 0.045), transparent 70%),
       var(--chrome);
   }
 
@@ -3111,7 +3366,7 @@ input[type='number']::-webkit-outer-spin-button {
     overflow-x: hidden;
     overflow-y: auto;
     padding: 16px 14px 20px;
-    background: linear-gradient(180deg, var(--surface), #191a1e 100%);
+    background: var(--surface);
     border-left: 0;
   }
 
@@ -3156,10 +3411,9 @@ input[type='number']::-webkit-outer-spin-button {
     min-height: 48px;
     padding: 8px 12px;
     border-radius: var(--r-md);
-    background: linear-gradient(90deg, rgba(240, 161, 115, 0.08) 0%, rgba(26, 28, 34, 0.9) 60%, rgba(20, 21, 26, 0.95) 100%);
-    border: 1px solid rgba(240, 161, 115, 0.22);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    backdrop-filter: blur(12px);
+    background: var(--surface);
+    border: 1px solid rgba(232, 232, 232, 0.11);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   }
 
   .promo-slide {
@@ -3218,7 +3472,7 @@ input[type='number']::-webkit-outer-spin-button {
 
   .hp-hero-grid > button .hp-media {
     border-radius: var(--r-sm);
-    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: 0 18px 46px rgba(0, 0, 0, 0.35);
   }
 
   .hp-fact {
@@ -3237,24 +3491,24 @@ input[type='number']::-webkit-outer-spin-button {
     min-height: 108px;
     padding: 15px 16px 16px;
     border-radius: 11px;
-    background: linear-gradient(180deg, rgba(36, 37, 44, 0.95), rgba(25, 26, 32, 0.95));
+    background: var(--surface-2);
     border: 1px solid rgba(255, 255, 255, 0.075);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
   }
 
   .hp-tile:hover {
-    border-color: rgba(240, 161, 115, 0.32);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32), 0 0 16px rgba(240, 161, 115, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    border-color: rgba(232, 232, 232, 0.16);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32), 0 0 16px rgba(232, 232, 232, 0.06);
   }
 
   .hp-tile-mark {
     width: 36px;
     height: 36px;
     color: var(--accent);
-    background: rgba(240, 161, 115, 0.08);
-    border: 1px solid rgba(240, 161, 115, 0.2);
+    background: rgba(232, 232, 232, 0.04);
+    border: 1px solid rgba(232, 232, 232, 0.1);
     border-radius: 8px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+    box-shadow: none;
   }
 
   .hp-projects-head {
@@ -3293,8 +3547,8 @@ input[type='number']::-webkit-outer-spin-button {
     /* Lifts off the surface, as the reference's card does — the old ramp
        ran the other way and sank it 8 units instead. Same treatment as
        the editor's library card, which already matches. */
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.014)), var(--surface-2);
-    box-shadow: inset 0 1px rgba(255, 255, 255, 0.035), 0 10px 28px rgba(0, 0, 0, 0.14);
+    background: var(--surface);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
     border: 1px solid var(--line);
     transition: transform var(--t-base) var(--ease), border-color var(--t-fast) var(--ease), box-shadow var(--t-base) var(--ease);
   }
@@ -3330,7 +3584,7 @@ input[type='number']::-webkit-outer-spin-button {
   .hp-side-rail .hp-skill-card {
     padding: 10px;
     border-radius: var(--r-sm);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.014)), var(--surface-2);
+    background: var(--surface);
   }
 
   .hp-side-rail .hp-skill-thumb {

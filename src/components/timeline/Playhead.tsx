@@ -62,7 +62,7 @@ export const PlayheadHead: React.FC<{ pxPerMs: number; height: number }> = ({ px
         viewBox="0 0 14 16"
         className="absolute -left-[7px] top-0 w-[14px] h-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
       >
-        <path d="M0 0h14v9l-7 7-7-7z" fill="#d97757" />
+        <path d="M0 0h14v9l-7 7-7-7z" fill="var(--accent)" />
       </svg>
       <div className="absolute top-0 bottom-0 left-0 w-px bg-spectrum-accent" />
     </div>
@@ -82,7 +82,7 @@ export const Playhead: React.FC<PlayheadProps> = ({ pxPerMs, height }) => {
     >
       {/* Wider invisible grab strip than the visible needle */}
       <div className="absolute top-0 bottom-0 -left-2 w-4" />
-      <div className="absolute top-0 bottom-0 left-0 w-px bg-spectrum-accent shadow-[0_0_4px_rgba(217,119,87,0.85)]" />
+      <div className="absolute top-0 bottom-0 left-0 w-px bg-spectrum-accent shadow-[0_0_4px_rgba(232,232,232,0.35)]" />
     </div>
   );
 };

@@ -194,25 +194,25 @@ export const SpeedInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
           {[1, 2, 4].map((mult) => (
             <div
               key={mult}
-              className="absolute left-0 right-0 h-px bg-white/[0.06] pointer-events-none"
+              className="absolute left-0 right-0 h-px bg-spectrum-cardHover pointer-events-none"
               style={{ top: speedToY(mult) }}
             >
               <span className="absolute left-1 -top-[7px] text-micro font-mono text-spectrum-textFaint">{mult}×</span>
             </div>
           ))}
           {[0.25, 0.5, 0.75].map((t) => (
-            <div key={t} className="absolute top-0 bottom-0 w-px bg-white/[0.05] pointer-events-none" style={{ left: `${t * 100}%` }} />
+            <div key={t} className="absolute top-0 bottom-0 w-px bg-spectrum-cardHover pointer-events-none" style={{ left: `${t * 100}%` }} />
           ))}
 
           <svg className="absolute inset-0 w-full h-full" viewBox={`0 0 100 ${CURVE_H}`} preserveAspectRatio="none">
             <defs>
               <linearGradient id="speedFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#4c9dff" stopOpacity="0.28" />
-                <stop offset="100%" stopColor="#4c9dff" stopOpacity="0" />
+                <stop offset="0%" stopColor="var(--info)" stopOpacity="0.28" />
+                <stop offset="100%" stopColor="var(--info)" stopOpacity="0" />
               </linearGradient>
             </defs>
             <path d={`${curvePath} L 100,${CURVE_H} L 0,${CURVE_H} Z`} fill="url(#speedFill)" />
-            <path d={curvePath} fill="none" stroke="#4c9dff" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
+            <path d={curvePath} fill="none" stroke="var(--info)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" />
           </svg>
 
           {points.map((point, i) => (
@@ -220,7 +220,7 @@ export const SpeedInspector: React.FC<{ clip: Clip }> = ({ clip }) => {
               key={i}
               onPointerDown={dragPoint(i)}
               onContextMenu={(e) => { e.preventDefault(); removePoint(i); }}
-              className="absolute w-2.5 h-2.5 rounded-full bg-white border-[1.5px] border-spectrum-accent cursor-grab active:cursor-grabbing hover:scale-140 transition-transform shadow"
+              className="absolute w-2.5 h-2.5 rounded-full bg-spectrum-accent border-[1.5px] border-spectrum-accent cursor-grab active:cursor-grabbing hover:scale-140 transition-transform shadow"
               style={{
                 left: `${point.timePct * 100}%`,
                 top: speedToY(point.speedMult),

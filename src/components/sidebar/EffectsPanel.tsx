@@ -94,8 +94,8 @@ export const EffectsPanel: React.FC = () => {
             <button
               key={effect.type}
               onClick={() => apply(effect.type)}
-              className="w-full p-2 flex items-start gap-2.5 text-left group rounded-squircle-md
-                         bg-[#16191f] hover:bg-[#1f242c] transition-colors duration-base"
+              className="w-full p-2 flex items-start gap-2 text-left group rounded-squircle-md
+                         bg-spectrum-panelHeader hover:bg-spectrum-card transition-colors duration-base"
               title={`Add ${effect.label}`}
             
             aria-label={`Add ${effect.label}`}>

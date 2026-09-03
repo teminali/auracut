@@ -111,7 +111,7 @@ export const HomeSkillsRail: React.FC<Props> = ({
         <button onClick={onOpenSkills} className="hp-view-more">View all</button>
       </div>
 
-      <div className="pro-input flex items-center gap-1.5 px-2 h-7 mt-2.5">
+      <div className="pro-input flex items-center gap-1.5 px-2 h-7 mt-2">
         <Search className="w-3 h-3 text-spectrum-textDim flex-shrink-0" />
         <input
           value={query}
@@ -132,9 +132,9 @@ export const HomeSkillsRail: React.FC<Props> = ({
         )}
       </div>
 
-      <div className="flex flex-col gap-2.5 mt-3">
+      <div className="flex flex-col gap-2 mt-3">
         {publicSkills.length === 0 ? (
-          <div className="surface-card rounded-squircle-md p-4 flex items-center gap-2.5">
+          <div className="surface-card rounded-squircle-md p-4 flex items-center gap-2">
             <Blocks className="w-4 h-4 text-spectrum-textDim flex-shrink-0" />
             <p className="text-ui-sm text-spectrum-textDim">Bundled skills are being prepared.</p>
           </div>

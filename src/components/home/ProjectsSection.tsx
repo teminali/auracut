@@ -92,7 +92,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           on the right, sharing one line. The reference's is "Business"
           with "View more" opposite it; ours is the wall's name with
           the two controls that are real. */}
-      <div className="hp-projects-head flex items-center gap-2.5 h-[25px]">
+      <div className="hp-projects-head flex items-center gap-2 h-[25px]">
         <h2 className="hp-kicker">Projects</h2>
         <span className="text-ui-sm text-spectrum-textDim tabular">{filtered.length} total</span>
         <span className="flex-1" />
@@ -106,7 +106,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
           click every single time. The approved launcher shows the
           field, and so does this.
         */}
-        <div className="pro-input h-[24px] flex items-center gap-1.5 px-2.5 w-[180px]">
+        <div className="pro-input h-[24px] flex items-center gap-1.5 px-2 w-[180px]">
           <Search className="w-3.5 h-3.5 text-spectrum-textDim flex-shrink-0" />
           <input
             ref={inputRef}
@@ -188,7 +188,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
                     <img src={projectArtwork(entry)} alt="" className="poster-zoom w-full h-full object-cover" />
                   ) : (
                     <span className="poster-empty w-full h-full flex items-center justify-center">
-                      <Film className="w-5 h-5 text-white/[0.10]" />
+                      <Film className="w-5 h-5 text-spectrum-textDisabled" />
                     </span>
                   )}
 
@@ -218,7 +218,7 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
                 <button
                   onClick={() => onForget(entry.id)}
                   className="media-pill absolute top-2 right-2 w-6 h-6 rounded-full
-                             text-white/70 hover:text-white flex items-center justify-center
+                             text-spectrum-textDim hover:text-spectrum-textBright flex items-center justify-center
                              opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
                   title="Remove from this list"
                   aria-label={`Remove ${entry.name} from this list`}
@@ -236,15 +236,15 @@ export const ProjectsSection: React.FC<Props> = ({ recents, onOpen, onForget, fe
                  /* The padding bleeds OUTWARD, so a row starts on the
                     same vertical as the heading above it and as every
                     grid tile in the other view. */
-                 className="group flex items-center gap-3.5 py-2.5 -mx-3 px-3 rounded-squircle-md
-                            hover:bg-white/[0.035] transition-colors duration-fast">
-              <button onClick={() => onOpen(entry)} className="flex items-center gap-3.5 flex-1 min-w-0 text-left">
+                 className="group flex items-center gap-3 py-2 -mx-3 px-3 rounded-squircle-md
+                            hover:bg-spectrum-hover transition-colors duration-fast">
+              <button onClick={() => onOpen(entry)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
                 <span className="hp-media w-[68px] h-[38px] rounded-squircle-xs overflow-hidden flex-shrink-0
                                  flex items-center justify-center">
                   {projectArtwork(entry)
                     ? <img src={projectArtwork(entry)} alt="" className="poster-zoom w-full h-full object-cover" />
                     : <span className="poster-empty w-full h-full flex items-center justify-center">
-                        <Film className="w-3.5 h-3.5 text-white/[0.10]" />
+                        <Film className="w-3.5 h-3.5 text-spectrum-textDisabled" />
                       </span>}
                 </span>
                 <span className="min-w-0 flex-1">

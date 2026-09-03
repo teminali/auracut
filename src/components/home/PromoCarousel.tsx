@@ -239,23 +239,23 @@ const Carousel: React.FC<{ slides: Slide[] }> = ({ slides }) => {
       )}
 
       {/* Keyed on the slide, so React remounts it and the entrance runs. */}
-      <div key={active.id} className="promo-slide flex items-center gap-3.5 min-w-0 flex-1">
-        <span className="promo-icon flex-shrink-0 w-9 h-9 rounded-lg bg-white flex items-center justify-center text-[#091a30] shadow-md">
+      <div key={active.id} className="promo-slide flex items-center gap-3 min-w-0 flex-1">
+        <span className="promo-icon flex-shrink-0 w-9 h-9 rounded-lg bg-spectrum-accent flex items-center justify-center text-spectrum-sunken shadow-md">
           <Icon className="w-5 h-5" weight="bold" />
         </span>
         <div className="min-w-0 flex-1 flex flex-col justify-center">
           <div className="flex items-center gap-2 min-w-0">
-            <p className="promo-title text-ui font-semibold text-white truncate min-w-0">
+            <p className="promo-title text-ui font-semibold text-spectrum-textBright truncate min-w-0">
               {active.title}
             </p>
           </div>
-          <p className="promo-body text-ui-xs text-[#93c5fd] truncate min-w-0 mt-0.5">
+          <p className="promo-body text-ui-xs text-spectrum-blue truncate min-w-0 mt-0.5">
             {active.body}
           </p>
           {active.progressPercent !== undefined && (
-            <div className="w-full max-w-[280px] h-1.5 rounded-full bg-[#0a1829] overflow-hidden border border-[#1d4ed8]/40 mt-1.5">
+            <div className="w-full max-w-[280px] h-1.5 rounded-full bg-spectrum-sunken overflow-hidden border border-spectrum-blue/40 mt-1.5">
               <div
-                className="h-full bg-[#38bdf8] transition-all duration-150"
+                className="h-full bg-spectrum-blue transition-all duration-150"
                 style={{ width: `${active.progressPercent}%` }}
               />
             </div>
@@ -264,11 +264,11 @@ const Carousel: React.FC<{ slides: Slide[] }> = ({ slides }) => {
         <button
           onClick={active.onAction}
           disabled={active.busy}
-          className="promo-action text-white hover:text-[#38bdf8] text-ui-sm font-medium flex items-center gap-1.5 transition-all group flex-shrink-0 cursor-pointer bg-transparent border-0 shadow-none !h-auto !px-2"
+          className="promo-action text-spectrum-textBright hover:text-spectrum-blue text-ui-sm font-medium flex items-center gap-1.5 transition-all group flex-shrink-0 cursor-pointer bg-transparent border-0 shadow-none !h-auto !px-2"
         >
-          {ActionIcon && <ActionIcon className="w-3.5 h-3.5 text-[#93c5fd] group-hover:text-[#38bdf8]" />}
+          {ActionIcon && <ActionIcon className="w-3.5 h-3.5 text-spectrum-blue group-hover:text-spectrum-blue" />}
           <span>{active.actionLabel}</span>
-          <ChevronRight className="w-4 h-4 text-white group-hover:text-[#38bdf8] transition-transform group-hover:translate-x-1" />
+          <ChevronRight className="w-4 h-4 text-spectrum-textBright group-hover:text-spectrum-blue transition-transform group-hover:translate-x-1" />
         </button>
       </div>
 

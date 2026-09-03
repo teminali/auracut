@@ -84,7 +84,7 @@ export const FiltersPanel: React.FC = () => {
           <p className="text-micro text-spectrum-textFaint text-center py-4">Nothing matches “{query}”.</p>
         )}
         {shown.map((look) => (
-          <div key={look.id} className="card-interactive p-2 flex items-center gap-2.5 group">
+          <div key={look.id} className="card-interactive p-2 flex items-center gap-2 group">
             {/* The grade itself, rendered by the compositor over a
                 full-range scene. This was a hand-authored CSS gradient:
                 three colours somebody guessed would suggest the result,

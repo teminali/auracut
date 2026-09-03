@@ -180,7 +180,7 @@ export const AiToolsPanel: React.FC = () => {
                   key={recipe.id}
                   onClick={() => runRecipe(recipe)}
                   disabled={busy !== null}
-                  className="card-interactive w-full p-2.5 flex items-start gap-2.5 text-left group disabled:opacity-50"
+                  className="card-interactive w-full p-2 flex items-start gap-2 text-left group disabled:opacity-50"
                 >
                   <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${recipe.tone}`} />
                   <span className="min-w-0 flex-1">

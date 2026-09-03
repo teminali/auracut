@@ -68,7 +68,7 @@ export const HomeSidebar: React.FC<Props> = ({ view, onView, onImport, onOpenMed
         where checking and rolling back live. Both render nothing to
         say when nothing has happened — which is why a 76px column can
         carry them: on an ordinary launch there is nothing here at all. */}
-    <div className="w-full px-1.5 pb-2.5 pt-3 space-y-2 relative z-30 flex flex-col items-center">
+    <div className="w-full px-1.5 pb-2 pt-3 space-y-2 relative z-30 flex flex-col items-center">
       <UpdateBanner kind="app" />
       <UpdateBanner kind="skill" onOpenSkills={() => onView('skills')} />
       <VersionFooter />

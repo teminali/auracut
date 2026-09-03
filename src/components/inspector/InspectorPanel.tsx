@@ -106,7 +106,7 @@ export const InspectorPanel: React.FC = () => {
           )}
           <button
             onClick={() => toggleClipLock(clip.id)}
-            className={`pro-btn w-[22px] h-[22px] ${clip.locked ? 'pro-btn-active !text-spectrum-amber' : ''}`}
+            className={`pro-btn w-[22px] h-[var(--h-xs)] ${clip.locked ? 'pro-btn-active !text-spectrum-amber' : ''}`}
             title={clip.locked ? 'Unlock layer' : 'Lock layer'}
           
             aria-label={clip.locked ? 'Unlock layer' : 'Lock layer'}>

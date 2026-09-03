@@ -175,7 +175,7 @@ export const VoiceInput: React.FC<Props> = ({ onTranscript, disabled }) => {
                   transition-colors duration-fast ${
         recording
           ? 'bg-spectrum-red/18 text-spectrum-red'
-          : 'text-spectrum-textDim hover:text-spectrum-text hover:bg-white/[0.06]'
+          : 'text-spectrum-textDim hover:text-spectrum-text hover:bg-spectrum-cardHover'
       }`}
     >
       {busy ? (

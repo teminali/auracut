@@ -160,7 +160,7 @@ export const VersionFooter: React.FC = () => {
         <div className="mt-1 px-0.5">
           <button
             onClick={quitForUpdate}
-            className="pro-btn-filled w-full h-[22px] text-micro gap-1 !text-spectrum-green !border-spectrum-green/30"
+            className="pro-btn-filled w-full h-[var(--h-xs)] text-micro gap-1 !text-spectrum-green !border-spectrum-green/30"
             title="Update installed. Click to quit and restart Kerf."
           >
             <RefreshCw className="w-2.5 h-2.5" />
@@ -172,14 +172,14 @@ export const VersionFooter: React.FC = () => {
       {/* When downloading, show real-time download progress bar */}
       {!open && status.state === 'downloading' && (
         <div className="mt-1 w-full px-0.5">
-          <div className="p-1 rounded-[3px] bg-[#1a1a1a] border border-[#3a3a3a] space-y-1">
-            <div className="flex items-center justify-between text-micro font-mono text-[#f0a173] px-0.5">
+          <div className="p-1 rounded-[3px] bg-spectrum-panelHeader border border-line-bright space-y-1">
+            <div className="flex items-center justify-between text-micro font-mono text-spectrum-accent px-0.5">
               <span className="truncate">Downloading</span>
               <span className="font-bold tabular-nums">{status.percent}%</span>
             </div>
-            <div className="w-full h-1 rounded-full bg-[#141414] overflow-hidden border border-[#2a2a2a]">
+            <div className="w-full h-1 rounded-full bg-spectrum-panelHeader overflow-hidden border border-spectrum-cardHover">
               <div
-                className="h-full bg-[#f0a173] transition-all duration-150"
+                className="h-full bg-spectrum-accent transition-all duration-150"
                 style={{ width: `${status.percent}%` }}
               />
             </div>
@@ -272,7 +272,7 @@ export const VersionFooter: React.FC = () => {
                   <button
                     onClick={() => void switchTo(release.version)}
                     disabled={Boolean(busy)}
-                    className="pro-btn-filled w-full h-[26px] text-ui-xs disabled:opacity-60"
+                    className="pro-btn-filled w-full h-[var(--h-sm)] text-ui-xs disabled:opacity-60"
                   >
                     Install {release.version}
                   </button>
@@ -292,7 +292,7 @@ export const VersionFooter: React.FC = () => {
                 {result.ok && (
                   <button
                     onClick={quitForUpdate}
-                    className="pro-btn-filled w-full h-[26px] mt-2 text-ui-xs"
+                    className="pro-btn-filled w-full h-[var(--h-sm)] mt-2 text-ui-xs"
                   >
                     Quit Kerf
                   </button>

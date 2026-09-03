@@ -229,7 +229,7 @@ const SetupFooter: React.FC = () => {
     || store.permissions?.screen === 'restricted';
 
   return (
-    <div className="flex-shrink-0 border-t border-line px-3 py-2.5 flex items-center gap-3">
+    <div className="flex-shrink-0 border-t border-line px-3 py-2 flex items-center gap-3">
       <div className="min-w-0 flex-1">
         {/*
           The stale grant comes FIRST, before the ordinary denied case,
@@ -349,11 +349,11 @@ const Running: React.FC = () => {
       </p>
 
       <div className="flex items-center gap-2">
-        <button onClick={() => void store.togglePause()} className="pro-btn-filled h-8 px-3.5 text-ui gap-1.5">
+        <button onClick={() => void store.togglePause()} className="pro-btn-filled h-8 px-3 text-ui gap-1.5">
           {paused ? <Play className="w-3.5 h-3.5" weight="fill" /> : <Pause className="w-3.5 h-3.5" weight="fill" />}
           {paused ? 'Resume' : 'Pause'}
         </button>
-        <button onClick={() => store.mark()} className="pro-btn-filled h-8 px-3.5 text-ui gap-1.5">
+        <button onClick={() => store.mark()} className="pro-btn-filled h-8 px-3 text-ui gap-1.5">
           <CursorClick className="w-3.5 h-3.5" />
           Mark a zoom
         </button>
@@ -482,7 +482,7 @@ const Review: React.FC<{
                 loop
                 autoPlay
                 playsInline
-                className="absolute bottom-3 right-3 w-[22%] rounded-squircle-xs border border-white/20
+                className="absolute bottom-3 right-3 w-[22%] rounded-squircle-xs border border-line-strong
                            shadow-modal pointer-events-none"
                 aria-hidden="true"
               />
@@ -525,14 +525,14 @@ const Review: React.FC<{
 
           {/* ── Generated Captions Preview or Missing Model Prompt in Review Flow ── */}
           {(take.camera?.hasAudio || take.screen?.hasAudio) && !hasWhisperModel && !skippedCaptions && cues.length === 0 ? (
-            <div className="rounded-squircle-xs bg-[#f0a173]/10 border border-[#f0a173]/30 p-2.5 space-y-2">
+            <div className="rounded-squircle-xs bg-spectrum-accent/10 border border-spectrum-accent/30 p-2 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-micro font-semibold text-[#f0a173] uppercase tracking-wider">
-                  <Sparkle className="w-3 h-3 text-[#f0a173]" weight="fill" />
+                <span className="flex items-center gap-1.5 text-micro font-semibold text-spectrum-accent uppercase tracking-wider">
+                  <Sparkle className="w-3 h-3 text-spectrum-accent" weight="fill" />
                   Speech Model Required
                 </span>
                 {isDownloadingModel ? (
-                  <span className="flex items-center gap-1 text-micro text-[#f0a173] font-mono">
+                  <span className="flex items-center gap-1 text-micro text-spectrum-accent font-mono">
                     <Loader2 className="w-3 h-3 animate-spin" />
                     {downloadingModel.percent}%
                   </span>
@@ -549,13 +549,13 @@ const Review: React.FC<{
 
               {isDownloadingModel ? (
                 <div className="space-y-1 pt-1">
-                  <div className="flex items-center justify-between text-micro font-mono text-[#f0a173]">
+                  <div className="flex items-center justify-between text-micro font-mono text-spectrum-accent">
                     <span className="truncate">Downloading {recommendedModel?.name || 'Whisper'}…</span>
                     <span>{downloadingModel.percent}%</span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden border border-[#3a3a3a]">
+                  <div className="w-full h-1.5 rounded-full bg-spectrum-panelHeader overflow-hidden border border-line-bright">
                     <div
-                      className="h-full bg-[#f0a173] transition-all duration-150"
+                      className="h-full bg-spectrum-accent transition-all duration-150"
                       style={{ width: `${downloadingModel.percent}%` }}
                     />
                   </div>
@@ -568,7 +568,7 @@ const Review: React.FC<{
                       await packagesStore.installPackage(recommendedModel.id);
                       await runGenerateCaptions();
                     }}
-                    className="btn-primary h-7 px-2.5 text-micro gap-1.5 flex-1 justify-center"
+                    className="btn-primary h-7 px-2 text-micro gap-1.5 flex-1 justify-center"
                   >
                     <Download className="w-3 h-3" />
                     Install & Transcribe
@@ -584,7 +584,7 @@ const Review: React.FC<{
               )}
             </div>
           ) : (take.camera?.hasAudio || take.screen?.hasAudio || cues.length > 0) && (
-            <div className="rounded-squircle-xs bg-white/[0.02] border border-line p-2.5 space-y-2">
+            <div className="rounded-squircle-xs bg-spectrum-hover border border-line p-2 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-micro font-semibold text-spectrum-accent uppercase tracking-wider">
                   <Sparkle className="w-3 h-3 text-spectrum-accent" weight="fill" />
@@ -615,7 +615,7 @@ const Review: React.FC<{
                   {cues.map((cue, idx) => (
                     <div
                       key={idx}
-                      className="flex items-baseline gap-2 text-ui-xs leading-snug bg-black/40 p-1.5 rounded border border-white/[0.04]"
+                      className="flex items-baseline gap-2 text-ui-xs leading-snug bg-black/40 p-1.5 rounded border border-line-soft"
                     >
                       <span className="font-mono text-micro text-spectrum-textDim tabular flex-shrink-0">
                         {formatDuration(cue.startMs)}
@@ -704,7 +704,7 @@ const Review: React.FC<{
         </div>
       </div>
 
-      <div className="flex-shrink-0 border-t border-line px-3 py-2.5 flex items-center gap-2">
+      <div className="flex-shrink-0 border-t border-line px-3 py-2 flex items-center gap-2">
         <button
           onClick={() => void store.discard()}
           disabled={building}
@@ -785,7 +785,7 @@ const Review: React.FC<{
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-squircle-sm bg-[#f0a173]/15 border border-[#f0a173]/30 flex items-center justify-center text-[#f0a173] flex-shrink-0">
+              <div className="w-9 h-9 rounded-squircle-sm bg-spectrum-accent/15 border border-spectrum-accent/30 flex items-center justify-center text-spectrum-accent flex-shrink-0">
                 <Package className="w-5 h-5" />
               </div>
               <div className="min-w-0 flex-1">
@@ -797,17 +797,17 @@ const Review: React.FC<{
             </div>
 
             {isDownloadingModel ? (
-              <div className="p-3 rounded-squircle-xs bg-[#1a1a1a] border border-[#3a3a3a] space-y-2">
-                <div className="flex items-center justify-between text-ui-xs font-mono text-[#f0a173]">
+              <div className="p-3 rounded-squircle-xs bg-spectrum-panelHeader border border-line-bright space-y-2">
+                <div className="flex items-center justify-between text-ui-xs font-mono text-spectrum-accent">
                   <span className="flex items-center gap-1.5">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     Downloading {recommendedModel?.name || 'VibeVoice Speech Model'}…
                   </span>
                   <span className="font-bold">{downloadingModel.percent}%</span>
                 </div>
-                <div className="w-full h-1.5 rounded-full bg-[#141414] overflow-hidden border border-[#2a2a2a]">
+                <div className="w-full h-1.5 rounded-full bg-spectrum-panelHeader overflow-hidden border border-spectrum-cardHover">
                   <div
-                    className="h-full bg-[#f0a173] transition-all duration-150"
+                    className="h-full bg-spectrum-accent transition-all duration-150"
                     style={{ width: `${downloadingModel.percent}%` }}
                   />
                 </div>
@@ -835,7 +835,7 @@ const Review: React.FC<{
                       // handled in store
                     }
                   }}
-                  className="btn-primary h-8 px-3.5 text-ui-sm gap-1.5"
+                  className="btn-primary h-8 px-3 text-ui-sm gap-1.5"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Install & Auto-Edit ({recommendedModel?.sizeMb || 142} MB)

@@ -112,7 +112,7 @@ export const BuySheet: React.FC<Props> = ({ skill, onClose }) => {
           {/* ── failed, or ran out of patience ── */}
           {purchase.phase === 'error' && (
             <>
-              <div className="flex items-start gap-2.5 rounded-squircle-md border border-spectrum-amber/35
+              <div className="flex items-start gap-2 rounded-squircle-md border border-spectrum-amber/35
                               bg-spectrum-amber/[0.07] p-3">
                 <AlertTriangle className="w-4 h-4 text-spectrum-amber flex-shrink-0 mt-0.5" />
                 <p className="text-ui-lg text-spectrum-text leading-snug">{purchase.message}</p>
@@ -145,7 +145,7 @@ export const BuySheet: React.FC<Props> = ({ skill, onClose }) => {
                   inputMode="tel"
                   autoFocus
                   placeholder="0712 345 678"
-                  className="pro-input w-full h-9 px-2.5 mt-1.5 text-ui-lg font-mono"
+                  className="pro-input w-full h-9 px-2 mt-1.5 text-ui-lg font-mono"
                 />
               </label>
 
@@ -179,7 +179,7 @@ export const BuySheet: React.FC<Props> = ({ skill, onClose }) => {
                   : <>Pay {formatPrice(skill.price.amount, skill.price.currency)}</>}
               </button>
 
-              <p className="text-micro text-spectrum-textFaint text-center mt-2.5 leading-snug">
+              <p className="text-micro text-spectrum-textFaint text-center mt-2 leading-snug">
                 You approve the payment on your own handset. Kerf never sees your PIN,
                 and the number is stored only to save you typing it next time.
               </p>

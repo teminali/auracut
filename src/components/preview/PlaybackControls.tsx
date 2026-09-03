@@ -64,7 +64,7 @@ export const PlaybackControls: React.FC = () => {
           <button
             onClick={togglePlay}
             className="w-10 h-10 mx-1 rounded-full flex items-center justify-center transition-all duration-fast
-                       bg-[#f2f2f2] text-[#151617] hover:bg-white shadow-[0_5px_16px_rgba(0,0,0,0.25)]"
+                       bg-spectrum-textBright text-spectrum-panelHeader hover:bg-white shadow-[0_5px_16px_rgba(0,0,0,0.25)]"
             title="Play / pause (Space)"
             aria-label="Play / pause (Space)"
           >

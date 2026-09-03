@@ -414,7 +414,7 @@ export const CopilotDrawer: React.FC = () => {
           <span className="text-ui font-semibold text-spectrum-text flex-shrink-0">Copilot</span>
           <button
             onClick={() => setPickerOpen(true)}
-            className="flex items-center gap-1 flex-shrink-0 min-w-0 rounded-squircle-2xs px-1 -mx-1 hover:bg-white/[0.05] transition-colors"
+            className="flex items-center gap-1 flex-shrink-0 min-w-0 rounded-squircle-2xs px-1 -mx-1 hover:bg-spectrum-cardHover transition-colors"
             title={
               !agentChecked
                 ? 'Looking for the Claude Code CLI…'
@@ -457,7 +457,7 @@ export const CopilotDrawer: React.FC = () => {
           )}
           <button
             onClick={toggleFollowAgent}
-            className={`pro-btn w-[22px] h-[22px] ${followAgent ? 'text-spectrum-accent' : ''}`}
+            className={`pro-btn w-[22px] h-[var(--h-xs)] ${followAgent ? 'text-spectrum-accent' : ''}`}
             title={
               followAgent
                 ? 'The editor follows the Copilot. Panels, selection and playhead move with its work. Click to stop following.'
@@ -473,7 +473,7 @@ export const CopilotDrawer: React.FC = () => {
           </button>
           <button
             onClick={() => setShowMcpLog((v) => !v)}
-            className={`pro-btn w-[22px] h-[22px] ${showMcpLog ? 'text-spectrum-green' : ''}`}
+            className={`pro-btn w-[22px] h-[var(--h-xs)] ${showMcpLog ? 'text-spectrum-green' : ''}`}
             title={showMcpLog ? 'Hide the raw MCP call log' : 'Show the raw MCP call log'}
           
             aria-label={showMcpLog ? 'Hide the raw MCP call log' : 'Show the raw MCP call log'}>
@@ -481,13 +481,13 @@ export const CopilotDrawer: React.FC = () => {
           </button>
           <button
             onClick={() => { clearChat(); agent.clear(); }}
-            className="pro-btn w-[22px] h-[22px]"
+            className="pro-btn w-[22px] h-[var(--h-xs)]"
             title="Clear the conversation"
           
             aria-label="Clear the conversation">
             <Trash2 className="w-3 h-3" />
           </button>
-          <button onClick={() => setCopilotOpen(false)} className="pro-btn w-[22px] h-[22px]" title="Close"
+          <button onClick={() => setCopilotOpen(false)} className="pro-btn w-[22px] h-[var(--h-xs)]" title="Close"
             aria-label="Close">
             <X className="w-3.5 h-3.5" />
           </button>
@@ -509,7 +509,7 @@ export const CopilotDrawer: React.FC = () => {
         user believe they configured something.
       */}
       {agentChecked && !agentReady && !isAntigravity && (
-        <div className="px-2.5 py-1.5 border-b border-line flex items-center gap-1.5 flex-shrink-0 bg-spectrum-sunken/40">
+        <div className="px-2 py-1.5 border-b border-line flex items-center gap-1.5 flex-shrink-0 bg-spectrum-sunken/40">
           <Cpu className="w-3 h-3 text-spectrum-amber flex-shrink-0" />
           <span className="text-micro text-spectrum-textDim truncate">
             Built-in planner · pattern matching, no model
@@ -533,7 +533,7 @@ export const CopilotDrawer: React.FC = () => {
 
       {/* Live run (built-in planner) */}
       {currentRun && (
-        <div className="px-2.5 py-2 bg-spectrum-card border-b border-line space-y-1.5 flex-shrink-0 animate-fade-in">
+        <div className="px-2 py-2 bg-spectrum-card border-b border-line space-y-1.5 flex-shrink-0 animate-fade-in">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
               <Loader2 className="w-3 h-3 text-spectrum-accent animate-spin flex-shrink-0" />
@@ -581,7 +581,7 @@ export const CopilotDrawer: React.FC = () => {
                   <button
                     key={starter.label}
                     onClick={() => handleLaunchAntigravity(starter.prompt)}
-                    className="group flex items-start gap-2.5 p-2 rounded-squircle-xs border border-line bg-spectrum-card hover:bg-spectrum-cardHover hover:border-spectrum-accent/50 text-left transition-all"
+                    className="group flex items-start gap-2 p-2 rounded-squircle-xs border border-line bg-spectrum-card hover:bg-spectrum-cardHover hover:border-spectrum-accent/50 text-left transition-all"
                   >
                     <div className="p-1 rounded bg-spectrum-sunken text-spectrum-accent flex-shrink-0 mt-0.5">
                       <Sparkle className="w-3 h-3" />
@@ -654,8 +654,8 @@ export const CopilotDrawer: React.FC = () => {
             <div
               className={`rounded-squircle-sm text-ui leading-relaxed max-w-full min-w-0 ${
                 msg.sender === 'user'
-                  ? 'bg-spectrum-accent text-white px-2.5 py-2 font-medium'
-                  : 'bg-spectrum-card border border-line text-spectrum-text px-2.5 py-2'
+                  ? 'bg-spectrum-accent text-spectrum-onAccent px-2 py-2 font-medium'
+                  : 'bg-spectrum-card border border-line text-spectrum-text px-2 py-2'
               }`}
             >
               {msg.thoughts && msg.thoughts.length > 0 && (
@@ -682,7 +682,7 @@ export const CopilotDrawer: React.FC = () => {
       */}
       {showMcpLog && (
         <div className="border-t border-line flex-shrink-0 animate-fade-in">
-          <div className="px-2.5 py-1 flex items-center gap-1 text-micro font-semibold text-spectrum-textDim uppercase tracking-wider">
+          <div className="px-2 py-1 flex items-center gap-1 text-micro font-semibold text-spectrum-textDim uppercase tracking-wider">
             <Activity className="w-2.5 h-2.5 text-spectrum-green" /> Live MCP calls
           </div>
           <McpActivityLog />
@@ -691,7 +691,7 @@ export const CopilotDrawer: React.FC = () => {
 
       {/* Composer */}
       {isAntigravity ? (
-        <div className="p-2.5 border-t border-line bg-spectrum-sunken/40 space-y-2 flex-shrink-0">
+        <div className="p-2 border-t border-line bg-spectrum-sunken/40 space-y-2 flex-shrink-0">
           <div className="pro-input flex items-end gap-1.5 p-1.5">
             <textarea
               value={antigravityInput}
@@ -817,7 +817,7 @@ export const CopilotDrawer: React.FC = () => {
             </div>
           )}
 
-          <div className={`pro-input flex items-end gap-1.5 p-1.5 transition-all duration-300 ${isRouting ? 'border-spectrum-orange shadow-[0_0_12px_rgba(255,154,77,0.2)] bg-spectrum-orange/5' : ''}`}>
+          <div className={`pro-input flex items-end gap-1.5 p-1.5 transition-all duration-300 ${isRouting ? 'border-spectrum-orange shadow-[0_0_12px_rgba(232,232,232,0.18)] bg-spectrum-orange/5' : ''}`}>
             <textarea
               ref={inputRef}
               value={input}
@@ -978,7 +978,7 @@ const CliMissingNotice: React.FC<{ status: { installed: boolean } | null }> = ({
   if (status === null || status.installed) return null;
 
   return (
-    <div className="rounded-squircle-sm border border-spectrum-amber/35 bg-spectrum-amber/[0.06] p-2.5 space-y-1.5">
+    <div className="rounded-squircle-sm border border-spectrum-amber/35 bg-spectrum-amber/[0.06] p-2 space-y-1.5">
       <p className="text-ui-sm font-medium text-spectrum-text">Running on the built-in planner</p>
       <p className="text-micro text-spectrum-textDim leading-relaxed">
         It understands common editing phrasings, but it cannot hold a conversation or touch
@@ -1016,7 +1016,7 @@ const ContextStrip: React.FC<{ frameAttached: boolean; annotationCount: number }
   const timecode = new Date(0);
 
   return (
-    <div className="px-2.5 py-1.5 border-b border-line bg-spectrum-sunken/60 flex items-center gap-2 flex-shrink-0 overflow-hidden">
+    <div className="px-2 py-1.5 border-b border-line bg-spectrum-sunken/60 flex items-center gap-2 flex-shrink-0 overflow-hidden">
       <Crosshair className={`w-3 h-3 flex-shrink-0 ${isPlaying ? 'text-spectrum-amber' : 'text-spectrum-green'}`} />
       <span className="text-micro font-mono text-spectrum-textMuted tabular flex-shrink-0">
         {formatClock(playheadMs, fps)} · f{frameNumber}
@@ -1082,9 +1082,9 @@ const ThoughtChain: React.FC<{
                       <span className="text-micro text-spectrum-textFaint tabular flex-shrink-0">{step.durationMs}ms</span>
                     )}
                   </div>
-                  <p className="text-spectrum-textDim pl-3.5">{step.content}</p>
+                  <p className="text-spectrum-textDim pl-3">{step.content}</p>
                   {!step.ok && step.toolResult !== undefined && (
-                    <p className="text-spectrum-red/80 pl-3.5 break-words">{formatToolError(step.toolResult)}</p>
+                    <p className="text-spectrum-red/80 pl-3 break-words">{formatToolError(step.toolResult)}</p>
                   )}
                 </div>
               ) : (

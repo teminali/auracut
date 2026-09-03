@@ -102,7 +102,7 @@ export const MotionThumb: React.FC<Props> = ({
         /* Not a spinner. A preview that has not rendered yet is a
            surface that is about to have a picture on it, and a spinner
            in a 90px tile reads as an error. */
-        <div className="absolute inset-0 animate-pulse bg-white/[0.035]" />
+        <div className="absolute inset-0 animate-pulse bg-spectrum-hover" />
       )}
     </div>
   );

@@ -70,7 +70,7 @@ export const RecorderBar: React.FC = () => {
 
   return (
     <div
-      className="w-full h-full flex items-center gap-2 px-2.5 rounded-full select-none"
+      className="w-full h-full flex items-center gap-2 px-2 rounded-full select-none"
       /* The whole pill drags the window; the buttons opt back out below.
          Without this the bar is nailed to wherever main first put it,
          which is guaranteed to be over something you needed to see. */
@@ -92,7 +92,7 @@ export const RecorderBar: React.FC = () => {
         aria-hidden="true"
       />
 
-      <span className="font-mono tabular text-ui-lg text-white/95 min-w-[54px]">
+      <span className="font-mono tabular text-ui-lg text-spectrum-textBright min-w-[54px]">
         {formatDuration(state.elapsedMs)}
       </span>
 
@@ -104,7 +104,7 @@ export const RecorderBar: React.FC = () => {
           not recording
         </span>
       ) : state.markCount > 0 ? (
-        <span className="text-micro font-mono tabular text-white/45">{state.markCount}</span>
+        <span className="text-micro font-mono tabular text-spectrum-textFaint">{state.markCount}</span>
       ) : null}
 
       <span className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
@@ -151,7 +151,7 @@ const BarButton: React.FC<{
     title={label}
     className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors
                 disabled:opacity-30 ${
-      highlight ? 'bg-spectrum-accent text-white' : 'text-white/70 hover:text-white hover:bg-white/10'
+      highlight ? 'bg-spectrum-accent text-spectrum-onAccent' : 'text-spectrum-onAccent hover:text-spectrum-onAccent hover:bg-spectrum-cardHover'
     }`}
   >
     {children}

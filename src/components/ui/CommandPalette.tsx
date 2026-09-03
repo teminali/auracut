@@ -196,13 +196,13 @@ export const CommandPalette: React.FC = () => {
     <div className="scrim !z-[1100] items-start pt-[120px]" onClick={close}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="modal-shell w-[580px] max-w-[92vw] flex flex-col max-h-[62vh] rounded-[2px] bg-[#232323] border border-[#3f3f3f] shadow-[0_16px_40px_rgba(0,0,0,0.6)] overflow-hidden"
+        className="modal-shell w-[580px] max-w-[92vw] flex flex-col max-h-[62vh] rounded-[2px] bg-spectrum-cardHover border border-spectrum-borderStrong shadow-[0_16px_40px_rgba(0,0,0,0.6)] overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
       >
-        <div className="flex items-center gap-2.5 px-3.5 h-[46px] border-b border-[#141414] bg-[#232323] flex-shrink-0">
-          <Search className="w-[15px] h-[15px] text-[#6b6b6b] flex-shrink-0" />
+        <div className="flex items-center gap-2 px-3 h-[46px] border-b border-spectrum-panelHeader bg-spectrum-cardHover flex-shrink-0">
+          <Search className="w-[15px] h-[15px] text-spectrum-textPlaceholder flex-shrink-0" />
           <input
             autoFocus
             value={query}
@@ -214,11 +214,11 @@ export const CommandPalette: React.FC = () => {
               if (e.key === 'Escape') { e.preventDefault(); close(); }
             }}
             placeholder="Search commands, clips, effects…"
-            className="flex-1 bg-transparent outline-none text-ui-lg text-[#e8e8e8] placeholder:text-[#6b6b6b]"
+            className="flex-1 bg-transparent outline-none text-ui-lg text-spectrum-accent placeholder:text-spectrum-textPlaceholder"
           />
           <button
             onClick={close}
-            className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-[#3a3a3a] text-[#b0b0b0] hover:text-[#e8e8e8] transition-colors"
+            className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-line-bright text-spectrum-textMuted hover:text-spectrum-accent transition-colors"
           >
             esc
           </button>
@@ -226,7 +226,7 @@ export const CommandPalette: React.FC = () => {
 
         <div ref={listRef} className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
           {results.length === 0 ? (
-            <p className="px-3 py-8 text-center text-ui-lg text-[#8a8a8a]">
+            <p className="px-3 py-8 text-center text-ui-lg text-spectrum-textFaint">
               Nothing matches “{query}”.
             </p>
           ) : (
@@ -238,7 +238,7 @@ export const CommandPalette: React.FC = () => {
               return (
                 <React.Fragment key={cmd.id}>
                   {showGroup && (
-                    <div className="px-2.5 pt-2 pb-1 text-micro font-bold font-mono tracking-[0.13em] text-[#6b6b6b] uppercase">
+                    <div className="px-2 pt-2 pb-1 text-micro font-bold font-mono tracking-[0.13em] text-spectrum-textPlaceholder uppercase">
                       {cmd.group}
                     </div>
                   )}
@@ -246,20 +246,20 @@ export const CommandPalette: React.FC = () => {
                     data-index={index}
                     onMouseEnter={() => setCursor(index)}
                     onClick={() => runAt(index)}
-                    className={`w-full px-2.5 py-2 rounded-[3px] flex items-center gap-2.5 text-left transition-colors cursor-pointer ${
-                      active ? 'bg-[#2d2d2d]' : 'hover:bg-[#282828]'
+                    className={`w-full px-2 py-2 rounded-[3px] flex items-center gap-2 text-left transition-colors cursor-pointer ${
+                      active ? 'bg-spectrum-cardHover' : 'hover:bg-line-chrome'
                     }`}
                   >
-                    <span className="w-[28px] h-[22px] rounded-[3px] bg-[#141414] text-[#c4c4c4] grid place-items-center flex-shrink-0">
+                    <span className="w-[28px] h-[var(--h-xs)] rounded-[3px] bg-spectrum-panelHeader text-spectrum-textMuted grid place-items-center flex-shrink-0">
                       <Icon className="w-3.5 h-3.5" />
                     </span>
-                    <span className="flex-1 text-ui-lg text-[#e8e8e8] truncate">
+                    <span className="flex-1 text-ui-lg text-spectrum-accent truncate">
                       {cmd.label}
                     </span>
                     {cmd.shortcut ? (
-                      <span className="font-mono text-ui-xs text-[#6b6b6b] flex-shrink-0">{cmd.shortcut}</span>
+                      <span className="font-mono text-ui-xs text-spectrum-textPlaceholder flex-shrink-0">{cmd.shortcut}</span>
                     ) : (
-                      <span className="text-ui-xs text-[#6b6b6b] flex-shrink-0">{cmd.group}</span>
+                      <span className="text-ui-xs text-spectrum-textPlaceholder flex-shrink-0">{cmd.group}</span>
                     )}
                   </button>
                 </React.Fragment>
@@ -268,9 +268,9 @@ export const CommandPalette: React.FC = () => {
           )}
         </div>
 
-        <div className="px-3 h-8 border-t border-[#141414] bg-[#1f1f1f] flex items-center gap-3 font-mono text-micro text-[#6b6b6b] flex-shrink-0">
-          <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded-[2px] bg-[#2d2d2d] text-[#8a8a8a]">↑↓</span> navigate</span>
-          <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded-[2px] bg-[#2d2d2d] text-[#8a8a8a]">↵</span> run</span>
+        <div className="px-3 h-8 border-t border-spectrum-panelHeader bg-spectrum-card flex items-center gap-3 font-mono text-micro text-spectrum-textPlaceholder flex-shrink-0">
+          <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded-[2px] bg-spectrum-cardHover text-spectrum-textFaint">↑↓</span> navigate</span>
+          <span className="flex items-center gap-1"><span className="px-1 py-0.5 rounded-[2px] bg-spectrum-cardHover text-spectrum-textFaint">↵</span> run</span>
           <span className="flex items-center gap-1 ml-auto"><CommandIcon className="w-2.5 h-2.5" /> {commands.length} commands</span>
         </div>
       </div>

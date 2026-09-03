@@ -271,23 +271,23 @@ export const ExportModal: React.FC = () => {
     <div className="scrim" onClick={() => (isAnyExporting ? handleMinimize() : setOpen(false))}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`modal-shell max-w-[92vw] rounded-2xl bg-[#11141a] border border-[#232936] shadow-[0_24px_64px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] overflow-hidden ${isAnyExporting || isAnyDone ? 'w-[520px]' : 'w-[500px]'}`}
+        className={`modal-shell max-w-[92vw] rounded-2xl bg-spectrum-panelHeader border border-spectrum-cardHover shadow-modal overflow-hidden ${isAnyExporting || isAnyDone ? 'w-[520px]' : 'w-[500px]'}`}
         role="dialog"
         aria-modal="true"
         aria-label="Export"
       >
-        <div className="panel-header px-6 py-4.5 border-b border-white/[0.06] bg-[#11141a] flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0">
+        <div className="panel-header px-6 py-4 border-b border-line bg-spectrum-panelHeader flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-spectrum-hover border border-line flex items-center justify-center flex-shrink-0">
               {exportTab === 'project' ? (
                 <ShieldCheck className="w-4 h-4 text-spectrum-accent" />
               ) : (
-                <Download className="w-4 h-4 text-[#f97316]" />
+                <Download className="w-4 h-4 text-spectrum-accent" />
               )}
             </span>
-            <span className="text-[17px] font-semibold text-white tracking-tight">Export</span>
+            <span className="text-display font-semibold text-spectrum-textBright tracking-tight">Export</span>
             {isExporting && (
-              <span className="px-2 py-0.5 rounded-[4px] text-ui-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse font-mono">
+              <span className="px-2 py-0.5 rounded-[4px] text-ui-xs bg-spectrum-blue/10 text-spectrum-blue border border-spectrum-blue/20 animate-pulse font-mono">
                 Rendering Video
               </span>
             )}
@@ -299,7 +299,7 @@ export const ExportModal: React.FC = () => {
           </div>
           <button
             onClick={() => (isAnyExporting ? handleMinimize() : setOpen(false))}
-            className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-lg text-spectrum-textDim hover:text-spectrum-textBright hover:bg-spectrum-cardHover flex items-center justify-center transition-colors"
             title={isAnyExporting ? 'Minimize to background' : 'Close'}
             aria-label={isAnyExporting ? 'Minimize to background' : 'Close the export dialog'}
           >
@@ -309,13 +309,13 @@ export const ExportModal: React.FC = () => {
 
         {/* Tab Switcher (shown when not exporting and not finished) */}
         {!isAnyExporting && !isAnyDone && (
-          <div className="px-6 pt-3.5 pb-2 border-b border-white/[0.06] flex items-center gap-2 bg-[#0d1016]">
+          <div className="px-6 pt-3 pb-2 border-b border-line flex items-center gap-2 bg-spectrum-sunken">
             <button
               onClick={() => setExportTab('video')}
-              className={`px-3.5 py-1.5 rounded-lg text-ui font-medium flex items-center gap-2 transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-ui font-medium flex items-center gap-2 transition-all ${
                 exportTab === 'video'
                   ? 'bg-spectrum-accentSoft text-spectrum-accent border border-spectrum-accentLine shadow-sm'
-                  : 'text-spectrum-textMuted hover:text-white hover:bg-white/[0.04] border border-transparent'
+                  : 'text-spectrum-textMuted hover:text-spectrum-textBright hover:bg-spectrum-hover border border-transparent'
               }`}
             >
               <Film className="w-4 h-4" />
@@ -323,10 +323,10 @@ export const ExportModal: React.FC = () => {
             </button>
             <button
               onClick={() => setExportTab('project')}
-              className={`px-3.5 py-1.5 rounded-lg text-ui font-medium flex items-center gap-2 transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-ui font-medium flex items-center gap-2 transition-all ${
                 exportTab === 'project'
                   ? 'bg-spectrum-accentSoft text-spectrum-accent border border-spectrum-accentLine shadow-sm'
-                  : 'text-spectrum-textMuted hover:text-white hover:bg-white/[0.04] border border-transparent'
+                  : 'text-spectrum-textMuted hover:text-spectrum-textBright hover:bg-spectrum-hover border border-transparent'
               }`}
             >
               <ShieldCheck className="w-4 h-4" />
@@ -376,7 +376,7 @@ export const ExportModal: React.FC = () => {
 
                 <Section title={`Bundled Media Assets (${mediaPool.length})`} icon={Package}>
                   {mediaPool.length === 0 ? (
-                    <div className="p-3 rounded-lg bg-[#0b0e13] border border-line text-micro text-spectrum-textMuted">
+                    <div className="p-3 rounded-lg bg-spectrum-sunken border border-line text-micro text-spectrum-textMuted">
                       No external media assets in pool. All timeline tracks, shapes, text, animations, and effects will be packaged.
                     </div>
                   ) : (
@@ -384,15 +384,15 @@ export const ExportModal: React.FC = () => {
                       {mediaPool.map((asset) => (
                         <div
                           key={asset.id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-[#0b0e13] border border-line text-ui-sm"
+                          className="flex items-center justify-between p-2 rounded-lg bg-spectrum-sunken border border-line text-ui-sm"
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             {asset.type === 'video' ? (
-                              <Video className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                              <Video className="w-3.5 h-3.5 text-spectrum-blue shrink-0" />
                             ) : asset.type === 'audio' ? (
-                              <Music className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                              <Music className="w-3.5 h-3.5 text-spectrum-purple shrink-0" />
                             ) : (
-                              <ImageIcon className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                              <ImageIcon className="w-3.5 h-3.5 text-spectrum-green shrink-0" />
                             )}
                             <span className="truncate text-spectrum-text text-ui-xs font-mono">{asset.name}</span>
                           </div>
@@ -416,7 +416,7 @@ export const ExportModal: React.FC = () => {
                 </Section>
 
                 <Section title="Encryption" icon={Lock}>
-                  <div className="p-3 rounded-lg bg-spectrum-accentSoft border border-spectrum-accentLine flex items-start gap-2.5">
+                  <div className="p-3 rounded-lg bg-spectrum-accentSoft border border-spectrum-accentLine flex items-start gap-2">
                     <ShieldCheck className="w-4 h-4 text-spectrum-accent shrink-0 mt-0.5" />
                     <div className="text-micro text-spectrum-text space-y-0.5">
                       <span className="font-semibold block">AES-256-GCM Encrypted</span>
@@ -429,10 +429,10 @@ export const ExportModal: React.FC = () => {
                 </Section>
               </div>
 
-              <div className="p-4 px-6 border-t border-[#232936] bg-[#0b0e13] flex items-center justify-end gap-3">
+              <div className="p-4 px-6 border-t border-spectrum-cardHover bg-spectrum-sunken flex items-center justify-end gap-3">
                 <button
                   onClick={() => setOpen(false)}
-                  className="pro-btn-filled h-9 px-4 rounded-lg text-ui font-medium bg-[#0e1218] border border-[#232936] hover:border-[#384252] text-white"
+                  className="pro-btn-filled h-9 px-4 rounded-lg text-ui font-medium bg-spectrum-sunken border border-spectrum-cardHover hover:border-spectrum-borderStrong text-spectrum-textBright"
                 >
                   Cancel
                 </button>
@@ -451,7 +451,7 @@ export const ExportModal: React.FC = () => {
           <>
             <div className="max-h-[54vh] overflow-y-auto">
               {!ffmpegInstalled && (
-                <div className="m-3 p-3 rounded-input bg-spectrum-accentSoft border border-spectrum-accentLine flex flex-col gap-2">
+                <div className="m-3 p-3 rounded-squircle-sm bg-spectrum-accentSoft border border-spectrum-accentLine flex flex-col gap-2">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5 text-ui-sm font-semibold text-spectrum-text">
@@ -465,7 +465,7 @@ export const ExportModal: React.FC = () => {
                     <button
                       onClick={() => void installPackage('ffmpeg')}
                       disabled={isFfmpegDownloading}
-                      className="px-3 py-1.5 rounded-input text-ui-xs font-medium bg-spectrum-accent hover:opacity-90 text-black transition-all flex items-center gap-1.5 shrink-0 shadow-sm disabled:opacity-50"
+                      className="px-3 py-1.5 rounded-squircle-sm text-ui-xs font-medium bg-spectrum-accent hover:opacity-90 text-spectrum-onAccent transition-all flex items-center gap-1.5 shrink-0 shadow-sm disabled:opacity-50"
                     >
                       {isFfmpegDownloading ? (
                         <>
@@ -586,8 +586,8 @@ export const ExportModal: React.FC = () => {
               </Section>
             </div>
 
-            <div className="p-4 px-6 border-t border-[#232936] bg-[#0b0e13] flex items-center justify-end gap-3">
-              <button onClick={() => setOpen(false)} className="pro-btn-filled h-9 px-4 rounded-lg text-ui font-medium bg-[#0e1218] border border-[#232936] hover:border-[#384252] text-white">
+            <div className="p-4 px-6 border-t border-spectrum-cardHover bg-spectrum-sunken flex items-center justify-end gap-3">
+              <button onClick={() => setOpen(false)} className="pro-btn-filled h-9 px-4 rounded-lg text-ui font-medium bg-spectrum-sunken border border-spectrum-cardHover hover:border-spectrum-borderStrong text-spectrum-textBright">
                 Cancel
               </button>
               <button onClick={start} className="btn-primary h-9 px-5 rounded-lg gap-2 text-ui font-medium">
@@ -698,7 +698,7 @@ const ExportRunning: React.FC<{
         <button
           type="button"
           onClick={onCancel}
-          className="pro-btn-filled h-8 px-3 text-ui text-spectrum-textMuted hover:text-red-400 hover:border-red-500/30 transition-colors flex items-center gap-1.5"
+          className="pro-btn-filled h-8 px-3 text-ui text-spectrum-textMuted hover:text-spectrum-red hover:border-spectrum-red/30 transition-colors flex items-center gap-1.5"
           title="Cancel this export"
         >
           <X className="w-3.5 h-3.5" />
@@ -707,7 +707,7 @@ const ExportRunning: React.FC<{
         <button
           type="button"
           onClick={onMinimize}
-          className="btn-primary h-8 px-3.5 text-ui flex items-center gap-1.5"
+          className="btn-primary h-8 px-3 text-ui flex items-center gap-1.5"
           title="Keep exporting in the background and continue editing"
         >
           <Download className="w-3.5 h-3.5" />
@@ -778,7 +778,7 @@ const ExportDone: React.FC<{
   };
 
   return (
-    <div className="p-6 flex flex-col items-center text-center gap-2.5">
+    <div className="p-6 flex flex-col items-center text-center gap-2">
       <div className="export-tick">
         <Check className="w-5 h-5 text-spectrum-green" />
       </div>
@@ -918,7 +918,7 @@ const TemiExportDone: React.FC<{
         </p>
       </div>
 
-      <div className="p-3 rounded-xl bg-[#0b0e13] border border-line w-full max-w-[380px] text-left space-y-1.5">
+      <div className="p-3 rounded-xl bg-spectrum-sunken border border-line w-full max-w-[380px] text-left space-y-1.5">
         <div className="flex justify-between text-ui-xs">
           <span className="text-spectrum-textMuted">File Size:</span>
           <span className="font-mono text-spectrum-text font-medium">{formatFileSize(result.sizeBytes || 0)}</span>
@@ -940,11 +940,11 @@ const TemiExportDone: React.FC<{
       </p>
 
       <div className="flex flex-wrap justify-center gap-2 pt-2">
-        <button onClick={downloadAgain} className="pro-btn-filled h-8 px-3.5 gap-1.5 text-ui-sm">
+        <button onClick={downloadAgain} className="pro-btn-filled h-8 px-3 gap-1.5 text-ui-sm">
           <Download className="w-3.5 h-3.5" />
           Download again
         </button>
-        <button onClick={onAgain} className="pro-btn-filled h-8 px-3.5 text-ui-sm">
+        <button onClick={onAgain} className="pro-btn-filled h-8 px-3 text-ui-sm">
           Export settings
         </button>
         <button onClick={onClose} className="btn-primary h-8 px-4 text-ui-sm">

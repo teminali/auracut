@@ -58,7 +58,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
       <button
         aria-label="Show what the agent will be sent"
         onClick={() => setOpen((v) => !v)}
-        className="w-full px-2.5 h-[28px] flex items-center gap-1.5 text-left hover:bg-white/[0.03] transition-colors"
+        className="w-full px-2 h-[28px] flex items-center gap-1.5 text-left hover:bg-spectrum-hover transition-colors"
       >
         {blockers.length > 0 ? (
           <CircleAlert className="w-3.5 h-3.5 text-spectrum-amber flex-shrink-0" />
@@ -78,14 +78,14 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
 
       {/* Why this contract exists */}
       {expanded && blockers.length > 0 && (
-        <p className="px-2.5 pb-1.5 text-micro text-spectrum-textDim leading-snug">
+        <p className="px-2 pb-1.5 text-micro text-spectrum-textDim leading-snug">
           {report.requirement.rationale}
         </p>
       )}
 
       {/* Blockers first — each with its remedy */}
       {expanded && listedBlockers.map((issue) => (
-        <div key={issue.id} className="px-2.5 py-1.5 border-t border-line/60 flex items-start gap-2">
+        <div key={issue.id} className="px-2 py-1.5 border-t border-line/60 flex items-start gap-2">
           <AlertTriangle className="w-3 h-3 text-spectrum-amber flex-shrink-0 mt-[3px]" />
           <div className="flex-1 min-w-0">
             <p className="text-ui-sm font-medium text-spectrum-text leading-snug">{issue.title}</p>
@@ -104,7 +104,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
 
       {/* Advisories — worth saying, not worth blocking on */}
       {expanded && advisories.map((issue) => (
-        <div key={issue.id} className="px-2.5 py-1.5 border-t border-line/60 flex items-start gap-2">
+        <div key={issue.id} className="px-2 py-1.5 border-t border-line/60 flex items-start gap-2">
           <span className="w-3 h-3 flex-shrink-0 mt-[3px] flex items-center justify-center">
             <span className="w-1.5 h-1.5 rounded-full bg-spectrum-textDim" />
           </span>
@@ -122,7 +122,7 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
 
       {/* Green ticks */}
       {expanded && report.satisfied.length > 0 && (
-        <div className="px-2.5 py-1.5 border-t border-line/60 flex flex-wrap gap-x-3 gap-y-0.5">
+        <div className="px-2 py-1.5 border-t border-line/60 flex flex-wrap gap-x-3 gap-y-0.5">
           {report.satisfied.map((s) => (
             <span key={s} className="flex items-center gap-1 text-micro text-spectrum-textDim">
               <Check className="w-2.5 h-2.5 text-spectrum-green flex-shrink-0" />
@@ -144,10 +144,10 @@ export const ContextPreflight: React.FC<ContextPreflightProps> = ({
             >
               <img src={frame.dataUrl} alt="" className="w-full h-full object-cover" />
               <span className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Pencil className="w-3 h-3 text-white" />
+                <Pencil className="w-3 h-3 text-spectrum-textBright" />
               </span>
               {annotations.length > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-[#ff2d78] text-white text-micro font-bold flex items-center justify-center">
+                <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-spectrum-pink text-spectrum-textBright text-micro font-bold flex items-center justify-center">
                   {annotations.length}
                 </span>
               )}

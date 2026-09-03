@@ -1522,11 +1522,11 @@ export async function assembleRecording(
         Math.round(moment.atMs),
         moment.source === 'mark' ? `Marked ${i + 1}` : `${moment.source} ${i + 1}`,
         'generic',
-        moment.source === 'mark' ? '#d97757' : '#4a90ff'
+        moment.source === 'mark' ? '#e8e8e8' : '#86aee4'
       );
     }
     for (let i = 0; i < takeovers.length; i++) {
-      store().addMarker(Math.round(takeovers[i].startMs), `Camera ${i + 1}`, 'chapter', '#3ddc97');
+      store().addMarker(Math.round(takeovers[i].startMs), `Camera ${i + 1}`, 'chapter', '#65c466');
     }
   }
 

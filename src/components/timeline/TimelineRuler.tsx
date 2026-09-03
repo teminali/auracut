@@ -115,14 +115,14 @@ export const TimelineRuler: React.FC<TimelineRulerProps> = ({ pxPerMs, durationM
       {minorTicks.map((t) => (
         <div
           key={`m${t}`}
-          className="absolute bottom-0 w-px bg-white/[0.08]"
+          className="absolute bottom-0 w-px bg-spectrum-cardHover"
           style={{ left: t * pxPerMs, height: 5 }}
         />
       ))}
 
       {majorTicks.map((t) => (
         <div key={`M${t}`} className="absolute bottom-0 top-0 pointer-events-none" style={{ left: t * pxPerMs }}>
-          <div className="absolute bottom-0 w-px bg-white/[0.22]" style={{ height: 9 }} />
+          <div className="absolute bottom-0 w-px bg-spectrum-control" style={{ height: 9 }} />
           <span className="absolute top-[4px] left-[5px] text-micro font-mono font-medium text-spectrum-textDim tabular whitespace-nowrap tracking-tight">
             {labelFor(t, major)}
           </span>

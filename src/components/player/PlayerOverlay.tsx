@@ -343,7 +343,7 @@ const PlayerStage: React.FC<Props> = ({ onOpenTimeline }) => {
 
         <button
           onClick={() => setCopilotOpen(!isCopilotOpen)}
-          className={`pro-btn-filled h-[30px] px-2.5 gap-1.5 text-ui-sm font-medium ${isCopilotOpen ? 'pro-btn-active' : ''}`}
+          className={`pro-btn-filled h-[var(--h-md)] px-2 gap-1.5 text-ui-sm font-medium ${isCopilotOpen ? 'pro-btn-active' : ''}`}
           title="AI Copilot (⌘J)"
           aria-label="AI Copilot"
         >
@@ -374,12 +374,12 @@ const PlayerStage: React.FC<Props> = ({ onOpenTimeline }) => {
         */}
         <button
           onClick={() => enterEditorOn(null)}
-          className="pro-btn-filled h-[30px] px-2.5 gap-1.5 text-ui-sm font-medium"
+          className="pro-btn-filled h-[var(--h-md)] px-2 gap-1.5 text-ui-sm font-medium"
         >
           <Rows3 className="w-4 h-4" /> Open timeline
         </button>
 
-        <button onClick={() => setExportModalOpen(true)} className="btn-primary h-[30px] px-3 gap-1.5 text-ui-sm">
+        <button onClick={() => setExportModalOpen(true)} className="btn-primary h-[var(--h-md)] px-3 gap-1.5 text-ui-sm">
           <Download className="w-4 h-4" /> Export
         </button>
       </header>
@@ -407,7 +407,7 @@ const PlayerStage: React.FC<Props> = ({ onOpenTimeline }) => {
               /* 38px at 600 weight, measured off the reference's tool
                  row — these are the player's primary verbs and it sizes
                  them accordingly. */
-              className="pro-btn h-[38px] px-2.5 gap-1.5 text-ui-sm font-semibold text-spectrum-textMuted"
+              className="pro-btn h-[38px] px-2 gap-1.5 text-ui-sm font-semibold text-spectrum-textMuted"
               title={`${action.label} · ${action.key}`}
             >
               <action.icon className="w-4 h-4" /> {action.label}
@@ -432,7 +432,7 @@ const PlayerStage: React.FC<Props> = ({ onOpenTimeline }) => {
             <Flag className="w-4 h-4" />
           </button>
 
-          <span className="w-px h-4 bg-white/15 mx-0.5" />
+          <span className="w-px h-4 bg-spectrum-control mx-0.5" />
 
           {/* Everything else this app can do, from the real palette
               rather than a second menu that would have to be kept in

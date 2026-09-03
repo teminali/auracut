@@ -94,7 +94,7 @@ export const TextPanel: React.FC = () => {
               <button
                 key={preset.id}
                 onClick={() => addTitle(preset)}
-                className="card-interactive w-full p-2 flex items-center gap-2.5 group text-left"
+                className="card-interactive w-full p-2 flex items-center gap-2 group text-left"
               >
                 {/* Each preset carries a kinetic animation. Showing it
                     is the difference between picking a title by name
@@ -113,7 +113,7 @@ export const TextPanel: React.FC = () => {
                     {preset.text.split('\n')[0]}
                   </span>
                 </span>
-                <span className="w-5 h-5 rounded-full bg-spectrum-panel group-hover:bg-spectrum-accent text-spectrum-textDim group-hover:text-[#2b1108] flex items-center justify-center transition-colors flex-shrink-0">
+                <span className="w-5 h-5 rounded-full bg-spectrum-panel group-hover:bg-spectrum-accent text-spectrum-onAccent group-hover:text-spectrum-cardHover flex items-center justify-center transition-colors flex-shrink-0">
                   <Plus className="w-3 h-3" />
                 </span>
               </button>

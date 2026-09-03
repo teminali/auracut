@@ -91,7 +91,7 @@ export const SourceGrid: React.FC<Props> = ({ sources, loading, selectedId, onSe
           /* Two columns when there is little to show. One 200px thumbnail
              floating in a three-column grid reads as a list that failed
              to load rather than as a machine with one display. */
-          <div className={`grid gap-2.5 ${shown.length <= 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <div className={`grid gap-2 ${shown.length <= 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
             {shown.map((source) => (
               <button
                 key={source.id}
@@ -110,8 +110,8 @@ export const SourceGrid: React.FC<Props> = ({ sources, loading, selectedId, onSe
                   ) : (
                     <span className="absolute inset-0 flex items-center justify-center">
                       {source.kind === 'screen'
-                        ? <Monitor className="w-6 h-6 text-white/15" />
-                        : <AppWindow className="w-6 h-6 text-white/15" />}
+                        ? <Monitor className="w-6 h-6 text-spectrum-textDisabled" />
+                        : <AppWindow className="w-6 h-6 text-spectrum-textDisabled" />}
                     </span>
                   )}
 

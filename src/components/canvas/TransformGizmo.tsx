@@ -327,7 +327,7 @@ const ActiveTransformGizmo: React.FC<TransformGizmoProps> = ({ viewport, stageRe
           onPointerDown={(e) => startDrag(e, 'move')}
           className={`absolute inset-0 pointer-events-auto ${locked ? 'cursor-not-allowed' : 'cursor-move'}`}
           style={{
-            outline: `1.5px solid ${locked ? 'rgba(245,165,36,0.9)' : 'rgba(76,157,255,0.95)'}`,
+            outline: `1.5px solid ${locked ? 'rgba(242,202,68,0.9)' : 'rgba(76,157,255,0.95)'}`,
             outlineOffset: '-0.75px',
             boxShadow: dragMode ? '0 0 0 1px rgba(76,157,255,0.25), 0 0 22px rgba(76,157,255,0.18)' : 'none',
           }}
@@ -396,7 +396,7 @@ const ActiveTransformGizmo: React.FC<TransformGizmoProps> = ({ viewport, stageRe
       {/* ── Live readout ── */}
       {dragMode && (
         <div
-          className="absolute pointer-events-none z-20 px-2 py-1 rounded-squircle-xs bg-spectrum-panel/95 backdrop-blur border border-line-strong shadow-pop font-mono text-micro text-spectrum-text whitespace-nowrap"
+          className="absolute pointer-events-none z-20 px-2 py-1 rounded-squircle-xs bg-spectrum-panel/95 border border-line-strong shadow-pop font-mono text-micro text-spectrum-text whitespace-nowrap"
           style={{
             left: Math.min(...corners.map((c) => c.x)) ,
             top: Math.max(...corners.map((c) => c.y)) + 10,
@@ -516,8 +516,8 @@ const SmartGuideLayer: React.FC<SmartGuideLayerProps> = ({ guides, spacing, view
                   top: a.y,
                   width: sp.axis === 'x' ? length : 1,
                   height: sp.axis === 'x' ? 1 : length,
-                  background: '#ff2d78',
-                  boxShadow: '0 0 4px #ff2d7888',
+                  background: 'var(--accent)',
+                  boxShadow: '0 0 0 1px rgba(0,0,0,0.55)',
                 }}
               />
               {/* End caps make the measured span unambiguous */}
@@ -530,7 +530,7 @@ const SmartGuideLayer: React.FC<SmartGuideLayerProps> = ({ guides, spacing, view
                     top: sp.axis === 'x' ? pt.y - 3.5 : pt.y,
                     width: sp.axis === 'x' ? 1 : 8,
                     height: sp.axis === 'x' ? 8 : 1,
-                    background: '#ff2d78',
+                    background: 'var(--accent)',
                   }}
                 />
               ))}
@@ -542,7 +542,7 @@ const SmartGuideLayer: React.FC<SmartGuideLayerProps> = ({ guides, spacing, view
                     top: sp.axis === 'x' ? a.y - 18 : a.y + length / 2,
                     transform: sp.axis === 'x' ? 'translateX(-50%)' : 'translateY(-50%)',
                   }}
-                  className="px-1 py-px rounded-squircle-2xs bg-[#ff2d78] text-white text-micro font-mono font-semibold whitespace-nowrap"
+                  className="px-1 py-px rounded-squircle-2xs bg-spectrum-pink text-white text-micro font-mono font-semibold whitespace-nowrap"
                 >
                   {sp.distance}
                 </div>

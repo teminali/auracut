@@ -150,12 +150,12 @@ export const ActionRow: React.FC<Props> = ({
                      frame captured", which is a state, and not as a
                      broken image, which is a fault. */
                   <span className="poster-empty absolute inset-0 flex items-center justify-center">
-                    <Film className="w-7 h-7 text-white/[0.10]" />
+                    <Film className="w-7 h-7 text-spectrum-textDisabled" />
                   </span>
                 )}
 
                 <span className="media-pill absolute top-2 left-2 h-[18px] px-2 rounded-full flex items-center
-                                 !font-sans !text-white/85 font-medium">
+                                 !font-sans !text-spectrum-textMuted font-medium">
                   {mostRecent.starter ? 'Starter' : 'Continue'}
                 </span>
 
@@ -175,7 +175,7 @@ export const ActionRow: React.FC<Props> = ({
               </span>
             </button>
 
-            <div className="flex flex-col gap-2.5 min-w-0">
+            <div className="flex flex-col gap-2 min-w-0">
               <div className="flex items-stretch gap-2">
                 <button
                   onClick={() => onOpenRecent(mostRecent)}
@@ -208,17 +208,17 @@ export const ActionRow: React.FC<Props> = ({
 
               {recoverable && (
                 <div className="surface-card rounded-squircle-sm h-[38px] pl-3 pr-1.5
-                                flex items-center gap-2.5">
+                                flex items-center gap-2">
                   <RotateCcw className="w-4 h-4 text-spectrum-amber flex-shrink-0" />
                   <p className="text-ui-sm text-spectrum-textMuted truncate min-w-0 flex-1">
                     Kerf closed with a project still open.
                   </p>
-                  <button onClick={onRecover} className="pro-btn-filled h-[26px] px-2.5 text-ui-sm flex-shrink-0">
+                  <button onClick={onRecover} className="pro-btn-filled h-[var(--h-sm)] px-2 text-ui-sm flex-shrink-0">
                     Recover it
                   </button>
                   <button
                     onClick={onDiscardRecovery}
-                    className="pro-btn w-[26px] h-[26px] flex-shrink-0"
+                    className="pro-btn w-[26px] h-[var(--h-sm)] flex-shrink-0"
                     title="Discard it"
                     aria-label="Discard the recovered session"
                   >
@@ -305,28 +305,28 @@ const StartTile: React.FC<{
   <button
     data-home={hook}
     onClick={onClick}
-    className={`rounded-[14px] p-5 min-h-[145px] bg-[#0e1218] hover:bg-[#121720] border transition-all duration-200 group text-left relative flex flex-col justify-between ${VARIANT_STYLES[variant]}`}
+    className={`rounded-[14px] p-5 min-h-[145px] bg-spectrum-sunken hover:bg-spectrum-panelHeader border transition-all duration-200 group text-left relative flex flex-col justify-between ${VARIANT_STYLES[variant]}`}
     title={note}
   >
     <div className="flex items-start justify-between gap-2 w-full">
-      <span className="w-9 h-9 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-white/90 group-hover:text-white transition-colors">
+      <span className="w-9 h-9 rounded-lg bg-spectrum-hover border border-line flex items-center justify-center text-spectrum-textBright group-hover:text-spectrum-textBright transition-colors">
         <Icon className="w-5 h-5" />
       </span>
-      <span className="font-mono text-ui-xs tracking-wider px-1.5 py-0.5 rounded-[4px] bg-white/[0.04] border border-white/[0.06] text-[#64748b] group-hover:text-white/70 transition-colors">
+      <span className="font-mono text-ui-xs tracking-wider px-1.5 py-0.5 rounded-[4px] bg-spectrum-hover border border-line text-spectrum-textFaint group-hover:text-spectrum-textDim transition-colors">
         {hint}
       </span>
     </div>
 
     <div className="flex items-end justify-between gap-2 w-full mt-4">
       <div className="min-w-0 flex-1">
-        <span className="block text-ui-lg font-semibold text-white tracking-tight group-hover:text-white transition-colors">
+        <span className="block text-ui-lg font-semibold text-spectrum-textBright tracking-tight group-hover:text-spectrum-textBright transition-colors">
           {title}
         </span>
-        <span className="block text-ui-xs text-[#94a3b8] mt-1 truncate">
+        <span className="block text-ui-xs text-spectrum-textDim mt-1 truncate">
           {detail}
         </span>
       </div>
-      <ChevronRight className="w-4 h-4 text-[#64748b] group-hover:text-white transition-all group-hover:translate-x-1 flex-shrink-0 mb-0.5" />
+      <ChevronRight className="w-4 h-4 text-spectrum-textFaint group-hover:text-spectrum-textBright transition-all group-hover:translate-x-1 flex-shrink-0 mb-0.5" />
     </div>
   </button>
 );

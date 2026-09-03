@@ -19,10 +19,31 @@ function cssVar(name: string): string {
   return m[1];
 }
 
+/**
+ * Read a Tailwind token, following the one level of indirection the
+ * config uses.
+ *
+ * `tailwind.config.js` names each value once as a module constant and
+ * then spends it in both naming families — `spectrum.accent` and the
+ * canonical `accent.DEFAULT` are the same `ACCENT`. That is what stops
+ * the two families drifting from each other, and it is worth the four
+ * lines here: the alternative was writing every hex twice in the file
+ * whose entire job is to not have a value written twice.
+ */
 function token(name: string): string {
-  const m = CONFIG.match(new RegExp(`\\b${name}:\\s*'(#[0-9a-fA-F]{6})'`));
-  if (!m) throw new Error(`${name} not found in tailwind.config.js`);
-  return m[1];
+  const direct = CONFIG.match(new RegExp(`\\b${name}:\\s*'(#[0-9a-fA-F]{6})'`));
+  if (direct) return direct[1];
+
+  const viaConst = CONFIG.match(new RegExp(`\\b${name}:\\s*([A-Z][A-Z0-9_]*)\\s*,`));
+  if (viaConst) {
+    const decl = CONFIG.match(
+      new RegExp(`\\bconst ${viaConst[1]}\\s*=\\s*'(#[0-9a-fA-F]{6})'`)
+    );
+    if (decl) return decl[1];
+    throw new Error(`${name} points at ${viaConst[1]}, which is not a hex constant`);
+  }
+
+  throw new Error(`${name} not found in tailwind.config.js`);
 }
 
 const rgb = (hex: string) =>

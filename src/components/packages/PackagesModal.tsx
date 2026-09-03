@@ -80,7 +80,7 @@ export const PackagesModal: React.FC = () => {
       }}
       title="Packages & Models Manager"
       icon={Package}
-      iconColor="#f0a173"
+      iconColor="var(--accent-ink)"
       maxWidth="w-[720px]"
       badge={{
         text: hardware.isAppleSilicon
@@ -126,20 +126,20 @@ export const PackagesModal: React.FC = () => {
         <button
           onClick={() => void checkStatus()}
           disabled={isLoading}
-          className="w-[26px] h-[24px] rounded-[2px] grid place-items-center text-[#989898] hover:text-[#e8e8e8] hover:bg-[#3a3a3a] transition-colors"
+          className="w-[26px] h-[24px] rounded-[2px] grid place-items-center text-spectrum-textDim hover:text-spectrum-accent hover:bg-line-bright transition-colors"
           title="Refresh package status"
           aria-label="Refresh package status"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#f0a173]' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-spectrum-accent' : ''}`} />
         </button>
       }
       footer={
         <>
-          <span className="flex items-center gap-1.5 text-[#9fc9ab]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#9fc9ab]" />
+          <span className="flex items-center gap-1.5 text-spectrum-green">
+            <span className="w-1.5 h-1.5 rounded-full bg-spectrum-green" />
             Local Isolated Storage
           </span>
-          <span className="truncate max-w-[340px] text-[#8a8a8a]">
+          <span className="truncate max-w-[340px] text-spectrum-textFaint">
             Packages stored in TeminaliCut user data
           </span>
           <div className="ml-auto flex items-center gap-2">
@@ -147,13 +147,13 @@ export const PackagesModal: React.FC = () => {
               <button
                 onClick={() => void installAll(recommendedModel?.id)}
                 disabled={isAnyDownloading}
-                className="px-3 h-6 rounded-[2px] bg-[#c9622f] hover:bg-[#d96d38] text-[#ffffff] font-semibold text-ui-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="px-3 h-6 rounded-[2px] bg-spectrum-accent hover:bg-spectrum-accent text-spectrum-onAccent font-semibold text-ui-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
               >
                 <Download className="w-3 h-3" />
                 Install Recommended Pack
               </button>
             ) : (
-              <span className="flex items-center gap-1.5 text-[#9fc9ab] text-ui-xs font-semibold">
+              <span className="flex items-center gap-1.5 text-spectrum-green text-ui-xs font-semibold">
                 <Check className="w-3.5 h-3.5" />
                 Core Packages Ready
               </span>
@@ -164,21 +164,21 @@ export const PackagesModal: React.FC = () => {
     >
       {/* Smart Device Recommendation Banner */}
       {recommendedModel && !recommendedModel.installed && tab !== 'device' && (
-        <div className="p-3.5 rounded-[2px] bg-[#2d2218] border border-[#59361c] flex items-center justify-between gap-3">
+        <div className="p-3 rounded-[2px] bg-spectrum-cardHover border border-spectrum-cardHover flex items-center justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-[2px] bg-[#f0a173]/15 border border-[#f0a173]/30 grid place-items-center text-[#f0a173] flex-shrink-0 mt-0.5">
+            <div className="w-8 h-8 rounded-[2px] bg-spectrum-accent/15 border border-spectrum-accent/30 grid place-items-center text-spectrum-accent flex-shrink-0 mt-0.5">
               <Sparkle className="w-4 h-4" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-ui-sm font-bold text-[#f0a173]">
+                <span className="text-ui-sm font-bold text-spectrum-accent">
                   Recommended for your machine: {recommendedModel.name}
                 </span>
-                <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-[#f0a173]/20 text-[#f0a173] font-semibold">
+                <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-spectrum-accent/20 text-spectrum-accent font-semibold">
                   {recommendedModel.sizeMb} MB
                 </span>
               </div>
-              <p className="text-ui-xs text-[#d1b39e] mt-1 leading-relaxed">
+              <p className="text-ui-xs text-spectrum-accent mt-1 leading-relaxed">
                 {recommendedModel.recommendedReason || hardware.recommendationReason}
               </p>
             </div>
@@ -186,7 +186,7 @@ export const PackagesModal: React.FC = () => {
           <button
             onClick={() => void installPackage(recommendedModel.id)}
             disabled={Boolean(downloads[recommendedModel.id])}
-            className="px-3 h-7 rounded-[2px] bg-[#c9622f] hover:bg-[#d96d38] text-white font-semibold text-ui-xs flex items-center gap-1.5 flex-shrink-0 transition-colors"
+            className="px-3 h-7 rounded-[2px] bg-spectrum-accent hover:bg-spectrum-accent text-spectrum-onAccent font-semibold text-ui-xs flex items-center gap-1.5 flex-shrink-0 transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             Download
@@ -197,48 +197,48 @@ export const PackagesModal: React.FC = () => {
       {/* Device & Hardware Specifications Tab */}
       {tab === 'device' ? (
         <div className="space-y-4">
-          <div className="p-4 rounded-[2px] bg-[#262626] border border-[#141414] space-y-3">
-            <div className="flex items-center gap-2 border-b border-[#1f1f1f] pb-2.5">
-              <Cpu className="w-4 h-4 text-[#f0a173]" />
-              <h3 className="text-ui-lg font-bold text-[#e8e8e8]">Detected Hardware Profile</h3>
-              <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-[#9fc9ab]/10 text-[#9fc9ab] border border-[#9fc9ab]/25 ml-auto">
+          <div className="p-4 rounded-[2px] bg-spectrum-cardHover border border-spectrum-panelHeader space-y-3">
+            <div className="flex items-center gap-2 border-b border-spectrum-card pb-2">
+              <Cpu className="w-4 h-4 text-spectrum-accent" />
+              <h3 className="text-ui-lg font-bold text-spectrum-accent">Detected Hardware Profile</h3>
+              <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-spectrum-green/10 text-spectrum-green border border-spectrum-green/25 ml-auto">
                 OPTIMAL
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-ui-sm">
-              <div className="p-2.5 rounded-[2px] bg-[#1a1a1a] border border-[#141414]">
-                <span className="text-micro text-[#8a8a8a] font-mono block uppercase">Processor & Cores</span>
-                <span className="font-semibold text-[#e8e8e8] block mt-0.5">{hardware.cpuModel}</span>
-                <span className="text-micro text-[#6b6b6b] font-mono">{hardware.cores} Logical Execution Threads</span>
+              <div className="p-2 rounded-[2px] bg-spectrum-panelHeader border border-spectrum-panelHeader">
+                <span className="text-micro text-spectrum-textFaint font-mono block uppercase">Processor & Cores</span>
+                <span className="font-semibold text-spectrum-accent block mt-0.5">{hardware.cpuModel}</span>
+                <span className="text-micro text-spectrum-textPlaceholder font-mono">{hardware.cores} Logical Execution Threads</span>
               </div>
-              <div className="p-2.5 rounded-[2px] bg-[#1a1a1a] border border-[#141414]">
-                <span className="text-micro text-[#8a8a8a] font-mono block uppercase">System Memory</span>
-                <span className="font-semibold text-[#e8e8e8] block mt-0.5">{hardware.totalMemGb} GB Total RAM</span>
-                <span className="text-micro text-[#6b6b6b] font-mono">~{hardware.freeMemGb} GB Available for Models</span>
+              <div className="p-2 rounded-[2px] bg-spectrum-panelHeader border border-spectrum-panelHeader">
+                <span className="text-micro text-spectrum-textFaint font-mono block uppercase">System Memory</span>
+                <span className="font-semibold text-spectrum-accent block mt-0.5">{hardware.totalMemGb} GB Total RAM</span>
+                <span className="text-micro text-spectrum-textPlaceholder font-mono">~{hardware.freeMemGb} GB Available for Models</span>
               </div>
-              <div className="p-2.5 rounded-[2px] bg-[#1a1a1a] border border-[#141414]">
-                <span className="text-micro text-[#8a8a8a] font-mono block uppercase">Hardware Acceleration</span>
-                <span className="font-semibold text-[#9fc9ab] block mt-0.5">
+              <div className="p-2 rounded-[2px] bg-spectrum-panelHeader border border-spectrum-panelHeader">
+                <span className="text-micro text-spectrum-textFaint font-mono block uppercase">Hardware Acceleration</span>
+                <span className="font-semibold text-spectrum-green block mt-0.5">
                   {hardware.isAppleSilicon ? 'Apple Neural Engine + Metal GPU' : 'Multi-threaded SIMD Vector'}
                 </span>
-                <span className="text-micro text-[#6b6b6b] font-mono">Zero-copy unified memory access</span>
+                <span className="text-micro text-spectrum-textPlaceholder font-mono">Zero-copy unified memory access</span>
               </div>
-              <div className="p-2.5 rounded-[2px] bg-[#1a1a1a] border border-[#141414]">
-                <span className="text-micro text-[#8a8a8a] font-mono block uppercase">Optimal AI Model Tier</span>
-                <span className="font-semibold text-[#f0a173] block mt-0.5">
+              <div className="p-2 rounded-[2px] bg-spectrum-panelHeader border border-spectrum-panelHeader">
+                <span className="text-micro text-spectrum-textFaint font-mono block uppercase">Optimal AI Model Tier</span>
+                <span className="font-semibold text-spectrum-accent block mt-0.5">
                   {recommendedModel ? recommendedModel.name : 'Whisper Base'}
                 </span>
-                <span className="text-micro text-[#6b6b6b] font-mono">Auto-configured for instant transcription</span>
+                <span className="text-micro text-spectrum-textPlaceholder font-mono">Auto-configured for instant transcription</span>
               </div>
             </div>
           </div>
 
-          <div className="p-4 rounded-[2px] bg-[#262626] border border-[#141414] space-y-2">
-            <h4 className="font-mono text-micro font-bold tracking-[0.13em] text-[#989898] uppercase">
+          <div className="p-4 rounded-[2px] bg-spectrum-cardHover border border-spectrum-panelHeader space-y-2">
+            <h4 className="font-mono text-micro font-bold tracking-[0.13em] text-spectrum-textDim uppercase">
               How TeminaliCut Tunes AI Models
             </h4>
-            <p className="text-ui text-[#a6a6a6] leading-relaxed">
+            <p className="text-ui text-spectrum-textDim leading-relaxed">
               TeminaliCut dynamically matches quantized speech-to-text models to your host machine.
               On Apple Silicon, ggml models execute directly on Metal and Neural Engine cores with sub-2-second latency for 90-second voice clips.
             </p>
@@ -250,9 +250,9 @@ export const PackagesModal: React.FC = () => {
           {/* Core Engines Section */}
           {(tab === 'all' || tab === 'core') && corePackages.length > 0 && (
             <div>
-              <h3 className="font-mono text-micro font-bold tracking-[0.13em] text-[#989898] uppercase mb-2 flex items-center justify-between">
+              <h3 className="font-mono text-micro font-bold tracking-[0.13em] text-spectrum-textDim uppercase mb-2 flex items-center justify-between">
                 <span>Core Video & Media Engines</span>
-                <span className="text-[#6b6b6b] font-normal">{coreInstalledCount}/{corePackages.length} Installed</span>
+                <span className="text-spectrum-textPlaceholder font-normal">{coreInstalledCount}/{corePackages.length} Installed</span>
               </h3>
               <div className="space-y-2">
                 {corePackages.map((pkg) => (
@@ -270,9 +270,9 @@ export const PackagesModal: React.FC = () => {
           {/* AI STT Models Section */}
           {(tab === 'all' || tab === 'ai-stt') && aiModels.length > 0 && (
             <div>
-              <h3 className="font-mono text-micro font-bold tracking-[0.13em] text-[#989898] uppercase mb-2 flex items-center justify-between">
+              <h3 className="font-mono text-micro font-bold tracking-[0.13em] text-spectrum-textDim uppercase mb-2 flex items-center justify-between">
                 <span>AI Speech-to-Text Models (Whisper)</span>
-                <span className="text-[#6b6b6b] font-normal">{modelInstalledCount}/{aiModels.length} Installed</span>
+                <span className="text-spectrum-textPlaceholder font-normal">{modelInstalledCount}/{aiModels.length} Installed</span>
               </h3>
               <div className="space-y-2">
                 {aiModels.map((pkg) => (
@@ -288,7 +288,7 @@ export const PackagesModal: React.FC = () => {
           )}
 
           {filteredPackages.length === 0 && (
-            <p className="text-ui text-[#8a8a8a] text-center py-10">
+            <p className="text-ui text-spectrum-textFaint text-center py-10">
               No packages or models match "{query}".
             </p>
           )}
@@ -315,28 +315,28 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, download, onInstall }) =
   const isError = download?.status === 'error';
 
   return (
-    <div className="p-3.5 rounded-[2px] bg-[#262626] border border-[#141414] hover:border-[#3a3a3a] transition-colors space-y-2.5">
+    <div className="p-3 rounded-[2px] bg-spectrum-cardHover border border-spectrum-panelHeader hover:border-line-bright transition-colors space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <code className="text-ui-sm font-mono font-semibold text-[#f0a173]">{pkg.name}</code>
+            <code className="text-ui-sm font-mono font-semibold text-spectrum-accent">{pkg.name}</code>
             {pkg.sizeMb && (
-              <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-[#1a1a1a] border border-[#3a3a3a] text-[#8a8a8a]">
+              <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-spectrum-panelHeader border border-line-bright text-spectrum-textFaint">
                 {pkg.sizeMb} MB
               </span>
             )}
             {pkg.recommended && (
-              <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-[#f0a173]/15 text-[#f0a173] border border-[#f0a173]/30 font-semibold flex items-center gap-1">
-                <Sparkle className="w-3 h-3 text-[#f0a173]" /> Recommended for your device
+              <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-spectrum-accent/15 text-spectrum-accent border border-spectrum-accent/30 font-semibold flex items-center gap-1">
+                <Sparkle className="w-3 h-3 text-spectrum-accent" /> Recommended for your device
               </span>
             )}
             {pkg.installed && (
-              <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-[#9fc9ab]/15 text-[#9fc9ab] border border-[#9fc9ab]/30 font-semibold flex items-center gap-1">
+              <span className="font-mono text-micro px-1.5 py-0.5 rounded-[2px] bg-spectrum-green/15 text-spectrum-green border border-spectrum-green/30 font-semibold flex items-center gap-1">
                 <Check className="w-3 h-3" /> Ready
               </span>
             )}
           </div>
-          <p className="text-ui text-[#a6a6a6] mt-1 leading-relaxed">{pkg.description}</p>
+          <p className="text-ui text-spectrum-textDim mt-1 leading-relaxed">{pkg.description}</p>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -344,7 +344,7 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, download, onInstall }) =
             <button
               onClick={onInstall}
               disabled={isDownloading}
-              className="px-2.5 py-1 rounded-[2px] bg-[#1f1f1f] border border-[#3a3a3a] text-ui-xs font-semibold text-[#8a8a8a] hover:text-[#e8e8e8] hover:bg-[#2d2d2d] transition-colors flex items-center gap-1.5"
+              className="px-2 py-1 rounded-[2px] bg-spectrum-card border border-line-bright text-ui-xs font-semibold text-spectrum-textFaint hover:text-spectrum-accent hover:bg-spectrum-cardHover transition-colors flex items-center gap-1.5"
               title="Re-download / Verify package"
             >
               <RefreshCw className="w-3 h-3" />
@@ -354,7 +354,7 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, download, onInstall }) =
             <button
               onClick={onInstall}
               disabled={isDownloading}
-              className="px-3 h-7 rounded-[2px] bg-[#c9622f] hover:bg-[#d96d38] text-white font-semibold text-ui-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              className="px-3 h-7 rounded-[2px] bg-spectrum-accent hover:bg-spectrum-accent text-spectrum-onAccent font-semibold text-ui-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
             >
               <Download className="w-3.5 h-3.5" />
               {isDownloading ? `${download.percent}%` : 'Download'}
@@ -366,13 +366,13 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, download, onInstall }) =
       {/* Download Progress Bar */}
       {isDownloading && (
         <div className="space-y-1 pt-1">
-          <div className="flex items-center justify-between text-micro font-mono text-[#8a8a8a]">
+          <div className="flex items-center justify-between text-micro font-mono text-spectrum-textFaint">
             <span>{download.status === 'extracting' ? 'Extracting package…' : 'Downloading…'}</span>
             <span>{download.percent}%</span>
           </div>
-          <div className="w-full h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden border border-[#3a3a3a]">
+          <div className="w-full h-1.5 rounded-full bg-spectrum-panelHeader overflow-hidden border border-line-bright">
             <div
-              className="h-full bg-[#f0a173] transition-all duration-200"
+              className="h-full bg-spectrum-accent transition-all duration-200"
               style={{ width: `${download.percent}%` }}
             />
           </div>
@@ -380,7 +380,7 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, download, onInstall }) =
       )}
 
       {isError && download?.error && (
-        <div className="p-2 rounded-[2px] bg-[#3d1e1e] border border-[#592626] text-micro text-[#e8a3a3] font-mono">
+        <div className="p-2 rounded-[2px] bg-spectrum-cardHover border border-spectrum-cardHover text-micro text-spectrum-red font-mono">
           Download error: {download.error}
         </div>
       )}
@@ -388,11 +388,11 @@ const PackageCard: React.FC<PackageCardProps> = ({ pkg, download, onInstall }) =
       {/* Required for tags */}
       {pkg.requiredFor.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-          <span className="text-micro text-[#6b6b6b] font-mono">Enables:</span>
+          <span className="text-micro text-spectrum-textPlaceholder font-mono">Enables:</span>
           {pkg.requiredFor.map((feat) => (
             <span
               key={feat}
-              className="font-mono text-micro px-1.5 py-0.2 rounded-[2px] bg-[#1a1a1a] text-[#8a8a8a]"
+              className="font-mono text-micro px-1.5 py-0.2 rounded-[2px] bg-spectrum-panelHeader text-spectrum-textFaint"
             >
               {feat}
             </span>

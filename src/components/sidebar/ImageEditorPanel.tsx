@@ -159,8 +159,8 @@ export const ImageEditorPanel: React.FC = () => {
                 className="w-full h-full object-contain absolute inset-0"
               />
               {busy === 'rembg' && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
-                  <span className="text-ui-sm text-white font-medium">Removing...</span>
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <span className="text-ui-sm text-spectrum-textBright font-medium">Removing...</span>
                 </div>
               )}
             </div>

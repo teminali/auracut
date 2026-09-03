@@ -387,7 +387,7 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
             {!isCompact && <span className="truncate tracking-normal normal-case">{clip.name}</span>}
           </span>
           {!isCompact && (
-            <span className="text-micro font-mono text-white/60 flex-shrink-0 tabular tracking-normal">
+            <span className="text-micro font-mono text-spectrum-textDim flex-shrink-0 tabular tracking-normal">
               {formatCompactDuration(clip.durationMs)}
             </span>
           )}
@@ -456,7 +456,7 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
               {clip.blendMode.slice(0, 4)}
             </span>
           )}
-          {clip.groupId && <Layers className="w-2.5 h-2.5 text-white/70" />}
+          {clip.groupId && <Layers className="w-2.5 h-2.5 text-spectrum-textDim" />}
           {clip.locked && <Lock className="w-2.5 h-2.5 text-spectrum-amber" />}
         </div>
       )}
@@ -464,7 +464,7 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
       {/* Transition wedges */}
       {clip.transitionIn && clip.transitionIn.type !== 'none' && (
         <div
-          className="absolute top-0 bottom-0 left-0 pointer-events-none border-r border-white/25"
+          className="absolute top-0 bottom-0 left-0 pointer-events-none border-r border-line-strong"
           style={{
             width: Math.min(widthPx / 2, clip.transitionIn.durationMs * pxPerMs),
             background: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.16) 0 3px, transparent 3px 6px)',
@@ -474,7 +474,7 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
       )}
       {clip.transitionOut && clip.transitionOut.type !== 'none' && (
         <div
-          className="absolute top-0 bottom-0 right-0 pointer-events-none border-l border-white/25"
+          className="absolute top-0 bottom-0 right-0 pointer-events-none border-l border-line-strong"
           style={{
             width: Math.min(widthPx / 2, clip.transitionOut.durationMs * pxPerMs),
             background: 'repeating-linear-gradient(-45deg, rgba(255,255,255,0.16) 0 3px, transparent 3px 6px)',
@@ -488,13 +488,13 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
         <>
           <div
             onPointerDown={(e) => handleFadeDown(e, 'in')}
-            className="absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white border border-black/50 cursor-ew-resize z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-0.5 w-2.5 h-2.5 rounded-full bg-spectrum-accent border border-black/50 cursor-ew-resize z-30 opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ left: Math.max(2, fadeInPx - 5) }}
             title="Drag to set fade in"
           />
           <div
             onPointerDown={(e) => handleFadeDown(e, 'out')}
-            className="absolute top-0.5 w-2.5 h-2.5 rounded-full bg-white border border-black/50 cursor-ew-resize z-30 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="absolute top-0.5 w-2.5 h-2.5 rounded-full bg-spectrum-accent border border-black/50 cursor-ew-resize z-30 opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ right: Math.max(2, fadeOutPx - 5) }}
             title="Drag to set fade out"
           />
@@ -507,18 +507,18 @@ export const ClipBlock: React.FC<ClipBlockProps> = ({
           <div
             onPointerDown={(e) => handleTrimDown(e, 'left')}
             className={`absolute top-0 left-0 bottom-0 w-2 cursor-ew-resize z-20 transition-colors ${
-              interaction === 'trim-l' ? 'bg-spectrum-accent' : 'hover:bg-white/35'
+              interaction === 'trim-l' ? 'bg-spectrum-accent' : 'hover:bg-spectrum-control'
             }`}
           >
-            <div className="absolute inset-y-1.5 left-[3px] w-[2px] rounded-full bg-white/0 group-hover:bg-white/50 transition-colors" />
+            <div className="absolute inset-y-1.5 left-[3px] w-[2px] rounded-full bg-spectrum-accent/0 group-hover:bg-spectrum-control transition-colors" />
           </div>
           <div
             onPointerDown={(e) => handleTrimDown(e, 'right')}
             className={`absolute top-0 right-0 bottom-0 w-2 cursor-ew-resize z-20 transition-colors ${
-              interaction === 'trim-r' ? 'bg-spectrum-accent' : 'hover:bg-white/35'
+              interaction === 'trim-r' ? 'bg-spectrum-accent' : 'hover:bg-spectrum-control'
             }`}
           >
-            <div className="absolute inset-y-1.5 right-[3px] w-[2px] rounded-full bg-white/0 group-hover:bg-white/50 transition-colors" />
+            <div className="absolute inset-y-1.5 right-[3px] w-[2px] rounded-full bg-spectrum-accent/0 group-hover:bg-spectrum-control transition-colors" />
           </div>
         </>
       )}

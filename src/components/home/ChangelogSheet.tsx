@@ -67,7 +67,7 @@ export const ChangelogSheet: React.FC<{
                 <p className="text-ui-sm text-spectrum-textDim leading-snug mt-1.5">
                   {release.detail}
                 </p>
-                <ul className="mt-2.5 space-y-1.5">
+                <ul className="mt-2 space-y-1.5">
                   {release.items.map((item) => (
                     <li key={item} className="flex items-start gap-2">
                       <Check className="w-3 h-3 text-spectrum-accent flex-shrink-0 mt-[3px]" />

@@ -33,7 +33,7 @@ export const Toasts: React.FC = () => {
             key={toast.id}
             className="pointer-events-auto w-72 rounded-squircle-sm bg-spectrum-panel border border-line-strong shadow-pop overflow-hidden animate-slide-up"
           >
-            <div className="px-3 py-2.5 flex items-start gap-2.5">
+            <div className="px-3 py-2 flex items-start gap-2">
               <Icon className={`w-3.5 h-3.5 flex-shrink-0 mt-px ${TONES[toast.kind]} ${toast.kind === 'progress' ? 'animate-spin' : ''}`} />
               <div className="flex-1 min-w-0">
                 <p className="text-ui font-medium text-spectrum-text leading-snug">{toast.title}</p>

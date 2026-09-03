@@ -130,11 +130,11 @@ export const SkillsView: React.FC = () => {
       {/* ── The banner ─────────────────────────────────────────── */}
       <div className="hp-banner rounded-squircle-lg px-8 py-7 rise-in rise-1">
         <div className="relative z-[1] max-w-[600px]">
-          <h2 className="text-[26px] leading-[1.1] font-semibold text-spectrum-text tracking-[-0.024em]">
+          <h2 className="text-display-lg leading-[1.1] font-semibold text-spectrum-text tracking-[-0.024em]">
             Skills
           </h2>
 
-          <p className="text-ui-xl text-spectrum-textMuted leading-relaxed mt-2.5">
+          <p className="text-ui-xl text-spectrum-textMuted leading-relaxed mt-2">
             A skill is a template project, the assets it needs, the tools that fill it in, and a
             verification test that has to pass before it can be sold. Buy it once for a major
             version; new projects are cloned from it and stay yours to edit by hand.
@@ -219,8 +219,8 @@ export const SkillsView: React.FC = () => {
                 transform: `rotate(${(i - 1) * 6}deg) translateY(${i === 1 ? -10 : 0}px)`,
               }}
             >
-              <Sparkle className="w-4 h-4 text-white/70" weight="fill" />
-              <span className="text-micro text-white/70 font-semibold text-center leading-tight">{skill.name}</span>
+              <Sparkle className="w-4 h-4 text-spectrum-textDim" weight="fill" />
+              <span className="text-micro text-spectrum-textDim font-semibold text-center leading-tight">{skill.name}</span>
             </span>
           ))}
         </div>
@@ -233,7 +233,7 @@ export const SkillsView: React.FC = () => {
             key={s.id}
             onClick={() => setScope(s.id)}
             aria-current={scope === s.id ? 'true' : undefined}
-            className={`hp-tab text-ui-xl pb-2.5 ${scope === s.id ? 'hp-tab-on' : ''}`}
+            className={`hp-tab text-ui-xl pb-2 ${scope === s.id ? 'hp-tab-on' : ''}`}
           >
             {s.label}
           </button>
@@ -250,7 +250,7 @@ export const SkillsView: React.FC = () => {
             after every take. */}
         {showBundled && (
           <section>
-            <div className="flex items-center gap-2.5 h-[30px]">
+            <div className="flex items-center gap-2 h-[var(--h-md)]">
               <h3 className="text-ui-lg font-semibold text-spectrum-textMuted">Included with TeminaliCut</h3>
               <span className="chip tabular">{bundled.length}</span>
             </div>
@@ -283,7 +283,7 @@ export const SkillsView: React.FC = () => {
                       </span>
                     </span>
 
-                    <p className="text-ui-lg font-medium text-spectrum-text truncate mt-2.5">{skill.name}</p>
+                    <p className="text-ui-lg font-medium text-spectrum-text truncate mt-2">{skill.name}</p>
                     <p className="text-ui-sm text-spectrum-textDim leading-snug mt-1 clamp-2">{skill.summary}</p>
 
                     <p className="flex items-center gap-1.5 text-ui-sm text-spectrum-green mt-2">
@@ -308,13 +308,13 @@ export const SkillsView: React.FC = () => {
         {/* ── The catalogue ──────────────────────────────────────── */}
         {showStore && (
           <section>
-            <div className="flex items-center gap-2.5 h-[30px]">
+            <div className="flex items-center gap-2 h-[var(--h-md)]">
               <h3 className="text-ui-lg font-semibold text-spectrum-textMuted">From the store</h3>
               {loaded && store.length > 0 && <span className="chip tabular">{store.length}</span>}
             </div>
 
             {reachable === false && (
-              <div className="flex items-start gap-2.5 surface-card rounded-squircle-md p-3.5 mt-4">
+              <div className="flex items-start gap-2 surface-card rounded-squircle-md p-3 mt-4">
                 <WifiOff className="w-4 h-4 text-spectrum-textDim flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-ui-lg text-spectrum-text">The store is not reachable.</p>
@@ -356,9 +356,9 @@ export const SkillsView: React.FC = () => {
                   return (
                     <div key={skill.id} className="hp-catalog-card group">
                       <span className={`${PLATE} hp-plate-cool`}>
-                        <span className="w-11 h-11 rounded-squircle-md bg-white/[0.10] flex items-center justify-center
+                        <span className="w-11 h-11 rounded-squircle-md bg-spectrum-cardHover flex items-center justify-center
                                          shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">
-                          <Blocks className="w-[22px] h-[22px] text-spectrum-accent" weight="duotone" />
+                          <Blocks className="w-[22px] h-[var(--h-xs)] text-spectrum-accent" weight="duotone" />
                         </span>
 
                         {skill.verifiedAt && (
@@ -375,7 +375,7 @@ export const SkillsView: React.FC = () => {
                         </span>
                       </span>
 
-                      <p className="text-ui-lg font-medium text-spectrum-text truncate mt-2.5">{skill.name}</p>
+                      <p className="text-ui-lg font-medium text-spectrum-text truncate mt-2">{skill.name}</p>
                       <p className="text-ui-sm text-spectrum-textDim leading-snug mt-1 clamp-2">{skill.summary}</p>
                       <p className="text-micro text-spectrum-textFaint truncate mt-1.5">
                         {skill.author} · tool API {skill.toolApi}

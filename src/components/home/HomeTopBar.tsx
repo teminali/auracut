@@ -75,11 +75,11 @@ export const HomeTopBar: React.FC<Props> = ({
         : 'No agent CLI found, the editor still works. Click to set one up';
 
   return (
-    <header className="hp-topbar titlebar-drag flex-shrink-0 flex items-center gap-2.5 px-[15px]">
+    <header className="hp-topbar titlebar-drag flex-shrink-0 flex items-center gap-2 px-[15px]">
       {/* Window-control gutter — macOS only, sized by --titlebar-inset. */}
       <div className="titlebar-gutter" />
 
-      <span className="hp-brand-mark w-[26px] h-[26px] rounded-squircle-xs flex items-center justify-center flex-shrink-0">
+      <span className="hp-brand-mark w-[26px] h-[var(--h-sm)] rounded-squircle-xs flex items-center justify-center flex-shrink-0">
         <TeminaliCutMark className="w-[15px] h-[15px]" />
       </span>
       <span className="text-ui-lg font-semibold text-spectrum-text tracking-tight flex-shrink-0">TeminaliCut</span>
@@ -104,7 +104,7 @@ export const HomeTopBar: React.FC<Props> = ({
           </button>
           <button
             onClick={openCommandPalette}
-            className="hp-command-main px-2.5 gap-2"
+            className="hp-command-main px-2 gap-2"
             title="Command palette (⌘K)"
             aria-label="Command palette"
           >
@@ -115,10 +115,10 @@ export const HomeTopBar: React.FC<Props> = ({
         </div>
 
         {/* Compact Utility Capsule: MCP + Packages + Shortcuts */}
-        <div className="h-[28px] rounded-squircle-xs bg-white/[0.03] border border-white/[0.08] p-0.5 flex items-center gap-0.5">
+        <div className="h-[28px] rounded-squircle-xs bg-spectrum-hover border border-line p-0.5 flex items-center gap-0.5">
           <button
             onClick={() => setMcpModalOpen(true)}
-            className="h-[22px] px-2 rounded-[3px] hover:bg-white/[0.06] text-ui-xs font-mono tracking-wide text-spectrum-textMuted hover:text-spectrum-text flex items-center gap-1.5 transition-colors"
+            className="h-[var(--h-xs)] px-2 rounded-[3px] hover:bg-spectrum-cardHover text-ui-xs font-mono tracking-wide text-spectrum-textMuted hover:text-spectrum-text flex items-center gap-1.5 transition-colors"
             title="MCP server & tools"
             aria-label="MCP server and tools"
           >
@@ -126,26 +126,26 @@ export const HomeTopBar: React.FC<Props> = ({
             MCP
           </button>
 
-          <span className="w-px h-3 bg-white/[0.08]" />
+          <span className="w-px h-3 bg-spectrum-cardHover" />
 
           <button
             onClick={() => usePackagesStore.getState().setModalOpen(true)}
-            className="h-[22px] px-2 rounded-[3px] hover:bg-white/[0.06] text-ui-xs font-medium text-spectrum-textMuted hover:text-spectrum-text flex items-center gap-1.5 transition-colors relative"
+            className="h-[var(--h-xs)] px-2 rounded-[3px] hover:bg-spectrum-cardHover text-ui-xs font-medium text-spectrum-textMuted hover:text-spectrum-text flex items-center gap-1.5 transition-colors relative"
             title={coreReady ? 'Packages & Models Manager' : 'Recommended packages available. Click to install.'}
             aria-label="Packages & Models Manager"
           >
             <Package className="w-3.5 h-3.5 text-spectrum-accent" />
             <span>Packages</span>
             {!coreReady && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#f0a173] animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-spectrum-accent animate-pulse" />
             )}
           </button>
 
-          <span className="w-px h-3 bg-white/[0.08]" />
+          <span className="w-px h-3 bg-spectrum-cardHover" />
 
           <button
             onClick={() => setShortcutsOpen(true)}
-            className="w-[22px] h-[22px] rounded-[3px] hover:bg-white/[0.06] text-spectrum-textDim hover:text-spectrum-text flex items-center justify-center transition-colors"
+            className="w-[22px] h-[var(--h-xs)] rounded-[3px] hover:bg-spectrum-cardHover text-spectrum-textDim hover:text-spectrum-text flex items-center justify-center transition-colors"
             title="Keyboard shortcuts (?)"
             aria-label="Keyboard shortcuts"
           >
@@ -156,20 +156,20 @@ export const HomeTopBar: React.FC<Props> = ({
         {/* AI Copilot Action */}
         <button
           onClick={onOpenCopilot}
-          className="h-[28px] px-2.5 rounded-squircle-xs bg-gradient-to-r from-[#f08b46]/20 to-[#f0a173]/10 hover:from-[#f08b46]/30 hover:to-[#f0a173]/20 border border-[#f08b46]/35 text-ui-xs font-semibold text-[#f0a173] hover:text-white flex items-center gap-1.5 transition-all"
+          className="h-[28px] px-2 rounded-squircle-xs bg-spectrum-cardHover hover:bg-spectrum-control border border-spectrum-accent/35 text-ui-xs font-semibold text-spectrum-accent hover:text-spectrum-textBright flex items-center gap-1.5 transition-all"
           title="AI Copilot (⌘J)"
           aria-label="AI Copilot"
         >
           <Sparkle className="w-3.5 h-3.5" weight="fill" />
           <span>Copilot</span>
-          <span className="kbd hidden sm:inline-flex !h-3.5 !px-1 !bg-white/10 !border-white/10 text-white/70">⌘J</span>
+          <span className="kbd hidden sm:inline-flex !h-3.5 !px-1">⌘J</span>
         </button>
 
         {/* ── Account ── */}
         {authStatus === 'signed_out' && (
           <button
             onClick={() => setSignInOpen(true)}
-            className="h-[28px] px-2.5 rounded-squircle-xs bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-ui-xs font-medium text-spectrum-text transition-colors"
+            className="h-[28px] px-2 rounded-squircle-xs bg-spectrum-cardHover hover:bg-spectrum-cardHover border border-line text-ui-xs font-medium text-spectrum-text transition-colors"
           >
             Sign in
           </button>
@@ -178,7 +178,7 @@ export const HomeTopBar: React.FC<Props> = ({
         {authStatus === 'signed_in' && (
           <button
             onClick={onOpenAccount}
-            className="ml-0.5 rounded-full ring-1 ring-white/15 hover:ring-spectrum-accent transition-all"
+            className="ml-0.5 rounded-full ring-1 ring-line-strong hover:ring-spectrum-accent transition-all"
             title={`Account · ${user?.email ?? 'signed in'}`}
             aria-label="Open your account"
           >
@@ -190,8 +190,8 @@ export const HomeTopBar: React.FC<Props> = ({
               />
             ) : (
               <span
-                className="w-6 h-6 rounded-full flex items-center justify-center text-ui-xs font-semibold text-white/90"
-                style={{ background: 'linear-gradient(148deg,#f0a78e,#d0714d)' }}
+                className="w-6 h-6 rounded-full flex items-center justify-center text-ui-xs font-semibold text-spectrum-textBright"
+                style={{ background: 'var(--surface-3)' }}
               >
                 {(user?.name ?? user?.email ?? '?').slice(0, 1).toUpperCase()}
               </span>

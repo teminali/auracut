@@ -75,7 +75,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
             window recovers the last autosave.
           </p>
 
-          <pre className="text-ui-sm leading-relaxed font-mono text-spectrum-textMuted bg-black/40 border border-white/10 rounded-md p-3 mb-3 max-h-64 overflow-auto whitespace-pre-wrap">
+          <pre className="text-ui-sm leading-relaxed font-mono text-spectrum-textMuted bg-black/40 border border-line rounded-md p-3 mb-3 max-h-64 overflow-auto whitespace-pre-wrap">
             {error.stack ?? `${error.name}: ${error.message}`}
             {componentStack ? `\n\nComponent stack:${componentStack}` : ''}
           </pre>
@@ -87,10 +87,10 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
           )}
 
           <div className="flex gap-2">
-            <button className="pro-btn-filled h-[30px] px-3 text-ui-sm" onClick={() => window.location.reload()}>
+            <button className="pro-btn-filled h-[var(--h-md)] px-3 text-ui-sm" onClick={() => window.location.reload()}>
               Reload the window
             </button>
-            <button className="pro-btn h-[30px] px-3 text-ui-sm" onClick={this.copy}>
+            <button className="pro-btn h-[var(--h-md)] px-3 text-ui-sm" onClick={this.copy}>
               {copied ? 'Copied' : 'Copy details'}
             </button>
           </div>

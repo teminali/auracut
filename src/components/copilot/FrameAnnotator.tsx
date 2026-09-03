@@ -423,7 +423,7 @@ export const FrameAnnotator: React.FC<FrameAnnotatorProps> = ({ frame, initial, 
         </div>
 
         {/* Footer */}
-        <div className="px-3 py-2.5 border-t border-line flex items-center justify-between gap-3 flex-shrink-0">
+        <div className="px-3 py-2 border-t border-line flex items-center justify-between gap-3 flex-shrink-0">
           <p className="text-micro text-spectrum-textFaint">
             {resolvedSummary.length > 0
               ? `Resolves to: ${resolvedSummary.join(' · ')}`

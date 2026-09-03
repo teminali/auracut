@@ -86,7 +86,7 @@ export const TransitionsPanel: React.FC = () => {
         <span className="panel-title">Transitions</span>
       </div>
 
-      <div className="p-2.5 border-b border-line space-y-2.5 flex-shrink-0">
+      <div className="p-2 border-b border-line space-y-2 flex-shrink-0">
         <div className="space-y-1">
           <span className="text-ui-sm text-spectrum-textMuted">Placement</span>
           <SegmentedControl
@@ -153,7 +153,7 @@ export const TransitionsPanel: React.FC = () => {
             key={item.id}
             onClick={() => apply(item.id)}
             className="rounded-squircle-md overflow-hidden text-left group
-                       bg-[#16191f] hover:bg-[#1f242c] transition-colors duration-base"
+                       bg-spectrum-panelHeader hover:bg-spectrum-card transition-colors duration-base"
             title={item.hint}
           
             aria-label={item.hint}>

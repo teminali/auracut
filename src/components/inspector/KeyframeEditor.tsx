@@ -355,14 +355,14 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
         >
           {/* Vertical grid */}
           {[0, 25, 50, 75, 100].map((pct) => (
-            <div key={pct} className="absolute top-0 bottom-0 w-px bg-white/[0.05] pointer-events-none" style={{ left: `${pct}%` }} />
+            <div key={pct} className="absolute top-0 bottom-0 w-px bg-spectrum-cardHover pointer-events-none" style={{ left: `${pct}%` }} />
           ))}
 
           {mode === 'graph' ? (
             <>
               {/* Horizontal value grid */}
               {[0, 0.25, 0.5, 0.75, 1].map((f) => (
-                <div key={f} className="absolute left-0 right-0 h-px bg-white/[0.05] pointer-events-none" style={{ top: 4 + f * GRAPH_HEIGHT }}>
+                <div key={f} className="absolute left-0 right-0 h-px bg-spectrum-cardHover pointer-events-none" style={{ top: 4 + f * GRAPH_HEIGHT }}>
                   <span className="absolute left-1 -top-[7px] text-micro font-mono text-spectrum-textFaint tabular">
                     {(graphRange.max - f * (graphRange.max - graphRange.min)).toFixed(graphMeta.precision)}
                   </span>
@@ -384,7 +384,7 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
                     top: 4 + valueToY(kf.value),
                     marginLeft: -5,
                     marginTop: -5,
-                    background: selectedKeyframeId === kf.id ? '#ffffff' : graphMeta.color,
+                    background: selectedKeyframeId === kf.id ? 'var(--accent)' : graphMeta.color,
                     borderColor: '#000000aa',
                   }}
                   title={`${graphMeta.label} = ${kf.value.toFixed(graphMeta.precision)}${graphMeta.unit} @ ${(kf.timeOffsetMs / 1000).toFixed(2)}s · ${kf.easing}`}
@@ -402,7 +402,7 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
                   className="absolute left-0 right-0 flex items-center group/lane"
                   style={{ top: 4 + laneIndex * LANE_HEIGHT, height: LANE_HEIGHT }}
                 >
-                  <div className="absolute inset-x-0 h-px bg-white/[0.06]" style={{ top: LANE_HEIGHT / 2 }} />
+                  <div className="absolute inset-x-0 h-px bg-spectrum-cardHover" style={{ top: LANE_HEIGHT / 2 }} />
 
                   {/* Easing segments between consecutive keys */}
                   {keys.slice(0, -1).map((kf, i) => {
@@ -442,7 +442,7 @@ export const KeyframeEditor: React.FC<KeyframeEditorProps> = ({ clip }) => {
                         left: `${timeToPct(kf.timeOffsetMs)}%`,
                         top: LANE_HEIGHT / 2 - 5,
                         marginLeft: -5,
-                        background: selectedKeyframeId === kf.id ? '#ffffff' : meta.color,
+                        background: selectedKeyframeId === kf.id ? 'var(--accent)' : meta.color,
                       }}
                       title={`${meta.label} = ${kf.value.toFixed(meta.precision)}${meta.unit} @ ${(kf.timeOffsetMs / 1000).toFixed(2)}s · ${kf.easing}`}
                     
@@ -559,7 +559,7 @@ const EasingPreview: React.FC<{ easing: Easing; bezier?: [number, number, number
     <div className="well h-16 relative overflow-hidden">
       <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         <line x1="0" y1="100" x2="100" y2="0" stroke="rgba(255,255,255,0.08)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        <path d={path} fill="none" stroke="#4c9dff" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+        <path d={path} fill="none" stroke="var(--info)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
       </svg>
     </div>
   );
@@ -607,11 +607,11 @@ const BezierEditor: React.FC<{
         <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           <line x1="0" y1="100" x2="100" y2="0" stroke="rgba(255,255,255,0.07)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           <line x1="0" y1="100" x2={p1x * 100} y2={100 - p1y * 100} stroke="rgba(76,157,255,0.4)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          <line x1="100" y1="0" x2={p2x * 100} y2={100 - p2y * 100} stroke="rgba(245,165,36,0.4)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          <line x1="100" y1="0" x2={p2x * 100} y2={100 - p2y * 100} stroke="rgba(242,202,68,0.4)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           <path
             d={`M 0 100 C ${p1x * 100} ${100 - p1y * 100}, ${p2x * 100} ${100 - p2y * 100}, 100 0`}
             fill="none"
-            stroke="#4c9dff"
+            stroke="var(--info)"
             strokeWidth="1.6"
             vectorEffect="non-scaling-stroke"
           />
@@ -620,12 +620,12 @@ const BezierEditor: React.FC<{
         <div
           onPointerDown={dragHandle(0)}
           style={toPx(p1x, p1y)}
-          className="absolute w-2.5 h-2.5 -ml-[5px] -mt-[5px] rounded-full bg-spectrum-accent border border-white/70 cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
+          className="absolute w-2.5 h-2.5 -ml-[5px] -mt-[5px] rounded-full bg-spectrum-accent border border-line-bright cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
         />
         <div
           onPointerDown={dragHandle(1)}
           style={toPx(p2x, p2y)}
-          className="absolute w-2.5 h-2.5 -ml-[5px] -mt-[5px] rounded-full bg-spectrum-amber border border-white/70 cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
+          className="absolute w-2.5 h-2.5 -ml-[5px] -mt-[5px] rounded-full bg-spectrum-amber border border-line-bright cursor-grab active:cursor-grabbing hover:scale-125 transition-transform"
         />
       </div>
       <div className="text-micro font-mono text-spectrum-textFaint text-center tabular">

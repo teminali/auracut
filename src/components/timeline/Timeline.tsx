@@ -344,9 +344,9 @@ export const Timeline: React.FC = () => {
                     dropTargetTrack === track.id
                       ? 'bg-spectrum-accent/12 ring-1 ring-inset ring-spectrum-accent/50'
                       : selectedTrackId === track.id
-                        ? 'is-active bg-white/[0.028]'
+                        ? 'is-active bg-spectrum-hover'
                         : idx % 2 === 0
-                          ? 'bg-white/[0.012]'
+                          ? 'bg-spectrum-hover'
                           : 'bg-transparent'
                   } ${track.locked ? 'opacity-55' : ''}`}
                 >

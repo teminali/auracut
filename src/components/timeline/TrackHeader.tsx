@@ -95,7 +95,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
       }}
       style={{ height: track.heightPx }}
       className={`editor-track-row relative w-full flex items-center gap-[9px] px-[11px] border-b border-line cursor-pointer group transition-colors ${
-        isSelected ? 'is-active bg-spectrum-card' : 'bg-spectrum-panelHeader hover:bg-white/[0.028]'
+        isSelected ? 'is-active bg-spectrum-card' : 'bg-spectrum-panelHeader hover:bg-spectrum-hover'
       }`}
     >
       {/* Lane colour spine — the track's identity, flush to the window edge. */}
@@ -181,7 +181,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
         {isAudio && (
           <button
             onClick={(e) => { e.stopPropagation(); setTrackSolo(track.id); }}
-            className={`pro-btn w-[22px] h-[22px] ${track.solo ? 'pro-btn-active' : ''}`}
+            className={`pro-btn w-[22px] h-[var(--h-xs)] ${track.solo ? 'pro-btn-active' : ''}`}
             title={track.solo ? 'Un-solo track' : 'Solo track'}
           
             aria-label={track.solo ? 'Un-solo track' : 'Solo track'}>
@@ -191,7 +191,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
 
         <button
           onClick={(e) => { e.stopPropagation(); setTrackMute(track.id); }}
-          className={`pro-btn w-[22px] h-[22px] ${track.muted ? '!text-spectrum-red' : ''}`}
+          className={`pro-btn w-[22px] h-[var(--h-xs)] ${track.muted ? '!text-spectrum-red' : ''}`}
           title={isAudio ? (track.muted ? 'Unmute' : 'Mute') : track.muted ? 'Show track' : 'Hide track'}
         
             aria-label={isAudio ? (track.muted ? 'Unmute' : 'Mute') : track.muted ? 'Show track' : 'Hide track'}>
@@ -202,7 +202,7 @@ export const TrackHeader: React.FC<{ track: Track }> = ({ track }) => {
 
         <button
           onClick={(e) => { e.stopPropagation(); setTrackLock(track.id); }}
-          className={`pro-btn w-[22px] h-[22px] ${track.locked ? 'pro-btn-active !text-spectrum-amber' : ''}`}
+          className={`pro-btn w-[22px] h-[var(--h-xs)] ${track.locked ? 'pro-btn-active !text-spectrum-amber' : ''}`}
           title={track.locked ? 'Unlock track' : 'Lock track'}
         
             aria-label={track.locked ? 'Unlock track' : 'Lock track'}>

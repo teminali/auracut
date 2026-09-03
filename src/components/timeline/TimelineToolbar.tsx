@@ -148,7 +148,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
 
         <button
           onClick={() => addTrack('video')}
-          className="pro-btn-filled h-[26px] px-2 gap-1 text-ui-xs font-medium"
+          className="pro-btn-filled h-[var(--h-sm)] px-2 gap-1 text-ui-xs font-medium"
           title="Add a new track"
         
             aria-label="Add a new track">
@@ -159,11 +159,11 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
 
       {/* Zoom */}
       <div className="flex items-center gap-1.5 flex-shrink-0">
-        <button onClick={handleZoomFit} className="pro-btn w-[26px] h-[26px]" title="Zoom to fit sequence (⇧Z)"
+        <button onClick={handleZoomFit} className="pro-btn w-[26px] h-[var(--h-sm)]" title="Zoom to fit sequence (⇧Z)"
             aria-label="Zoom to fit sequence (⇧Z)">
           <Maximize className="w-3.5 h-3.5" />
         </button>
-        <button onClick={() => setZoomLevel(zoomLevel / 1.4)} className="pro-btn w-[26px] h-[26px]" title="Zoom out (−)"
+        <button onClick={() => setZoomLevel(zoomLevel / 1.4)} className="pro-btn w-[26px] h-[var(--h-sm)]" title="Zoom out (−)"
             aria-label="Zoom out (−)">
           <ZoomOut className="w-3.5 h-3.5" />
         </button>
@@ -181,7 +181,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
           className="w-28 range-accent"
           title={`Timeline zoom · ${zoomLevel.toFixed(2)}×`}
         />
-        <button onClick={() => setZoomLevel(zoomLevel * 1.4)} className="pro-btn w-[26px] h-[26px]" title="Zoom in (+)"
+        <button onClick={() => setZoomLevel(zoomLevel * 1.4)} className="pro-btn w-[26px] h-[var(--h-sm)]" title="Zoom in (+)"
             aria-label="Zoom in (+)">
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
@@ -197,7 +197,7 @@ export const TimelineToolbar: React.FC<TimelineToolbarProps> = ({ scrollRef }) =
           playhead is actually on rather than implying that a video
           frame exists between two frames.
         */}
-        <span className="well h-[26px] px-2 flex items-center gap-1.5 font-mono flex-shrink-0" title={`${(1 / pxPerMs).toFixed(3)} ms per pixel at ${zoomLevel.toFixed(2)}×`}>
+        <span className="well h-[var(--h-sm)] px-2 flex items-center gap-1.5 font-mono flex-shrink-0" title={`${(1 / pxPerMs).toFixed(3)} ms per pixel at ${zoomLevel.toFixed(2)}×`}>
           <span className="text-ui-xs text-spectrum-text tabular">
             {(1 / pxPerMs).toFixed(1)}
           </span>
@@ -228,7 +228,7 @@ const ToolButton: React.FC<{
   disabled?: boolean;
   danger?: boolean;
 }> = ({ onClick, icon: Icon, label, title, disabled, danger }) => (
-  <button onClick={onClick} disabled={disabled} className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs font-medium" title={title}
+  <button onClick={onClick} disabled={disabled} className="pro-btn-filled h-[var(--h-sm)] px-2 gap-1.5 text-ui-xs font-medium" title={title}
             aria-label={title}>
     <Icon className={`w-3 h-3 ${danger ? 'text-spectrum-red/85' : 'text-spectrum-textDim'}`} />
     <span>{label}</span>

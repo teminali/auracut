@@ -50,12 +50,12 @@ const KEY_PROVIDERS: Record<string, { label: string; url: string; free?: boolean
 };
 
 const RANK_BADGES: Record<string, { badge: string; color: string; tooltip: string }> = {
-  opencode: { badge: '#1 Local & Frontier Cloud', color: 'bg-[#22c55e]/15 text-[#22c55e]', tooltip: 'Frontier Code: Sub-second local Devstral execution with intelligent cloud escalation' },
-  claude: { badge: '#1 Heavy Tasks', color: 'bg-[#4c9dff]/15 text-[#4c9dff]', tooltip: 'Best for complex reasoning and architecture' },
-  antigravity: { badge: '#1 Agentic Editing', color: 'bg-[#a78bfa]/15 text-[#a78bfa]', tooltip: 'Best for autonomous video editing workflows' },
-  gemini: { badge: 'Fast Reasoning', color: 'bg-[#2fc98d]/15 text-[#2fc98d]', tooltip: 'Good balance of speed and intelligence' },
-  codex: { badge: 'Legacy', color: 'bg-[#3a3a3a] text-[#8a8a8a]', tooltip: 'Older generation code models' },
-  cursor: { badge: 'Code Assistant', color: 'bg-[#ff9a4d]/15 text-[#ff9a4d]', tooltip: 'Integrated code intelligence' }
+  opencode: { badge: '#1 Local & Frontier Cloud', color: 'bg-spectrum-green/15 text-spectrum-green', tooltip: 'Frontier Code: Sub-second local Devstral execution with intelligent cloud escalation' },
+  claude: { badge: '#1 Heavy Tasks', color: 'bg-spectrum-blue/15 text-spectrum-blue', tooltip: 'Best for complex reasoning and architecture' },
+  antigravity: { badge: '#1 Agentic Editing', color: 'bg-spectrum-purple/15 text-spectrum-purple', tooltip: 'Best for autonomous video editing workflows' },
+  gemini: { badge: 'Fast Reasoning', color: 'bg-spectrum-green/15 text-spectrum-green', tooltip: 'Good balance of speed and intelligence' },
+  codex: { badge: 'Legacy', color: 'bg-line-bright text-spectrum-textFaint', tooltip: 'Older generation code models' },
+  cursor: { badge: 'Code Assistant', color: 'bg-spectrum-accent/15 text-spectrum-accent', tooltip: 'Integrated code intelligence' }
 };
 
 interface Props {
@@ -179,16 +179,16 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
     <div className="scrim" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="modal-shell w-[600px] max-w-[92vw] max-h-[88vh] flex flex-col rounded-2xl bg-[#11141a] border border-[#232936] shadow-[0_24px_64px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.06)] overflow-hidden"
+        className="modal-shell w-[600px] max-w-[92vw] max-h-[88vh] flex flex-col rounded-2xl bg-spectrum-panelHeader border border-spectrum-cardHover shadow-modal overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-label="Copilot agent"
       >
-        <div className="flex items-center justify-between px-6 py-4.5 border-b border-white/[0.06] bg-[#11141a] sticky top-0 z-10 flex-shrink-0">
-          <span className="text-[17px] font-semibold text-white tracking-tight">Copilot agent</span>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-line bg-spectrum-panelHeader sticky top-0 z-10 flex-shrink-0">
+          <span className="text-display font-semibold text-spectrum-textBright tracking-tight">Copilot agent</span>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-lg text-spectrum-textDim hover:text-spectrum-textBright hover:bg-spectrum-cardHover flex items-center justify-center transition-colors"
             aria-label="Close the agent picker"
           >
             <X className="w-4 h-4" />
@@ -196,13 +196,13 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
         </div>
 
         <div className="p-6 space-y-4 overflow-y-auto min-h-0 flex-1">
-          <p className="text-ui text-[#94a3b8] leading-relaxed">
+          <p className="text-ui text-spectrum-textDim leading-relaxed">
             Whichever you pick gets TeminaliCut&apos;s 58 editing tools over MCP, plus its own file, shell and web access.
           </p>
 
           {loading && (
-            <div className="flex items-center gap-2 py-6 justify-center text-ui text-[#8a8a8a]">
-              <Loader2 className="w-4 h-4 animate-spin text-[#f97316]" /> Looking for installed agents…
+            <div className="flex items-center gap-2 py-6 justify-center text-ui text-spectrum-textFaint">
+              <Loader2 className="w-4 h-4 animate-spin text-spectrum-accent" /> Looking for installed agents…
             </div>
           )}
 
@@ -213,10 +213,10 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
               const isAntigravity = backend.id === 'antigravity';
 
               const statusColor = !backend.checked
-                ? 'text-[#8a8a8a]'
+                ? 'text-spectrum-textFaint'
                 : backend.ready
-                  ? 'text-[#9fc9ab]'
-                  : 'text-[#c98a7a]';
+                  ? 'text-spectrum-green'
+                  : 'text-spectrum-accent';
 
               const statusText = !backend.checked
                 ? 'checking…'
@@ -236,13 +236,13 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                     backend.ready ? 'cursor-pointer' : 'cursor-default'
                   } ${
                     isSelected
-                      ? 'bg-[#1c1410] border border-[#f97316]/75 shadow-[0_0_16px_rgba(249,115,22,0.15)]'
-                      : 'bg-[#0e1218] hover:bg-[#121720] border border-[#232936] hover:border-[#384252]'
+                      ? 'bg-spectrum-panelHeader border border-spectrum-accent/75 shadow-[0_0_16px_rgba(232,232,232,0.14)]'
+                      : 'bg-spectrum-sunken hover:bg-spectrum-panelHeader border border-spectrum-cardHover hover:border-spectrum-borderStrong'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-ui-lg font-bold text-white">{backend.label}</span>
-                    <span className="text-ui text-[#848d9a]">{backend.vendor}</span>
+                    <span className="text-ui-lg font-bold text-spectrum-textBright">{backend.label}</span>
+                    <span className="text-ui text-spectrum-textFaint">{backend.vendor}</span>
 
                     {RANK_BADGES[backend.id] && (
                       <span 
@@ -254,15 +254,15 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                     )}
 
                     {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-[#e0854d] flex-shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-spectrum-accent flex-shrink-0" />
                     )}
 
                     {!backend.checked && (
-                      <Loader2 className="w-3 h-3 animate-spin text-[#8a8a8a] flex-shrink-0 ml-1" />
+                      <Loader2 className="w-3 h-3 animate-spin text-spectrum-textFaint flex-shrink-0 ml-1" />
                     )}
 
                     {isAntigravity && (
-                      <span className="ml-2 font-mono text-micro font-semibold text-[#9fc9ab] px-1.5 py-0.5 rounded-[2px] bg-[#9fc9ab]/10 border border-[#9fc9ab]/25">
+                      <span className="ml-2 font-mono text-micro font-semibold text-spectrum-green px-1.5 py-0.5 rounded-[2px] bg-spectrum-green/10 border border-spectrum-green/25">
                         MCP Live · Port 3888
                       </span>
                     )}
@@ -271,7 +271,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                       {isAntigravity && (
                         <button
                           onClick={() => void window.electronAPI?.agents.openAntigravity()}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#2d2d2d] border border-[#3f3f3f] text-ui font-semibold text-[#c4c4c4] hover:bg-[#333333] hover:text-[#e8e8e8] transition-colors"
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-spectrum-cardHover border border-spectrum-borderStrong text-ui font-semibold text-spectrum-textMuted hover:bg-spectrum-borderStrong hover:text-spectrum-accent transition-colors"
                           title="Bring Antigravity IDE to the foreground"
                         >
                           <ExternalLink className="w-3 h-3" />
@@ -283,7 +283,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                         <button
                           onClick={() => install(backend)}
                           disabled={working}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#2d2d2d] border border-[#3f3f3f] text-ui font-semibold text-[#c4c4c4] hover:bg-[#333333] hover:text-[#e8e8e8] transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-spectrum-cardHover border border-spectrum-borderStrong text-ui font-semibold text-spectrum-textMuted hover:bg-spectrum-borderStrong hover:text-spectrum-accent transition-colors disabled:opacity-50"
                           title={backend.installHint}
                         >
                           {working ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
@@ -294,7 +294,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                       {backend.checked && backend.installed && !backend.ready && (
                         <button
                           onClick={() => signIn(backend)}
-                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] bg-[#2d2d2d] border border-[#3f3f3f] text-ui font-semibold text-[#c4c4c4] hover:bg-[#333333] hover:text-[#e8e8e8] transition-colors"
+                          className="flex items-center gap-1.5 px-2 py-1 rounded-[3px] bg-spectrum-cardHover border border-spectrum-borderStrong text-ui font-semibold text-spectrum-textMuted hover:bg-spectrum-borderStrong hover:text-spectrum-accent transition-colors"
                           title={backend.fix}
                         >
                           <LogIn className="w-3 h-3" />
@@ -309,7 +309,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                   </div>
 
                   {backend.checked && !backend.ready && backend.fix && (
-                    <div className="text-ui text-[#a6a6a6] mt-1 leading-snug">
+                    <div className="text-ui text-spectrum-textDim mt-1 leading-snug">
                       {backend.fix}
                     </div>
                   )}
@@ -317,22 +317,22 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                   {/* Model Choice when ready */}
                   {backend.ready && models[backend.id] && (
                     <div
-                      className="flex items-center gap-2.5 mt-2.5"
+                      className="flex items-center gap-2 mt-2"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <span className="text-ui text-[#989898] flex-none">Model</span>
+                      <span className="text-ui text-spectrum-textDim flex-none">Model</span>
                       <input
                         list={`models-${backend.id}`}
                         value={models[backend.id].selected}
                         onChange={(e) => pickModel(backend, e.target.value)}
                         placeholder={`${backend.label} default`}
-                        className="flex-1 px-2.5 py-1.5 rounded-[3px] bg-[#1a1a1a] border border-[#3a3a3a] font-mono text-ui-xs text-[#e8e8e8] placeholder-[#6b6b6b] outline-none focus:border-[#c9622f]"
+                        className="flex-1 px-2 py-1.5 rounded-[3px] bg-spectrum-panelHeader border border-line-bright font-mono text-ui-xs text-spectrum-accent placeholder-[#6b6b6b] outline-none focus:border-spectrum-accent"
                       />
                       <datalist id={`models-${backend.id}`}>
                         {models[backend.id].models.map((m) => <option key={m} value={m} />)}
                       </datalist>
                       <span
-                        className="flex-none font-mono text-micro text-[#6b6b6b]"
+                        className="flex-none font-mono text-micro text-spectrum-textPlaceholder"
                         title={
                           models[backend.id].source === 'queried'
                             ? 'This list came from the CLI itself.'
@@ -347,7 +347,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                   {/* Key provider quick link and key input */}
                   {backend.checked && !backend.ready && backend.needsKey && (
                     <div
-                      className="mt-2.5 pt-2 border-t border-[#1e1e1e] space-y-1.5"
+                      className="mt-2 pt-2 border-t border-spectrum-card space-y-1.5"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {KEY_PROVIDERS[backend.id] && (
@@ -355,7 +355,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                           <button
                             type="button"
                             onClick={() => openUrl(KEY_PROVIDERS[backend.id].url)}
-                            className="text-ui text-[#f0a173] hover:underline flex items-center gap-1 font-medium"
+                            className="text-ui text-spectrum-accent hover:underline flex items-center gap-1 font-medium"
                           >
                             <ExternalLink className="w-3 h-3" />
                             {KEY_PROVIDERS[backend.id].label}
@@ -375,12 +375,12 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
                           onChange={(e) => setKeyDraft((d) => ({ ...d, [backend.id]: e.target.value }))}
                           onKeyDown={(e) => { if (e.key === 'Enter') void saveKey(backend); }}
                           placeholder={backend.hasKey ? `${backend.needsKey} stored. Paste to replace` : backend.needsKey}
-                          className="flex-1 px-2.5 py-1.5 rounded-[3px] bg-[#1a1a1a] border border-[#3a3a3a] font-mono text-ui-xs text-[#e8e8e8] placeholder-[#6b6b6b] outline-none focus:border-[#c9622f]"
+                          className="flex-1 px-2 py-1.5 rounded-[3px] bg-spectrum-panelHeader border border-line-bright font-mono text-ui-xs text-spectrum-accent placeholder-[#6b6b6b] outline-none focus:border-spectrum-accent"
                         />
                         <button
                           onClick={() => saveKey(backend)}
                           disabled={busy === backend.id || !(keyDraft[backend.id] ?? '').trim()}
-                          className="flex-none px-3.5 py-1.5 rounded-[3px] bg-[#2d2d2d] border border-[#3a3a3a] text-ui font-semibold text-[#8a8a8a] hover:text-[#e8e8e8] hover:bg-[#333333] transition-colors disabled:opacity-40"
+                          className="flex-none px-3 py-1.5 rounded-[3px] bg-spectrum-cardHover border border-line-bright text-ui font-semibold text-spectrum-textFaint hover:text-spectrum-accent hover:bg-spectrum-borderStrong transition-colors disabled:opacity-40"
                         >
                           {busy === backend.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Save'}
                         </button>
@@ -393,7 +393,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
           </div>
 
           {progress && (
-            <pre className="text-micro font-mono text-[#8a8a8a] whitespace-pre-wrap break-all max-h-20 overflow-y-auto border-t border-[#141414] pt-2 mt-2">
+            <pre className="text-micro font-mono text-spectrum-textFaint whitespace-pre-wrap break-all max-h-20 overflow-y-auto border-t border-spectrum-panelHeader pt-2 mt-2">
               {progress}
             </pre>
           )}

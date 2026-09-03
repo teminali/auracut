@@ -41,8 +41,8 @@ export const RunStatus: React.FC<Props> = ({ activity, startedAt, toolCalls, cos
   const elapsed = startedAt === null ? 0 : now - startedAt;
 
   return (
-    <div className="flex-shrink-0 border-b border-line bg-spectrum-card/70 backdrop-blur-sm">
-      <div className="px-2.5 pt-2 pb-1.5 flex items-start gap-2">
+    <div className="flex-shrink-0 border-b border-line bg-spectrum-card/70">
+      <div className="px-2 pt-2 pb-1.5 flex items-start gap-2">
         {/* A pulsing dot rather than a spinner: a spinner next to a
             spinner in every phase header reads as chaos. */}
         <span className="relative flex w-2 h-2 mt-[3px] flex-shrink-0">

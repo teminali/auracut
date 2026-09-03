@@ -94,7 +94,7 @@ export const SettingsView: React.FC<{ onOpenAgentPicker: () => void }> = ({ onOp
 
   return (
     <div className="max-w-[720px] pb-4">
-      <h1 className="text-[26px] font-semibold text-spectrum-text tracking-[-0.02em]">Settings</h1>
+      <h1 className="text-display-lg font-semibold text-spectrum-text tracking-[-0.02em]">Settings</h1>
       <p className="text-ui-lg text-spectrum-textDim mt-1">
         How TeminaliCut talks to the tools it needs, and what it is allowed to see.
       </p>
@@ -235,13 +235,13 @@ function access(value: string): string {
 const Group: React.FC<{ title: string; icon: React.ElementType; children: React.ReactNode }> =
   ({ title, icon: Icon, children }) => (
     <section className="mt-7">
-      <div className="flex items-center gap-2 h-[26px]">
+      <div className="flex items-center gap-2 h-[var(--h-sm)]">
         <Icon className="w-3.5 h-3.5 text-spectrum-textFaint" />
         <h2 className="text-ui-sm font-semibold uppercase tracking-[0.06em] text-spectrum-textFaint">
           {title}
         </h2>
       </div>
-      <div className="surface-card rounded-squircle-lg mt-2.5 divide-y divide-line-soft">
+      <div className="surface-card rounded-squircle-lg mt-2 divide-y divide-line-soft">
         {children}
       </div>
     </section>
@@ -258,7 +258,7 @@ const Row: React.FC<{
   actionIcon?: React.ElementType;
   busy?: boolean;
 }> = ({ label, value, state, note, actionLabel, onAction, actionIcon: ActionIcon, busy }) => (
-  <div className="flex items-start gap-3 px-3.5 py-3">
+  <div className="flex items-start gap-3 px-3 py-3">
     <div className="min-w-0 flex-1">
       <div className="flex items-center gap-1.5">
         <span className="text-ui-lg font-medium text-spectrum-text">{label}</span>
@@ -271,7 +271,7 @@ const Row: React.FC<{
     <button
       onClick={onAction}
       disabled={busy}
-      className="pro-btn-filled h-[26px] px-2.5 gap-1.5 text-ui-sm flex-shrink-0 mt-0.5 disabled:opacity-55"
+      className="pro-btn-filled h-[var(--h-sm)] px-2 gap-1.5 text-ui-sm flex-shrink-0 mt-0.5 disabled:opacity-55"
     >
       {ActionIcon && <ActionIcon className="w-3 h-3" />}
       {actionLabel}

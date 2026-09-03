@@ -241,10 +241,10 @@ export const PreviewPlayer: React.FC = () => {
           {showRuleOfThirds && (
             <div className="absolute inset-0 pointer-events-none z-10">
               {[1, 2].map((i) => (
-                <div key={`v${i}`} className="absolute top-0 bottom-0 w-px bg-white/20" style={{ left: `${(i * 100) / 3}%` }} />
+                <div key={`v${i}`} className="absolute top-0 bottom-0 w-px bg-spectrum-control" style={{ left: `${(i * 100) / 3}%` }} />
               ))}
               {[1, 2].map((i) => (
-                <div key={`h${i}`} className="absolute left-0 right-0 h-px bg-white/20" style={{ top: `${(i * 100) / 3}%` }} />
+                <div key={`h${i}`} className="absolute left-0 right-0 h-px bg-spectrum-control" style={{ top: `${(i * 100) / 3}%` }} />
               ))}
             </div>
           )}
@@ -254,8 +254,8 @@ export const PreviewPlayer: React.FC = () => {
             <div className="absolute inset-0 pointer-events-none z-10">
               <div className="absolute border border-spectrum-amber/40" style={{ inset: '5%' }} />
               <div className="absolute border border-spectrum-accent/40" style={{ inset: '10%' }} />
-              <div className="absolute left-1/2 top-1/2 w-4 h-px bg-white/35 -translate-x-1/2" />
-              <div className="absolute left-1/2 top-1/2 w-px h-4 bg-white/35 -translate-y-1/2" />
+              <div className="absolute left-1/2 top-1/2 w-4 h-px bg-spectrum-control -translate-x-1/2" />
+              <div className="absolute left-1/2 top-1/2 w-px h-4 bg-spectrum-control -translate-y-1/2" />
             </div>
           )}
 
@@ -343,9 +343,9 @@ const LevelMeters: React.FC<{ left: number; right: number; peak: number }> = ({ 
             }}
           />
           {/* 0 dBFS */}
-          <div className="absolute inset-y-0 w-px bg-white/20" style={{ left: '88%' }} />
+          <div className="absolute inset-y-0 w-px bg-spectrum-control" style={{ left: '88%' }} />
           {peak > 0.05 && (
-            <div className="absolute top-0 bottom-0 w-px bg-white/85" style={{ left: `${Math.min(99, peak * 100)}%` }} />
+            <div className="absolute top-0 bottom-0 w-px bg-spectrum-control" style={{ left: `${Math.min(99, peak * 100)}%` }} />
           )}
         </div>
       ))}

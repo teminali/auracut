@@ -157,7 +157,7 @@ const EffectRow: React.FC<{
   return (
     <div className={effect.enabled ? '' : 'opacity-50'}>
       {/* Row header */}
-      <div className="h-8 px-2 flex items-center gap-1.5 hover:bg-white/[0.02] transition-colors">
+      <div className="h-8 px-2 flex items-center gap-1.5 hover:bg-spectrum-hover transition-colors">
         <button
           onClick={() => setExpanded((v) => !v)}
           className="flex items-center gap-1.5 min-w-0 flex-1 text-left"
@@ -213,7 +213,7 @@ const EffectRow: React.FC<{
 
       {/* Parameters */}
       {expanded && (
-        <div className="px-3 pb-3 pt-1 space-y-2.5 bg-black/15">
+        <div className="px-3 pb-3 pt-1 space-y-2 bg-black/15">
           <p className="text-micro text-spectrum-textFaint leading-relaxed">{def.description}</p>
 
           <SliderRow
@@ -419,7 +419,7 @@ const EffectBrowser: React.FC<{
                 <button
                   key={effect.type}
                   onClick={() => onPick(effect.type)}
-                  className="card-interactive p-2.5 text-left flex gap-2.5 items-start group"
+                  className="card-interactive p-2 text-left flex gap-2 items-start group"
                 >
                   <MotionThumb
                     load={() => effectPreview(effect.type)}

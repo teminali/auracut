@@ -45,12 +45,12 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <span className="text-micro font-mono text-spectrum-textFaint tabular">{gaps.length}</span>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <button onClick={copy} className="pro-btn-filled h-[22px] px-2 gap-1.5 text-ui-xs" title="Copy as markdown"
+            <button onClick={copy} className="pro-btn-filled h-[var(--h-xs)] px-2 gap-1.5 text-ui-xs" title="Copy as markdown"
             aria-label="Copy as markdown">
               {copied ? <Check className="w-3 h-3 text-spectrum-green" /> : <Copy className="w-3 h-3" />}
               {copied ? 'Copied' : 'Export'}
             </button>
-            <button onClick={onClose} className="pro-btn w-[22px] h-[22px]" title="Close"
+            <button onClick={onClose} className="pro-btn w-[22px] h-[var(--h-xs)]" title="Close"
             aria-label="Close">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -68,7 +68,7 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             sorted.map((gap) => (
               <div
                 key={gap.id}
-                className={`card p-2.5 space-y-1.5 ${gap.resolved ? 'opacity-45' : ''}`}
+                className={`card p-2 space-y-1.5 ${gap.resolved ? 'opacity-45' : ''}`}
               >
                 <div className="flex items-start gap-2">
                   <button
@@ -81,7 +81,7 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     title={gap.resolved ? 'Mark as still missing' : 'Mark as done'}
                   
             aria-label={gap.resolved ? 'Mark as still missing' : 'Mark as done'}>
-                    {gap.resolved && <Check className="w-2.5 h-2.5 text-white" />}
+                    {gap.resolved && <Check className="w-2.5 h-2.5 text-spectrum-textBright" />}
                   </button>
 
                   <p className={`flex-1 min-w-0 text-ui-sm font-medium text-spectrum-text ${gap.resolved ? 'line-through' : ''}`}>
@@ -96,7 +96,7 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
                   <button
                     onClick={() => remove(gap.id)}
-                    className="btn-ghost-danger w-[22px] h-[22px] flex-shrink-0"
+                    className="btn-ghost-danger w-[22px] h-[var(--h-xs)] flex-shrink-0"
                     title="Remove"
                   
             aria-label="Remove">
@@ -132,7 +132,7 @@ export const GapLog: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <span className="text-micro text-spectrum-textFaint">
               Sorted by how often each was asked for.
             </span>
-            <button onClick={clear} className="btn-ghost-danger h-[22px] px-2 text-ui-xs">
+            <button onClick={clear} className="btn-ghost-danger h-[var(--h-xs)] px-2 text-ui-xs">
               Clear all
             </button>
           </div>

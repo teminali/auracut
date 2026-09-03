@@ -37,7 +37,7 @@ export const UpdateIndicator: React.FC = () => {
     return (
       <button
         onClick={quitForUpdate}
-        className="btn-primary h-[26px] px-2.5 gap-1.5 text-ui-xs"
+        className="btn-primary h-[var(--h-sm)] px-2 gap-1.5 text-ui-xs"
         title={done}
         aria-label={done}
       >
@@ -51,7 +51,7 @@ export const UpdateIndicator: React.FC = () => {
     return (
       <button
         onClick={openReleases}
-        className="h-[26px] px-2.5 rounded-squircle-xs border border-spectrum-amber/40 text-spectrum-amber text-ui-xs font-medium flex items-center gap-1.5"
+        className="h-[var(--h-sm)] px-2 rounded-squircle-xs border border-spectrum-amber/40 text-spectrum-amber text-ui-xs font-medium flex items-center gap-1.5"
         title={`${failed} Click to open the download page instead.`}
         aria-label={`Update failed: ${failed}`}
       >
@@ -72,7 +72,7 @@ export const UpdateIndicator: React.FC = () => {
     case 'downloading':
       return (
         <div
-          className="h-[26px] px-2 rounded-squircle-xs bg-spectrum-card flex items-center gap-2 text-ui-xs text-spectrum-textMuted"
+          className="h-[var(--h-sm)] px-2 rounded-squircle-xs bg-spectrum-card flex items-center gap-2 text-ui-xs text-spectrum-textMuted"
           title={`Downloading TeminaliCut ${status.version}`}
         >
           <Download className="w-3 h-3 flex-shrink-0" />
@@ -90,7 +90,7 @@ export const UpdateIndicator: React.FC = () => {
       return (
         <button
           onClick={install}
-          className="btn-primary h-[26px] px-2.5 gap-1.5 text-ui-xs"
+          className="btn-primary h-[var(--h-sm)] px-2 gap-1.5 text-ui-xs"
           title={`TeminaliCut ${status.version} is ready. Click to restart and update`}
             aria-label={`TeminaliCut ${status.version} is ready. Click to restart and update`}
         >
@@ -113,7 +113,7 @@ export const UpdateIndicator: React.FC = () => {
         <button
           onClick={() => void doSideload()}
           disabled={busy}
-          className="h-[26px] px-2.5 rounded-squircle-xs border border-spectrum-accentLine bg-spectrum-accentSoft text-spectrum-accent text-ui-xs font-medium flex items-center gap-1.5 disabled:opacity-60"
+          className="h-[var(--h-sm)] px-2 rounded-squircle-xs border border-spectrum-accentLine bg-spectrum-accentSoft text-spectrum-accent text-ui-xs font-medium flex items-center gap-1.5 disabled:opacity-60"
           title={
             `Download TeminaliCut ${status.version} and replace this copy. This build is not `
             + 'code-signed, so the download is checked against the checksum the release '
@@ -128,7 +128,7 @@ export const UpdateIndicator: React.FC = () => {
       ) : (
         <button
           onClick={openReleases}
-          className="h-[26px] px-2.5 rounded-squircle-xs border border-spectrum-accentLine bg-spectrum-accentSoft text-spectrum-accent text-ui-xs font-medium flex items-center gap-1.5"
+          className="h-[var(--h-sm)] px-2 rounded-squircle-xs border border-spectrum-accentLine bg-spectrum-accentSoft text-spectrum-accent text-ui-xs font-medium flex items-center gap-1.5"
           title={
             `TeminaliCut ${status.version} is available, and this copy is not somewhere TeminaliCut can `
             + 'replace it. Open the download page.'
@@ -144,7 +144,7 @@ export const UpdateIndicator: React.FC = () => {
       return (
         <button
           onClick={openReleases}
-          className="pro-btn w-[26px] h-[26px] !text-spectrum-amber"
+          className="pro-btn w-[26px] h-[var(--h-sm)] !text-spectrum-amber"
           title={`Update check failed: ${status.message}. Click to open the download page.`}
             aria-label={`Update check failed: ${status.message}. Click to open the download page.`}
         >

@@ -40,8 +40,8 @@ export const NewProjectSheet: React.FC<Props> = ({ onBlank, onRecord, onClose })
         aria-label="Start a new project"
       >
         <div className="panel-header p-6 pb-4">
-          <span className="text-[17px] font-semibold text-white tracking-tight">New project</span>
-          <button onClick={onClose} className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors" aria-label="Close">
+          <span className="text-display font-semibold text-spectrum-textBright tracking-tight">New project</span>
+          <button onClick={onClose} className="w-7 h-7 rounded-lg text-spectrum-textDim hover:text-spectrum-textBright hover:bg-spectrum-cardHover flex items-center justify-center transition-colors" aria-label="Close">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -92,25 +92,25 @@ const Option: React.FC<OptionProps> = ({ testId, icon: Icon, title, blurb, bulle
   <button
     data-home={testId}
     onClick={onSelect}
-    className={`group relative overflow-hidden rounded-[14px] p-6 min-h-[260px] flex flex-col justify-between text-left transition-all duration-200 bg-[#0e1218] hover:bg-[#121720] border ${
+    className={`group relative overflow-hidden rounded-[14px] p-6 min-h-[260px] flex flex-col justify-between text-left transition-all duration-200 bg-spectrum-sunken hover:bg-spectrum-panelHeader border ${
       variant === 'amber'
-        ? 'border-[#f59e0b]/60 hover:border-[#f59e0b] hover:shadow-[0_0_24px_rgba(245,158,11,0.2)]'
-        : 'border-[#0284c7]/50 hover:border-[#0284c7] hover:shadow-[0_0_24px_rgba(2,132,199,0.18)]'
+        ? 'border-spectrum-amber/60 hover:border-spectrum-amber hover:shadow-[0_0_24px_rgba(242,202,68,0.2)]'
+        : 'border-spectrum-blue/50 hover:border-spectrum-blue hover:shadow-[0_0_24px_rgba(2,132,199,0.18)]'
     }`}
   >
     <div>
-      <span className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center flex-shrink-0 text-white">
+      <span className="w-10 h-10 rounded-lg bg-spectrum-hover border border-line flex items-center justify-center flex-shrink-0 text-spectrum-textBright">
         <Icon className="w-5 h-5" />
       </span>
 
-      <span className="block text-display font-semibold text-white tracking-tight mt-4">{title}</span>
-      <span className="block text-ui text-[#94a3b8] leading-relaxed mt-2">{blurb}</span>
+      <span className="block text-display font-semibold text-spectrum-textBright tracking-tight mt-4">{title}</span>
+      <span className="block text-ui text-spectrum-textDim leading-relaxed mt-2">{blurb}</span>
 
       {bullets.length > 0 && (
         <span className="block mt-4 space-y-2">
           {bullets.map((bullet) => (
-            <span key={bullet.text} className="flex items-center gap-2 text-ui-xs text-[#848d9a]">
-              <bullet.icon className="w-3.5 h-3.5 flex-shrink-0 text-[#64748b]" />
+            <span key={bullet.text} className="flex items-center gap-2 text-ui-xs text-spectrum-textFaint">
+              <bullet.icon className="w-3.5 h-3.5 flex-shrink-0 text-spectrum-textFaint" />
               <span>{bullet.text}</span>
             </span>
           ))}
@@ -118,7 +118,7 @@ const Option: React.FC<OptionProps> = ({ testId, icon: Icon, title, blurb, bulle
       )}
     </div>
 
-    <span className="mt-6 pt-4 flex items-center gap-1.5 text-ui-sm font-medium text-white group-hover:text-[#38bdf8] transition-colors">
+    <span className="mt-6 pt-4 flex items-center gap-1.5 text-ui-sm font-medium text-spectrum-textBright group-hover:text-spectrum-blue transition-colors">
       <span>Start</span>
       <ArrowRight className="w-3.5 h-3.5 transition-transform duration-base ease-snap group-hover:translate-x-1" />
     </span>

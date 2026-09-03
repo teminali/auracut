@@ -7,7 +7,7 @@ export const McpActivityLog: React.FC = () => {
 
   if (logs.length === 0) {
     return (
-      <div className="px-2.5 py-2 text-micro text-spectrum-textFaint font-mono">
+      <div className="px-2 py-2 text-micro text-spectrum-textFaint font-mono">
         No tool calls yet.
       </div>
     );

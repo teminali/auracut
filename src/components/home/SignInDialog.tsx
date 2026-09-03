@@ -42,9 +42,9 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
         aria-labelledby="kerf-sign-in-title"
       >
 
-        <div className="panel-header p-6 pb-4 flex items-center justify-between border-b border-white/[0.06]">
-          <h2 id="kerf-sign-in-title" className="text-[17px] font-semibold text-white tracking-tight">Sign in to TeminaliCut</h2>
-          <button onClick={close} className="w-7 h-7 rounded-lg text-[#9ca3af] hover:text-white hover:bg-white/[0.06] flex items-center justify-center transition-colors" title="Close"
+        <div className="panel-header p-6 pb-4 flex items-center justify-between border-b border-line">
+          <h2 id="kerf-sign-in-title" className="text-display font-semibold text-spectrum-textBright tracking-tight">Sign in to TeminaliCut</h2>
+          <button onClick={close} className="w-7 h-7 rounded-lg text-spectrum-textDim hover:text-spectrum-textBright hover:bg-spectrum-cardHover flex items-center justify-center transition-colors" title="Close"
             aria-label="Close">
             <X className="w-4 h-4" />
           </button>
@@ -53,15 +53,15 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
         <div className="p-6 pt-4">
           {signIn.phase === 'idle' && (
             <>
-              <p className="text-ui text-[#94a3b8] leading-relaxed">
+              <p className="text-ui text-spectrum-textDim leading-relaxed">
                 An account is only needed to buy and install skills. The editor works
                 without one, and nothing you edit is uploaded.
               </p>
-              <div className="flex flex-col gap-2.5 mt-5">
+              <div className="flex flex-col gap-2 mt-5">
                 <button onClick={() => void begin('google')} className="btn-primary h-10 gap-2 text-ui font-medium">
                   Continue with Google
                 </button>
-                <button onClick={() => void begin('github')} className="pro-btn-filled h-10 gap-2 text-ui font-medium rounded-lg bg-[#0e1218] border border-[#232936] hover:border-[#384252] hover:bg-[#121720]">
+                <button onClick={() => void begin('github')} className="pro-btn-filled h-10 gap-2 text-ui font-medium rounded-lg bg-spectrum-sunken border border-spectrum-cardHover hover:border-spectrum-borderStrong hover:bg-spectrum-panelHeader">
                   Continue with GitHub
                 </button>
               </div>
@@ -69,21 +69,21 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
           )}
 
           {signIn.phase === 'starting' && (
-            <div className="flex items-center gap-2.5 py-8 justify-center text-[#94a3b8]">
-              <Loader2 className="w-4 h-4 animate-spin text-[#f97316]" />
+            <div className="flex items-center gap-2 py-8 justify-center text-spectrum-textDim">
+              <Loader2 className="w-4 h-4 animate-spin text-spectrum-accent" />
               <span className="text-ui">Asking for a code…</span>
             </div>
           )}
 
           {signIn.phase === 'waiting' && (
             <>
-              <p className="text-ui text-[#94a3b8] leading-relaxed">
+              <p className="text-ui text-spectrum-textDim leading-relaxed">
                 Open the page below and enter this code. Kerf is watching for it, so
                 come back here when you are done.
               </p>
 
-              <div className="mt-4 rounded-xl bg-[#0b0e13] border border-[#232936] p-5 text-center">
-                <div className="font-mono text-[26px] font-semibold text-white tracking-[0.22em] tabular">
+              <div className="mt-4 rounded-xl bg-spectrum-sunken border border-spectrum-cardHover p-5 text-center">
+                <div className="font-mono text-display-lg font-semibold text-spectrum-textBright tracking-[0.22em] tabular">
                   {signIn.auth.userCode}
                 </div>
                 <button
@@ -91,7 +91,7 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
                     void navigator.clipboard.writeText(signIn.auth.userCode);
                     pushToast({ kind: 'success', title: 'Code copied' });
                   }}
-                  className="pro-btn h-7 px-3 gap-1.5 text-ui-xs mt-3 mx-auto rounded-md bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08]"
+                  className="pro-btn h-7 px-3 gap-1.5 text-ui-xs mt-3 mx-auto rounded-md bg-spectrum-hover border border-line hover:bg-spectrum-cardHover"
                 >
                   <Copy className="w-3.5 h-3.5" /> Copy
                 </button>
@@ -107,8 +107,8 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
                 {new URL(signIn.auth.verificationUri).host}
               </a>
 
-              <div className="flex items-center gap-2 mt-4 text-[#64748b]">
-                <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0 text-[#f97316]" />
+              <div className="flex items-center gap-2 mt-4 text-spectrum-textFaint">
+                <Loader2 className="w-3.5 h-3.5 animate-spin flex-shrink-0 text-spectrum-accent" />
                 <span className="text-ui-xs">Waiting for you to finish in the browser…</span>
               </div>
             </>
@@ -116,10 +116,10 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
 
           {signIn.phase === 'error' && (
             <>
-              <div className="flex items-start gap-2.5 rounded-xl border border-spectrum-red/35
+              <div className="flex items-start gap-2 rounded-xl border border-spectrum-red/35
                               bg-spectrum-red/[0.07] p-4">
                 <AlertTriangle className="w-4 h-4 text-spectrum-red flex-shrink-0 mt-0.5" />
-                <p className="text-ui text-white leading-snug">{signIn.message}</p>
+                <p className="text-ui text-spectrum-textBright leading-snug">{signIn.message}</p>
               </div>
               <button onClick={() => void begin('google')} className="btn-primary h-10 w-full mt-4 text-ui font-medium">
                 Try again

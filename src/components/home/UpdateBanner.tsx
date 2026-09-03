@@ -73,7 +73,7 @@ const AppUpdateBanner: React.FC = () => {
   if (status.state === 'downloading') {
     return (
       <div
-        className="rail-tile !text-[#f0a173] bg-[#f0a173]/10 border border-[#f0a173]/30 mx-auto cursor-default flex flex-col items-center justify-center p-1"
+        className="rail-tile !text-spectrum-accent bg-spectrum-accent/10 border border-spectrum-accent/30 mx-auto cursor-default flex flex-col items-center justify-center p-1"
         title={`Downloading TeminaliCut ${status.version} (${status.percent}%)`}
       >
         <Download className="w-4 h-4 animate-bounce" />

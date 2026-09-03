@@ -187,8 +187,8 @@ export const CaptionsPanel: React.FC = () => {
         {/* ── Import ── */}
         <Section title="Import subtitles" icon={Upload}>
           {pending ? (
-            <div className="space-y-2.5">
-              <div className="card p-2.5 space-y-1">
+            <div className="space-y-2">
+              <div className="card p-2 space-y-1">
                 <div className="flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5 text-spectrum-green flex-shrink-0" />
                   <span className="text-ui-sm font-medium text-spectrum-text truncate">{pending.filename}</span>
@@ -375,7 +375,7 @@ export const CaptionsPanel: React.FC = () => {
       </div>
 
       {isDropping && (
-        <div className="absolute inset-0 bg-spectrum-accent/10 backdrop-blur-sm flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 bg-spectrum-accent/10 flex items-center justify-center pointer-events-none">
           <div className="card px-4 py-3 text-center">
             <Subtitles className="w-5 h-5 text-spectrum-accent mx-auto mb-1" />
             <p className="text-ui-sm font-medium text-spectrum-text">Drop the subtitle file</p>

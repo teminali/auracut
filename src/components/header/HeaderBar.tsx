@@ -122,13 +122,13 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
 
   return (
     <header
-      className="editor-topbar titlebar-drag h-[52px] flex-shrink-0 bg-spectrum-panelHeader border-b border-line flex items-center gap-2.5 pr-[15px] z-30"
+      className="editor-topbar titlebar-drag h-[52px] flex-shrink-0 bg-spectrum-panelHeader border-b border-line flex items-center gap-2 pr-[15px] z-30"
     >
       {/* Window-control gutter — macOS only, sized by --titlebar-inset. */}
       <div className="titlebar-gutter" />
 
       {/* ── Identity ── */}
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
         {/* The mark is the way back to home, which is where projects and
             skills live. Nothing else in the header should compete with it. */}
         <button
@@ -137,9 +137,9 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           title={onGoHome ? 'Back to home' : undefined}
             aria-label={onGoHome ? 'Back to home' : undefined}
           className="flex items-center gap-2 flex-shrink-0 rounded-squircle-xs px-1 -mx-1 py-0.5
-                     hover:bg-white/[0.05] transition-colors disabled:hover:bg-transparent"
+                     hover:bg-spectrum-cardHover transition-colors disabled:hover:bg-transparent"
         >
-          <div className="w-[26px] h-[26px] rounded-lg bg-spectrum-accentSoft border border-spectrum-accentLine flex items-center justify-center flex-shrink-0 text-spectrum-accent shadow-[0_0_12px_rgba(59,130,246,0.15)]">
+          <div className="w-[26px] h-[var(--h-sm)] rounded-lg bg-spectrum-accentSoft border border-spectrum-accentLine flex items-center justify-center flex-shrink-0 text-spectrum-accent">
             <TeminaliCutMark className="w-[13px] h-[13px]" />
           </div>
           <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">TeminaliCut</span>
@@ -157,7 +157,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
               if (e.key === 'Enter') commitTitle();
               if (e.key === 'Escape') { setTitleDraft(project.name); setEditingTitle(false); }
             }}
-            className="pro-input h-[26px] px-2 text-ui font-medium w-52"
+            className="pro-input h-[var(--h-sm)] px-2 text-ui font-medium w-52"
           />
         ) : (
           /* A tab, with the close that a tab implies. Closing it is
@@ -193,22 +193,22 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         <button
           onClick={undo}
           disabled={!canUndo}
-          className="pro-btn w-[26px] h-[26px]"
+          className="pro-btn w-[26px] h-[var(--h-sm)]"
           title={canUndo ? `Undo ${lastLabel ?? ''} (⌘Z)` : 'Nothing to undo'}
             aria-label={canUndo ? `Undo ${lastLabel ?? ''} (⌘Z)` : 'Nothing to undo'}
         >
           <Undo2 className="w-[15px] h-[15px]" />
         </button>
-        <button onClick={redo} disabled={!canRedo} className="pro-btn w-[26px] h-[26px]" title="Redo (⌘⇧Z)"
+        <button onClick={redo} disabled={!canRedo} className="pro-btn w-[26px] h-[var(--h-sm)]" title="Redo (⌘⇧Z)"
             aria-label="Redo (⌘⇧Z)">
           <Redo2 className="w-[15px] h-[15px]" />
         </button>
         <div className="w-1" />
-        <button onClick={saveProject} className="pro-btn w-[26px] h-[26px]" title="Save project to a file (⌘S)"
+        <button onClick={saveProject} className="pro-btn w-[26px] h-[var(--h-sm)]" title="Save project to a file (⌘S)"
             aria-label="Save project to a file (⌘S)">
           <Save className="w-[15px] h-[15px]" />
         </button>
-        <button onClick={() => fileInputRef.current?.click()} className="pro-btn w-[26px] h-[26px]" title="Open a saved project (⌘O)"
+        <button onClick={() => fileInputRef.current?.click()} className="pro-btn w-[26px] h-[var(--h-sm)]" title="Open a saved project (⌘O)"
             aria-label="Open a saved project (⌘O)">
           <FolderOpen className="w-[15px] h-[15px]" />
         </button>
@@ -261,7 +261,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
             component, two doors, like the Player. */}
         <button
           onClick={() => useRecorderStore.getState().open()}
-          className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs"
+          className="pro-btn-filled h-[var(--h-sm)] px-2 gap-1.5 text-ui-xs"
           title="Record the screen"
           aria-label="Record the screen"
         >
@@ -269,21 +269,21 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
           Record
         </button>
 
-        <button onClick={openCommandPalette} className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs" title="Command palette (⌘K)"
+        <button onClick={openCommandPalette} className="pro-btn-filled h-[var(--h-sm)] px-2 gap-1.5 text-ui-xs" title="Command palette (⌘K)"
             aria-label="Command palette (⌘K)">
           <Command className="w-3 h-3" />
           <span className="hidden xl:inline">Commands</span>
           <span className="kbd hidden xl:inline-flex">⌘K</span>
         </button>
 
-        <button onClick={() => setShortcutsOpen(true)} className="pro-btn w-[26px] h-[26px]" title="Keyboard shortcuts (?)"
+        <button onClick={() => setShortcutsOpen(true)} className="pro-btn w-[26px] h-[var(--h-sm)]" title="Keyboard shortcuts (?)"
             aria-label="Keyboard shortcuts (?)">
           <Keyboard className="w-[15px] h-[15px]" />
         </button>
 
         <button
           onClick={() => setMcpModalOpen(true)}
-          className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs font-mono tracking-wide"
+          className="pro-btn-filled h-[var(--h-sm)] px-2 gap-1.5 text-ui-xs font-mono tracking-wide"
           title="MCP server & tools"
           aria-label="MCP server & tools"
         >
@@ -293,14 +293,14 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
 
         <button
           onClick={() => setPackagesModalOpen(true)}
-          className="pro-btn-filled h-[26px] px-2 gap-1.5 text-ui-xs relative"
+          className="pro-btn-filled h-[var(--h-sm)] px-2 gap-1.5 text-ui-xs relative"
           title={coreReady ? 'Packages & Models Manager' : 'Recommended packages available for your machine. Click to install.'}
           aria-label="Packages & Models Manager"
         >
           <Package className="w-3 h-3 text-spectrum-accent" />
           <span className="hidden xl:inline">Packages</span>
           {!coreReady && (
-            <span className="w-1.5 h-1.5 rounded-full bg-[#f0a173] animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-spectrum-accent animate-pulse" />
           )}
         </button>
 
@@ -313,7 +313,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
              had its own radius (6px against everything else's 8px),
              its own border and its own hover, which is how one control
              in a toolbar ends up a different shape from its neighbours. */
-          className={`pro-btn-filled h-[26px] px-2.5 gap-1.5 text-ui-sm font-medium ${
+          className={`pro-btn-filled h-[var(--h-sm)] px-2 gap-1.5 text-ui-sm font-medium ${
             isCopilotOpen ? 'pro-btn-active' : ''
           }`}
           title="AI Copilot (⌘J)"
@@ -324,13 +324,13 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
         </button>
 
         {isExporting ? (
-          <div className="flex items-center gap-1 bg-spectrum-surfaceSoft border border-blue-500/40 rounded-md pl-2.5 pr-1 h-[26px] shadow-sm">
+          <div className="flex items-center gap-1 bg-spectrum-surfaceSoft border border-spectrum-blue/40 rounded-md pl-2 pr-1 h-[var(--h-sm)] shadow-sm">
             <button
               onClick={() => setExportModalOpen(true)}
-              className="flex items-center gap-1.5 text-ui-xs font-mono font-medium text-blue-400 hover:text-blue-300 transition-colors"
+              className="flex items-center gap-1.5 text-ui-xs font-mono font-medium text-spectrum-blue hover:text-spectrum-blue transition-colors"
               title="Click to expand export progress"
             >
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-spectrum-blue animate-pulse" />
               <span>Exporting {Math.round(exportProgress)}%</span>
             </button>
             <button
@@ -338,7 +338,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
                 e.stopPropagation();
                 cancelActiveExport();
               }}
-              className="w-5 h-5 rounded flex items-center justify-center text-spectrum-textMuted hover:text-red-400 hover:bg-red-500/15 transition-colors ml-0.5"
+              className="w-5 h-5 rounded flex items-center justify-center text-spectrum-textMuted hover:text-spectrum-red hover:bg-spectrum-red/15 transition-colors ml-0.5"
               title="Cancel export"
               aria-label="Cancel export"
             >
@@ -346,7 +346,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
             </button>
           </div>
         ) : (
-          <button onClick={() => setExportModalOpen(true)} className="btn-primary h-[26px] px-3 gap-1.5 text-ui-sm">
+          <button onClick={() => setExportModalOpen(true)} className="btn-primary h-[var(--h-sm)] px-3 gap-1.5 text-ui-sm">
             <Download className="w-[15px] h-[15px]" />
             Export
           </button>
@@ -360,7 +360,7 @@ const HeaderTimecodeReadout: React.FC<{ fps: number; durationMs: number }> = Rea
   ({ fps, durationMs }) => {
     const playheadMs = useTimelineStore((s) => s.playheadMs);
     return (
-      <div className="well h-[26px] px-2.5 flex items-center gap-1.5 font-mono flex-shrink-0">
+      <div className="well h-[var(--h-sm)] px-2 flex items-center gap-1.5 font-mono flex-shrink-0">
         <span className="text-ui font-semibold text-spectrum-text tabular tracking-tight">
           {formatTimecode(playheadMs, fps)}
         </span>

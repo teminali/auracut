@@ -201,7 +201,7 @@ export const SliderRow: React.FC<SliderRowProps> = ({
         {/* 5px on a translucent white rail, as the reference has it —
             #262b33 was a leftover from the previous blue-black ladder,
             and the inset shadow is not in the design. */}
-        <div className="absolute left-0 right-0 h-[5px] rounded-full bg-white/[0.09] pointer-events-none" />
+        <div className="absolute left-0 right-0 h-[5px] rounded-full bg-spectrum-cardHover pointer-events-none" />
         <div
           className="absolute h-[5px] rounded-full bg-spectrum-accent pointer-events-none"
           style={
@@ -281,7 +281,7 @@ export const Section: React.FC<{
 
   return (
     <div className="border-b border-line last:border-b-0">
-      <div className="w-full h-[30px] px-3 flex items-center justify-between gap-2 hover:bg-white/[0.022] transition-colors">
+      <div className="w-full h-[var(--h-md)] px-3 flex items-center justify-between gap-2 hover:bg-spectrum-hover transition-colors">
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-2 min-w-0 flex-1 text-left group/sec"
@@ -295,7 +295,7 @@ export const Section: React.FC<{
         </button>
         {action}
       </div>
-      {open && <div className="px-3 pb-3.5 pt-1 space-y-3">{children}</div>}
+      {open && <div className="px-3 pb-3 pt-1 space-y-3">{children}</div>}
     </div>
   );
 };
@@ -365,11 +365,11 @@ export const ColorField: React.FC<{
   onChange: (v: string) => void;
   allowClear?: boolean;
 }> = ({ label, value, onChange, allowClear }) => (
-  <div className="flex items-center justify-between gap-2 min-h-[26px]">
+  <div className="flex items-center justify-between gap-2 min-h-[var(--h-sm)]">
     <span className="prop-label">{label}</span>
     <div className="flex items-center gap-1.5 flex-shrink-0">
       <span className="text-micro font-mono text-spectrum-textFaint uppercase tabular">{value || 'none'}</span>
-      <label className="w-[26px] h-[22px] rounded-squircle-xs border border-line-strong cursor-pointer overflow-hidden relative checkerboard">
+      <label className="w-[26px] h-[var(--h-xs)] rounded-squircle-xs border border-line-strong cursor-pointer overflow-hidden relative checkerboard">
         <span className="absolute inset-0" style={{ background: value || 'transparent' }} />
         <input
           type="color"
@@ -379,7 +379,7 @@ export const ColorField: React.FC<{
         />
       </label>
       {allowClear && (
-        <button onClick={() => onChange('')} className="pro-btn w-[22px] h-[22px]" title="Clear colour"
+        <button onClick={() => onChange('')} className="pro-btn w-[22px] h-[var(--h-xs)]" title="Clear colour"
             aria-label="Clear colour">
           <RotateCcw className="w-2.5 h-2.5" />
         </button>
@@ -396,7 +396,7 @@ export const ToggleRow: React.FC<{
   onChange: (v: boolean) => void;
   hint?: string;
 }> = ({ label, checked, onChange, hint }) => (
-  <label className="flex items-center justify-between gap-3 cursor-pointer group/toggle min-h-[26px]">
+  <label className="flex items-center justify-between gap-3 cursor-pointer group/toggle min-h-[var(--h-sm)]">
     <span className="flex flex-col min-w-0 gap-0.5">
       <span className="prop-label group-hover/toggle:text-spectrum-text transition-colors">{label}</span>
       {hint && <span className="text-micro text-spectrum-textFaint truncate leading-tight">{hint}</span>}
@@ -413,7 +413,7 @@ export const EmptyState: React.FC<{
   detail?: string;
   action?: React.ReactNode;
 }> = ({ icon: Icon, title, detail, action }) => (
-  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-2.5">
+  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-2">
     <div className="w-11 h-11 rounded-squircle-md bg-spectrum-card flex items-center justify-center text-spectrum-textDim shadow-raised">
       <Icon className="w-[18px] h-[18px]" />
     </div>

@@ -258,7 +258,7 @@ export const App: React.FC = () => {
           {isSidebarCollapsed && (
             <button
               onClick={toggleSidebar}
-              className="absolute left-1.5 top-1.5 pro-btn w-6 h-6 z-30 bg-spectrum-panel/80 backdrop-blur"
+              className="absolute left-1.5 top-1.5 pro-btn w-6 h-6 z-30 bg-spectrum-panel/80"
               title="Show the side panel"
             >
               <PanelLeftClose className="w-3.5 h-3.5 rotate-180" />
@@ -267,7 +267,7 @@ export const App: React.FC = () => {
           {isInspectorCollapsed && (
             <button
               onClick={toggleInspector}
-              className="absolute right-1.5 top-1.5 pro-btn w-6 h-6 z-30 bg-spectrum-panel/80 backdrop-blur"
+              className="absolute right-1.5 top-1.5 pro-btn w-6 h-6 z-30 bg-spectrum-panel/80"
               title="Show the inspector"
             >
               <PanelRightClose className="w-3.5 h-3.5 rotate-180" />

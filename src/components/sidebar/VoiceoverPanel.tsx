@@ -158,7 +158,7 @@ export const VoiceoverPanel: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           {turns.map((turn, index) => {
             const speakerColor = getSpeakerColor(index);
             return (
@@ -259,9 +259,9 @@ export const VoiceoverPanel: React.FC = () => {
         <button
           disabled={isGenerating || turns.every((t) => !t.text.trim())}
           onClick={handleGenerate}
-          className="btn btn-primary !py-2.5 !w-full flex items-center justify-center gap-2 shadow-lg shadow-spectrum-accent/20 disabled:opacity-50"
+          className="btn btn-primary !py-2 !w-full flex items-center justify-center gap-2 shadow-lg shadow-spectrum-accent/20 disabled:opacity-50"
         >
-          <Sparkle className="w-4 h-4 text-white animate-pulse" />
+          <Sparkle className="w-4 h-4 text-spectrum-textBright animate-pulse" />
           <span className="font-semibold text-ui-sm">
             {isGenerating ? 'Generating VibeVoice Audio…' : 'Generate & Place on Timeline'}
           </span>

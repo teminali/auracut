@@ -430,7 +430,7 @@ export const CaptureOptions: React.FC<Props> = ({
 const Group: React.FC<{ title: string; icon: React.ElementType; children: React.ReactNode }> = ({
   title, icon: Icon, children,
 }) => (
-  <div className="border-b border-line last:border-b-0 px-3 py-3 space-y-2.5">
+  <div className="border-b border-line last:border-b-0 px-3 py-3 space-y-2">
     <div className="flex items-center gap-1.5">
       <Icon className="w-3 h-3 text-spectrum-textDim flex-shrink-0" />
       <span className="section-label">{title}</span>
@@ -505,7 +505,7 @@ const CameraPreview: React.FC<{
         tabIndex={0}
         className="aspect-video rounded-squircle-sm bg-spectrum-sunken border border-line
                    flex flex-col items-center justify-center gap-1 cursor-pointer
-                   hover:bg-white/[0.04] transition-colors p-2 text-center"
+                   hover:bg-spectrum-hover transition-colors p-2 text-center"
         title="Click to enable camera"
       >
         <VideoOff className="w-5 h-5 text-spectrum-textFaint" />
@@ -603,7 +603,7 @@ const MicMeter: React.FC<{ deviceId: string | null }> = ({ deviceId }) => {
           className="h-full rounded-full transition-[width] duration-75"
           style={{
             width: `${Math.min(100, level * 140)}%`,
-            background: level > 0.85 ? '#f0334f' : 'var(--accent)',
+            background: level > 0.85 ? 'var(--danger)' : 'var(--accent)',
           }}
         />
       </div>

@@ -38,7 +38,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
       onClose={onClose}
       title="Model Context Protocol"
       icon={Server}
-      iconColor="#f0a173"
+      iconColor="var(--accent-ink)"
       badge={{
         text: 'LIVE',
         variant: 'green',
@@ -63,7 +63,7 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
         tab === 'log' && logs.length > 0 ? (
           <button
             onClick={clearLogs}
-            className="px-2.5 py-1 rounded-[3px] bg-[#2d2d2d] border border-[#3a3a3a] text-ui-xs font-semibold text-[#8a8a8a] hover:text-[#e8e8e8] hover:bg-[#333333] transition-colors"
+            className="px-2 py-1 rounded-[3px] bg-spectrum-cardHover border border-line-bright text-ui-xs font-semibold text-spectrum-textFaint hover:text-spectrum-accent hover:bg-spectrum-borderStrong transition-colors"
           >
             Clear
           </button>
@@ -71,13 +71,13 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
       }
       footer={
         <>
-          <span className="flex items-center gap-1.5 text-[#9fc9ab]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#9fc9ab]" />
+          <span className="flex items-center gap-1.5 text-spectrum-green">
+            <span className="w-1.5 h-1.5 rounded-full bg-spectrum-green" />
             SSE :{status.ssePort}
           </span>
           <span>{status.connectedClientsCount} clients</span>
-          <span className="ml-auto flex items-center gap-1 text-[#8a8a8a]">
-            Agents address properties via <code className="text-[#f0a173]">patch_clip</code>
+          <span className="ml-auto flex items-center gap-1 text-spectrum-textFaint">
+            Agents address properties via <code className="text-spectrum-accent">patch_clip</code>
           </span>
         </>
       }
@@ -86,25 +86,25 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
         <div className="space-y-5">
           {grouped.map(([category, list]) => (
             <div key={category}>
-              <h3 className="font-mono text-ui-xs font-bold tracking-[0.13em] text-[#848d9a] uppercase mb-3">
+              <h3 className="font-mono text-ui-xs font-bold tracking-[0.13em] text-spectrum-textFaint uppercase mb-3">
                 {category}
               </h3>
               <div className="space-y-2">
                 {list.map((tool) => (
                   <div
                     key={tool.name}
-                    className="p-4 rounded-xl bg-[#0e1218] border border-[#232936] hover:border-[#384252] transition-colors"
+                    className="p-4 rounded-xl bg-spectrum-sunken border border-spectrum-cardHover hover:border-spectrum-borderStrong transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <code className="text-ui-sm font-mono font-semibold text-[#f97316]">{tool.name}</code>
+                      <code className="text-ui-sm font-mono font-semibold text-spectrum-accent">{tool.name}</code>
                       <button
                         onClick={() => navigator.clipboard?.writeText(tool.name)}
-                        className="px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.08] font-mono text-ui-xs text-[#94a3b8] hover:text-white hover:bg-white/[0.08] transition-colors"
+                        className="px-2 py-1 rounded-md bg-spectrum-hover border border-line font-mono text-ui-xs text-spectrum-textDim hover:text-spectrum-textBright hover:bg-spectrum-cardHover transition-colors"
                       >
                         copy
                       </button>
                     </div>
-                    <p className="text-ui text-[#94a3b8] mt-1.5 leading-relaxed">{tool.description}</p>
+                    <p className="text-ui text-spectrum-textDim mt-1.5 leading-relaxed">{tool.description}</p>
                   </div>
                 ))}
               </div>
@@ -114,25 +114,25 @@ export const McpStatusModal: React.FC<{ onClose: () => void }> = ({ onClose }) =
       ) : (
         <div className="space-y-2">
           {logs.length === 0 ? (
-            <p className="text-ui text-[#64748b] text-center py-8">No tool calls logged yet.</p>
+            <p className="text-ui text-spectrum-textFaint text-center py-8">No tool calls logged yet.</p>
           ) : (
             logs.map((log) => {
               const isErr = log.status === 'error';
               const errMsg = isErr ? (log.result?.error || log.result?.message || 'Tool call failed') : null;
               return (
-                <div key={log.id} className="p-3.5 rounded-xl bg-[#0e1218] border border-[#232936] font-mono text-ui-xs">
+                <div key={log.id} className="p-3 rounded-xl bg-spectrum-sunken border border-spectrum-cardHover font-mono text-ui-xs">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-white">{log.toolName}</span>
+                    <span className="font-bold text-spectrum-textBright">{log.toolName}</span>
                     <span
                       className={`text-ui-xs px-2 py-0.5 rounded-[4px] font-semibold ${
-                        isErr ? 'bg-[#c98a7a]/15 text-[#c98a7a]' : 'bg-[#9fc9ab]/15 text-[#9fc9ab]'
+                        isErr ? 'bg-spectrum-accent/15 text-spectrum-accent' : 'bg-spectrum-green/15 text-spectrum-green'
                       }`}
                     >
                       {isErr ? 'ERROR' : 'OK'}
                       {log.durationMs !== undefined ? ` · ${log.durationMs}ms` : ''}
                     </span>
                   </div>
-                  {errMsg && <p className="text-[#c98a7a] mt-1.5 text-ui-xs">{errMsg}</p>}
+                  {errMsg && <p className="text-spectrum-accent mt-1.5 text-ui-xs">{errMsg}</p>}
                 </div>
               );
             })
