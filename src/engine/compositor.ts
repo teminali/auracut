@@ -1223,7 +1223,14 @@ function traceShape(ctx: CanvasRenderingContext2D, style: ShapeStyle, w: number,
           // Path data is authored in a 0..100 box; scale it to the layer.
           ctx.translate(-hw, -hh);
           ctx.scale(w / 100, h / 100);
-          ctx.fillStyle = style.fill;
+          /* Round joins, for the same reason every built-in shape in
+             this file sets them, and it is load-bearing rather than
+             cosmetic on an authored path: the default is `miter`, and a
+             45 degree corner under `miterLimit` 10 throws a spike two
+             and a half stroke-widths past the vertex. The cursor's tip
+             is a 45 degree corner. */
+          ctx.lineJoin = 'round';
+          ctx.fillStyle = pathFill(ctx, style);
           ctx.fill(p);
           if (style.strokeWidth > 0) {
             ctx.strokeStyle = style.stroke;
@@ -1243,6 +1250,47 @@ function traceShape(ctx: CanvasRenderingContext2D, style: ShapeStyle, w: number,
       ctx.roundRect(-hw, -hh, w, h, Math.min(style.cornerRadius, Math.min(hw, hh)));
       break;
   }
+}
+
+/**
+ * The fill for a `path` shape, gradient included.
+ *
+ * `renderShapeClip` builds the gradient for every OTHER kind after
+ * `traceShape` returns, in the layer's own centred space. A path cannot
+ * borrow that one: by the time it is painted its geometry is in the
+ * authored 0..100 box, and a canvas gradient is fixed in the space it
+ * was created in, so a gradient built outside would be scaled by
+ * `w / 100` along with the path and land somewhere else entirely. This
+ * builds the same axis inside the box the path is actually in.
+ *
+ * Until this existed `ShapeStyle.gradient` was silently DROPPED on path
+ * shapes, in two places agreeing with each other: `traceShape` filled
+ * with the flat `style.fill` and returned early, and `renderShapeClip`
+ * returned before reaching its own gradient block. The type offered a
+ * gradient, the inspector let you set one, and nothing drew it.
+ *
+ * `gradient.blobs` are still not drawn here. The mesh wash is a second
+ * pass clipped to the shape rather than a fill, so it needs the path
+ * re-traced in layer space; nothing asks for a mesh-gradient path yet
+ * and a wrong one would be worse than a plain one.
+ */
+function pathFill(
+  ctx: CanvasRenderingContext2D,
+  style: ShapeStyle
+): string | CanvasGradient {
+  const gradient = style.gradient;
+  if (!gradient) return style.fill;
+
+  const rad = (gradient.angle * Math.PI) / 180;
+  const dx = Math.cos(rad) * 50;
+  const dy = Math.sin(rad) * 50;
+  const grad = ctx.createLinearGradient(50 - dx, 50 - dy, 50 + dx, 50 + dy);
+  grad.addColorStop(0, gradient.from);
+  for (const stop of gradient.stops ?? []) {
+    grad.addColorStop(Math.max(0, Math.min(1, stop.at)), stop.color);
+  }
+  grad.addColorStop(1, gradient.to);
+  return grad;
 }
 
 /** `#rrggbb` (or `#rgb`) at a given alpha, for a gradient stop. */
