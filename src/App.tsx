@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Kerf — application shell.
+   TeminaliCut — application shell.
    Owns the resizable panel layout and mounts the global overlays.
    ═══════════════════════════════════════════════════════════════════ */
 

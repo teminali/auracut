@@ -3,7 +3,7 @@
 
    Claude Code (or any MCP client) speaks JSON-RPC to this over stdio.
    It owns no state of its own: every tool call is forwarded to the
-   running Kerf window through the local RPC bridge, so edits land in
+   running TeminaliCut window through the local RPC bridge, so edits land in
    the project actually on screen.
 
    Runs under Electron's bundled Node via ELECTRON_RUN_AS_NODE=1, so
@@ -23,10 +23,10 @@ function findToken(): string {
   if (process.env.KERF_RPC_TOKEN) return process.env.KERF_RPC_TOKEN;
 
   const possiblePaths = [
-    path.join(os.homedir(), 'Library', 'Application Support', 'Kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
+    path.join(os.homedir(), 'Library', 'Application Support', 'TeminaliCut', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
     path.join(os.homedir(), 'Library', 'Application Support', 'kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
-    path.join(process.env.APPDATA ?? '', 'Kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
-    path.join(os.homedir(), '.config', 'Kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
+    path.join(process.env.APPDATA ?? '', 'TeminaliCut', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
+    path.join(os.homedir(), '.config', 'TeminaliCut', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
     path.join(os.homedir(), '.config', 'kerf', `mcp-kerf${PORT === 3888 ? '' : `-${PORT}`}.json`),
   ];
 
@@ -97,7 +97,7 @@ async function handle(request: JsonRpcRequest): Promise<void> {
         try {
           tools = ((await rpc('tools/list')) as unknown[]) ?? [];
         } catch {
-          // Kerf desktop app is not running; return empty list instead of failing MCP initialization
+          // TeminaliCut desktop app is not running; return empty list instead of failing MCP initialization
           tools = [];
         }
         respond({ id, result: { tools } });
@@ -139,7 +139,7 @@ async function handle(request: JsonRpcRequest): Promise<void> {
     if (id === undefined) return;
     /*
       Report tool failures as a tool RESULT rather than a protocol error
-      where we can — an agent can read "Kerf is not running" and tell
+      where we can — an agent can read "TeminaliCut is not running" and tell
       the user, but a JSON-RPC error code usually just aborts the turn.
     */
     const message = err instanceof Error ? err.message : String(err);
@@ -172,4 +172,4 @@ process.stdin.on('data', (chunk: string) => {
   }
 });
 
-process.stderr.write('Kerf MCP shim ready — forwarding to the live editor.\n');
+process.stderr.write('TeminaliCut MCP shim ready — forwarding to the live editor.\n');

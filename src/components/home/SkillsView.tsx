@@ -343,7 +343,7 @@ export const SkillsView: React.FC = () => {
                   <p className="text-ui-lg text-spectrum-textDim leading-relaxed mt-2">
                     The store is running and the catalogue is empty, which is the honest state of it.
                     A skill appears here once it has a verification run that passed. The skills above
-                    ship inside Kerf and do not come from here.
+                    ship inside TeminaliCut and do not come from here.
                   </p>
                 )}
               </div>
@@ -447,7 +447,7 @@ export const SkillsView: React.FC = () => {
         <p className="text-micro text-spectrum-textFaint mt-8 leading-snug">
           {owned.length} skill{owned.length > 1 ? 's' : ''} on this account. Settings and guidance
           can update independently. Downloading package assets and executable recipe support are
-          still separate work; the entitlement is real, but Kerf does not claim those parts yet.
+          still separate work; the entitlement is real, but TeminaliCut does not claim those parts yet.
         </p>
       )}
 

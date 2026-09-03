@@ -232,7 +232,7 @@ export const CHANGELOG: Release[] = [
     date: '2026-08-29',
     headline: 'Antigravity IDE connected view & 1-click launch',
     detail:
-      'Replaced the Copilot chat drawer with an Antigravity IDE Connected banner when Antigravity is active, with 1-click launch right from Kerf.',
+      'Replaced the Copilot chat drawer with an Antigravity IDE Connected banner when Antigravity is active, with 1-click launch right from TeminaliCut.',
     items: [
       'Copilot drawer presents a dedicated Antigravity IDE Connected banner with live status when Antigravity backend is active.',
       'One-click "Open in Antigravity IDE" button automatically brings Antigravity to the foreground.',
@@ -271,7 +271,7 @@ export const CHANGELOG: Release[] = [
       'Fixed dropdown menu clipping in the home sidebar and added clear update notifications with a dedicated restart action.',
     items: [
       'Sidebar dropdown menu now layers cleanly on top of the main canvas with fixed z-index stacking.',
-      'The update menu now stays open on completion and offers a prominent "Quit Kerf to finish update" button.',
+      'The update menu now stays open on completion and offers a prominent "Quit TeminaliCut to finish update" button.',
       'A compact "Quit to apply" action button appears directly in the sidebar footer whenever an update is ready.',
       'Instant toast notifications announce when an update is successfully downloaded and installed to disk.',
     ],
@@ -388,7 +388,7 @@ export const CHANGELOG: Release[] = [
     items: [
       'Cinematic framing and grade across the composition.',
       'Skills notice their own updates and offer to install them.',
-      'The home screen says when a newer Kerf is available.',
+      'The home screen says when a newer TeminaliCut is available.',
     ],
   },
   {

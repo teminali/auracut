@@ -7,7 +7,7 @@
    stores. Nothing here renders anything.
 
    `tools/verify_project_format.py` already walks the same six cases
-   through a running Kerf, which is the right way to prove the RPC layer
+   through a running TeminaliCut, which is the right way to prove the RPC layer
    maps `migratedFrom` onto `migratedFromFormat` and that the app really
    opens the file. This file is the layer underneath, and it deliberately
    goes where the tool cannot: the ladder in isolation, malformed and
@@ -199,7 +199,7 @@ describe('deserializeProject: the version gate', () => {
     expect(r.migratedFrom).toBe(1);
   });
 
-  it('REFUSES a file from a newer Kerf', () => {
+  it('REFUSES a file from a newer TeminaliCut', () => {
     const r = load(withVersion(FORMAT_VERSION + 1));
     expect(r.ok).toBe(false);
     // The message has to carry both numbers or the user cannot act on it.
@@ -258,7 +258,7 @@ describe('deserializeProject: rejecting what is not a project', () => {
     }
   });
 
-  it('rejects valid JSON that is not a Kerf project', () => {
+  it('rejects valid JSON that is not a TeminaliCut project', () => {
     /*
       `null` is the interesting one and it used to THROW. It is valid
       JSON, so it sails past the try/catch around `JSON.parse` and then
@@ -270,7 +270,7 @@ describe('deserializeProject: rejecting what is not a project', () => {
     for (const json of ['{}', '[]', 'null', '42', '"a string"', '{"format":"other.thing","version":2}']) {
       const r = deserializeProject(json);
       expect(r.ok, json).toBe(false);
-      expect(r.error, json).toMatch(/not a Kerf project/i);
+      expect(r.error, json).toMatch(/not a TeminaliCut project/i);
     }
   });
 
@@ -289,9 +289,9 @@ describe('deserializeProject: rejecting what is not a project', () => {
 
   it('checks the format tag before the version, so junk is not called futuristic', () => {
     // A random JSON file with a high `version` should be told it is not
-    // a Kerf project, not that it needs a newer Kerf.
+    // a TeminaliCut project, not that it needs a newer TeminaliCut.
     const r = deserializeProject(JSON.stringify({ format: 'something.else', version: 5000 }));
-    expect(r.error).toMatch(/not a Kerf project/i);
+    expect(r.error).toMatch(/not a TeminaliCut project/i);
   });
 });
 

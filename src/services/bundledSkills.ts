@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════════════
-   The skills that ship inside Kerf.
+   The skills that ship inside TeminaliCut.
 
    The Skills screen was written against the store, so it showed the
-   store's catalogue and nothing else. Kerf bundles two skills, and both
+   store's catalogue and nothing else. TeminaliCut bundles two skills, and both
    were invisible there — including the Tutorial skill, which is the one
    the recorder offers by name after every take. A screen called Skills
    that does not list the skills you have is telling you something
@@ -120,7 +120,7 @@ export interface RuntimeSkillRecord {
  *
  * Equal and older versions never win. That makes deleting an override a
  * safe rollback to the app copy and prevents a stale download from
- * shadowing a newer Kerf release.
+ * shadowing a newer TeminaliCut release.
  */
 export function mergeBundledSkills(
   bundled: BundledSkill[],

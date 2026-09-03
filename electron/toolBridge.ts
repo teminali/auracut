@@ -93,7 +93,7 @@ export function initToolBridge(): void {
 function ask<T>(channel: string, payload: unknown, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     if (!targetWindow || targetWindow.isDestroyed()) {
-      reject(new Error('Kerf is not running — open the app and try again.'));
+      reject(new Error('TeminaliCut is not running — open the app and try again.'));
       return;
     }
 
@@ -154,7 +154,7 @@ export async function captureWindow(target: 'app' | 'recorder-bar' = 'app'): Pro
       stale: true,
       note: target === 'recorder-bar'
         ? 'The recorder bar is not open; it exists only while a take is running.'
-        : 'Kerf is not running.',
+        : 'TeminaliCut is not running.',
     };
   }
 
@@ -180,7 +180,7 @@ export async function captureWindow(target: 'app' | 'recorder-bar' = 'app'): Pro
           note:
             `The page reports visibilityState="${visibility}", so it has stopped painting and ` +
             'this PNG is the last frame it drew — probably NOT what the window shows now. ' +
-            'Bring the Kerf window to the front and capture again.',
+            'Bring the TeminaliCut window to the front and capture again.',
         }
       : {}),
   };

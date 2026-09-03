@@ -12,7 +12,7 @@
 
    All base64url, dot-separated, ASCII. Text rather than binary so that
    somebody who finds one of these files can see what it is: "this is an
-   encrypted Kerf file" is useful information, and a wall of bytes that
+   encrypted TeminaliCut file" is useful information, and a wall of bytes that
    might be a corrupt video is not.
 
    ── Why AES-GCM and not AES-CBC plus a hash ────────────────────────
@@ -25,7 +25,7 @@
 
    ── Why `purpose` is inside the ciphertext's key derivation ────────
 
-   Kerf seals two unrelated things: a trial ledger and a recording's
+   TeminaliCut seals two unrelated things: a trial ledger and a recording's
    input sidecar. Under one key, a ciphertext from one file could be
    moved into the other and would decrypt. Deriving a sub-key per
    purpose makes that a decrypt failure instead of a confusing success.
@@ -79,7 +79,7 @@ export type OpenResult =
 export function open(deviceKey: Uint8Array, purpose: string, text: string): OpenResult {
   const parts = text.split('.');
   if (parts.length !== 5 || parts[0] !== ENVELOPE_MAGIC) {
-    return { ok: false, reason: 'not-sealed', message: 'Not a sealed Kerf file.' };
+    return { ok: false, reason: 'not-sealed', message: 'Not a sealed TeminaliCut file.' };
   }
   if (parts[1] !== purpose) {
     return {

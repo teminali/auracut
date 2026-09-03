@@ -12,7 +12,7 @@
    are a titled page over a catalogue you browse.
 
    What is copied is the composition and its light, pastel visual
-   hierarchy. What fills the composition is Kerf's, and the two rules
+   hierarchy. What fills the composition is TeminaliCut's, and the two rules
    that survive from §7 are unchanged:
 
      1. Real content over chrome. Every project tile is a frame

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Seed project — the sequence Kerf opens with.
+   Seed project — the sequence TeminaliCut opens with.
    Every clip is built through `createClip` so it is always complete.
    ═══════════════════════════════════════════════════════════════════ */
 

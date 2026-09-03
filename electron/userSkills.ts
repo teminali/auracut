@@ -1,12 +1,12 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Skills the user made, as opposed to the ones Kerf ships.
+   Skills the user made, as opposed to the ones TeminaliCut ships.
 
    ── Why this exists at all ─────────────────────────────────────────
 
    `src/services/bundledSkills.ts` reads every `skills/<id>/skill.json`
    through `import.meta.glob`, which inlines them into the bundle at
    BUILD time. That is the right call for the skills that ship inside
-   Kerf — `files:` in electron-builder.yml carries `dist`, `dist-electron`
+   TeminaliCut — `files:` in electron-builder.yml carries `dist`, `dist-electron`
    and package.json and nothing else, so a manifest that only exists in
    a git checkout is a manifest the shipped app has never seen.
 
@@ -30,7 +30,7 @@
 
    ── What this does not do ──────────────────────────────────────────
 
-   It does not run anything. There is no skill runner in Kerf yet — the
+   It does not run anything. There is no skill runner in TeminaliCut yet — the
    `recipe` field is declarative and the one skill that ships is invoked
    through its own tool. This stores, lists and validates. Running is the
    next piece and is deliberately not faked here, because a builder that

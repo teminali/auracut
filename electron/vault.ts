@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    Encryption at rest, and an honest account of what it buys.
 
-   Kerf writes several things to disk that are not the user's document:
+   TeminaliCut writes several things to disk that are not the user's document:
    a trial ledger that decides whether a paid skill will run, and the
    behavioural sidecar of a recording — every cursor position and the
    timing of every keystroke of a take. Both are written through here.
@@ -18,10 +18,10 @@
 
    It does NOT protect against a determined owner of the machine, and
    nothing running on that machine could. The key is derived from a
-   secret this app wrote and this app can read; anything Kerf can
-   decrypt, someone with Kerf can decrypt. `licenceKey.ts` already says
+   secret this app wrote and this app can read; anything TeminaliCut can
+   decrypt, someone with TeminaliCut can decrypt. `licenceKey.ts` already says
    this in as many words about signatures, and the same is true here:
-   Kerf is MIT, this file ships as source, and the store's value is
+   TeminaliCut is MIT, this file ships as source, and the store's value is
    updates, verification and convenience rather than a lock.
 
    Saying so is not a disclaimer. It is the difference between a trial

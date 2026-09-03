@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   "There is a newer Kerf", in the card the rail already had.
+   "There is a newer TeminaliCut", in the card the rail already had.
 
    Deliberately the same shape as the unsaved-work card above it: same
    surface, same icon-title-body, same full-width button underneath.
@@ -43,8 +43,8 @@ const AppUpdateBanner: React.FC = () => {
       setReady(result.message);
       pushToast({
         kind: 'success',
-        title: `Kerf ${result.version ?? ''} installed`,
-        detail: 'Quit and reopen Kerf to launch the new version.',
+        title: `TeminaliCut ${result.version ?? ''} installed`,
+        detail: 'Quit and reopen TeminaliCut to launch the new version.',
       });
     } else {
       pushToast({
@@ -61,8 +61,8 @@ const AppUpdateBanner: React.FC = () => {
       <button
         onClick={quitForUpdate}
         className="rail-tile !text-spectrum-green bg-spectrum-green/10 border border-spectrum-green/30 animate-pulse mx-auto"
-        title={ready ?? `Kerf ${readyVersion} is installed. Click to quit and restart Kerf.`}
-        aria-label="Quit and restart Kerf to apply update"
+        title={ready ?? `TeminaliCut ${readyVersion} is installed. Click to quit and restart TeminaliCut.`}
+        aria-label="Quit and restart TeminaliCut to apply update"
       >
         <RefreshCw className="w-[18px] h-[18px]" />
         <span className="text-micro leading-none font-semibold">Restart</span>
@@ -94,8 +94,8 @@ const AppUpdateBanner: React.FC = () => {
       onClick={canSideload ? () => void install() : openReleases}
       disabled={busy}
       className="rail-tile !text-spectrum-accent bg-spectrum-accent/10 border border-spectrum-accent/30 mx-auto"
-      title={`Kerf ${version} is available. Click to update.`}
-      aria-label={`Update to Kerf ${version}`}
+      title={`TeminaliCut ${version} is available. Click to update.`}
+      aria-label={`Update to TeminaliCut ${version}`}
     >
       {busy ? (
         <RefreshCw className="w-[18px] h-[18px] animate-spin" />

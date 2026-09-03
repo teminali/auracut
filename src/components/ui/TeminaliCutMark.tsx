@@ -1,30 +1,43 @@
-/* ═══════════════════════════════════════════════════════════════════
-   The TeminaliCut mark (TC Monogram).
-
-   Crisp vector geometry rendering the TC monogram with a modern cut aesthetic.
-   Drawn as strokes rather than a raster so it holds at 16px in a title
-   bar and at 1024px in an app icon, and stays crisp at every size.
-   ═══════════════════════════════════════════════════════════════════ */
-
 import React from 'react';
 
+/*
+  The TeminaliCut mark: `>_C`.
+
+  Built on exactly the same construction as TeminaliCode's `>_<`
+  (`teminaliCode/studio/build/mark.svg`) — a terminal prompt, drawn as three
+  stroked glyphs on a 1024 grid with round caps and joins and a stroke of 76.
+  The chevron and the underscore are the sibling's, unchanged; only the
+  closing `<` becomes a `C`, which is what makes the two read as one family
+  at Dock size and still tell apart.
+
+  A `C` is a wider letterform than a `<`, so the composition is the sibling's
+  scaled to 0.93 about the centre: that buys the arc its room while keeping
+  the plate margins, the cap height ratio and the stroke weight matched to
+  TeminaliCode. The underscore is shortened to clear the arc's lower-left —
+  the sibling lets `_` and `<` kiss, but a curve that touches an underscore
+  fuses into one shape rather than reading as two glyphs.
+
+  The viewBox is cropped to the ink, so the mark fills whatever box it is
+  given. Its aspect is ~2.28:1 — size it wide, never square.
+*/
 export const TeminaliCutMark: React.FC<{ className?: string; color?: string }> = ({
   className,
-  color = '#fff',
+  color = 'currentColor',
 }) => (
-  <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+  <svg viewBox="163 359 697 306" className={className} aria-hidden="true">
     <g
       stroke={color}
-      strokeWidth={2.6}
+      strokeWidth={76}
       strokeLinecap="round"
       strokeLinejoin="round"
       fill="none"
     >
-      {/* T - top crossbar & vertical stem */}
-      <path d="M3.5 6 H12" />
-      <path d="M7.7 6 V19" />
-      {/* C - modern geometric arc */}
-      <path d="M20.5 8 C19 5.8 15.5 5.8 14.2 7.8 C13.2 9.5 13.2 15.5 14.2 17.2 C15.5 19.2 19 19.2 20.5 17" />
+      {/* > */}
+      <polyline points="201,397 306,512 201,627" />
+      {/* _ */}
+      <line x1="371" y1="627" x2="547" y2="627" />
+      {/* C */}
+      <path d="M773 418 A115 115 0 1 0 773 606" />
     </g>
   </svg>
 );

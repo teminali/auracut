@@ -80,7 +80,7 @@ export const SourceGrid: React.FC<Props> = ({ sources, loading, selectedId, onSe
                 ? 'No other windows are open.'
                 /* Not "you have not allowed it yet". The commonest reason
                    for zero displays on a machine that HAS allowed it is
-                   that the grant went stale when Kerf updated, and the
+                   that the grant went stale when TeminaliCut updated, and the
                    footer offers the one button that fixes that. */
                 : 'No displays were offered. Either screen recording has not been allowed for '
                   + 'TeminaliCut, or it was allowed for an earlier version and stopped matching when '

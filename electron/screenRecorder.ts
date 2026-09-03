@@ -124,7 +124,7 @@ function stamp(d: Date): string {
 function recordingsRoot(): string {
   for (const name of ['videos', 'documents'] as const) {
     try {
-      return path.join(app.getPath(name), 'Kerf Recordings');
+      return path.join(app.getPath(name), 'TeminaliCut Recordings');
     } catch {
       /* try the next one */
     }
@@ -528,7 +528,7 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
   /*
     ── The permission that says it is granted and is not ─────────────
 
-    Kerf's macOS builds are AD-HOC SIGNED with no Team ID, and TCC binds
+    TeminaliCut's macOS builds are AD-HOC SIGNED with no Team ID, and TCC binds
     a screen-recording grant to the binary's cdhash. Every rebuild is a
     different cdhash. So after an update the switch in System Settings is
     still on, `getMediaAccessStatus('screen')` still answers `granted`,
@@ -539,7 +539,7 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
     Recording, `Displays (0)` in the studio, and a take that wrote a
     zero-byte file. Every user who updates will meet it.
 
-    `tccutil reset` deletes Kerf's own row so macOS asks again on the
+    `tccutil reset` deletes TeminaliCut's own row so macOS asks again on the
     next launch. It is scoped to this bundle and this one service, and
     the worst it can do is make somebody tick a box they had already
     ticked. It will keep being needed on every update until these builds
@@ -924,7 +924,7 @@ export function initScreenRecorder(mainWindowGetter: () => BrowserWindow | null)
 /**
  * A `file://` URL the renderer can hand to a `<video>` element.
  *
- * `encodeURI` rather than raw concatenation: "Kerf Recordings" has a
+ * `encodeURI` rather than raw concatenation: "TeminaliCut Recordings" has a
  * space in it, and an unencoded space in a URL is where a media element
  * stops loading with no error at all.
  */

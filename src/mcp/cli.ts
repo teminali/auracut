@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    MCP stdio bridge.
 
-   Exposes Kerf's tool surface to an external agent (Claude Code,
+   Exposes TeminaliCut's tool surface to an external agent (Claude Code,
    Antigravity, Codex …) over the Model Context Protocol. The renderer
    holds the actual project state, so this process forwards calls to it
    and relays the result.
@@ -121,4 +121,4 @@ process.stdin.on('data', (chunk: string) => {
   }
 });
 
-process.stderr.write(`Kerf MCP server ready, ${KERF_TOOLS.length} tools exposed.\n`);
+process.stderr.write(`TeminaliCut MCP server ready, ${KERF_TOOLS.length} tools exposed.\n`);

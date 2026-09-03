@@ -149,7 +149,7 @@ export function chooseBackend(language?: string): { backend: WhisperBackend; mod
    model for most other languages, and the gap is not a few percent.
 
    What this was measured on: 45 seconds of Swahili-with-English
-   code-switching, recorded in Kerf, decoded by `whisper-cli` with
+   code-switching, recorded in TeminaliCut, decoded by `whisper-cli` with
    `-l auto -mc 0`. `ggml-small` returned, in full:
 
        "Trandakona yeksel."
@@ -171,7 +171,7 @@ export function chooseBackend(language?: string): { backend: WhisperBackend; mod
    drop from `small` to `large-v3` on the low-resource languages is the
    largest single step in the family.
 
-   None of the languages Kerf offers in the `language` slot are in
+   None of the languages TeminaliCut offers in the `language` slot are in
    Whisper's high-resource set except English, French, Spanish,
    Portuguese and German — which is why those five keep `small` and the
    rest do not.                                                        */
@@ -181,7 +181,7 @@ export function chooseBackend(language?: string): { backend: WhisperBackend; mod
  * take that does not need it.
  *
  * The list is the intersection of Whisper's own top-tier languages
- * with the ones Kerf's `language` slot offers. Everything else — and
+ * with the ones TeminaliCut's `language` slot offers. Everything else — and
  * `auto`, because an unknown language cannot be assumed to be an easy
  * one — asks for the large model.
  */
@@ -428,7 +428,7 @@ async function runWhisperCpp(
       captions that come out are a single hallucinated line laid down
       every two seconds for four minutes.
 
-      Measured on the 275-second Swahili take in Kerf Recordings,
+      Measured on the 275-second Swahili take in TeminaliCut Recordings,
       same binary, same model, same `-l auto`, one flag apart:
 
           no -mc     124 segments, 15 distinct, ONE line 109 times

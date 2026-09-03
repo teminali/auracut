@@ -147,7 +147,7 @@ export function startStream(o: StreamOptions): { ok: boolean; error?: string } {
   if (proc) return { ok: false, error: 'A stream is already running.' };
 
   const ff = ffmpeg();
-  if (!ff) return { ok: false, error: 'ffmpeg is not installed, so Kerf cannot encode a stream.' };
+  if (!ff) return { ok: false, error: 'ffmpeg is not installed, so TeminaliCut cannot encode a stream.' };
   if (!/^rtmps?:\/\//i.test(o.url)) {
     return { ok: false, error: 'That is not an RTMP address. It should begin rtmp:// or rtmps://.' };
   }

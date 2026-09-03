@@ -301,7 +301,7 @@ const PlayerStage: React.FC<Props> = ({ onOpenTimeline }) => {
         </button>
 
         <span className="kp-mark">
-          <TeminaliCutMark className="w-[13px] h-[13px]" />
+          <TeminaliCutMark className="w-[14px] h-[6px]" />
         </span>
 
         <span className="min-w-0">

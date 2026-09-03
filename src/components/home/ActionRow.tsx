@@ -77,7 +77,7 @@ export const ActionRow: React.FC<Props> = ({
   /*
     The Copilot tile names the CLI that is actually connected when
     there is one. HANDOVER §6: the credentials are the user's own and
-    there is no inference cost to Kerf, ever. Saying which one is
+    there is no inference cost to TeminaliCut, ever. Saying which one is
     already signed in turns a marketing line into a fact about this
     machine.
   */
@@ -211,7 +211,7 @@ export const ActionRow: React.FC<Props> = ({
                                 flex items-center gap-2">
                   <RotateCcw className="w-4 h-4 text-spectrum-amber flex-shrink-0" />
                   <p className="text-ui-sm text-spectrum-textMuted truncate min-w-0 flex-1">
-                    Kerf closed with a project still open.
+                    TeminaliCut closed with a project still open.
                   </p>
                   <button onClick={onRecover} className="pro-btn-filled h-[var(--h-sm)] px-2 text-ui-sm flex-shrink-0">
                     Recover it

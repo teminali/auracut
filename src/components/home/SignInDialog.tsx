@@ -78,7 +78,7 @@ export const SignInDialog: React.FC<{ onClose: () => void }> = ({ onClose }) => 
           {signIn.phase === 'waiting' && (
             <>
               <p className="text-ui text-spectrum-textDim leading-relaxed">
-                Open the page below and enter this code. Kerf is watching for it, so
+                Open the page below and enter this code. TeminaliCut is watching for it, so
                 come back here when you are done.
               </p>
 

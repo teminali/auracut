@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    Video decode.
 
-   Until this existed, Kerf could not show video. Every clip — the
+   Until this existed, TeminaliCut could not show video. Every clip — the
    `.mov` files included — was drawn through `getCachedImage()`, which
    builds an `HTMLImageElement`. An <img> cannot decode an MP4, so the
    draw path fell through to its "media still loading" placeholder and

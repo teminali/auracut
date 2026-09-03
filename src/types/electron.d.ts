@@ -40,7 +40,7 @@ export interface AgentBackendStatus {
   streamVerified: boolean;
   /** Supplying this env var would make it usable. */
   needsKey?: string;
-  /** Whether Kerf already holds a key for it. */
+  /** Whether TeminaliCut already holds a key for it. */
   hasKey?: boolean;
 }
 
@@ -576,7 +576,7 @@ export interface KerfElectronAPI {
     onGoHome: (cb: () => void) => () => void;
   };
 
-  /** The Kerf Store session token, held at 0600 by the main process. */
+  /** The TeminaliCut Store session token, held at 0600 by the main process. */
   store: {
     getSession: () => Promise<{ session: { token: string; expiresAt: number } | null; baseUrl: string }>;
     setSession: (token: string, expiresAt: number) => Promise<boolean>;

@@ -68,7 +68,7 @@ export function markPermissionResetPending(file: string, version: string): void 
 /**
  * Prepare TCC for the build that is running now.
  *
- * A version mismatch also triggers the reset, so replacing Kerf manually is
+ * A version mismatch also triggers the reset, so replacing TeminaliCut manually is
  * covered even when the in-app updater never had a chance to write a marker.
  * State advances only after every service succeeds; a partial or failed reset
  * is retried on the next launch instead of being silently forgotten.

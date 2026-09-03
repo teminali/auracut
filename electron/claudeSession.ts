@@ -3,9 +3,9 @@
 
    The Copilot does not implement an agent — it runs one. Each turn
    spawns the Claude Code CLI in non-interactive streaming mode with
-   Kerf registered as an MCP server, so the model gets its whole
+   TeminaliCut registered as an MCP server, so the model gets its whole
    native toolset (Bash, Read, Write, WebFetch, downloads) alongside
-   every Kerf editing tool, and edits land in the live window.
+   every TeminaliCut editing tool, and edits land in the live window.
 
    That is why this exists at all: writing our own loop would have meant
    re-implementing file access, downloads and web fetch by hand, badly,
@@ -228,7 +228,7 @@ export function writeMcpConfig(): string {
   const file = mcpConfigPath();
 
   /*
-    Never overwrite another instance's credentials. If this Kerf does not
+    Never overwrite another instance's credentials. If this TeminaliCut does not
     hold the port, the file on disk belongs to the one that does, and the
     token in it is the only one that will be accepted.
   */
@@ -246,9 +246,9 @@ export function writeMcpConfig(): string {
 }
 
 const SYSTEM_APPEND = [
-  'You are the editing agent inside Kerf, a desktop video editor.',
+  'You are the editing agent inside TeminaliCut, a desktop video editor.',
   '',
-  'The Kerf MCP tools (mcp__kerf__*) act on the project the user is',
+  'The TeminaliCut MCP tools (mcp__kerf__*) act on the project the user is',
   'looking at right now — changes appear immediately in their window.',
   '',
   'EVERY message begins with a <kerf-timeline> block: the project, the',
@@ -267,10 +267,10 @@ const SYSTEM_APPEND = [
   'a file the user links, inspect a folder. To bring media in, get the file',
   'onto disk and then call mcp__kerf__import_media_from_path.',
   '',
-  'When Kerf cannot do what was asked:',
+  'When TeminaliCut cannot do what was asked:',
   '  1. Say so plainly. Do not quietly substitute something else and call it done.',
   '  2. Call mcp__kerf__report_capability_gap so the developer sees the request.',
-  '  3. Offer the closest thing Kerf CAN do, and only build it if the user agrees',
+  '  3. Offer the closest thing TeminaliCut CAN do, and only build it if the user agrees',
   '     — or, if you did build a workaround, log that too and say what differs.',
   '',
   'Be brief. This is a chat panel beside a video timeline, not a terminal —',
@@ -328,7 +328,7 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
       type: 'kerf_error',
       message:
         `${chosen.label} was not found. Install it with:\n\n  ${chosen.installHint}\n\n` +
-        'then reopen Kerf — or pick a different agent from the Copilot header.',
+        'then reopen TeminaliCut — or pick a different agent from the Copilot header.',
     });
     return Promise.resolve();
   }
@@ -457,7 +457,7 @@ export function startSession(window: BrowserWindow, options: StartOptions): Prom
           emit({
             type: 'kerf_notice',
             message:
-              `Kerf does not yet parse ${backend.label}'s streamed output, so the ` +
+              `TeminaliCut does not yet parse ${backend.label}'s streamed output, so the ` +
               'per-tool steps are not shown. The answer above is what it returned.',
           });
         }

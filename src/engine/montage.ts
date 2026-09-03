@@ -840,7 +840,7 @@ export async function autoMontageToBeats(args: AutoMontageArgs): Promise<Montage
   if (plan.boundariesMs.length > 1 && shortest < minShot) {
     throw new Error(
       `cutEveryBeats ${plan.cutEveryBeatsEffective} at ${beats.bpm.toFixed(1)} BPM gives shots of ` +
-      `${Math.round(shortest)}ms, under minShotMs ${minShot}. Kerf clamps a clip to 100ms, so the ` +
+      `${Math.round(shortest)}ms, under minShotMs ${minShot}. TeminaliCut clamps a clip to 100ms, so the ` +
       `cuts would drift off the beat. Increase cutEveryBeats, or lower minShotMs if you mean it.`
     );
   }

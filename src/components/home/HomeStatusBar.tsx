@@ -73,7 +73,7 @@ export const HomeStatusBar: React.FC = () => {
 
       <span className="flex-1" />
 
-      <span className="hp-status-item font-mono">Kerf {version} · {platform}</span>
+      <span className="hp-status-item font-mono">TeminaliCut {version} · {platform}</span>
     </footer>
   );
 };

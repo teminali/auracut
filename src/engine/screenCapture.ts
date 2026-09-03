@@ -23,7 +23,7 @@
    The alternative — one file, everything mixed — is what most screen
    recorders ship, and it is exactly what makes them useless to edit:
    you cannot duck the music under the voice, mute the beeps, or cut the
-   camera without cutting the narration. Kerf lands them as separate
+   camera without cutting the narration. TeminaliCut lands them as separate
    clips on separate tracks precisely so all of that stays possible.
 
    ── Why the .webm goes through ffmpeg before the timeline ──────────
@@ -347,7 +347,7 @@ async function acquireScreen(settings: CaptureSettings): Promise<{
         warning: 'System audio is a Windows feature, so the screen take has no sound of its own. '
           + 'Your microphone was still recorded. Asking for it here does not merely fail: it '
           + 'returns a track that never delivers a sample and stops the recording entirely, so '
-          + 'Kerf does not ask.',
+          + 'TeminaliCut does not ask.',
       }
       : {}),
   };

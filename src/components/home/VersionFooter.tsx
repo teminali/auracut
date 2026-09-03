@@ -3,7 +3,7 @@
 
    ── Why the version is the button ──────────────────────────────────
 
-   "Which build am I on" matters more in Kerf than in most apps, because
+   "Which build am I on" matters more in TeminaliCut than in most apps, because
    this build is unsigned: every update invalidates screen recording and
    accessibility, so it is the first thing worth knowing when the
    recorder starts behaving oddly. Making the version itself the control
@@ -114,7 +114,7 @@ export const VersionFooter: React.FC = () => {
   if (!isDesktop) {
     return (
       <p className="text-micro text-spectrum-textFaint px-1 leading-snug">
-        {currentVersion ? `Kerf ${currentVersion}` : 'Kerf'}
+        {currentVersion ? `TeminaliCut ${currentVersion}` : 'TeminaliCut'}
       </p>
     );
   }
@@ -135,14 +135,14 @@ export const VersionFooter: React.FC = () => {
       <button
         onClick={() => setOpen((v) => !v)}
         /* The rail is 76px wide now, so this cannot spill onto two
-           lines: it is centred, it does not wrap, and the word "Kerf"
+           lines: it is centred, it does not wrap, and the word "TeminaliCut"
            is dropped because it sits directly under a rail whose only
-           subject is Kerf. */
+           subject is TeminaliCut. */
         className="text-micro text-spectrum-textFaint hover:text-spectrum-textDim
                    transition-colors flex items-center justify-center gap-0.5 w-full whitespace-nowrap"
         aria-haspopup="menu"
         aria-expanded={open}
-        title={`Kerf ${currentVersion || ''} · version, updates and rollback`}
+        title={`TeminaliCut ${currentVersion || ''} · version, updates and rollback`}
       >
         {currentVersion || '…'}
         {(newer || isReady) && (
@@ -161,7 +161,7 @@ export const VersionFooter: React.FC = () => {
           <button
             onClick={quitForUpdate}
             className="pro-btn-filled w-full h-[var(--h-xs)] text-micro gap-1 !text-spectrum-green !border-spectrum-green/30"
-            title="Update installed. Click to quit and restart Kerf."
+            title="Update installed. Click to quit and restart TeminaliCut."
           >
             <RefreshCw className="w-2.5 h-2.5" />
             Quit to apply
@@ -266,7 +266,7 @@ export const VersionFooter: React.FC = () => {
               {confirming === release.version && (
                 <div className="px-2 pb-2 pt-0.5">
                   <p className="text-micro text-spectrum-textDim leading-snug mb-1.5">
-                    Replaces Kerf {currentVersion} with {release.version} and asks for screen
+                    Replaces TeminaliCut {currentVersion} with {release.version} and asks for screen
                     recording again. Projects saved by a newer build may not open.
                   </p>
                   <button
@@ -294,7 +294,7 @@ export const VersionFooter: React.FC = () => {
                     onClick={quitForUpdate}
                     className="pro-btn-filled w-full h-[var(--h-sm)] mt-2 text-ui-xs"
                   >
-                    Quit Kerf
+                    Quit TeminaliCut
                   </button>
                 )}
               </div>

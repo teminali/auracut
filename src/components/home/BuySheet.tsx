@@ -180,7 +180,7 @@ export const BuySheet: React.FC<Props> = ({ skill, onClose }) => {
               </button>
 
               <p className="text-micro text-spectrum-textFaint text-center mt-2 leading-snug">
-                You approve the payment on your own handset. Kerf never sees your PIN,
+                You approve the payment on your own handset. TeminaliCut never sees your PIN,
                 and the number is stored only to save you typing it next time.
               </p>
             </>

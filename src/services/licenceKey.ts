@@ -2,7 +2,7 @@
    The public half of the licence signing key, and the check that uses it.
 
    A licence is an ECDSA P-256 signature over a statement of the form
-   "user U owns skill S major version V until T". Kerf verifies it here,
+   "user U owns skill S major version V until T". TeminaliCut verifies it here,
    with no network, which is the entire reason licences are signed
    rather than looked up: a skill somebody paid for has to open on a
    laptop with no connection, and in the market this is being built for
@@ -11,7 +11,7 @@
    **Verification is not authorisation for the seller.** The store
    re-checks the entitlement table on every download. This is what lets
    an ALREADY-INSTALLED skill run, and nothing more. Someone determined
-   can patch it out — Kerf is MIT and this file ships as source — and
+   can patch it out — TeminaliCut is MIT and this file ships as source — and
    that is accounted for in HANDOVER §6: skills are revocable managed
    extensions and the store's value is updates, verification and
    convenience, not a lock.

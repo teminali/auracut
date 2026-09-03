@@ -80,7 +80,7 @@ export const HomeTopBar: React.FC<Props> = ({
       <div className="titlebar-gutter" />
 
       <span className="hp-brand-mark w-[26px] h-[var(--h-sm)] rounded-squircle-xs flex items-center justify-center flex-shrink-0">
-        <TeminaliCutMark className="w-[15px] h-[15px]" />
+        <TeminaliCutMark className="w-[16px] h-[7px]" />
       </span>
       <span className="text-ui-lg font-semibold text-spectrum-text tracking-tight flex-shrink-0">TeminaliCut</span>
       <span className="w-px h-4 bg-line flex-shrink-0" />

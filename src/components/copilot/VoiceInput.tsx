@@ -145,7 +145,7 @@ export const VoiceInput: React.FC<Props> = ({ onTranscript, disabled }) => {
         kind: 'error',
         title: denied ? 'Microphone access was refused' : 'Could not start recording',
         detail: denied
-          ? 'Allow Kerf the microphone in System Settings, Privacy & Security.'
+          ? 'Allow TeminaliCut the microphone in System Settings, Privacy & Security.'
           : (err as Error).message,
       });
     }

@@ -81,7 +81,7 @@ export const HomeSkillsRail: React.FC<Props> = ({
               {user?.name ?? user?.email ?? 'Signed in'}
             </span>
             <span className="block text-ui-sm text-spectrum-textDim truncate">
-              {user?.email ?? 'Kerf account'}
+              {user?.email ?? 'TeminaliCut account'}
             </span>
           </span>
           <ChevronRight className="w-4 h-4 text-spectrum-textDim flex-shrink-0" />

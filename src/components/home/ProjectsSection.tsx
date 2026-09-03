@@ -8,14 +8,14 @@
    else is a caption, which is exactly what it is.
 
    What is NOT copied is the shape. CapCut's wall is 9:16 because a
-   template is a vertical video; Kerf projects are whatever the user
+   template is a vertical video; TeminaliCut projects are whatever the user
    set, mostly 16:9, and cropping a 16:9 frame into a portrait card to
    match a reference would throw away the middle of every poster to win
    a resemblance. The card is the reference's; the aspect is the
    project's.
 
    CapCut's header controls are search, a view-mode select and a cloud
-   "Project sync" button. Kerf has no cloud, so it has the first two,
+   "Project sync" button. TeminaliCut has no cloud, so it has the first two,
    both of which do the thing they say, and not the third.
 
    The select is a real `<select>` drawn as one of ours: `appearance:

@@ -21,7 +21,7 @@ export interface McpServerStatus {
   uptimeSeconds: number;
 }
 
-// Complete Catalog of 50+ Kerf MCP Tools
+// Complete Catalog of 50+ TeminaliCut MCP Tools
 export const KERF_MCP_TOOL_NAMES = [
   // 1. Timeline & Track Operations
   'insert_clip',

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   The Kerf Store API, from the app's side.
+   The TeminaliCut Store API, from the app's side.
 
    Portable on purpose: `fetch` and nothing else. No `window.electronAPI`
    in this file, so it holds under the §6 rule that keeps the core
@@ -29,7 +29,7 @@ export interface StoreSkill {
   toolApi: number;
   price: { amount: number; currency: string };
   free: boolean;
-  /** Ships with Kerf, so its manifest updates are public. */
+  /** Ships with TeminaliCut, so its manifest updates are public. */
   included: boolean;
   /**
    * How many times this may be run before it is bought, set by the

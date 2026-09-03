@@ -24,7 +24,7 @@ export const FORMAT_VERSION = 2;
      it only covers fields, not changed meanings.
    - A NEWER file also loaded, silently, and was then interpreted by code
      that predates it. That is the dangerous one: the user opens a
-     project made by a later Kerf, sees something subtly wrong, saves,
+     project made by a later TeminaliCut, sees something subtly wrong, saves,
      and the newer data is gone.
 
    So: refuse the future, migrate the past, and say which happened.
@@ -144,7 +144,7 @@ export interface LoadResult {
   error?: string;
   /** Assets whose URL will not resolve after a reload. */
   relinkNeeded?: string[];
-  /** Set when the file was written by an older Kerf and was upgraded. */
+  /** Set when the file was written by an older TeminaliCut and was upgraded. */
   migratedFrom?: number;
 }
 
@@ -164,16 +164,16 @@ export function deserializeProject(json: string, baseDir?: string): LoadResult {
     autosave slot written as "null", is enough. Found by the unit tests.
   */
   if (parsed === null || typeof parsed !== 'object') {
-    return { ok: false, error: 'That is not a Kerf project file.' };
+    return { ok: false, error: 'That is not a TeminaliCut project file.' };
   }
 
   const raw = parsed as AnyFile;
   if (raw.format !== 'kerf.project') {
-    return { ok: false, error: 'That is not a Kerf project file.' };
+    return { ok: false, error: 'That is not a TeminaliCut project file.' };
   }
 
   /*
-    Refuse the future. A file from a later Kerf will usually parse, and
+    Refuse the future. A file from a later TeminaliCut will usually parse, and
     that is the problem — it would load, be interpreted by older code,
     and be written back with whatever it did not understand dropped.
   */
@@ -182,9 +182,9 @@ export function deserializeProject(json: string, baseDir?: string): LoadResult {
     return {
       ok: false,
       error:
-        `This project was saved by a newer version of Kerf (project format ${declared}; ` +
+        `This project was saved by a newer version of TeminaliCut (project format ${declared}; ` +
         `this build reads up to ${FORMAT_VERSION}). Opening it here would quietly drop ` +
-        'whatever that version added. Update Kerf and open it again.',
+        'whatever that version added. Update TeminaliCut and open it again.',
     };
   }
 

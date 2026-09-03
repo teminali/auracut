@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    Sound effects, synthesised.
 
-   Kerf had no sound library at all — the "Music & SFX" panel listed
+   TeminaliCut had no sound library at all — the "Music & SFX" panel listed
    whatever you had already imported, which is not a library.
 
    The obvious fix is to ship a catalogue of files. This does not,

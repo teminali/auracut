@@ -10,13 +10,13 @@
 
    `uiohook-napi` can. It is a prebuilt N-API binding over libuiohook, so
    there is no compile step and no Electron ABI to match, and it ships
-   binaries for every platform Kerf targets.
+   binaries for every platform TeminaliCut targets.
 
    ── Three things this module is careful about ──────────────────────
 
    1. **It is optional, and its absence is not an error.** The module is
       required lazily inside a try/catch and every failure path returns a
-      REASON. Kerf falls back to the cursor-settle detector, says which
+      REASON. TeminaliCut falls back to the cursor-settle detector, says which
       one is running, and works either way. A screen recorder that
       refuses to record because a permission is missing would be worse
       than one that zooms slightly less cleverly.
@@ -122,8 +122,8 @@ const NEEDS_ACCESSIBILITY: InputCaptureStatus = {
   source: 'cursor-only',
   reason: 'needs-accessibility',
   message:
-    'macOS has not allowed Kerf to see input from other apps, so zooms are placed from where '
-    + 'the pointer travelled to and stopped. Turn Kerf on under Privacy and Security, '
+    'macOS has not allowed TeminaliCut to see input from other apps, so zooms are placed from where '
+    + 'the pointer travelled to and stopped. Turn TeminaliCut on under Privacy and Security, '
     + 'Accessibility, then relaunch it for zooms on real clicks.',
 };
 

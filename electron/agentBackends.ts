@@ -2,7 +2,7 @@
    Agent backends.
 
    The Copilot drives a coding CLI in non-interactive mode and gives it
-   Kerf's 53 tools over MCP. Several CLIs can do that job, so this is
+   TeminaliCut's 53 tools over MCP. Several CLIs can do that job, so this is
    the adapter layer that lets the user choose one.
 
    MCP is what makes this possible at all. The CLI is a separate OS
@@ -624,7 +624,7 @@ function codexMcpOverride(mcp: McpServerSpec): string {
 /**
  * Codex's `exec --json` stream, verified against a real run.
  *
- * Shape confirmed by driving it against Kerf's own MCP server:
+ * Shape confirmed by driving it against TeminaliCut's own MCP server:
  *   thread.started   carries thread_id, which `exec resume` accepts
  *   item.started     an mcp_tool_call beginning
  *   item.completed   agent_message (text), mcp_tool_call (with result),
@@ -655,7 +655,7 @@ function translateCodex(line: string): AgentEvent[] {
         content: [{
           type: 'tool_use',
           id: String(item.id ?? 'tool'),
-          // Present it the way the Kerf tools are named everywhere else.
+          // Present it the way the TeminaliCut tools are named everywhere else.
           name: `mcp__${String(item.server ?? 'mcp')}__${String(item.tool ?? '')}`,
           input: (item.arguments ?? {}) as Record<string, unknown>,
         }],
@@ -1400,7 +1400,7 @@ export async function installBackend(
   if (process.platform === 'win32' && !npm) {
     return {
       ok: false,
-      message: 'Node.js/npm was not found. Install Node.js, reopen Kerf, then try again.',
+      message: 'Node.js/npm was not found. Install Node.js, reopen TeminaliCut, then try again.',
     };
   }
 

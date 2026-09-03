@@ -113,9 +113,9 @@ export const useGapStore = create<GapState>((set, get) => ({
   /** A backlog you can paste straight into an issue tracker. */
   exportMarkdown: () => {
     const gaps = [...get().gaps].sort((a, b) => b.count - a.count || b.lastSeen - a.lastSeen);
-    if (gaps.length === 0) return '# Kerf capability gaps\n\nNothing recorded yet.\n';
+    if (gaps.length === 0) return '# TeminaliCut capability gaps\n\nNothing recorded yet.\n';
 
-    const lines = ['# Kerf capability gaps', ''];
+    const lines = ['# TeminaliCut capability gaps', ''];
     for (const g of gaps) {
       lines.push(`## ${g.request}${g.count > 1 ? `  _(asked ${g.count}×)_` : ''}`);
       lines.push('');

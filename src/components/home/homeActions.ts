@@ -96,7 +96,7 @@ export function useHomeActions(onEnterEditor: () => void): HomeActions {
         pushToast({
           kind: 'info',
           title: 'Opened the starter project',
-          detail: 'Kerf’s own brand film, 11.5s, thirteen cuts on detected beats. Edit it freely.',
+          detail: 'TeminaliCut’s own brand film, 11.5s, thirteen cuts on detected beats. Edit it freely.',
         });
         return true;
       }

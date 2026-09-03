@@ -19,7 +19,7 @@
    ── What this cannot do ────────────────────────────────────────────
 
    Deleting the ledger resets the trials on that machine. There is no
-   fix for that which lives on the machine: anything Kerf can find,
+   fix for that which lives on the machine: anything TeminaliCut can find,
    somebody can delete, and anything hidden well enough to survive is
    something an uninstall should have removed and did not.
 
@@ -74,7 +74,7 @@ const EMPTY: Ledger = { version: 1, seq: 0, skills: {} };
  * The state a ledger read can be in.
  *
  * `sealed-broken` is the one that matters and the one an ordinary
- * implementation does not have: the file exists, it is a Kerf envelope,
+ * implementation does not have: the file exists, it is a TeminaliCut envelope,
  * and it did not open. That is not "no trials used".
  */
 type LedgerState =

@@ -90,7 +90,7 @@ export const INK_BLACK = '#000000';
  * is first, and on a machine that has it the render is an exact match.
  *
  * Visby CF is a commercial font (Connary Fagen) and cannot be shipped
- * with Kerf, so the rest of the chain is what the machine is likely to
+ * with TeminaliCut, so the rest of the chain is what the machine is likely to
  * actually have. The ordering is by how close the skeleton is, which
  * was checked glyph by glyph against the reference's own letterforms
  * at 1620px:
@@ -943,7 +943,7 @@ export function buildKineticCaptions(
   if (!headlineIsExact() && clips.length > 0) {
     notes.push(
       `Kinetic captions are set in ${family}. The reference uses Visby CF Extra Bold, which is a `
-      + 'commercial font and cannot ship with Kerf. Install it and the next build matches the '
+      + 'commercial font and cannot ship with TeminaliCut. Install it and the next build matches the '
       + 'reference exactly, with no other change.'
     );
   }

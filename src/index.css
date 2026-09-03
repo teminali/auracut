@@ -416,7 +416,7 @@
    What is copied is the composition. What is not copied is the
    palette: the reference is a white product with mint and lilac
    gradients, and pouring those into a dark editor would give it two
-   identities. So every surface, gradient and ink here is Kerf's.
+   identities. So every surface, gradient and ink here is TeminaliCut's.
 
      · the mint "Create new" button and its tile   -> the terracotta
      · the lilac "Create new image" tile           -> blue into violet
@@ -1193,7 +1193,7 @@
      the SAME control changed colour depending on which screen you were
      looking at — the one thing a primary action must never do. Flat is
      kept, because this block draws with tone and edges rather than
-     gradients; only the hue is Kerf's now. Ink at 5.67:1. */
+     gradients; only the hue is TeminaliCut's now. Ink at 5.67:1. */
   .home-stage .btn-primary {
     color: var(--ink-warm);
     background: var(--accent);
@@ -1504,7 +1504,10 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--r-xs);
-    background: linear-gradient(145deg, #ffad72, #c7672e);
+    /* The plate is the accent, so its ink is the ground colour. Without
+       this the mark inherits the overlay's light text and disappears. */
+    color: var(--on-accent);
+    background: var(--accent);
     box-shadow: var(--lift-1);
   }
 
@@ -3279,7 +3282,7 @@ input[type='number']::-webkit-outer-spin-button {
    HOME — APPROVED COMPOSITION LOCK
 
    This final block intentionally owns the launcher geometry. The
-   earlier rules provide the shared Kerf tokens and component states;
+   earlier rules provide the shared TeminaliCut tokens and component states;
    these rules reproduce the approved prototype's shell while the
    React components keep the platform's real data and actions.
    ═══════════════════════════════════════════════════════════════ */

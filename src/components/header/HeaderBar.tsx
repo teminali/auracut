@@ -140,7 +140,7 @@ export const HeaderBar: React.FC<{ onGoHome?: () => void }> = ({ onGoHome }) => 
                      hover:bg-spectrum-cardHover transition-colors disabled:hover:bg-transparent"
         >
           <div className="w-[26px] h-[var(--h-sm)] rounded-lg bg-spectrum-accentSoft border border-spectrum-accentLine flex items-center justify-center flex-shrink-0 text-spectrum-accent">
-            <TeminaliCutMark className="w-[13px] h-[13px]" />
+            <TeminaliCutMark className="w-[14px] h-[6px]" />
           </div>
           <span className="font-semibold tracking-tight text-ui-lg text-spectrum-text">TeminaliCut</span>
         </button>

@@ -133,7 +133,7 @@ export const CopilotDrawer: React.FC = () => {
   /*
     The Copilot prefers to BE Claude Code rather than imitate it. When the
     CLI is installed we hand the whole turn to it — it brings its own file,
-    shell and web tools alongside Kerf's, which is the difference
+    shell and web tools alongside TeminaliCut's, which is the difference
     between "understands the phrasings I hardcoded" and "understands you".
     Without it we fall back to the built-in planner.
   */

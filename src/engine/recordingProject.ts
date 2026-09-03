@@ -167,7 +167,7 @@ export interface AssembleOptions {
 /**
  * Captions on a chip, sized and weighted to be read rather than noticed.
  *
- * A stroke is what Kerf's default caption style uses and it is the right
+ * A stroke is what TeminaliCut's default caption style uses and it is the right
  * choice over footage. Over a SCREEN it is not: screen content is mostly
  * flat light greys with thin dark type, and an outlined white caption
  * sitting on it competes with the text underneath. A solid chip
@@ -440,7 +440,7 @@ export function canvasFor(width: number, height: number): {
     is by the same factor.
 
     It will still sometimes read oddly, and that is worth saying rather
-    than tuning away: the six ratios Kerf offers have nothing between
+    than tuning away: the six ratios TeminaliCut offers have nothing between
     1.333 and 1.778, and a great many real displays live in that gap. A
     3024x1964 laptop is 1.539, almost exactly halfway, and comes out
     labelled 4:3 by a margin of 0.0005. Putting a thumb on the scale to

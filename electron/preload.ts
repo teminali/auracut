@@ -278,7 +278,7 @@ export interface ElectronAPI {
     onGoHome: (cb: () => void) => () => void;
   };
 
-  /** The Kerf Store session token, held at 0600 in main rather than
+  /** The TeminaliCut Store session token, held at 0600 in main rather than
       in the renderer's localStorage. */
   store: {
     getSession: () => Promise<{ session: { token: string; expiresAt: number } | null; baseUrl: string }>;

@@ -3,7 +3,7 @@
 
    ── Why this is not `claudeSession.ts` ─────────────────────────────
 
-   Kerf already drives an agent CLI: `startSession` spawns one with the
+   TeminaliCut already drives an agent CLI: `startSession` spawns one with the
    MCP server wired up, streams its events, and lets it edit the project
    with tools. That is the right machinery for "make this shot warmer"
    and entirely the wrong machinery for this. Correcting a transcript

@@ -194,7 +194,7 @@ function oneOf<T extends string>(
 ): T {
   if ((allowed as readonly string[]).includes(value)) return value as T;
   throw new Error(
-    `Kerf has no ${label} called "${value}". Supported: ${allowed.join(', ')}.`
+    `TeminaliCut has no ${label} called "${value}". Supported: ${allowed.join(', ')}.`
   );
 }
 
@@ -2291,7 +2291,7 @@ defineTool({
     'replaced on its own. The video clip is left silent (audio.volume 0) and the new audio clip ' +
     'carries the sound. Refuses a clip that is not video, a clip with no media source, and a ' +
     'SECOND detach of the same clip. That used to stack a duplicate of the same sound into the ' +
-    'mix. Kerf cannot see whether the source FILE has an audio stream, so this reports the edit, ' +
+    'mix. TeminaliCut cannot see whether the source FILE has an audio stream, so this reports the edit, ' +
     'not the presence of sound; render_export tells you what actually reached the mix.',
   schema: z.object({ clipId: z.string().optional() }),
   handler: ({ clipId }) => {
@@ -2885,9 +2885,9 @@ defineTool({
         reason: result.message,
         suggestion:
           result.reason === 'no-whisper' || result.reason === 'no-model'
-            ? 'Bundle a Whisper model with Kerf, or ship whisper.cpp, so captions work with no setup'
+            ? 'Bundle a Whisper model with TeminaliCut, or ship whisper.cpp, so captions work with no setup'
             : result.reason === 'no-ffmpeg'
-              ? 'Bundle an ffmpeg binary with Kerf'
+              ? 'Bundle an ffmpeg binary with TeminaliCut'
               : undefined,
       });
       throw new Error(result.message);
@@ -3342,7 +3342,7 @@ defineTool({
   description:
     'Match the caption text against the names and transcripts of the media already in the ' +
     'project, and propose cutaways where a line and an asset agree. Only ever suggests media ' +
-    'the project actually contains. Kerf has no stock library, and says which word matched ' +
+    'the project actually contains. TeminaliCut has no stock library, and says which word matched ' +
     'what, so the basis is checkable. Returns nothing rather than guessing.',
   schema: z.object({ insert: z.boolean().optional().describe('Also place the suggestions on the overlay track') }),
   handler: ({ insert }) => {
@@ -3459,7 +3459,7 @@ defineTool({
         supported rates then fell through its cases.
       */
       if (!(FPS_VALUES as readonly number[]).includes(fps)) {
-        throw new Error(`Kerf renders at ${FPS_VALUES.join(', ')} fps. "${fps}" is not one of them.`);
+        throw new Error(`TeminaliCut renders at ${FPS_VALUES.join(', ')} fps. "${fps}" is not one of them.`);
       }
       proj.setFps(fps as (typeof FPS_VALUES)[number]);
     }
@@ -3602,7 +3602,7 @@ defineTool({
   category: 'media',
   description:
     'Pre-render a media file through ffmpeg and import the result as a new asset. This is how ' +
-    'Kerf does the things the real-time compositor cannot: stabilise shaky footage, interpolate ' +
+    'TeminaliCut does the things the real-time compositor cannot: stabilise shaky footage, interpolate ' +
     'to a higher frame rate, denoise, reverse, apply a .cube LUT. It writes a new file and leaves ' +
     'the original untouched, so it is safe to try. Slower than real time on long clips. Say so ' +
     'before starting one. Operations: ' + FFMPEG_OPERATIONS.join(', ') + '. `custom` takes a raw ' +
@@ -3793,9 +3793,9 @@ defineTool({
   name: 'open_project',
   category: 'project',
   description:
-    'Open a Kerf project file (.kerf / .json) from an absolute path, replacing whatever is ' +
+    'Open a TeminaliCut project file (.kerf / .json) from an absolute path, replacing whatever is ' +
     'currently open. Reports whether the file had to be upgraded from an older project format, ' +
-    'and which media could not be relinked. Refuses a file written by a NEWER Kerf rather than ' +
+    'and which media could not be relinked. Refuses a file written by a NEWER TeminaliCut rather than ' +
     'loading it partially. Destructive to the current project.',
   schema: z.object({
     path: z.string().describe('Absolute path to the project file'),
@@ -3858,7 +3858,7 @@ defineTool({
     }
     if (fps !== undefined) {
       if (!(FPS_VALUES as readonly number[]).includes(fps)) {
-        throw new Error(`Kerf renders at ${FPS_VALUES.join(', ')} fps. "${fps}" is not one of them.`);
+        throw new Error(`TeminaliCut renders at ${FPS_VALUES.join(', ')} fps. "${fps}" is not one of them.`);
       }
       proj.setFps(fps as (typeof FPS_VALUES)[number]);
     }
@@ -3889,7 +3889,7 @@ defineTool({
   name: 'open_starter_project',
   category: 'project',
   description:
-    "Build Kerf's bundled starter project, the brand film, into the timeline, replacing " +
+    "Build TeminaliCut's bundled starter project, the brand film, into the timeline, replacing " +
     'whatever is open. It is constructed in code from ordinary shapes, text and keyframes, so ' +
     'it is also a worked example to read and edit. Destructive to the current project.',
   schema: z.object({}),
@@ -3949,7 +3949,7 @@ defineTool({
     const preset = getLookPreset(a.preset);
     if (!preset) {
       throw new Error(
-        `Kerf has no look preset called "${a.preset}". Available: `
+        `TeminaliCut has no look preset called "${a.preset}". Available: `
         + LOOK_PRESETS.map((p) => `${p.id}, ${p.label}`).join(', ') + '.'
       );
     }
@@ -4531,7 +4531,7 @@ defineTool({
   name: 'build_tutorial_from_recording',
   category: 'media',
   description:
-    'Turn a folder written by Kerf\'s screen recorder into a finished tutorial project. The ' +
+    'Turn a folder written by TeminaliCut\'s screen recorder into a finished tutorial project. The ' +
     'folder holds screen.mp4, optionally camera.mp4, and cursor.json: the cursor track, the ' +
     'real click/scroll/keystroke stream, and the marks made during the take. This reads all ' +
     'of them and builds an EDIT: the screen inset on a backdrop with rounded corners, zooms ' +
@@ -4542,7 +4542,7 @@ defineTool({
     'Nothing is baked: every part of it is a clip, a keyframe or a marker that can then be ' +
     'changed. Pass raw:true to lay the take down and stop.',
   schema: z.object({
-    folder: z.string().describe('A take folder under Kerf Recordings, holding screen.mp4 and cursor.json'),
+    folder: z.string().describe('A take folder under TeminaliCut Recordings, holding screen.mp4 and cursor.json'),
     raw: z.boolean().optional().describe('Just the clips: no zooms, no look, no sound, no captions'),
     captions: z.boolean().optional().describe('Transcribe the narration; default true. The words also place the camera cuts.'),
     zoomStrength: z.number().min(1).max(3).optional().describe(
@@ -5144,7 +5144,7 @@ defineTool({
     muteSourceAudio: z.boolean().optional().describe('Silence each shot so only the music plays; default true'),
     fitMode: z.enum(['cover', 'contain']).optional().describe('Default cover'),
     minShotMs: z.number().optional()
-      .describe('Refuse a grid finer than this; default 120. Kerf clamps a clip to 100ms, so a finer grid drifts off the beat.'),
+      .describe('Refuse a grid finer than this; default 120. TeminaliCut clamps a clip to 100ms, so a finer grid drifts off the beat.'),
     maxCuts: z.number().optional().describe('Safety cap on the number of shots; default 400'),
     dryRun: z.boolean().optional().describe('Report the shot list and every decision without changing anything'),
   }),
@@ -5203,7 +5203,7 @@ defineTool({
     return {
       count: shown.length,
       total: fonts.length,
-      /* Bundled ones ship with Kerf and are present on every machine;
+      /* Bundled ones ship with TeminaliCut and are present on every machine;
          system ones are whatever this computer happens to have. */
       bundled: shown.filter((f) => f.source === 'bundled').map((f) => f.family),
       system: shown.filter((f) => f.source === 'system').map((f) => f.family),
@@ -5293,7 +5293,7 @@ defineTool({
   name: 'list_sound_effects',
   category: 'discovery',
   description:
-    'The sound effects Kerf can synthesise, with what each is for. Kerf ships no ' +
+    'The sound effects TeminaliCut can synthesise, with what each is for. TeminaliCut ships no ' +
     'recorded audio library, these are generated on demand. For recorded music or SFX, ' +
     'find a file on disk and use import_media_from_path.',
   schema: z.object({}),
@@ -5374,14 +5374,14 @@ defineTool({
   name: 'report_capability_gap',
   category: 'discovery',
   description:
-    'Record that the user asked for something Kerf cannot do. Call this WHENEVER you ' +
+    'Record that the user asked for something TeminaliCut cannot do. Call this WHENEVER you ' +
     'have to tell the user no, or had to substitute something different from what they ' +
     'asked for, including when you found a workaround. This is how missing features ' +
     'reach the developer; a refusal you only speak aloud is lost the moment the panel ' +
     'scrolls. Then still tell the user plainly what you could not do and what you suggest.',
   schema: z.object({
     request: z.string().describe("What the user asked for, in their words where possible"),
-    reason: z.string().describe('Why Kerf cannot do it'),
+    reason: z.string().describe('Why TeminaliCut cannot do it'),
     suggestion: z.string().optional().describe('The tool or feature that would close the gap'),
     workaround: z.string().optional().describe('What you did instead, if anything'),
   }),
@@ -5444,7 +5444,7 @@ defineTool({
 defineTool({
   name: 'list_capability_gaps',
   category: 'discovery',
-  description: 'List everything previously recorded as missing from Kerf.',
+  description: 'List everything previously recorded as missing from TeminaliCut.',
   schema: z.object({}),
   handler: () => ({
     gaps: useGapStore.getState().gaps.map((g) => ({
@@ -6043,7 +6043,7 @@ defineTool({
         thing an agent is most likely to misreport to the user.
       */
       note:
-        'This wrote a specification. Kerf has no skill runner, so nothing executes `recipe` '
+        'This wrote a specification. TeminaliCut has no skill runner, so nothing executes `recipe` '
         + 'yet: carry the steps out with the tools they name.',
     };
   },
@@ -6075,7 +6075,7 @@ defineTool({
   category: 'ai',
   description:
     'Remove a skill built on this machine, and everything in its folder. Only reaches skills the '
-    + 'user built; the ones bundled with Kerf are part of the app and cannot be deleted.',
+    + 'user built; the ones bundled with TeminaliCut are part of the app and cannot be deleted.',
   schema: z.object({ id: z.string() }),
   handler: async ({ id }) => {
     const api = (window as any).electronAPI;
@@ -6090,7 +6090,7 @@ defineTool({
   name: 'list_skills',
   category: 'discovery',
   description:
-    'Every skill available here: the ones bundled with Kerf and the ones built on this machine, '
+    'Every skill available here: the ones bundled with TeminaliCut and the ones built on this machine, '
     + 'with their slots and whether their assets are actually on disk.',
   schema: z.object({}),
   handler: async () => {
@@ -6122,7 +6122,7 @@ defineTool({
         folder: s.dir,
         })),
       note:
-        'Kerf has no skill RUNNER yet: `recipe` is a specification, not something the app '
+        'TeminaliCut has no skill RUNNER yet: `recipe` is a specification, not something the app '
         + 'executes. Carry the steps out with the tools they name.',
     };
   },

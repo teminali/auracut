@@ -73,7 +73,7 @@ export const TUTORIAL_SKILL_ID = 'tutorial';
 /**
  * How many trial runs the bundled build allows.
  *
- * Zero, which means NOT GATED. This skill ships inside Kerf, so counting
+ * Zero, which means NOT GATED. This skill ships inside TeminaliCut, so counting
  * runs of it would be gating somebody out of something they already
  * have. It is stated rather than omitted because "no trial" and "nobody
  * thought about it" should not look the same, and because a published
@@ -999,7 +999,7 @@ export async function openTakeRaw(take: Take): Promise<AssembleReport> {
  * wait for a step nobody asked for by name.
  *
  * 45 seconds is what a reply to a hundred-odd short lines actually
- * takes on the CLIs Kerf drives, plus headroom. Past it the words are
+ * takes on the CLIs TeminaliCut drives, plus headroom. Past it the words are
  * used as they are: uncorrected captions on the timeline in three
  * seconds beat corrected ones in four minutes, and the background
  * spell-check can still fix them afterwards.

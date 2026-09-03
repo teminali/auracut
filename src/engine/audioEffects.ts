@@ -93,7 +93,7 @@ export function ensurePitchWorklet(ctx: BaseAudioContext): Promise<boolean> {
     .catch((err: unknown) => {
       // Loud, not silent: without this the preview drops pitch and the
       // only symptom is that it sounds wrong.
-      console.error('[Kerf] pitch worklet failed to load; playback cannot pitch-shift', err);
+      console.error('[TeminaliCut] pitch worklet failed to load; playback cannot pitch-shift', err);
       return false;
     });
 

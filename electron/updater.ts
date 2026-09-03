@@ -55,7 +55,7 @@ export type UpdateStatus =
   /**
    * An update exists but Squirrel cannot install it.
    *
-   * `canSideload` says whether Kerf can nevertheless do the swap itself.
+   * `canSideload` says whether TeminaliCut can nevertheless do the swap itself.
    * See `sideloadUpdate` for what that means and what it does not.
    */
   | { state: 'manual-only'; version: string; url: string; canSideload: boolean }
@@ -130,7 +130,7 @@ function canSelfUpdate(): boolean {
 /** The app bundle root, or null when this is not a packaged macOS app. */
 function bundlePath(): string | null {
   if (process.platform !== 'darwin' || !app.isPackaged) return null;
-  /* …/Kerf.app/Contents/MacOS/Kerf -> …/Kerf.app */
+  /* …/TeminaliCut.app/Contents/MacOS/TeminaliCut -> …/TeminaliCut.app */
   const exe = app.getPath('exe');
   const marker = `${path.sep}Contents${path.sep}MacOS${path.sep}`;
   const at = exe.lastIndexOf(marker);
@@ -138,7 +138,7 @@ function bundlePath(): string | null {
 }
 
 /**
- * Can Kerf replace its own bundle in place?
+ * Can TeminaliCut replace its own bundle in place?
  *
  * Writability is checked on the PARENT rather than on the bundle: the
  * swap is a rename plus a copy in that directory, so a read-only
@@ -234,7 +234,7 @@ export interface SideloadResult { ok: boolean; message: string; version?: string
  * Download the published zip, verify it, and swap this bundle for it.
  *
  * The old bundle is MOVED aside rather than deleted, and moved back if
- * anything after that point fails. A half-replaced `/Applications/Kerf.app`
+ * anything after that point fails. A half-replaced `/Applications/TeminaliCut.app`
  * is the one outcome worth extra code to avoid: it leaves the user with
  * no working app and no obvious way back.
  */
@@ -305,7 +305,7 @@ async function sideloadUpdate(version?: string): Promise<SideloadResult> {
   const bundle = bundlePath();
   if (!bundle) return { ok: false, message: 'This is not a packaged macOS build, so there is nothing to replace.' };
   if (!canSideload()) {
-    return { ok: false, message: `${path.dirname(bundle)} is not writable, so Kerf cannot replace itself there.` };
+    return { ok: false, message: `${path.dirname(bundle)} is not writable, so TeminaliCut cannot replace itself there.` };
   }
 
   const work = fs.mkdtempSync(path.join(os.tmpdir(), 'kerf-update-'));
@@ -374,7 +374,7 @@ async function sideloadUpdate(version?: string): Promise<SideloadResult> {
       and it threw every single time:
 
           ENOTDIR: not a directory, rmdir
-          '/Applications/Kerf.app.old-…/Contents/Resources/app.asar'
+          '/Applications/TeminaliCut.app.old-…/Contents/Resources/app.asar'
 
       Electron patches `fs` so an asar archive reads as a DIRECTORY —
       that is what makes `require` work inside it — so a recursive
@@ -406,7 +406,7 @@ async function sideloadUpdate(version?: string): Promise<SideloadResult> {
       ok: true,
       version: want.version,
       message:
-        `Kerf ${want.version} is installed. Close and reopen Kerf when you are ready; `
+        `TeminaliCut ${want.version} is installed. Close and reopen TeminaliCut when you are ready; `
         + 'macOS permissions will be refreshed automatically on that launch.',
     };
   } catch (err) {

@@ -23,7 +23,7 @@ export interface PhaseGroup {
   calls: AgentToolCall[];
 }
 
-/** Kerf tools that only read. */
+/** TeminaliCut tools that only read. */
 const READ_TOOLS = new Set([
   'describe_timeline', 'list_properties', 'list_effects', 'get_frame_context',
   'check_command_readiness', 'resolve_target', 'describe_layer_at_point',

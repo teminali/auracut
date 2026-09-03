@@ -13,7 +13,7 @@ import crypto from 'crypto';
 import { bridge, captureWindow, debugEval } from './toolBridge';
 
 /*
-  One Kerf per port, so more than one can run at a time.
+  One TeminaliCut per port, so more than one can run at a time.
 
   This was a bare 3888, and it made the whole verification apparatus
   serial: all 107 checks in `tools/` drive a live app over this port, so
@@ -83,7 +83,7 @@ export function startRpcServer(onReady?: () => void): http.Server {
       };
 
       if (!bridge.isReady()) {
-        send(res, 503, { error: 'The Kerf window is not open.' });
+        send(res, 503, { error: 'The TeminaliCut window is not open.' });
         return;
       }
 
@@ -152,7 +152,7 @@ export function startRpcServer(onReady?: () => void): http.Server {
     only ever had one claimant; now that KERF_RPC_PORT selects it, asking
     for a busy port is an ordinary mistake and should not be fatal.
 
-    Kerf stays up without its RPC bridge. The editor is still an editor
+    TeminaliCut stays up without its RPC bridge. The editor is still an editor
     with no agent attached, which is a far better outcome than exiting,
     and the message says exactly what to do.
   */
@@ -160,18 +160,18 @@ export function startRpcServer(onReady?: () => void): http.Server {
     listening = false;
     if (err.code === 'EADDRINUSE') {
       console.error(
-        `[Kerf] port ${RPC_PORT} is already in use, so there is no RPC bridge in this ` +
-        'instance. Another Kerf is probably running. Relaunch with a different ' +
+        `[TeminaliCut] port ${RPC_PORT} is already in use, so there is no RPC bridge in this ` +
+        'instance. Another TeminaliCut is probably running. Relaunch with a different ' +
         'KERF_RPC_PORT to run both at once.'
       );
       return;
     }
-    console.error('[Kerf] RPC bridge failed to start:', err.message);
+    console.error('[TeminaliCut] RPC bridge failed to start:', err.message);
   });
 
   server.listen(RPC_PORT, '127.0.0.1', () => {
     listening = true;
-    console.log(`[Kerf] RPC bridge on http://127.0.0.1:${RPC_PORT}/rpc`);
+    console.log(`[TeminaliCut] RPC bridge on http://127.0.0.1:${RPC_PORT}/rpc`);
     /*
       The token file is written HERE and nowhere else on startup, because
       it may only ever describe an instance that actually owns the port.

@@ -286,7 +286,7 @@ export function unknownPropertyPaths(paths: string[]): { path: string; error: st
     if (known.has(path)) continue;
     out.push({
       path: raw,
-      error: `"${raw}" is not a property path Kerf knows. Call list_properties for the surface.`,
+      error: `"${raw}" is not a property path TeminaliCut knows. Call list_properties for the surface.`,
     });
   }
   return out;

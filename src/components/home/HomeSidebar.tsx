@@ -16,7 +16,7 @@
 
    WHAT THE REFERENCE HAS THAT THIS DOES NOT, and why. Its rail lists
    Projects, Skills, Media, Cloud, Import and Settings. `Cloud` is not
-   here because Kerf has no cloud — HANDOVER §7 records that decision,
+   here because TeminaliCut has no cloud — HANDOVER §7 records that decision,
    and a rail item leading nowhere is exactly the disconnected control
    this migration exists to remove. `Media` and `Import` are not here
    because neither is a home DESTINATION: importing is one of the four

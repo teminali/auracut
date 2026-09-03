@@ -273,7 +273,7 @@ export const useAccountStore = create<AccountState>((set, get) => ({
     set({ purchase: { phase: 'awaiting_pin', skillId, order } });
 
     /*
-      From here the buyer is looking at their handset, not at Kerf. Poll
+      From here the buyer is looking at their handset, not at TeminaliCut. Poll
       our own order — which reconciles against the gateway once the
       webhook has had its chance — until it is terminal or the push has
       plainly been ignored.
@@ -332,7 +332,7 @@ export const useAccountStore = create<AccountState>((set, get) => ({
     if (typeof manifest.toolApi !== 'number' || manifest.toolApi > SUPPORTED_SKILL_TOOL_API) {
       return {
         ok: false,
-        message: `This manifest needs tool API ${String(manifest.toolApi)}; this Kerf build supports ${SUPPORTED_SKILL_TOOL_API}.`,
+        message: `This manifest needs tool API ${String(manifest.toolApi)}; this TeminaliCut build supports ${SUPPORTED_SKILL_TOOL_API}.`,
       };
     }
 
@@ -344,7 +344,7 @@ export const useAccountStore = create<AccountState>((set, get) => ({
     window.dispatchEvent(new Event('kerf:skills-changed'));
     return {
       ok: true,
-      message: `Skill settings and guidance updated to ${version}. Tool behaviour still comes from this Kerf build.`,
+      message: `Skill settings and guidance updated to ${version}. Tool behaviour still comes from this TeminaliCut build.`,
     };
   },
 

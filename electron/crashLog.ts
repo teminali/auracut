@@ -122,7 +122,7 @@ function trimIfHuge(): void {
  * can currently see.
  */
 export function initCrashLog(): void {
-  logEvent('main', 'info', `Kerf ${app.getVersion()} starting`, {
+  logEvent('main', 'info', `TeminaliCut ${app.getVersion()} starting`, {
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     node: process.versions.node,

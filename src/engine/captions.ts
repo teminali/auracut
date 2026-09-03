@@ -362,7 +362,7 @@ export function serializeCaptions(cues: CaptionCue[], format: CaptionFormat = 's
       '',
       '[V4+ Styles]',
       'Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-      'Style: Kerf,Inter,72,&H00FFFFFF,&H00000000,&H80000000,-1,4,2,2,60,60,90,1',
+      'Style: TeminaliCut,Inter,72,&H00FFFFFF,&H00000000,&H80000000,-1,4,2,2,60,60,90,1',
       '',
       '[Events]',
       'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
@@ -371,7 +371,7 @@ export function serializeCaptions(cues: CaptionCue[], format: CaptionFormat = 's
     const events = sorted
       .map(
         (c) =>
-          `Dialogue: 0,${formatTimecode(c.startMs, 'ass')},${formatTimecode(c.endMs, 'ass')},Kerf,,0,0,0,,${c.text.replace(/\n/g, '\\N')}`
+          `Dialogue: 0,${formatTimecode(c.startMs, 'ass')},${formatTimecode(c.endMs, 'ass')},TeminaliCut,,0,0,0,,${c.text.replace(/\n/g, '\\N')}`
       )
       .join('\n');
 

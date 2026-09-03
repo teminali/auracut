@@ -129,7 +129,7 @@ const DEFAULT_STICKY: StickySettings = {
   captions: true,
   /*
     `auto` is a real choice now and was not before. whisper.cpp's
-    `--language` defaults to `en`, and Kerf used to omit the flag
+    `--language` defaults to `en`, and TeminaliCut used to omit the flag
     entirely for `auto`, so detection never ran and any other language
     came back as one "(speaking in foreign language)" marker. With `-l
     auto` actually passed, the same take detects `sw` at p=0.84.
@@ -404,7 +404,7 @@ export const useRecorderStore = create<RecorderState>((set, get) => ({
     const result = await api.resetScreenPermission();
     useUiStore.getState().pushToast({
       kind: result.ok ? 'success' : 'error',
-      title: result.ok ? 'Restarting Kerf' : 'Could not reset the permission',
+      title: result.ok ? 'Restarting TeminaliCut' : 'Could not reset the permission',
       detail: result.message,
       ttl: result.ok ? 2500 : 8000,
     });

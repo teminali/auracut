@@ -17,7 +17,7 @@
      needs setup  installed, but not signed in — opens a real terminal,
                   because OAuth cannot happen inside a child process
      missing      not installed — installs it, here, for real
-     unverified   works, but Kerf has not confirmed how it streams
+     unverified   works, but TeminaliCut has not confirmed how it streams
                   its output, so the answer arrives without the
                   step-by-step
    ═══════════════════════════════════════════════════════════════════ */
@@ -139,7 +139,7 @@ export const AgentPicker: React.FC<Props> = ({ onClose, onSelected }) => {
   /**
    * Store a pasted key and re-probe.
    *
-   * Kept in Kerf's own data directory rather than the user's shell
+   * Kept in TeminaliCut's own data directory rather than the user's shell
    * profile: a GUI app launched from Finder cannot see that profile
    * anyway, which is why keys set there are invisible here.
    */

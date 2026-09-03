@@ -59,7 +59,7 @@ app.setName('TeminaliCut');
 */
 
 /*
-  Keep painting when another window covers Kerf.
+  Keep painting when another window covers TeminaliCut.
 
   macOS occlusion detection pauses frame production for a covered window.
   Nothing about the app needs those frames — but `debug/capture` does, and
@@ -123,7 +123,7 @@ function createWindow() {
     show: false,
     webPreferences: {
       /*
-        macOS throttles a background window's timers and rendering. Kerf
+        macOS throttles a background window's timers and rendering. TeminaliCut
         runs long exports that a user will reasonably switch away from,
         and an export that slows down because you looked at your email is
         a bad property for a video editor to have.
@@ -211,7 +211,7 @@ function createWindow() {
     renderer, where the window button never reaches.
   */
   mainWindow.on('close', (event) => {
-    console.log(`[Kerf] close requested while on: ${currentScreen}`);
+    console.log(`[TeminaliCut] close requested while on: ${currentScreen}`);
     if (currentScreen !== 'editor') return;
     event.preventDefault();
     mainWindow?.webContents.send('ui:go-home');
@@ -375,7 +375,7 @@ function registerAgentIpc() {
       const stat = fs.statSync(p.path);
       if (!stat.isFile()) return { ok: false, error: 'That path is not a file.' };
       if (stat.size > 64 * 1024 * 1024) {
-        return { ok: false, error: 'That file is too large to be a Kerf project.' };
+        return { ok: false, error: 'That file is too large to be a TeminaliCut project.' };
       }
       return { ok: true, json: fs.readFileSync(p.path, 'utf8') };
     } catch (err) {
@@ -386,7 +386,7 @@ function registerAgentIpc() {
   /*
     The ffmpeg bridge.
 
-    A large slice of "Kerf cannot do that" is really "the compositor
+    A large slice of "TeminaliCut cannot do that" is really "the compositor
     cannot do that in real time" — stabilisation, frame interpolation,
     denoise, reverse, a 3D LUT. All of them ffmpeg does well, offline, to
     a file. Pre-rendering to temp and importing the result turns a wall
@@ -523,7 +523,7 @@ function registerAgentIpc() {
 
   /* ── Which CLI drives the Copilot ── */
 
-  /* ── Kerf Store session ──────────────────────────────────────────
+  /* ── TeminaliCut Store session ──────────────────────────────────────────
      The token is a credential, so it is held in main at 0600 and the
      renderer is handed it only when it asks. See electron/storeSession.ts
      for why this is not localStorage. */
@@ -703,7 +703,7 @@ app.whenReady().then(async () => {
     a user without it — or with it unauthenticated — got an error on
     their first prompt instead of the agent they do have.
   */
-  void autoSelectBackend().then((id) => console.log(`[Kerf] Copilot agent: ${id}`));
+  void autoSelectBackend().then((id) => console.log(`[TeminaliCut] Copilot agent: ${id}`));
 
   initToolBridge();
   registerAgentIpc();
