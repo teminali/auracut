@@ -253,7 +253,16 @@ export const DEFAULT_LOOK: LookOptions = {
  * below is derived from that rather than from the project dimensions.
  * Straight out of `starterProject.ts`, for the same reason.
  */
-const SHAPE_BASE = 480;
+/**
+ * A shape layer's natural size, square, from `addShapeLayer`.
+ *
+ * Exported because the cursor layer needs it for exactly the same
+ * reason the backdrop does: the scale that gets a shape to a wanted
+ * size in canvas pixels is that size over this, and two copies of 480
+ * in two files is one edit away from a cursor that is the wrong size
+ * only in the second one.
+ */
+export const SHAPE_BASE = 480;
 
 /** 1.02 so a shape that is meant to bleed never shows an edge. */
 const BLEED = 1.02;

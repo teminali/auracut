@@ -63,10 +63,14 @@ import type { CursorSample } from '../types/electron';
 import {
   detectMoments, findQuietStretches, keepClearOfZooms, zoomKeyframes, pointerTravelTimes,
   ZoomMoment, ZoomShape, QuietStretch, DEFAULT_SHAPE, CUT_SHAPE, SMOOTH_SHAPE, DEFAULT_DETECT,
+  ZoomKeyframe,
 } from './cursorZoom';
 import {
+  cursorLayerKeyframes, cursorPlaneStyle, CURSOR_SIZE_PCT,
+} from './cursorLayer';
+import {
   LookOptions, DEFAULT_LOOK, addBackdrop, applyScreenLook, addFades,
-  addCameraMotion, cameraCanFillFrame, CAMERA_TAKEOVER_MS,
+  addCameraMotion, cameraCanFillFrame, CAMERA_TAKEOVER_MS, SHAPE_BASE,
 } from './cinematicLook';
 import { prepareSoundKit, placeSoundDesign, SoundOptions, DEFAULT_SOUND } from './recordingSound';
 import { reflowCues, balanceLines } from './captions';
@@ -105,6 +109,16 @@ export interface AssembleOptions {
   zoomShape: ZoomShape;
   motionBlur: boolean;
   markMoments: boolean;
+  /**
+   * Draw a pointer.
+   *
+   * A macOS screen capture does not contain the cursor, so without this
+   * a tutorial pushes in on things the viewer never sees being clicked.
+   * The icon is the paper-plane dart measured off the reference video;
+   * see `cursorLayer.ts`, which also explains why it grows with the
+   * zoom rather than holding one size.
+   */
+  drawCursor: boolean;
 
   /* look */
   cinematic: boolean;
@@ -301,6 +315,7 @@ export const RAW_ASSEMBLE: AssembleOptions = {
   autoZoom: false,
   zoomShape: DEFAULT_SHAPE,
   motionBlur: false,
+  drawCursor: false,
   markMoments: false,
   cinematic: false,
   look: DEFAULT_LOOK,
@@ -347,6 +362,7 @@ export const TUTORIAL_ASSEMBLE: AssembleOptions = {
   autoZoom: true,
   zoomShape: SMOOTH_SHAPE,
   motionBlur: true,
+  drawCursor: true,
   markMoments: true,
   cinematic: true,
   cameraOnPauses: true,
@@ -384,6 +400,8 @@ export interface AssembleReport {
   /** Which detector the moments came from. */
   momentsFrom: 'events' | 'cursor' | 'none';
   keyframes: number;
+  /** Keyframes on the cursor layer. 0 when it was not drawn. */
+  cursorKeyframes: number;
   cameraTakeovers: number;
   /**
    * How long the film opens on the face, when it was found to open with
@@ -1156,8 +1174,18 @@ export async function assembleRecording(
     ? store().addTrack('video', 'V1 · Backdrop')
     : null;
   const screenTrack = store().addTrack('video', 'V2 · Screen');
+  /*
+    Above the screen and below the camera, and there is only one place
+    it can go. Under the screen it is invisible; over the camera it
+    floats a pointer on top of a full-frame face during a takeover,
+    which the opacity keyframes already handle but which should not also
+    depend on them.
+  */
+  const cursorTrack = o.drawCursor && take.cursor.length > 0
+    ? store().addTrack('video', 'V3 · Cursor')
+    : null;
   const cameraTrack = take.camera && take.camera.url
-    ? store().addTrack('video', 'V3 · Camera')
+    ? store().addTrack('video', 'V4 · Camera')
     : null;
   /*
     ── Two caption tracks, and both of them are the point ───────────
@@ -1199,7 +1227,7 @@ export async function assembleRecording(
     ? store().addTrack('text', 'T2 · Captions')
     : null;
   const gradeTrack = o.cinematic && (o.look.fadeInMs > 0 || o.look.fadeOutMs > 0)
-    ? store().addTrack('video', 'V4 · Grade')
+    ? store().addTrack('video', 'V5 · Grade')
     : null;
 
   /* ── 4. The backdrop ────────────────────────────────────────────── */
@@ -1240,10 +1268,19 @@ export async function assembleRecording(
   */
   let restScale = 1;
   let keyframeCount = 0;
+  /*
+    Hoisted out of the block below because the cursor layer is placed
+    from exactly these two things: the picture's base size, and the
+    transform the zoom puts on it. Recomputing either would be two
+    sources of truth for where the frame is.
+  */
+  let zoomKfs: ZoomKeyframe[] = [];
+  let screenBase: { width: number; height: number } | null = null;
   {
     const clip = clipById(screenClipId);
     if (clip) {
       const base = getClipBaseSize(clip, settings, { width: screen.width, height: screen.height });
+      screenBase = base;
       const fitScale = Math.min(settings.width / base.width, settings.height / base.height);
       restScale = o.cinematic ? fitScale * (o.look.insetPct / 100) : fitScale;
 
@@ -1294,6 +1331,7 @@ export async function assembleRecording(
           });
         }
         keyframeCount = keyframes.length;
+        zoomKfs = keyframes;
 
         /*
           Motion blur, and only when there is motion to blur.
@@ -1324,7 +1362,76 @@ export async function assembleRecording(
     }
   }
 
-  /* ── 6. The camera ──────────────────────────────────────────────── */
+  /* ── 6. The cursor ──────────────────────────────────────────────── */
+
+  /*
+    One shape clip, one path, and the whole thing hangs off the zoom
+    plan above rather than off the cursor track alone.
+
+    The reason is that the pointer's place on the CANVAS is not what the
+    recorder sampled. The recorder sampled where it was on the display,
+    normalised; where that lands on screen depends entirely on how the
+    frame is currently framed, and this film re-frames itself twenty
+    times. So the samples are mapped through the screen clip's own
+    transform, sampled with the same `interpolateKeyframes` that will
+    draw it, and the zoom's keyframe times are forced into the output so
+    a pointer resting through a push travels on the push's curve instead
+    of chording across it. `cursorLayer.ts` has the arithmetic and the
+    proof that one keyframe per span is exact for a resting cursor.
+
+    It is also decimated hard. A 30Hz track times four properties is
+    7,200 keyframes a minute, and the take that shipped this was ten
+    minutes long.
+  */
+  let cursorKeyframeCount = 0;
+  if (cursorTrack && screenBase) {
+    const restPx = (CURSOR_SIZE_PCT / 100) * screenBase.height * restScale;
+    const cursorClipId = store().addShapeLayer(
+      cursorTrack,
+      'path',
+      0,
+      Math.max(1, Math.round(take.durationMs))
+    );
+    store().updateShapeStyle(cursorClipId, cursorPlaneStyle(restPx));
+    /*
+      The resting size is written to the base transform as well as
+      keyframed. A take whose every sample was out of range emits no
+      keyframes, and a shape layer with no scale on it draws at
+      `SHAPE_BASE`, which is a 480px dart across the middle of the film.
+    */
+    store().patchClip(cursorClipId, {
+      name: 'Cursor',
+      'transform.scaleX': restPx / SHAPE_BASE,
+      'transform.scaleY': restPx / SHAPE_BASE,
+    });
+
+    const cursorKeyframes = cursorLayerKeyframes(
+      take.cursor,
+      zoomKfs,
+      take.durationMs,
+      {
+        baseWidth: screenBase.width,
+        baseHeight: screenBase.height,
+        restScale,
+        canvasWidth: settings.width,
+        canvasHeight: settings.height,
+      },
+      { hiddenSpans: takeovers.map((t) => ({ startMs: t.startMs, endMs: t.endMs })) }
+    );
+
+    for (const keyframe of cursorKeyframes) {
+      store().addKeyframe(cursorClipId, {
+        property: keyframe.property,
+        timeOffsetMs: keyframe.timeOffsetMs,
+        value: keyframe.value,
+        easing: keyframe.easing,
+        ...(keyframe.bezierPoints ? { bezierPoints: keyframe.bezierPoints } : {}),
+      });
+    }
+    cursorKeyframeCount = cursorKeyframes.length;
+  }
+
+  /* ── 7. The camera ──────────────────────────────────────────────── */
 
   let cameraClipId: string | null = null;
   if (cameraTrack && take.camera) {
@@ -1428,7 +1535,7 @@ export async function assembleRecording(
     }
   }
 
-  /* ── 7. Sound design ────────────────────────────────────────────── */
+  /* ── 8. Sound design ────────────────────────────────────────────── */
 
   let soundClips = 0;
   if (soundTrack && soundKit) {
@@ -1441,7 +1548,7 @@ export async function assembleRecording(
     notes.push(...soundKit.notes);
   }
 
-  /* ── 8. Captions ────────────────────────────────────────────────── */
+  /* ── 9. Captions ────────────────────────────────────────────────── */
 
   let captionLines = 0;
   let kineticWords = 0;
@@ -1509,11 +1616,11 @@ export async function assembleRecording(
     notes.push(...build.notes);
   }
 
-  /* ── 9. Opening and closing ─────────────────────────────────────── */
+  /* ── 10. Opening and closing ─────────────────────────────────────── */
 
   if (gradeTrack) addFades(gradeTrack, settings, take.durationMs, o.look);
 
-  /* ── 10. Markers ────────────────────────────────────────────────── */
+  /* ── 11. Markers ────────────────────────────────────────────────── */
 
   if (o.markMoments) {
     for (let i = 0; i < moments.length; i++) {
@@ -1548,6 +1655,7 @@ export async function assembleRecording(
     zoomMoments: moments.length,
     momentsFrom: moments.length === 0 ? 'none' : detected.from,
     keyframes: keyframeCount,
+    cursorKeyframes: cursorKeyframeCount,
     cameraTakeovers: takeovers.length,
     introductionMs: introMs,
     soundClips,
