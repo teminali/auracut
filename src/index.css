@@ -2807,13 +2807,18 @@ input[type='number']::-webkit-outer-spin-button {
 
 .editor-clip:hover {
   transform: translateY(-1px) scale(1.005);
-  filter: brightness(1.12) saturate(1.06);
+  /* Brighter, never more saturated: the lane hue is data and must not
+     shift when the pointer crosses it. */
+  filter: brightness(1.12);
 }
 
 .editor-clip.is-selected {
-  border-color: rgba(255, 183, 132, 0.92);
-  box-shadow: 0 0 0 1px rgba(242, 139, 70, 0.72), 0 0 0 4px rgba(242, 139, 70, 0.105),
-    inset 0 1px rgba(255, 255, 255, 0.14), 0 9px 24px rgba(0, 0, 0, 0.24);
+  /* The 1px lane-identity border is set inline from the clip's own colour,
+     so selection cannot be a border-colour — it has to be a ring OUTSIDE it,
+     and it has to be solid. At 0.22 alpha it was invisible against a
+     saturated lane hue, which is how a selected clip read as unselected. */
+  box-shadow: 0 0 0 2px var(--accent), 0 0 0 5px rgba(232, 232, 232, 0.10),
+    0 9px 24px rgba(0, 0, 0, 0.24);
 }
 
 @container (max-width: 760px) {

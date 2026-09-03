@@ -284,11 +284,18 @@ export const ActionRow: React.FC<Props> = ({
   );
 };
 
+/*
+  The four ways in are PEERS, so they get one treatment. They used to carry a
+  colour each — a blue, an amber, a second blue, a slate — plus a matching
+  glow, which made "Record screen" the only chromatic object on the launcher
+  and read as a warning rather than as a choice. TDS §1.3: colour is data, and
+  a tile is not data. Emphasis on hover is a brighter hairline, not a hue.
+*/
 const VARIANT_STYLES = {
-  cyan: 'border-[#0284c7]/50 hover:border-[#0284c7] hover:shadow-[0_0_24px_rgba(2,132,199,0.18)]',
-  amber: 'border-[#f59e0b]/60 hover:border-[#f59e0b] hover:shadow-[0_0_24px_rgba(245,158,11,0.22)]',
-  blue: 'border-[#38bdf8]/50 hover:border-[#38bdf8] hover:shadow-[0_0_24px_rgba(56,189,248,0.18)]',
-  slate: 'border-[#334155]/70 hover:border-[#64748b] hover:shadow-[0_0_24px_rgba(100,116,139,0.18)]',
+  cyan: 'border-line hover:border-line-bright',
+  amber: 'border-line hover:border-line-bright',
+  blue: 'border-line hover:border-line-bright',
+  slate: 'border-line hover:border-line-bright',
 };
 
 /* Groq Console styled interactive launch card */
