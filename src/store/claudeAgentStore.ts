@@ -8,6 +8,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { buildTurnBrief } from '../engine/contextProtocol';
 import type { ClaudeEvent, ClaudeStatus } from '../types/electron';
 
@@ -45,23 +46,11 @@ interface ClaudeAgentState {
   startedAt: number | null;
   /** True once a turn has completed, so the next one can --resume. */
   hasSession: boolean;
-  /**
-   * Prompts typed while a turn was running, oldest first.
-   *
-   * `send` used to be `if (get().isRunning) return` — a message typed
-   * mid-turn was DISCARDED, with no error and nothing on screen. The
-   * drawer papered over it with a single `useState` slot, so typing two
-   * things while the agent worked silently threw the first one away.
-   * A queue belongs in the store: it survives the drawer closing, it can
-   * hold more than one, and it can be shown and edited.
-   */
   queue: string[];
 
   refreshStatus: () => Promise<void>;
   send: (prompt: string) => Promise<void>;
-  /** Remove one waiting prompt by index. Returns what it removed. */
   unqueue: (index: number) => string | null;
-  /** Start the next queued prompt, if the agent is now free. */
   drainQueue: () => void;
   clearQueue: () => void;
   stop: () => void;
@@ -77,7 +66,9 @@ export function prettyToolName(name: string): string {
 /** The single live subscription, shared by every caller of attach(). */
 let detach: (() => void) | null = null;
 
-export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
+export const useClaudeAgentStore = create<ClaudeAgentState>()(
+  persist(
+    (set, get) => ({
   status: null,
   turns: [],
   isRunning: false,
@@ -317,4 +308,14 @@ export const useClaudeAgentStore = create<ClaudeAgentState>((set, get) => ({
       detach = null;
     };
   },
-}));
+    }),
+    {
+      name: 'teminali.claudeAgent.v2',
+      partialize: (state) => ({
+        turns: state.turns,
+        hasSession: state.hasSession,
+        queue: state.queue,
+      }),
+    }
+  )
+);

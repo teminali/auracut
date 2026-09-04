@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { agentBridge, AgentExecutionRun, AgentThoughtStep, AgentModel } from '../engine/agentBridge';
 import { ContextEnvelope } from '../types/context';
 
@@ -46,92 +47,100 @@ const WELCOME: ChatMessage = {
   timestamp: Date.now(),
 };
 
-export const useAgentChatStore = create<AgentChatState>((set, get) => ({
-  messages: [WELCOME],
-  currentRun: null,
-  selectedModel: 'builtin',
-  showThoughts: true,
-  history: [],
-  queue: [],
+export const useAgentChatStore = create<AgentChatState>()(
+  persist(
+    (set, get) => ({
+      messages: [WELCOME],
+      currentRun: null,
+      selectedModel: 'builtin',
+      showThoughts: true,
+      history: [],
+      queue: [],
 
-  setSelectedModel: (selectedModel) => set({ selectedModel }),
-  toggleThoughts: () => set((s) => ({ showThoughts: !s.showThoughts })),
+      setSelectedModel: (selectedModel) => set({ selectedModel }),
+      toggleThoughts: () => set((s) => ({ showThoughts: !s.showThoughts })),
 
-  sendPrompt: async (prompt, context) => {
-    const trimmed = prompt.trim();
-    if (!trimmed) return;
-    /*
-      Busy: queue it rather than drop it. This used to be
-      `if (!trimmed || get().currentRun) return` — a prompt sent while a
-      run was in flight vanished, silently, with the caller's `await`
-      resolving as though it had been handled.
-    */
-    if (get().currentRun) {
-      set((s) => ({ queue: [...s.queue, trimmed] }));
-      return;
-    }
+      sendPrompt: async (prompt, context) => {
+        const trimmed = prompt.trim();
+        if (!trimmed) return;
+        /*
+          Busy: queue it rather than drop it.
+        */
+        if (get().currentRun) {
+          set((s) => ({ queue: [...s.queue, trimmed] }));
+          return;
+        }
 
-    const agentMsgId = `agent_${Date.now()}`;
-    const model = get().selectedModel;
+        const agentMsgId = `agent_${Date.now()}`;
+        const model = get().selectedModel;
 
-    set((s) => ({
-      history: [...s.history.filter((h) => h !== trimmed), trimmed].slice(-40),
-      messages: [
-        ...s.messages,
-        { id: `usr_${Date.now()}`, sender: 'user', text: trimmed, context, timestamp: Date.now() },
-        { id: agentMsgId, sender: 'agent', text: '', agentModel: model, thoughts: [], status: 'planning', timestamp: Date.now() },
-      ],
-    }));
-
-    const unsubscribe = agentBridge.subscribe((run) => {
-      set((s) => {
-        const messages = s.messages.map((m) =>
-          m.id === agentMsgId
-            ? {
-                ...m,
-                text: run.finalResponse || run.currentActivity,
-                thoughts: run.thoughts,
-                status: run.status,
-              }
-            : m
-        );
-        const settled = run.status === 'completed' || run.status === 'error' || run.status === 'cancelled';
-        return { messages, currentRun: settled ? null : run };
-      });
-    });
-
-    try {
-      /* Prior turns, so a follow-up like "why?" has something to follow.
-         The welcome card is scaffolding, not a turn — it is filtered out. */
-      const chatHistory = get().messages
-        .filter((m) => m.id !== 'msg_welcome' && m.text.trim().length > 0)
-        .slice(-6)
-        .map((m) => ({
-          role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-          content: m.text,
+        set((s) => ({
+          history: [...s.history.filter((h) => h !== trimmed), trimmed].slice(-40),
+          messages: [
+            ...s.messages,
+            { id: `usr_${Date.now()}`, sender: 'user', text: trimmed, context, timestamp: Date.now() },
+            { id: agentMsgId, sender: 'agent', text: '', agentModel: model, thoughts: [], status: 'planning', timestamp: Date.now() },
+          ],
         }));
 
-      await agentBridge.dispatchPrompt(trimmed, model, context, chatHistory);
-    } finally {
-      unsubscribe();
-      set({ currentRun: null });
-      /* Drain one, through the same path a typed prompt takes. */
-      const next = get().queue[0];
-      if (next) {
-        set((s) => ({ queue: s.queue.slice(1) }));
-        void get().sendPrompt(next, context);
-      }
+        const unsubscribe = agentBridge.subscribe((run) => {
+          set((s) => {
+            const messages = s.messages.map((m) =>
+              m.id === agentMsgId
+                ? {
+                    ...m,
+                    text: run.finalResponse || run.currentActivity,
+                    thoughts: run.thoughts,
+                    status: run.status,
+                  }
+                : m
+            );
+            const settled = run.status === 'completed' || run.status === 'error' || run.status === 'cancelled';
+            return { messages, currentRun: settled ? null : run };
+          });
+        });
+
+        try {
+          /* Prior turns with caching, so follow-up requests retain conversational context */
+          const chatHistory = get().messages
+            .filter((m) => m.id !== 'msg_welcome' && m.text.trim().length > 0)
+            .slice(-10)
+            .map((m) => ({
+              role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+              content: m.text,
+            }));
+
+          await agentBridge.dispatchPrompt(trimmed, model, context, chatHistory);
+        } finally {
+          unsubscribe();
+          set({ currentRun: null });
+          /* Drain one, through the same path a typed prompt takes. */
+          const next = get().queue[0];
+          if (next) {
+            set((s) => ({ queue: s.queue.slice(1) }));
+            void get().sendPrompt(next, context);
+          }
+        }
+      },
+
+      cancelRun: () => {
+        agentBridge.cancelActiveRun();
+        set({ currentRun: null, queue: [] });
+      },
+
+      unqueue: (index) => set((s) => ({ queue: s.queue.filter((_, i) => i !== index) })),
+      clearQueue: () => set({ queue: [] }),
+
+      clearChat: () => set({ messages: [WELCOME], currentRun: null, queue: [] }),
+    }),
+    {
+      name: 'teminali.agentChat.v2',
+      partialize: (state) => ({
+        messages: state.messages,
+        history: state.history,
+        selectedModel: state.selectedModel,
+        showThoughts: state.showThoughts,
+      }),
     }
-  },
-
-  cancelRun: () => {
-    // Cancelling means the whole run, queue included — see claudeAgentStore.stop.
-    agentBridge.cancelActiveRun();
-    set({ currentRun: null, queue: [] });
-  },
-
-  unqueue: (index) => set((s) => ({ queue: s.queue.filter((_, i) => i !== index) })),
-  clearQueue: () => set({ queue: [] }),
-
-  clearChat: () => set({ messages: [WELCOME], currentRun: null, queue: [] }),
-}));
+  )
+);
